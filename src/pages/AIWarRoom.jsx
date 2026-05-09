@@ -94,9 +94,14 @@ export default function AIWarRoom() {
                     {rc.finding}
                   </p>
                   {rc.pct_of_total_decline > 0 && (
-                    <div className="mt-3 w-full bg-bg-primary h-1.5 rounded-full overflow-hidden flex">
-                      <div className="bg-severity-high h-full" style={{ width: `${rc.pct_of_total_decline}%` }}></div>
-                      <div className="text-[10px] text-text-muted ml-2 -mt-1.5">{rc.pct_of_total_decline}% of decline</div>
+                    <div className="mt-4">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-xs text-text-secondary">Contribution to decline</span>
+                        <span className="text-xs font-bold text-severity-medium">{rc.pct_of_total_decline}%</span>
+                      </div>
+                      <div className="w-full bg-bg-primary h-2.5 rounded-full overflow-hidden">
+                        <div className="bg-severity-medium h-full rounded-full transition-all duration-500" style={{ width: `${rc.pct_of_total_decline}%` }}></div>
+                      </div>
                     </div>
                   )}
                 </div>
