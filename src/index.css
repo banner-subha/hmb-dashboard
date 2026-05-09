@@ -78,6 +78,9 @@
   .badge-critical {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-severity-critical/20 text-severity-critical;
   }
+  .badge-immediate {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-severity-critical/20 text-severity-critical border border-severity-critical/50;
+  }
   .badge-high {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-severity-high/20 text-severity-high;
   }

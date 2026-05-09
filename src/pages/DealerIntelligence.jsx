@@ -61,7 +61,7 @@ export default function DealerIntelligence() {
     {
       accessorKey: 'isInactive',
       header: 'Status',
-      cell: info => info.getValue() ? <SeverityBadge severity="CRITICAL" className="bg-text-muted/20 text-text-muted" /> : <SeverityBadge severity="NONE" className="bg-severity-none/10 text-severity-none" />,
+      cell: info => info.getValue() ? <SeverityBadge severity="CRITICAL" /> : <SeverityBadge severity="NONE" className="bg-severity-none/10 text-severity-none" />,
     },
   ], []);
 

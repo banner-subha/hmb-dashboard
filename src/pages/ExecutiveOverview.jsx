@@ -170,7 +170,7 @@ export default function ExecutiveOverview() {
                     <div className="text-sm text-text-primary font-medium truncate max-w-[150px] sm:max-w-[200px]">{d.client}</div>
                     <div className="text-xs text-text-muted">{d.district}, {d.state}</div>
                   </div>
-                  <SeverityBadge severity="CRITICAL" className="bg-text-muted/20 text-text-muted" />
+                  <SeverityBadge severity="CRITICAL" />
                 </div>
               ))}
               {decliningDealers.map((d, i) => (
