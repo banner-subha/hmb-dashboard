@@ -79,6 +79,25 @@ export function DataProvider({ children }) {
     if (filters.selectedProduct) {
       const p = filters.selectedProduct;
       alerts = alerts.filter(a => !a.data?.product || a.data.product === p);
+      
+      const filterAndMapByProduct = (items) => {
+        return items
+          .filter(item => item.products?.some(prod => prod.product === p))
+          .map(item => {
+            const prodData = item.products.find(prod => prod.product === p);
+            return {
+              ...item,
+              cur: prodData.cur || 0,
+              prev: prodData.prev || 0,
+              mom: prodData.mom || 0,
+              drop: (prodData.prev || 0) - (prodData.cur || 0)
+            };
+          });
+      };
+
+      states = filterAndMapByProduct(states);
+      districts = filterAndMapByProduct(districts);
+      dealers = filterAndMapByProduct(dealers);
     }
     if (filters.selectedSeverity) {
       alerts = alerts.filter(a => a.severity === filters.selectedSeverity);

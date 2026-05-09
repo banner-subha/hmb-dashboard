@@ -38,7 +38,8 @@ export default function ProductBarChart({ data, height = 300 }) {
     ...d,
     cur_mt: d.cur_mt !== undefined ? d.cur_mt : d.cur,
     prev_mt: d.prev_mt !== undefined ? d.prev_mt : d.prev,
-    share_pct: d.share_pct !== undefined ? d.share_pct : d.share
+    share_pct: d.share_pct !== undefined ? d.share_pct : d.share,
+    mom: d.mom_pct !== undefined ? d.mom_pct : d.mom
   }));
 
   return (
@@ -54,7 +55,7 @@ export default function ProductBarChart({ data, height = 300 }) {
           <YAxis dataKey="product" type="category" stroke="#94a3b8" fontSize={12} width={50} />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} />
           <Bar dataKey="cur_mt" radius={[0, 4, 4, 0]} maxBarSize={32}>
-            {data.map((entry, index) => (
+            {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.mom >= 0 ? '#22c55e' : '#ef4444'} />
             ))}
           </Bar>
