@@ -68,7 +68,7 @@ export default function StateIntelligence() {
   if (!data) return null;
 
   const states = data.states || [];
-  const selectedStateData = states.find(s => s.state === filters.selectedState);
+  const selectedStateData = states.find(s => s.state && filters.selectedState && s.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase());
 
   return (
     <div className="animate-fade-in space-y-6">

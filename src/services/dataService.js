@@ -25,12 +25,12 @@ class DataService {
     try {
       const res = await fetch(DATA_URL);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      
+
       const contentType = res.headers.get("content-type");
       if (contentType && contentType.includes("text/html")) {
         throw new Error("Received HTML instead of JSON. Fallback to sample data.");
       }
-      
+
       const data = await res.json();
       this._cache = data;
       this._lastFetch = now;

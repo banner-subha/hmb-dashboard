@@ -65,11 +65,11 @@ export function DataProvider({ children }) {
     let { states = [], districts = [], dealers = [], alerts = [] } = rawData;
 
     if (filters.selectedState) {
-      const s = filters.selectedState;
-      states = states.filter(st => st.state === s);
-      districts = districts.filter(d => d.state === s);
-      dealers = dealers.filter(d => d.state === s);
-      alerts = alerts.filter(a => !a.data?.state || a.data.state === s);
+      const s = filters.selectedState.replace(/\s+/g, '').toUpperCase();
+      states = states.filter(st => st.state && st.state.replace(/\s+/g, '').toUpperCase() === s);
+      districts = districts.filter(d => d.state && d.state.replace(/\s+/g, '').toUpperCase() === s);
+      dealers = dealers.filter(d => d.state && d.state.replace(/\s+/g, '').toUpperCase() === s);
+      alerts = alerts.filter(a => !a.data?.state || a.data.state.replace(/\s+/g, '').toUpperCase() === s);
     }
     if (filters.selectedDistrict) {
       const d = filters.selectedDistrict;
@@ -102,7 +102,7 @@ export function DataProvider({ children }) {
       states: [...new Set((rawData.states || []).map(s => s.state))].sort(),
       districts: [...new Set(
         (rawData.districts || [])
-          .filter(d => !filters.selectedState || d.state === filters.selectedState)
+          .filter(d => !filters.selectedState || (d.state && d.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase()))
           .map(d => d.district)
       )].sort(),
       products: (rawData.products || []).map(p => p.product),
