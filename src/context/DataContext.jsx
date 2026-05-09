@@ -111,7 +111,59 @@ export function DataProvider({ children }) {
       );
     }
 
-    return { ...rawData, states, districts, dealers, alerts };
+    const isFiltered = filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.searchQuery;
+
+    let dynamicTotalCur = rawData.totalCur;
+    let dynamicTotalPrev = rawData.totalPrev;
+    let dynamicTotalMoM = rawData.totalMoM;
+    let dynamicProducts = rawData.products;
+
+    if (isFiltered) {
+      dynamicTotalCur = 0;
+      dynamicTotalPrev = 0;
+      const productMap = {};
+
+      dealers.forEach(d => {
+        dynamicTotalCur += (d.cur || 0);
+        dynamicTotalPrev += (d.prev || 0);
+        
+        (d.products || []).forEach(p => {
+          if (filters.selectedProduct && p.product !== filters.selectedProduct) return;
+          if (!productMap[p.product]) {
+            productMap[p.product] = {
+              product: p.product,
+              label: rawData.products?.find(rp => rp.product === p.product)?.label || p.product,
+              cur_mt: 0,
+              prev_mt: 0
+            };
+          }
+          productMap[p.product].cur_mt += (p.cur || 0);
+          productMap[p.product].prev_mt += (p.prev || 0);
+        });
+      });
+
+      dynamicTotalMoM = dynamicTotalPrev > 0 
+        ? Math.round(((dynamicTotalCur - dynamicTotalPrev) / dynamicTotalPrev) * 100) 
+        : (dynamicTotalCur > 0 ? 100 : 0);
+
+      dynamicProducts = Object.values(productMap).map(p => ({
+        ...p,
+        mom_pct: p.prev_mt > 0 ? Math.round(((p.cur_mt - p.prev_mt) / p.prev_mt) * 100) : (p.cur_mt > 0 ? 100 : 0),
+        share_pct: dynamicTotalCur > 0 ? Math.round((p.cur_mt / dynamicTotalCur) * 100) : 0
+      })).sort((a, b) => b.cur_mt - a.cur_mt);
+    }
+
+    return { 
+      ...rawData, 
+      states, 
+      districts, 
+      dealers, 
+      alerts,
+      totalCur: dynamicTotalCur,
+      totalPrev: dynamicTotalPrev,
+      totalMoM: dynamicTotalMoM,
+      products: dynamicProducts
+    };
   }, [rawData, filters]);
 
   // Unique options for filter dropdowns
