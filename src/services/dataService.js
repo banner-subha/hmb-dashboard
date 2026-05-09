@@ -6,7 +6,7 @@
  * Future migration to Supabase/Firebase requires ONLY changing this file.
  */
 
-const DATA_URL = '/data/latest.json';
+const DATA_URL = 'https://hubydueitefxxxrbpnjk.supabase.co/storage/v1/object/public/dashboard-data/latest.json';
 
 class DataService {
   constructor() {
