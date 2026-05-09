@@ -51,9 +51,9 @@ export default function ExecutiveOverview() {
           accentColor={alertCount > 0 ? "#ef4444" : "#22c55e"}
         />
         <KPICard 
-          label="Target" 
-          value={formatMT(data.targetTotal)} 
-          subtitle="current month"
+          label="Active Dealers" 
+          value={data.dealers?.length || 0} 
+          subtitle="currently transacting"
           accentColor="#8b5cf6"
         />
       </div>
