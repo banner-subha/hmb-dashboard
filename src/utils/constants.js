@@ -13,6 +13,7 @@ export const ALL_PRODUCTS = Object.keys(PRODUCT_LABELS);
 
 // Severity configuration
 export const SEVERITY_CONFIG = {
+  IMMEDIATE:{ color: '#ef4444', bg: 'bg-severity-critical/20', text: 'text-severity-critical', label: 'Immediate' },
   CRITICAL: { color: '#ef4444', bg: 'bg-severity-critical/20', text: 'text-severity-critical', label: 'Critical' },
   HIGH:     { color: '#f97316', bg: 'bg-severity-high/20',     text: 'text-severity-high',     label: 'High' },
   MEDIUM:   { color: '#eab308', bg: 'bg-severity-medium/20',   text: 'text-severity-medium',   label: 'Medium' },
@@ -20,7 +21,7 @@ export const SEVERITY_CONFIG = {
   NONE:     { color: '#22c55e', bg: 'bg-severity-none/20',     text: 'text-severity-none',     label: 'None' },
 };
 
-export const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'NONE'];
+export const SEVERITY_ORDER = ['IMMEDIATE', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'NONE'];
 
 // Chart color palette
 export const CHART_COLORS = ['#3b82f6', '#06b6d4', '#8b5cf6', '#f97316', '#22c55e', '#ef4444', '#eab308'];
