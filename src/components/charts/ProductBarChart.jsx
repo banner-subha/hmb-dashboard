@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    const isUp = data.mom >= 0;
+    const isUp = data.mom >= 100;
     return (
       <div className="glass-card p-3 shadow-xl border-border-accent">
         <p className="font-bold text-text-primary text-sm mb-2">{data.label || data.product}</p>
@@ -56,7 +56,7 @@ export default function ProductBarChart({ data, height = 300 }) {
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} />
           <Bar dataKey="cur_mt" radius={[0, 4, 4, 0]} maxBarSize={32}>
             {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.mom >= 0 ? '#22c55e' : '#ef4444'} />
+              <Cell key={`cell-${index}`} fill={entry.mom >= 100 ? '#22c55e' : '#ef4444'} />
             ))}
           </Bar>
         </BarChart>

@@ -59,9 +59,27 @@ export default function DealerIntelligence() {
       cell: info => <MoMIndicator pct={info.getValue()} />,
     },
     {
-      accessorKey: 'isInactive',
+      id: 'status',
       header: 'Status',
-      cell: info => info.getValue() ? <SeverityBadge severity="CRITICAL" /> : <SeverityBadge severity="NONE" className="bg-severity-none/10 text-severity-none" />,
+      cell: info => {
+        const mom = info.row.original.mom;
+        const cur = info.row.original.cur;
+
+        // Inactive: no current volume and no achievement
+        if (cur === 0 && mom === 0) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#ef4444]/20 text-[#ef4444]">Inactive</span>;
+        // New: mom=100 means workflow set p=0,c>0 (no previous period data)
+        if (mom === 100 && cur === 0) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#6b7280]/20 text-[#6b7280]">New</span>;
+        // Excellent: exceeding prior period
+        if (mom > 100) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#22c55e]/20 text-[#22c55e]">Excellent</span>;
+        // On Track: 75–100%
+        if (mom >= 75) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#22c55e]/20 text-[#22c55e]">On Track</span>;
+        // Low: 50–74%
+        if (mom >= 50) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#eab308]/20 text-[#eab308]">Low</span>;
+        // Critical: 1–49%
+        if (mom >= 1) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#f97316]/20 text-[#f97316]">Critical</span>;
+        // Fallback inactive
+        return <span className="px-2 py-1 rounded text-xs font-bold bg-[#ef4444]/20 text-[#ef4444]">Inactive</span>;
+      },
     },
   ], []);
 

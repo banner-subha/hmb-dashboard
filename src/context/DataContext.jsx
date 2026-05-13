@@ -143,12 +143,12 @@ export function DataProvider({ children }) {
       });
 
       dynamicTotalMoM = dynamicTotalPrev > 0 
-        ? Math.round(((dynamicTotalCur - dynamicTotalPrev) / dynamicTotalPrev) * 100) 
+        ? Math.round((dynamicTotalCur / dynamicTotalPrev) * 100) 
         : (dynamicTotalCur > 0 ? 100 : 0);
 
       dynamicProducts = Object.values(productMap).map(p => ({
         ...p,
-        mom_pct: p.prev_mt > 0 ? Math.round(((p.cur_mt - p.prev_mt) / p.prev_mt) * 100) : (p.cur_mt > 0 ? 100 : 0),
+        mom_pct: p.prev_mt > 0 ? Math.round((p.cur_mt / p.prev_mt) * 100) : (p.cur_mt > 0 ? 100 : 0),
         share_pct: dynamicTotalCur > 0 ? Math.round((p.cur_mt / dynamicTotalCur) * 100) : 0
       })).sort((a, b) => b.cur_mt - a.cur_mt);
     }
@@ -171,10 +171,13 @@ export function DataProvider({ children }) {
     if (!rawData) return { states: [], districts: [], products: [], severities: [] };
     return {
       states: [...new Set((rawData.states || []).map(s => s.state))].sort(),
-      districts: [...new Set(
-        (rawData.districts || [])
-          .filter(d => !filters.selectedState || (d.state && d.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase()))
-          .map(d => d.district)
+      districts: [...new Set([
+        ...(rawData.districts || []).map(d => ({ state: d.state, district: d.district })),
+        ...(rawData.dealers || []).map(d => ({ state: d.state, district: d.district }))
+      ]
+        .filter(d => d.district && String(d.district).toLowerCase() !== 'nan' && String(d.district).trim() !== '')
+        .filter(d => !filters.selectedState || (d.state && d.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase()))
+        .map(d => d.district)
       )].sort(),
       products: (rawData.products || []).map(p => p.product),
       severities: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'],

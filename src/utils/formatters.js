@@ -14,12 +14,10 @@ export const formatNumber = (n) => {
   return parseFloat(n).toLocaleString('en-IN', { maximumFractionDigits: 1 });
 };
 
-/** Format MoM percentage */
+/** Format MoM percentage (achievement ratio — no +/- prefix) */
 export const formatMoM = (pct) => {
   if (pct == null || isNaN(pct)) return '—';
-  const val = parseFloat(pct);
-  const sign = val >= 0 ? '+' : '';
-  return `${sign}${val.toFixed(1)}%`;
+  return `${parseFloat(pct).toFixed(1)}%`;
 };
 
 /** Format percentage */
@@ -28,13 +26,14 @@ export const formatPct = (pct) => {
   return `${parseFloat(pct).toFixed(1)}%`;
 };
 
-/** Get MoM direction info */
+/** Get MoM direction info (achievement ratio: green ≥75, orange ≥50, red <50) */
 export const getMoMInfo = (pct) => {
   if (pct == null || isNaN(pct)) return { direction: 'neutral', color: '#6b7280', arrow: '' };
   const val = parseFloat(pct);
-  if (val > 0) return { direction: 'up', color: '#22c55e', arrow: '▲' };
-  if (val < 0) return { direction: 'down', color: '#ef4444', arrow: '▼' };
-  return { direction: 'neutral', color: '#6b7280', arrow: '–' };
+  if (val >= 100) return { direction: 'up', color: '#22c55e', arrow: '↑' };
+  if (val >= 75)  return { direction: 'steady', color: '#22c55e', arrow: '' };
+  if (val >= 50)  return { direction: 'down', color: '#f97316', arrow: '↓' };
+  return { direction: 'down', color: '#ef4444', arrow: '↓' };
 };
 
 /** Get risk color based on score */

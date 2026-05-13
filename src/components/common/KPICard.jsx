@@ -1,4 +1,4 @@
-import { formatMoM, getMoMInfo } from '../../utils/formatters';
+import { getMoMInfo } from '../../utils/formatters';
 
 export default function KPICard({ label, value, momPct, subtitle, accentColor = '#3b82f6' }) {
   const mom = getMoMInfo(momPct);
@@ -19,7 +19,7 @@ export default function KPICard({ label, value, momPct, subtitle, accentColor = 
       <div className="text-[10px] sm:text-xs text-text-secondary mt-1 flex items-center gap-1.5 truncate">
         {momPct !== undefined && momPct !== null && (
           <span style={{ color: mom.color }} className="font-bold whitespace-nowrap">
-            {mom.arrow} {Math.abs(momPct).toFixed(1)}%
+            {mom.arrow && <span className="mr-0.5">{mom.arrow}</span>}{parseFloat(momPct).toFixed(1)}%
           </span>
         )}
         <span className="truncate">{subtitle}</span>
