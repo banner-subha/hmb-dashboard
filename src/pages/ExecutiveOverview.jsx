@@ -20,10 +20,10 @@ export default function ExecutiveOverview() {
 
   const { intel, intelligence, products, alerts, alertCount } = data;
 
-  const topStates = (intel?.scoredStates || []).filter(s => s.mom < 100).slice(0, 5);
+  const topStates = (intel?.scoredStates || []).filter(s => s.mom < 0).slice(0, 5);
   const topDistricts = (intel?.scoredDistricts || []).slice(0, 5);
   const inactiveDealers = (intel?.inactiveDealers || []).slice(0, 3);
-  const decliningDealers = (intel?.scoredDealers || []).filter(d => !d.isInactive && d.mom < 85).slice(0, 3);
+  const decliningDealers = (intel?.scoredDealers || []).filter(d => !d.isInactive && d.mom < 0).slice(0, 3);
 
   return (
     <div className="animate-fade-in space-y-6">

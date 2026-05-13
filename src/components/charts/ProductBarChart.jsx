@@ -3,7 +3,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    const isUp = data.mom >= 100;
+    const isUp = data.mom > 0;
+    const isDown = data.mom < 0;
+    const arrow = isUp ? '↑' : isDown ? '↓' : '';
+    const colorClass = isUp ? 'text-severity-none' : isDown ? 'text-severity-critical' : 'text-text-muted';
     return (
       <div className="glass-card p-3 shadow-xl border-border-accent">
         <p className="font-bold text-text-primary text-sm mb-2">{data.label || data.product}</p>
@@ -18,8 +21,8 @@ const CustomTooltip = ({ active, payload }) => {
           </div>
           <div className="flex justify-between gap-4 pt-1 border-t border-border mt-1">
             <span className="text-text-muted">MoM:</span>
-            <span className={`font-bold ${isUp ? 'text-severity-none' : 'text-severity-critical'}`}>
-              {isUp ? '▲' : '▼'} {Math.abs(data.mom).toFixed(1)}%
+            <span className={`font-bold ${colorClass}`}>
+              {arrow && <span className="mr-0.5">{arrow}</span>}{data.mom.toFixed(1)}%
             </span>
           </div>
         </div>
@@ -56,7 +59,7 @@ export default function ProductBarChart({ data, height = 300 }) {
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} />
           <Bar dataKey="cur_mt" radius={[0, 4, 4, 0]} maxBarSize={32}>
             {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.mom >= 100 ? '#22c55e' : '#ef4444'} />
+              <Cell key={`cell-${index}`} fill={entry.mom > 0 ? '#22c55e' : entry.mom < 0 ? '#ef4444' : '#94a3b8'} />
             ))}
           </Bar>
         </BarChart>

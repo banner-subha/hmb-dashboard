@@ -15,8 +15,8 @@ const CustomTooltip = ({ active, payload, label }) => {
           {payload.length === 2 && (
             <div className="flex justify-between gap-4 pt-1 border-t border-border mt-1">
               <span className="text-text-muted">MoM:</span>
-              <span className={`font-bold ${payload[1].payload.mom >= 100 ? 'text-severity-none' : 'text-severity-critical'}`}>
-                {payload[1].payload.mom >= 100 ? '↑' : '↓'} {payload[1].payload.mom.toFixed(1)}%
+              <span className={`font-bold ${payload[1].payload.mom > 0 ? 'text-severity-none' : payload[1].payload.mom < 0 ? 'text-severity-critical' : 'text-text-muted'}`}>
+                {payload[1].payload.mom > 0 ? '↑' : payload[1].payload.mom < 0 ? '↓' : ''} {payload[1].payload.mom.toFixed(1)}%
               </span>
             </div>
           )}

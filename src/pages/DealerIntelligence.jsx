@@ -65,20 +65,20 @@ export default function DealerIntelligence() {
         const mom = info.row.original.mom;
         const cur = info.row.original.cur;
 
-        // Inactive: no current volume and no achievement
-        if (cur === 0 && mom === 0) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#ef4444]/20 text-[#ef4444]">Inactive</span>;
-        // New: mom=100 means workflow set p=0,c>0 (no previous period data)
-        if (mom === 100 && cur === 0) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#6b7280]/20 text-[#6b7280]">New</span>;
-        // Excellent: exceeding prior period
-        if (mom > 100) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#22c55e]/20 text-[#22c55e]">Excellent</span>;
-        // On Track: 75–100%
-        if (mom >= 75) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#22c55e]/20 text-[#22c55e]">On Track</span>;
-        // Low: 50–74%
-        if (mom >= 50) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#eab308]/20 text-[#eab308]">Low</span>;
-        // Critical: 1–49%
-        if (mom >= 1) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#f97316]/20 text-[#f97316]">Critical</span>;
-        // Fallback inactive
-        return <span className="px-2 py-1 rounded text-xs font-bold bg-[#ef4444]/20 text-[#ef4444]">Inactive</span>;
+        // Inactive: no current volume
+        if (cur === 0) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#ef4444]/20 text-[#ef4444]">Inactive</span>;
+        
+        // Growing: positive percentage change
+        if (mom > 0) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#22c55e]/20 text-[#22c55e]">Growing</span>;
+        
+        // Critical Drop: significant negative change (e.g., > 20% drop)
+        if (mom < -20) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#f97316]/20 text-[#f97316]">Critical Drop</span>;
+        
+        // Declining: any negative change
+        if (mom < 0) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#eab308]/20 text-[#eab308]">Declining</span>;
+        
+        // Stable: 0% change
+        return <span className="px-2 py-1 rounded text-xs font-bold bg-[#6b7280]/20 text-[#6b7280]">Stable</span>;
       },
     },
   ], []);
