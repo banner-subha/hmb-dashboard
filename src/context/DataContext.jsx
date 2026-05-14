@@ -130,9 +130,14 @@ export function DataProvider({ children }) {
         (d.products || []).forEach(p => {
           if (filters.selectedProduct && p.product !== filters.selectedProduct) return;
           if (!productMap[p.product]) {
+            const baseProduct = rawData.products?.find(rp => rp.product === p.product) || {};
             productMap[p.product] = {
               product: p.product,
-              label: rawData.products?.find(rp => rp.product === p.product)?.label || p.product,
+              label: baseProduct.label || p.product,
+              displayColor: baseProduct.displayColor,
+              impactTier: baseProduct.impactTier,
+              trendDirection: baseProduct.trendDirection,
+              trendLabel: baseProduct.trendLabel,
               cur_mt: 0,
               prev_mt: 0
             };
@@ -153,6 +158,23 @@ export function DataProvider({ children }) {
       })).sort((a, b) => b.cur_mt - a.cur_mt);
     }
 
+    let dynamicTotalMoMDisplay = rawData.totalMoMDisplay;
+    let dynamicTotalMoMColor = rawData.totalMoMColor;
+
+    if (filters.selectedState && !filters.selectedDistrict) {
+      const selectedStateData = rawData.states?.find(s => s.state === filters.selectedState);
+      if (selectedStateData) {
+        dynamicTotalMoMDisplay = selectedStateData.trendLabel;
+        dynamicTotalMoMColor = selectedStateData.displayColor;
+      }
+    } else if (filters.selectedDistrict) {
+      const selectedDistrictData = rawData.districts?.find(d => d.district === filters.selectedDistrict);
+      if (selectedDistrictData) {
+        dynamicTotalMoMDisplay = selectedDistrictData.trendLabel;
+        dynamicTotalMoMColor = selectedDistrictData.displayColor;
+      }
+    }
+
     return { 
       ...rawData, 
       states, 
@@ -162,6 +184,8 @@ export function DataProvider({ children }) {
       totalCur: dynamicTotalCur,
       totalPrev: dynamicTotalPrev,
       totalMoM: dynamicTotalMoM,
+      totalMoMDisplay: dynamicTotalMoMDisplay,
+      totalMoMColor: dynamicTotalMoMColor,
       products: dynamicProducts
     };
   }, [rawData, filters]);

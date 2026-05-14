@@ -108,19 +108,19 @@ export const sampleData = {
     dispatchOrderGapPct: 42,
     totalDrop: 253.7,
     scoredStates: [
-      { state: "WEST BENGAL", cur: 541, prev: 688, mom: -21.4, share: 19, drop: 147, riskScore: 72 },
-      { state: "BIHAR", cur: 388, prev: 474, mom: -18.2, share: 14, drop: 86, riskScore: 65 },
-      { state: "ODISHA", cur: 271, prev: 307, mom: -11.7, share: 10, drop: 36, riskScore: 48 }
+      { state: "WEST BENGAL", cur: 541, prev: 688, mom: -21.4, share: 19, drop: 147, riskScore: 72, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 21.4%", displayColor: "#ef4444" },
+      { state: "BIHAR",       cur: 388, prev: 474, mom: -18.2, share: 14, drop: 86,  riskScore: 65, impactTier: "High",     trendDirection: "down", trendLabel: "↓ 18.2%", displayColor: "#f97316" },
+      { state: "ODISHA",      cur: 271, prev: 307, mom: -11.7, share: 10, drop: 36,  riskScore: 48, impactTier: "Moderate", trendDirection: "down", trendLabel: "↓ 11.7%", displayColor: "#eab308" }
     ],
     scoredDistricts: [
-      { district: "KOLKATA", state: "WEST BENGAL", cur: 180, prev: 250, mom: -28, drop: 70, riskScore: 78 },
-      { district: "PATNA", state: "BIHAR", cur: 140, prev: 190, mom: -26.3, drop: 50, riskScore: 68 },
-      { district: "HOWRAH", state: "WEST BENGAL", cur: 120, prev: 160, mom: -25, drop: 40, riskScore: 65 }
+      { district: "KOLKATA", state: "WEST BENGAL", cur: 180, prev: 250, mom: -28,   drop: 70, riskScore: 78, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 28%",   displayColor: "#ef4444" },
+      { district: "PATNA",   state: "BIHAR",       cur: 140, prev: 190, mom: -26.3, drop: 50, riskScore: 68, impactTier: "High",     trendDirection: "down", trendLabel: "↓ 26.3%", displayColor: "#f97316" },
+      { district: "HOWRAH",  state: "WEST BENGAL", cur: 120, prev: 160, mom: -25,   drop: 40, riskScore: 65, impactTier: "High",     trendDirection: "down", trendLabel: "↓ 25%",   displayColor: "#f97316" }
     ],
     scoredDealers: [
-      { client: "Ramesh Traders", state: "WEST BENGAL", district: "KOLKATA", cur: 0, prev: 45, mom: -100, riskScore: 90, isInactive: true },
-      { client: "Gupta Iron Works", state: "JHARKHAND", district: "RANCHI", cur: 0, prev: 28, mom: -100, riskScore: 85, isInactive: true },
-      { client: "Sharma Steel Mart", state: "BIHAR", district: "PATNA", cur: 12, prev: 38, mom: -68.4, riskScore: 78, isInactive: false }
+      { client: "Ramesh Traders",    state: "WEST BENGAL", district: "KOLKATA", cur: 0,  prev: 45, mom: -100,  riskScore: 90, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 100%",  displayColor: "#ef4444", isInactive: true },
+      { client: "Gupta Iron Works",  state: "JHARKHAND",   district: "RANCHI",  cur: 0,  prev: 28, mom: -100,  riskScore: 85, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 100%",  displayColor: "#ef4444", isInactive: true },
+      { client: "Sharma Steel Mart", state: "BIHAR",       district: "PATNA",   cur: 12, prev: 38, mom: -68.4, riskScore: 78, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 68.4%", displayColor: "#ef4444", isInactive: false }
     ],
     declineDrivers: [
       { type: "STATE", name: "WEST BENGAL", drop: 147, pctOfTotal: 58 },
