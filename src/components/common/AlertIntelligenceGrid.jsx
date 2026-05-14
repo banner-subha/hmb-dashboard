@@ -107,7 +107,7 @@ export default function AlertIntelligenceGrid({ alerts = [] }) {
   };
 
   return (
-    <div className="space-y-4 mt-8">
+    <div className="flex flex-col gap-4">
       {/* HEADER & CHIPS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -158,49 +158,50 @@ export default function AlertIntelligenceGrid({ alerts = [] }) {
         </div>
       </div>
 
-      {/* SMART FILTER BAR */}
-      <div className="glass-card p-3 flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64 min-w-[200px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-            <input 
-              type="text" 
-              placeholder="Search alerts, entities..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input py-1.5 text-xs w-full"
-            />
+      {/* COMBINED FILTER BAR & TABLE MODULE */}
+      <div className="glass-card overflow-hidden flex flex-col">
+        {/* SMART FILTER BAR */}
+        <div className="p-3 flex flex-col md:flex-row gap-3 items-center justify-between border-b border-border bg-bg-card/50">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <div className="relative flex-1 md:w-64 min-w-[200px]">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+              <input 
+                type="text" 
+                placeholder="Search alerts, entities..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input py-1.5 text-xs w-full bg-bg-input/50"
+              />
+            </div>
+            
+            <select 
+              value={selectedLevel}
+              onChange={(e) => setSelectedLevel(e.target.value)}
+              className="filter-select py-1.5 text-xs bg-bg-input/50"
+            >
+              <option value="ALL">All Levels</option>
+              <option value="STATE">State</option>
+              <option value="DISTRICT">District</option>
+              <option value="DEALER">Dealer</option>
+              <option value="PRODUCT">Product</option>
+            </select>
           </div>
-          
-          <select 
-            value={selectedLevel}
-            onChange={(e) => setSelectedLevel(e.target.value)}
-            className="filter-select py-1.5 text-xs bg-bg-card"
-          >
-            <option value="ALL">All Levels</option>
-            <option value="STATE">State</option>
-            <option value="DISTRICT">District</option>
-            <option value="DEALER">Dealer</option>
-            <option value="PRODUCT">Product</option>
-          </select>
+
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-text-secondary hover:text-text-primary transition-colors">
+              <input 
+                type="checkbox" 
+                checked={showRootCauseOnly}
+                onChange={(e) => setShowRootCauseOnly(e.target.checked)}
+                className="rounded border-border bg-bg-input text-accent-blue focus:ring-accent-blue"
+              />
+              <Layers className="w-4 h-4" />
+              Show Root Causes Only
+            </label>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-text-secondary hover:text-text-primary transition-colors">
-            <input 
-              type="checkbox" 
-              checked={showRootCauseOnly}
-              onChange={(e) => setShowRootCauseOnly(e.target.checked)}
-              className="rounded border-border bg-bg-input text-accent-blue focus:ring-accent-blue"
-            />
-            <Layers className="w-4 h-4" />
-            Show Root Causes Only
-          </label>
-        </div>
-      </div>
-
-      {/* TABLE */}
-      <div className="glass-card overflow-hidden">
+        {/* TABLE */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>

@@ -36,7 +36,7 @@ export default function AIWarRoom() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Escalation Board */}
-        <div className="space-y-6">
+        <div className="flex flex-col gap-4">
           <CollapsibleCard title="Priority Escalations" accentColor="#ef4444" badge={<SeverityBadge severity="CRITICAL" />}>
             <div className="space-y-3">
               {intelligence.escalation_flags?.map((flag, i) => (
@@ -71,7 +71,7 @@ export default function AIWarRoom() {
           </CollapsibleCard>
         </div>
 
-        <div className="space-y-6">
+        <div className="flex flex-col gap-4">
           {/* Root Cause Clustering */}
           <CollapsibleCard title="Root Cause Analysis" accentColor="#f97316">
             <div className="space-y-4">
