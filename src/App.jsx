@@ -12,6 +12,7 @@ import StateIntelligence from './pages/StateIntelligence';
 import DistrictIntelligence from './pages/DistrictIntelligence';
 import DealerIntelligence from './pages/DealerIntelligence';
 import AIWarRoom from './pages/AIWarRoom';
+import AlertIntelligence from './pages/AlertIntelligence';
 import GeoIntelligence from './pages/GeoIntelligence';
 
 // ─── GeoIntelligence wrapper — transforms rawData → salesData prop ─────────────
@@ -98,6 +99,7 @@ function App() {
             <Route path="districts" element={<DistrictIntelligence />} />
             <Route path="dealers" element={<DealerIntelligence />} />
             <Route path="war-room" element={<AIWarRoom />} />
+            <Route path="alerts" element={<AlertIntelligence />} />
             <Route path="geo" element={<GeoIntelligenceWrapper />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

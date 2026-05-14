@@ -41,5 +41,6 @@ export const NAV_ITEMS = [
   { path: '/districts', label: 'District Intelligence', icon: 'MapPin' },
   { path: '/dealers',   label: 'Dealer Intelligence', icon: 'Store' },
   { path: '/war-room',  label: 'AI War Room', icon: 'Brain' },
+  { path: '/alerts',    label: 'Alert Intelligence', icon: 'Activity' },
   { path: '/geo',       label: 'Geo Intelligence', icon: 'Globe' },
 ];
