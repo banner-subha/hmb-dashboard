@@ -19,7 +19,7 @@ const CustomTooltip = ({ active, payload }) => {
           </div>
           <div className="flex justify-between gap-4 pt-1 border-t border-border mt-1">
             <span className="text-text-muted">Impact Score:</span>
-            <span className="font-bold" style={{ color: getImpactColor(data.impactScore) }}>
+            <span className="font-bold" style={{ color: getImpactColor(data.impactScore, data.mom) }}>
               {data.impactScore}
             </span>
           </div>
@@ -30,12 +30,12 @@ const CustomTooltip = ({ active, payload }) => {
   return null;
 };
 
-const getImpactColor = (score) => {
+const getImpactColor = (score, mom = 0) => {
   if (score >= 75) return '#ef4444'; // CRITICAL
   if (score >= 60) return '#f97316'; // HIGH
   if (score >= 40) return '#eab308'; // MODERATE
-  if (score >= 25) return '#10b981'; // LOW
-  return '#22c55e'; // STABLE
+  if (score < 25 && mom > -5) return '#22c55e'; // STABLE
+  return '#10b981'; // LOW
 };
 
 export default function RiskScatterPlot({ data, height = 300 }) {
@@ -75,7 +75,7 @@ export default function RiskScatterPlot({ data, height = 300 }) {
           <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#475569' }} />
           <Scatter data={chartData} name="Impact">
             {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={getImpactColor(entry.impactScore)} />
+              <Cell key={`cell-${index}`} fill={getImpactColor(entry.impactScore, entry.mom)} />
             ))}
           </Scatter>
         </ScatterChart>

@@ -39,7 +39,7 @@ export default function DistrictIntelligence() {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
           <div className="flex items-center gap-2">
-            <ImpactBadge score={impact} />
+            <ImpactBadge score={impact} mom={info.row.original.mom} />
             <span className="font-medium">{info.getValue()}</span>
           </div>
         );
@@ -65,7 +65,7 @@ export default function DistrictIntelligence() {
       header: 'Impact',
       cell: info => {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
-        return <ImpactBadge score={impact} />;
+        return <ImpactBadge score={impact} mom={info.row.original.mom} />;
       },
     },
   ], []);

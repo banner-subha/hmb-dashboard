@@ -38,7 +38,7 @@ export default function StateIntelligence() {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
           <div className="flex items-center gap-2">
-            <ImpactBadge score={impact} />
+            <ImpactBadge score={impact} mom={info.row.original.mom} />
             <span className="font-medium">{info.getValue()}</span>
           </div>
         );
@@ -94,7 +94,7 @@ export default function StateIntelligence() {
           <div className="lg:col-span-5 space-y-6 animate-slide-up">
             <CollapsibleCard 
               title={`${selectedStateData.state} Intelligence`} 
-              accentColor={selectedStateData.mom > 10 ? '#22c55e' : getImpactTier(selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0).color}
+              accentColor={selectedStateData.mom > 10 ? '#22c55e' : getImpactTier(selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0, selectedStateData.mom).color}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SET_STATE', payload: null }); }}
                 className="text-xs text-text-muted hover:text-text-primary underline"
@@ -110,7 +110,7 @@ export default function StateIntelligence() {
                 <div className="p-3 bg-bg-secondary rounded-lg">
                   <div className="text-xs text-text-muted mb-1">Operational Impact</div>
                   <div className="mt-1">
-                    <ImpactBadge score={selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0} />
+                    <ImpactBadge score={selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0} mom={selectedStateData.mom} />
                   </div>
                 </div>
               </div>

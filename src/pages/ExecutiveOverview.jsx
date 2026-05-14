@@ -72,7 +72,7 @@ export default function ExecutiveOverview() {
               {topStates.map(s => (
                 <div key={s.state} className="flex items-center justify-between p-2 hover:bg-bg-card-hover rounded-lg cursor-pointer transition-colors" onClick={() => navigate(`/states?state=${s.state}`)}>
                   <div className="flex items-center gap-2">
-                    <ImpactBadge score={s.impactScore ?? s.riskScore ?? 0} />
+                    <ImpactBadge score={s.impactScore ?? s.riskScore ?? 0} mom={s.mom} />
                     <span className="text-sm font-medium">{s.state}</span>
                   </div>
                   <div className="text-right">
@@ -90,7 +90,7 @@ export default function ExecutiveOverview() {
               {topDistricts.map(d => (
                 <div key={d.district} className="flex items-center justify-between p-2 hover:bg-bg-card-hover rounded-lg cursor-pointer transition-colors" onClick={() => navigate(`/districts?district=${d.district}`)}>
                   <div className="flex items-center gap-2">
-                    <ImpactBadge score={d.impactScore ?? d.riskScore ?? 0} />
+                    <ImpactBadge score={d.impactScore ?? d.riskScore ?? 0} mom={d.mom} />
                     <div>
                       <div className="text-sm font-medium leading-none">{d.district}</div>
                       <div className="text-[10px] text-text-muted mt-1">{d.state}</div>

@@ -40,7 +40,7 @@ export default function DealerIntelligence() {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
           <div className="flex items-center gap-2 max-w-[200px] truncate">
-            <ImpactBadge score={impact} />
+            <ImpactBadge score={impact} mom={info.row.original.mom} />
             <span className="font-medium truncate" title={info.getValue()}>{info.getValue()}</span>
           </div>
         );
@@ -120,7 +120,7 @@ export default function DealerIntelligence() {
           <div className="xl:col-span-4 space-y-6 animate-slide-up">
             <CollapsibleCard 
               title="Dealer Intelligence" 
-              accentColor={selectedDealer.isInactive ? '#6b7280' : selectedDealer.mom > 10 ? '#22c55e' : getImpactTier(selectedDealer.impactScore ?? selectedDealer.riskScore ?? 0).color}
+              accentColor={selectedDealer.isInactive ? '#6b7280' : selectedDealer.mom > 10 ? '#22c55e' : getImpactTier(selectedDealer.impactScore ?? selectedDealer.riskScore ?? 0, selectedDealer.mom).color}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); setSelectedDealer(null); }}
                 className="text-xs text-text-muted hover:text-text-primary underline"
