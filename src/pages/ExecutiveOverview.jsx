@@ -5,6 +5,7 @@ import CollapsibleCard from '../components/common/CollapsibleCard';
 import ProductBarChart from '../components/charts/ProductBarChart';
 import AlertSeverityChart from '../components/charts/AlertSeverityChart';
 import ImpactBadge from '../components/common/ImpactBadge';
+import HealthBadge from '../components/common/HealthBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
@@ -72,8 +73,11 @@ export default function ExecutiveOverview() {
               {topStates.length === 0 && <div className="text-text-muted text-sm">No declining states</div>}
               {topStates.map(s => (
                 <div key={s.state} className="flex items-center justify-between p-2 hover:bg-bg-card-hover rounded-lg cursor-pointer transition-colors" onClick={() => navigate(`/states?state=${s.state}`)}>
-                  <div className="flex items-center gap-2">
-                    <ImpactBadge tier={s.impactTier} score={s.impactScore ?? s.riskScore ?? 0} />
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-0.5 items-start">
+                      <ImpactBadge tier={s.impactTier} score={s.impactScore ?? s.riskScore ?? 0} />
+                      <HealthBadge status={s.healthStatus} color={s.healthColor} />
+                    </div>
                     <span className="text-sm font-medium">{s.state}</span>
                   </div>
                   <div className="text-right">
@@ -90,8 +94,11 @@ export default function ExecutiveOverview() {
               {topDistricts.length === 0 && <div className="text-text-muted text-sm">No district data</div>}
               {topDistricts.map(d => (
                 <div key={d.district} className="flex items-center justify-between p-2 hover:bg-bg-card-hover rounded-lg cursor-pointer transition-colors" onClick={() => navigate(`/districts?district=${d.district}`)}>
-                  <div className="flex items-center gap-2">
-                    <ImpactBadge tier={d.impactTier} score={d.impactScore ?? d.riskScore ?? 0} />
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-0.5 items-start">
+                      <ImpactBadge tier={d.impactTier} score={d.impactScore ?? d.riskScore ?? 0} />
+                      <HealthBadge status={d.healthStatus} color={d.healthColor} />
+                    </div>
                     <div>
                       <div className="text-sm font-medium leading-none">{d.district}</div>
                       <div className="text-[10px] text-text-muted mt-1">{d.state}</div>

@@ -6,6 +6,7 @@ import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import RiskScatterPlot from '../components/charts/RiskScatterPlot';
 import ImpactBadge from '../components/common/ImpactBadge';
+import HealthBadge from '../components/common/HealthBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
 
@@ -38,8 +39,11 @@ export default function DistrictIntelligence() {
       cell: info => {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
-          <div className="flex items-center gap-2">
-            <ImpactBadge tier={info.row.original.impactTier} score={impact} />
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-1 items-start min-w-[80px]">
+              <ImpactBadge tier={info.row.original.impactTier} score={impact} />
+              <HealthBadge status={info.row.original.healthStatus} color={info.row.original.healthColor} />
+            </div>
             <span className="font-medium">{info.getValue()}</span>
           </div>
         );

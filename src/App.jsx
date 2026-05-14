@@ -31,6 +31,9 @@ function GeoIntelligenceWrapper() {
         volume: s.cur ?? s.volume ?? null,
         trend:  s.mom ?? s.trend ?? null,
         impact: s.impactTier || 'Stable',
+        impactTier: s.impactTier || 'Stable',
+        healthStatus: s.healthStatus || 'Stable',
+        healthColor: s.healthColor || '#94a3b8',
       };
     });
 
@@ -44,6 +47,9 @@ function GeoIntelligenceWrapper() {
         volume: d.cur ?? d.volume ?? null,
         trend:  d.mom ?? d.trend ?? null,
         impact: d.impactTier || 'Stable',
+        impactTier: d.impactTier || 'Stable',
+        healthStatus: d.healthStatus || 'Stable',
+        healthColor: d.healthColor || '#94a3b8',
       };
     });
 
@@ -65,7 +71,19 @@ function GeoIntelligenceWrapper() {
     );
   }
 
-  return <GeoIntelligence salesData={salesData} />;
+  return <GeoIntelligence salesData={salesData} tooltip={(props) => (
+          <div className="p-2 text-xs font-bold space-y-1">
+            <div className="text-text-primary uppercase tracking-wider border-b border-border pb-1 mb-1">{props.name}</div>
+            <div className="flex justify-between gap-4">
+              <span className="text-text-muted">Impact:</span>
+              <span className="text-text-primary">{props.data?.impactTier || 'Stable'}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-text-muted">Health:</span>
+              <span style={{ color: props.data?.healthColor || '#94a3b8' }}>{props.data?.healthStatus || 'Stable'}</span>
+            </div>
+          </div>
+        )} />;
 }
 
 // RequireAuth Wrapper

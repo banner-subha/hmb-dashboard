@@ -138,6 +138,8 @@ export function DataProvider({ children }) {
               impactTier: baseProduct.impactTier,
               trendDirection: baseProduct.trendDirection,
               trendLabel: baseProduct.trendLabel,
+              healthStatus: baseProduct.healthStatus,
+              healthColor: baseProduct.healthColor,
               cur_mt: 0,
               prev_mt: 0
             };

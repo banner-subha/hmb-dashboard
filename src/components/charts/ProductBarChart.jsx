@@ -6,24 +6,36 @@ const CustomTooltip = ({ active, payload }) => {
     // Use backend intelligence
     const trendColor = data.displayColor || '#94a3b8';
     const trendDisplay = data.trendLabel || (data.mom != null ? `${data.mom.toFixed(1)}%` : '—');
+    const healthStatus = data.healthStatus || 'Stable';
+    const healthColor = data.healthColor || '#94a3b8';
 
     return (
       <div className="glass-card p-3 shadow-xl border-border-accent">
         <p className="font-bold text-text-primary text-sm mb-2">{data.label || data.product}</p>
-        <div className="space-y-1 text-xs">
+        <div className="space-y-2 text-xs">
           <div className="flex justify-between gap-4">
-            <span className="text-text-muted">Current:</span>
-            <span className="font-medium text-text-primary">{data.cur_mt?.toFixed(1)} MT</span>
+            <span className="text-text-muted">Health:</span>
+            <span className="font-bold uppercase tracking-tight" style={{ color: healthColor }}>{healthStatus}</span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-text-muted">Previous:</span>
-            <span className="font-medium text-text-secondary">{data.prev_mt?.toFixed(1)} MT</span>
+            <span className="text-text-muted">Impact:</span>
+            <span className="font-bold text-text-primary">{data.impactTier || 'Stable'}</span>
           </div>
-          <div className="flex justify-between gap-4 pt-1 border-t border-border mt-1">
-            <span className="text-text-muted">MoM:</span>
-            <span className="font-bold" style={{ color: trendColor }}>
-              {trendDisplay}
-            </span>
+          <div className="pt-2 border-t border-border mt-2 space-y-1">
+            <div className="flex justify-between gap-4">
+              <span className="text-text-muted">Current:</span>
+              <span className="font-medium text-text-primary">{data.cur_mt?.toFixed(1)} MT</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-text-muted">Previous:</span>
+              <span className="font-medium text-text-secondary">{data.prev_mt?.toFixed(1)} MT</span>
+            </div>
+            <div className="flex justify-between gap-4 pt-1 border-t border-border/5 mt-1">
+              <span className="text-text-muted">MoM:</span>
+              <span className="font-bold" style={{ color: trendColor }}>
+                {trendDisplay}
+              </span>
+            </div>
           </div>
         </div>
       </div>
