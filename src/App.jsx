@@ -22,30 +22,28 @@ function GeoIntelligenceWrapper() {
   const salesData = useMemo(() => {
     if (!rawData) return { states: {}, districts: {} };
 
-    // Build states map: { "West Bengal": { volume, trend, risk } }
+    // Build states map: { "West Bengal": { volume, trend, impact } }
     const states = {};
     (rawData.states || []).forEach((s) => {
       if (!s.state) return;
+      const imp = s.impactScore ?? s.riskScore ?? 0;
       states[s.state] = {
         volume: s.cur ?? s.volume ?? null,
         trend:  s.mom ?? s.trend ?? null,
-        risk:   s.riskScore != null
-          ? s.riskScore >= 70 ? 'High' : s.riskScore >= 40 ? 'Medium' : 'Low'
-          : s.risk ?? null,
+        impact: imp >= 75 ? 'Critical' : imp >= 60 ? 'High' : imp >= 40 ? 'Moderate' : imp >= 25 ? 'Low' : 'Stable',
       };
     });
 
-    // Build districts map: { "West Bengal": { "Kolkata": { volume, trend, risk } } }
+    // Build districts map: { "West Bengal": { "Kolkata": { volume, trend, impact } } }
     const districts = {};
     (rawData.districts || []).forEach((d) => {
       if (!d.state || !d.district) return;
       if (!districts[d.state]) districts[d.state] = {};
+      const imp = d.impactScore ?? d.riskScore ?? 0;
       districts[d.state][d.district] = {
         volume: d.cur ?? d.volume ?? null,
         trend:  d.mom ?? d.trend ?? null,
-        risk:   d.riskScore != null
-          ? d.riskScore >= 70 ? 'High' : d.riskScore >= 40 ? 'Medium' : 'Low'
-          : d.risk ?? null,
+        impact: imp >= 75 ? 'Critical' : imp >= 60 ? 'High' : imp >= 40 ? 'Moderate' : imp >= 25 ? 'Low' : 'Stable',
       };
     });
 

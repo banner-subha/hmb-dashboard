@@ -4,7 +4,7 @@ import KPICard from '../components/common/KPICard';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import ProductBarChart from '../components/charts/ProductBarChart';
 import AlertSeverityChart from '../components/charts/AlertSeverityChart';
-import RiskDot from '../components/common/RiskDot';
+import ImpactBadge from '../components/common/ImpactBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
@@ -72,7 +72,7 @@ export default function ExecutiveOverview() {
               {topStates.map(s => (
                 <div key={s.state} className="flex items-center justify-between p-2 hover:bg-bg-card-hover rounded-lg cursor-pointer transition-colors" onClick={() => navigate(`/states?state=${s.state}`)}>
                   <div className="flex items-center gap-2">
-                    <RiskDot score={s.riskScore} />
+                    <ImpactBadge score={s.impactScore ?? s.riskScore ?? 0} />
                     <span className="text-sm font-medium">{s.state}</span>
                   </div>
                   <div className="text-right">
@@ -90,7 +90,7 @@ export default function ExecutiveOverview() {
               {topDistricts.map(d => (
                 <div key={d.district} className="flex items-center justify-between p-2 hover:bg-bg-card-hover rounded-lg cursor-pointer transition-colors" onClick={() => navigate(`/districts?district=${d.district}`)}>
                   <div className="flex items-center gap-2">
-                    <RiskDot score={d.riskScore} />
+                    <ImpactBadge score={d.impactScore ?? d.riskScore ?? 0} />
                     <div>
                       <div className="text-sm font-medium leading-none">{d.district}</div>
                       <div className="text-[10px] text-text-muted mt-1">{d.state}</div>
@@ -162,7 +162,7 @@ export default function ExecutiveOverview() {
             </CollapsibleCard>
           </div>
 
-          <CollapsibleCard title="Dealer Risks">
+          <CollapsibleCard title="Dealer Impact Alerts">
             <div className="space-y-3">
               {inactiveDealers.map((d, i) => (
                 <div key={`in-${i}`} className="flex items-center justify-between p-2">

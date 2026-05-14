@@ -16,6 +16,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import SeverityBadge from '../components/common/SeverityBadge';
+import ImpactBadge from '../components/common/ImpactBadge';
 
 // Helper to format numbers safely
 const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toFixed(1) : fallback);
@@ -225,50 +226,95 @@ export default function AlertIntelligence() {
           <p className="text-sm text-text-secondary">Enterprise operational explorer and root-cause investigation workspace</p>
         </div>
         
-        {/* EXECUTIVE CHIPS */}
+        {/* EXECUTIVE CHIPS — Glassmorphism severity-aware */}
         <div className="flex flex-wrap gap-3">
-          <div className="px-4 py-2 rounded-lg bg-bg-card border border-border flex items-center gap-3">
-            <span className="text-xs font-bold text-text-muted uppercase">Active Alerts</span>
-            <span className="text-lg font-extrabold text-text-primary">{alerts.length}</span>
+          {/* Active Alerts — neutral dark blue tint */}
+          <div
+            className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all"
+            style={{
+              background: 'rgba(59,130,246,0.07)',
+              borderColor: 'rgba(59,130,246,0.2)',
+              boxShadow: '0 0 16px rgba(59,130,246,0.06)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-accent-blue/70 uppercase tracking-widest mb-0.5">Active Alerts</span>
+              <span className="text-2xl font-extrabold text-text-primary leading-none">{alerts.length}</span>
+            </div>
+            <Activity className="w-5 h-5 text-accent-blue/40" />
           </div>
 
-          <button 
+          {/* Critical — soft red tint */}
+          <button
             onClick={() => setSelectedSeverity(selectedSeverity === 'CRITICAL' ? 'ALL' : 'CRITICAL')}
-            className={`flex items-center gap-3 px-4 py-2 rounded-lg border transition-all ${
-              selectedSeverity === 'CRITICAL' 
-                ? 'bg-severity-critical/10 border-severity-critical text-severity-critical' 
-                : 'bg-bg-card border-border hover:border-severity-critical/50'
-            }`}
+            className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
+            style={{
+              background: selectedSeverity === 'CRITICAL'
+                ? 'rgba(239,68,68,0.18)'
+                : 'rgba(239,68,68,0.07)',
+              borderColor: selectedSeverity === 'CRITICAL'
+                ? 'rgba(239,68,68,0.6)'
+                : 'rgba(239,68,68,0.2)',
+              boxShadow: selectedSeverity === 'CRITICAL'
+                ? '0 0 20px rgba(239,68,68,0.15)'
+                : '0 0 10px rgba(239,68,68,0.05)',
+              backdropFilter: 'blur(8px)',
+            }}
           >
-            <div className="w-2.5 h-2.5 rounded-full bg-severity-critical"></div>
-            <span className="text-xs font-bold text-text-muted uppercase">Critical</span>
-            <span className="text-lg font-extrabold text-text-primary ml-1">{counts.critical}</span>
-          </button>
-          
-          <button 
-            onClick={() => setSelectedSeverity(selectedSeverity === 'HIGH' ? 'ALL' : 'HIGH')}
-            className={`flex items-center gap-3 px-4 py-2 rounded-lg border transition-all ${
-              selectedSeverity === 'HIGH' 
-                ? 'bg-severity-high/10 border-severity-high text-severity-high' 
-                : 'bg-bg-card border-border hover:border-severity-high/50'
-            }`}
-          >
-            <div className="w-2.5 h-2.5 rounded-full bg-severity-high"></div>
-            <span className="text-xs font-bold text-text-muted uppercase">High</span>
-            <span className="text-lg font-extrabold text-text-primary ml-1">{counts.high}</span>
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(239,68,68,0.7)' }}>Critical</span>
+              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.critical}</span>
+            </div>
+            <div className="w-2.5 h-2.5 rounded-full bg-severity-critical animate-pulse-subtle"></div>
           </button>
 
-          <button 
-            onClick={() => setSelectedSeverity(selectedSeverity === 'MEDIUM' ? 'ALL' : 'MEDIUM')}
-            className={`flex items-center gap-3 px-4 py-2 rounded-lg border transition-all ${
-              selectedSeverity === 'MEDIUM' 
-                ? 'bg-severity-medium/10 border-severity-medium text-severity-medium' 
-                : 'bg-bg-card border-border hover:border-severity-medium/50'
-            }`}
+          {/* High — soft orange tint */}
+          <button
+            onClick={() => setSelectedSeverity(selectedSeverity === 'HIGH' ? 'ALL' : 'HIGH')}
+            className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
+            style={{
+              background: selectedSeverity === 'HIGH'
+                ? 'rgba(249,115,22,0.18)'
+                : 'rgba(249,115,22,0.07)',
+              borderColor: selectedSeverity === 'HIGH'
+                ? 'rgba(249,115,22,0.6)'
+                : 'rgba(249,115,22,0.2)',
+              boxShadow: selectedSeverity === 'HIGH'
+                ? '0 0 20px rgba(249,115,22,0.12)'
+                : '0 0 10px rgba(249,115,22,0.04)',
+              backdropFilter: 'blur(8px)',
+            }}
           >
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(249,115,22,0.7)' }}>High</span>
+              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.high}</span>
+            </div>
+            <div className="w-2.5 h-2.5 rounded-full bg-severity-high"></div>
+          </button>
+
+          {/* Medium — soft yellow tint */}
+          <button
+            onClick={() => setSelectedSeverity(selectedSeverity === 'MEDIUM' ? 'ALL' : 'MEDIUM')}
+            className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
+            style={{
+              background: selectedSeverity === 'MEDIUM'
+                ? 'rgba(234,179,8,0.15)'
+                : 'rgba(234,179,8,0.06)',
+              borderColor: selectedSeverity === 'MEDIUM'
+                ? 'rgba(234,179,8,0.5)'
+                : 'rgba(234,179,8,0.18)',
+              boxShadow: selectedSeverity === 'MEDIUM'
+                ? '0 0 20px rgba(234,179,8,0.1)'
+                : '0 0 10px rgba(234,179,8,0.04)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(234,179,8,0.7)' }}>Medium</span>
+              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.medium}</span>
+            </div>
             <div className="w-2.5 h-2.5 rounded-full bg-severity-medium"></div>
-            <span className="text-xs font-bold text-text-muted uppercase">Medium</span>
-            <span className="text-lg font-extrabold text-text-primary ml-1">{counts.medium}</span>
           </button>
         </div>
       </div>
@@ -399,14 +445,7 @@ export default function AlertIntelligence() {
                           {alert.drop ? formatNum(alert.drop) : (alert.data?.drop ? formatNum(alert.data.drop) : '-')}
                         </td>
                         <td className="p-4 text-right">
-                          <div className="inline-flex items-center gap-2">
-                            <span className="text-xs font-bold text-text-secondary">{alert.impactScore || alert.data?.riskScore || '-'}</span>
-                            {(alert.impactScore || alert.data?.riskScore) && (
-                              <div className="w-12 h-1.5 bg-bg-input rounded-full overflow-hidden">
-                                <div className="bg-accent-blue h-full" style={{ width: `${Math.min(100, alert.impactScore || alert.data?.riskScore)}%` }}></div>
-                              </div>
-                            )}
-                          </div>
+                          <ImpactBadge score={alert.impactScore || alert.data?.riskScore || 0} />
                         </td>
                         <td className="p-4 text-center">
                           {alert.rootCause ? (

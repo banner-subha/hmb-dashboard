@@ -18,9 +18,9 @@ const CustomTooltip = ({ active, payload }) => {
             </span>
           </div>
           <div className="flex justify-between gap-4 pt-1 border-t border-border mt-1">
-            <span className="text-text-muted">Risk Score:</span>
-            <span className="font-bold" style={{ color: getRiskColor(data.riskScore) }}>
-              {data.riskScore}
+            <span className="text-text-muted">Impact Score:</span>
+            <span className="font-bold" style={{ color: getImpactColor(data.impactScore) }}>
+              {data.impactScore}
             </span>
           </div>
         </div>
@@ -30,10 +30,12 @@ const CustomTooltip = ({ active, payload }) => {
   return null;
 };
 
-const getRiskColor = (score) => {
-  if (score >= 70) return '#ef4444'; // CRITICAL
-  if (score >= 40) return '#f97316'; // HIGH
-  return '#22c55e'; // LOW
+const getImpactColor = (score) => {
+  if (score >= 75) return '#ef4444'; // CRITICAL
+  if (score >= 60) return '#f97316'; // HIGH
+  if (score >= 40) return '#eab308'; // MODERATE
+  if (score >= 25) return '#10b981'; // LOW
+  return '#22c55e'; // STABLE
 };
 
 export default function RiskScatterPlot({ data, height = 300 }) {
@@ -41,10 +43,11 @@ export default function RiskScatterPlot({ data, height = 300 }) {
     return <div className="flex items-center justify-center h-full text-text-muted text-sm">No data available</div>;
   }
 
-  // Map data to x=Volume, y=Risk Score
+  // Map data to x=Volume, y=Impact Score
   const chartData = data.map(item => ({
     ...item,
     volume: item.cur,
+    impactScore: item.impactScore ?? item.riskScore ?? 0,
     name: item.client || item.district || item.state,
   })).filter(d => d.volume > 0 || d.prev > 0);
 
@@ -63,16 +66,16 @@ export default function RiskScatterPlot({ data, height = 300 }) {
           />
           <YAxis 
             type="number" 
-            dataKey="riskScore" 
-            name="Risk Score" 
+            dataKey="impactScore" 
+            name="Impact Score" 
             stroke="#475569" 
             fontSize={11}
             domain={[0, 100]}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#475569' }} />
-          <Scatter data={chartData} name="Risk">
+          <Scatter data={chartData} name="Impact">
             {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={getRiskColor(entry.riskScore)} />
+              <Cell key={`cell-${index}`} fill={getImpactColor(entry.impactScore)} />
             ))}
           </Scatter>
         </ScatterChart>

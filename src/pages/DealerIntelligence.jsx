@@ -5,10 +5,10 @@ import FilterBar from '../components/common/FilterBar';
 import SearchInput from '../components/common/SearchInput';
 import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
-import RiskDot from '../components/common/RiskDot';
+import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
-import { formatMT } from '../utils/formatters';
+import { formatMT, getImpactTier } from '../utils/formatters';
 
 export default function DealerIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -36,12 +36,15 @@ export default function DealerIntelligence() {
     {
       accessorKey: 'client',
       header: 'Dealer Name',
-      cell: info => (
-        <div className="flex items-center gap-2 max-w-[200px] truncate">
-          <RiskDot score={info.row.original.riskScore} />
-          <span className="font-medium truncate" title={info.getValue()}>{info.getValue()}</span>
-        </div>
-      ),
+      cell: info => {
+        const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
+        return (
+          <div className="flex items-center gap-2 max-w-[200px] truncate">
+            <ImpactBadge score={impact} />
+            <span className="font-medium truncate" title={info.getValue()}>{info.getValue()}</span>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'district',
@@ -117,7 +120,7 @@ export default function DealerIntelligence() {
           <div className="xl:col-span-4 space-y-6 animate-slide-up">
             <CollapsibleCard 
               title="Dealer Intelligence" 
-              accentColor={selectedDealer.isInactive ? '#6b7280' : selectedDealer.riskScore >= 70 ? '#ef4444' : '#3b82f6'}
+              accentColor={selectedDealer.isInactive ? '#6b7280' : selectedDealer.mom > 10 ? '#22c55e' : getImpactTier(selectedDealer.impactScore ?? selectedDealer.riskScore ?? 0).color}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); setSelectedDealer(null); }}
                 className="text-xs text-text-muted hover:text-text-primary underline"

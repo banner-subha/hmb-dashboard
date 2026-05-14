@@ -56,12 +56,14 @@ function trendColor(t) {
   if (t >= 50) return '#fbbf24';
   return '#f87171';
 }
-function riskColor(r) {
-  if (!r) return '#94a3b8';
-  const u = r.toUpperCase();
-  if (u === 'HIGH' || u === 'CRITICAL') return '#f87171';
-  if (u === 'MEDIUM') return '#fbbf24';
-  return '#34d399';
+function impactColor(i) {
+  if (!i) return '#22c55e'; // STABLE by default
+  const u = i.toUpperCase();
+  if (u === 'CRITICAL') return '#ef4444';
+  if (u === 'HIGH') return '#f97316';
+  if (u === 'MODERATE') return '#eab308';
+  if (u === 'LOW') return '#10b981';
+  return '#22c55e';
 }
 function trendStr(t) {
   if (t == null) return '—';
@@ -89,7 +91,7 @@ function Tooltip({ x, y, visible, name, data }) {
           <div className="space-y-1.5">
             <Row label="Volume" value={`${data.volume?.toLocaleString() ?? '—'} MT`} valueColor="#f1f5f9" />
             <Row label="Trend"  value={trendStr(data.trend)}  valueColor={trendColor(data.trend)} />
-            <Row label="Risk"   value={data.risk ?? '—'}       valueColor={riskColor(data.risk)} />
+            <Row label="Impact" value={data.impact ?? '—'}    valueColor={impactColor(data.impact)} />
           </div>
         ) : (
           <div className="text-slate-500 italic">No data</div>

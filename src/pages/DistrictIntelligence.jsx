@@ -5,7 +5,7 @@ import FilterBar from '../components/common/FilterBar';
 import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import RiskScatterPlot from '../components/charts/RiskScatterPlot';
-import RiskDot from '../components/common/RiskDot';
+import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
 
@@ -35,12 +35,15 @@ export default function DistrictIntelligence() {
     {
       accessorKey: 'district',
       header: 'District',
-      cell: info => (
-        <div className="flex items-center gap-2">
-          <RiskDot score={info.row.original.riskScore} />
-          <span className="font-medium">{info.getValue()}</span>
-        </div>
-      ),
+      cell: info => {
+        const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
+        return (
+          <div className="flex items-center gap-2">
+            <ImpactBadge score={impact} />
+            <span className="font-medium">{info.getValue()}</span>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'state',
@@ -58,9 +61,12 @@ export default function DistrictIntelligence() {
       cell: info => <MoMIndicator pct={info.getValue()} />,
     },
     {
-      accessorKey: 'riskScore',
-      header: 'Risk',
-      cell: info => <span className={`font-bold ${info.getValue() >= 70 ? 'text-severity-critical' : info.getValue() >= 40 ? 'text-severity-high' : 'text-severity-none'}`}>{info.getValue()}</span>,
+      id: 'impact',
+      header: 'Impact',
+      cell: info => {
+        const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
+        return <ImpactBadge score={impact} />;
+      },
     },
   ], []);
 
@@ -92,9 +98,9 @@ export default function DistrictIntelligence() {
 
         {/* Right Col: Scatter Plot & Insights */}
         <div className="lg:col-span-5 space-y-6">
-          <CollapsibleCard title="District Risk Matrix" accentColor="#8b5cf6">
+          <CollapsibleCard title="District Impact Matrix" accentColor="#8b5cf6">
             <div className="text-xs text-text-muted mb-4">
-              Visualizing volume vs risk score. High volume, high risk districts (top right) require immediate intervention.
+              Visualizing volume vs impact score. High volume, critical impact districts (top right) require immediate intervention.
             </div>
             <RiskScatterPlot data={districts} height={350} />
           </CollapsibleCard>

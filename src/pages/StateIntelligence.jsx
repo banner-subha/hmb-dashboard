@@ -6,9 +6,9 @@ import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import ShareDonutChart from '../components/charts/ShareDonutChart';
 import MoMTrendChart from '../components/charts/MoMTrendChart';
-import RiskDot from '../components/common/RiskDot';
+import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
-import { formatMT, formatMoM } from '../utils/formatters';
+import { formatMT, formatMoM, getImpactTier } from '../utils/formatters';
 
 export default function StateIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -34,12 +34,15 @@ export default function StateIntelligence() {
     {
       accessorKey: 'state',
       header: 'State',
-      cell: info => (
-        <div className="flex items-center gap-2">
-          <RiskDot score={info.row.original.riskScore} />
-          <span className="font-medium">{info.getValue()}</span>
-        </div>
-      ),
+      cell: info => {
+        const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
+        return (
+          <div className="flex items-center gap-2">
+            <ImpactBadge score={impact} />
+            <span className="font-medium">{info.getValue()}</span>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'cur',
@@ -91,7 +94,7 @@ export default function StateIntelligence() {
           <div className="lg:col-span-5 space-y-6 animate-slide-up">
             <CollapsibleCard 
               title={`${selectedStateData.state} Intelligence`} 
-              accentColor={selectedStateData.riskScore >= 70 ? '#ef4444' : '#3b82f6'}
+              accentColor={selectedStateData.mom > 10 ? '#22c55e' : getImpactTier(selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0).color}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SET_STATE', payload: null }); }}
                 className="text-xs text-text-muted hover:text-text-primary underline"
@@ -105,10 +108,9 @@ export default function StateIntelligence() {
                   </div>
                 </div>
                 <div className="p-3 bg-bg-secondary rounded-lg">
-                  <div className="text-xs text-text-muted mb-1">Risk Score</div>
-                  <div className="text-lg font-bold flex items-center gap-2">
-                    <RiskDot score={selectedStateData.riskScore} className="w-3 h-3" />
-                    {selectedStateData.riskScore}/100
+                  <div className="text-xs text-text-muted mb-1">Operational Impact</div>
+                  <div className="mt-1">
+                    <ImpactBadge score={selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0} />
                   </div>
                 </div>
               </div>
