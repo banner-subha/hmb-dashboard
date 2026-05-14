@@ -3,6 +3,9 @@ import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Responsive
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
+    // Use backend-provided displayColor with neutral fallback
+    const color = data.displayColor || '#6b7280';
+    
     return (
       <div className="glass-card p-3 shadow-xl border-border-accent">
         <p className="font-bold text-text-primary text-sm mb-2">{data.name}</p>
@@ -19,7 +22,7 @@ const CustomTooltip = ({ active, payload }) => {
           </div>
           <div className="flex justify-between gap-4 pt-1 border-t border-border mt-1">
             <span className="text-text-muted">Impact Score:</span>
-            <span className="font-bold" style={{ color: getImpactColor(data.impactScore, data.mom) }}>
+            <span className="font-bold" style={{ color }}>
               {data.impactScore}
             </span>
           </div>
@@ -28,14 +31,6 @@ const CustomTooltip = ({ active, payload }) => {
     );
   }
   return null;
-};
-
-const getImpactColor = (score, mom = 0) => {
-  if (score >= 75) return '#ef4444'; // CRITICAL
-  if (score >= 60) return '#f97316'; // HIGH
-  if (score >= 40) return '#eab308'; // MODERATE
-  if (score < 25 && mom > -5) return '#22c55e'; // STABLE
-  return '#10b981'; // LOW
 };
 
 export default function RiskScatterPlot({ data, height = 300 }) {
@@ -75,7 +70,7 @@ export default function RiskScatterPlot({ data, height = 300 }) {
           <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#475569' }} />
           <Scatter data={chartData} name="Impact">
             {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={getImpactColor(entry.impactScore, entry.mom)} />
+              <Cell key={`cell-${index}`} fill={entry.displayColor || '#6b7280'} />
             ))}
           </Scatter>
         </ScatterChart>

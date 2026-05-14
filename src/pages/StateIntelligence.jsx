@@ -8,7 +8,7 @@ import ShareDonutChart from '../components/charts/ShareDonutChart';
 import MoMTrendChart from '../components/charts/MoMTrendChart';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
-import { formatMT, formatMoM, getImpactTier } from '../utils/formatters';
+import { formatMT, formatMoM } from '../utils/formatters';
 
 export default function StateIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -38,7 +38,7 @@ export default function StateIntelligence() {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
           <div className="flex items-center gap-2">
-            <ImpactBadge score={impact} mom={info.row.original.mom} />
+            <ImpactBadge tier={info.row.original.impactTier} score={impact} />
             <span className="font-medium">{info.getValue()}</span>
           </div>
         );
@@ -55,9 +55,15 @@ export default function StateIntelligence() {
       cell: info => <span className="text-text-muted">{formatMT(info.getValue())}</span>,
     },
     {
+      header: 'Trend',
       accessorKey: 'mom',
-      header: 'MoM Trend',
-      cell: info => <MoMIndicator pct={info.getValue()} />,
+      cell: info => (
+        <MoMIndicator 
+          direction={info.row.original.trendDirection} 
+          label={info.row.original.trendLabel} 
+          pct={info.getValue()} 
+        />
+      ),
     },
     {
       accessorKey: 'share',
@@ -94,23 +100,26 @@ export default function StateIntelligence() {
           <div className="lg:col-span-5 space-y-6 animate-slide-up">
             <CollapsibleCard 
               title={`${selectedStateData.state} Intelligence`} 
-              accentColor={selectedStateData.mom > 10 ? '#22c55e' : getImpactTier(selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0, selectedStateData.mom).color}
+              accentColor={selectedStateData.displayColor || '#6b7280'}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SET_STATE', payload: null }); }}
                 className="text-xs text-text-muted hover:text-text-primary underline"
               >Clear</button>}
             >
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="p-3 bg-bg-secondary rounded-lg">
-                  <div className="text-xs text-text-muted mb-1">Volume Drop</div>
-                  <div className="text-lg font-bold text-severity-critical">
-                    {formatMT(selectedStateData.drop)}
-                  </div>
+                <div className="p-3 bg-bg-secondary rounded-lg flex justify-between items-center">
+                  <div className="text-xs text-text-muted">MoM Trend</div>
+                  <MoMIndicator 
+                    direction={selectedStateData.trendDirection} 
+                    label={selectedStateData.trendLabel} 
+                    pct={selectedStateData.mom} 
+                    className="text-base" 
+                  />
                 </div>
                 <div className="p-3 bg-bg-secondary rounded-lg">
                   <div className="text-xs text-text-muted mb-1">Operational Impact</div>
                   <div className="mt-1">
-                    <ImpactBadge score={selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0} mom={selectedStateData.mom} />
+                    <ImpactBadge tier={selectedStateData.impactTier} score={selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0} />
                   </div>
                 </div>
               </div>

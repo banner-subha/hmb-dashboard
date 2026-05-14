@@ -8,7 +8,7 @@ import CollapsibleCard from '../components/common/CollapsibleCard';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
-import { formatMT, getImpactTier } from '../utils/formatters';
+import { formatMT } from '../utils/formatters';
 
 export default function DealerIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -40,7 +40,7 @@ export default function DealerIntelligence() {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
           <div className="flex items-center gap-2 max-w-[200px] truncate">
-            <ImpactBadge score={impact} mom={info.row.original.mom} />
+            <ImpactBadge tier={info.row.original.impactTier} score={impact} />
             <span className="font-medium truncate" title={info.getValue()}>{info.getValue()}</span>
           </div>
         );
@@ -57,31 +57,27 @@ export default function DealerIntelligence() {
       cell: info => <span className="font-medium">{formatMT(info.getValue())}</span>,
     },
     {
-      accessorKey: 'mom',
       header: 'Trend',
-      cell: info => <MoMIndicator pct={info.getValue()} />,
+      accessorKey: 'mom',
+      cell: info => (
+        <MoMIndicator 
+          direction={info.row.original.trendDirection} 
+          label={info.row.original.trendLabel} 
+          pct={info.getValue()} 
+        />
+      ),
     },
     {
-      id: 'status',
       header: 'Status',
+      accessorKey: 'operationalStatus',
       cell: info => {
-        const mom = info.row.original.mom;
-        const cur = info.row.original.cur;
-
-        // Inactive: no current volume
-        if (cur === 0) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#ef4444]/20 text-[#ef4444]">Inactive</span>;
+        const status = info.getValue() || (info.row.original.isInactive ? 'Inactive' : 'Stable');
+        let badgeClass = 'badge-none';
+        if (status === 'Growing') badgeClass = 'badge-none';
+        if (status === 'Declining') badgeClass = 'badge-medium';
+        if (status === 'Inactive') badgeClass = 'badge-critical';
         
-        // Growing: positive percentage change
-        if (mom > 0) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#22c55e]/20 text-[#22c55e]">Growing</span>;
-        
-        // Critical Drop: significant negative change (e.g., > 20% drop)
-        if (mom < -20) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#f97316]/20 text-[#f97316]">Critical Drop</span>;
-        
-        // Declining: any negative change
-        if (mom < 0) return <span className="px-2 py-1 rounded text-xs font-bold bg-[#eab308]/20 text-[#eab308]">Declining</span>;
-        
-        // Stable: 0% change
-        return <span className="px-2 py-1 rounded text-xs font-bold bg-[#6b7280]/20 text-[#6b7280]">Stable</span>;
+        return <span className={`badge ${badgeClass}`}>{status}</span>;
       },
     },
   ], []);
@@ -120,7 +116,7 @@ export default function DealerIntelligence() {
           <div className="xl:col-span-4 space-y-6 animate-slide-up">
             <CollapsibleCard 
               title="Dealer Intelligence" 
-              accentColor={selectedDealer.isInactive ? '#6b7280' : selectedDealer.mom > 10 ? '#22c55e' : getImpactTier(selectedDealer.impactScore ?? selectedDealer.riskScore ?? 0, selectedDealer.mom).color}
+              accentColor={selectedDealer.displayColor || '#6b7280'}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); setSelectedDealer(null); }}
                 className="text-xs text-text-muted hover:text-text-primary underline"
@@ -142,12 +138,19 @@ export default function DealerIntelligence() {
                   <div className="text-base font-bold text-text-primary">{formatMT(selectedDealer.cur)}</div>
                 </div>
                 <div className="p-3 bg-bg-secondary rounded-lg">
-                  <div className="text-xs text-text-muted mb-1">Previous Vol</div>
-                  <div className="text-base font-bold text-text-secondary">{formatMT(selectedDealer.prev)}</div>
+                  <div className="text-xs text-text-muted mb-1">Operational Impact</div>
+                  <div className="mt-1">
+                    <ImpactBadge tier={selectedDealer.impactTier} score={selectedDealer.impactScore ?? selectedDealer.riskScore ?? 0} />
+                  </div>
                 </div>
                 <div className="p-3 bg-bg-secondary rounded-lg col-span-2 flex justify-between items-center">
                   <div className="text-xs text-text-muted">MoM Trend</div>
-                  <MoMIndicator pct={selectedDealer.mom} className="text-base" />
+                  <MoMIndicator 
+                    direction={selectedDealer.trendDirection} 
+                    label={selectedDealer.trendLabel} 
+                    pct={selectedDealer.mom} 
+                    className="text-base" 
+                  />
                 </div>
               </div>
 

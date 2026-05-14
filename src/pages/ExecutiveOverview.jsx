@@ -34,7 +34,8 @@ export default function ExecutiveOverview() {
         <KPICard 
           label="Total Dispatch" 
           value={formatMT(data.totalCur)} 
-          momPct={data.totalMoM}
+          momDisplay={data.totalMoMDisplay}
+          momColor={data.totalMoMColor}
           subtitle="vs Previous Period"
           accentColor="#3b82f6"
         />
@@ -72,12 +73,12 @@ export default function ExecutiveOverview() {
               {topStates.map(s => (
                 <div key={s.state} className="flex items-center justify-between p-2 hover:bg-bg-card-hover rounded-lg cursor-pointer transition-colors" onClick={() => navigate(`/states?state=${s.state}`)}>
                   <div className="flex items-center gap-2">
-                    <ImpactBadge score={s.impactScore ?? s.riskScore ?? 0} mom={s.mom} />
+                    <ImpactBadge tier={s.impactTier} score={s.impactScore ?? s.riskScore ?? 0} />
                     <span className="text-sm font-medium">{s.state}</span>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-text-secondary">{formatMT(s.cur)}</div>
-                    <MoMIndicator pct={s.mom} className="text-xs" />
+                    <div className="text-sm font-bold text-text-primary">{formatMT(s.cur)}</div>
+                    <MoMIndicator direction={s.trendDirection} label={s.trendLabel} pct={s.mom} className="text-[10px]" />
                   </div>
                 </div>
               ))}
@@ -90,15 +91,15 @@ export default function ExecutiveOverview() {
               {topDistricts.map(d => (
                 <div key={d.district} className="flex items-center justify-between p-2 hover:bg-bg-card-hover rounded-lg cursor-pointer transition-colors" onClick={() => navigate(`/districts?district=${d.district}`)}>
                   <div className="flex items-center gap-2">
-                    <ImpactBadge score={d.impactScore ?? d.riskScore ?? 0} mom={d.mom} />
+                    <ImpactBadge tier={d.impactTier} score={d.impactScore ?? d.riskScore ?? 0} />
                     <div>
                       <div className="text-sm font-medium leading-none">{d.district}</div>
                       <div className="text-[10px] text-text-muted mt-1">{d.state}</div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-text-secondary">{formatMT(d.cur)}</div>
-                    <MoMIndicator pct={d.mom} className="text-xs" />
+                    <div className="text-sm font-bold text-text-primary">{formatMT(d.cur)}</div>
+                    <MoMIndicator direction={d.trendDirection} label={d.trendLabel} pct={d.mom} className="text-[10px]" />
                   </div>
                 </div>
               ))}

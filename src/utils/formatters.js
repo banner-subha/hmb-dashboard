@@ -1,4 +1,6 @@
 // Formatting utilities used across the dashboard
+// INTELLIGENCE NOTE: Semantic logic (impact tiers, trend colors, business status) has been moved to the backend/workflow layer.
+// Frontend now purely renders pre-computed intelligence fields.
 
 /** Format a number as MT (metric tons) */
 export const formatMT = (n) => {
@@ -24,42 +26,6 @@ export const formatMoM = (pct) => {
 export const formatPct = (pct) => {
   if (pct == null || isNaN(pct)) return '—';
   return `${parseFloat(pct).toFixed(1)}%`;
-};
-
-/** Get MoM direction info (percentage change: green >0, red <0) */
-export const getMoMInfo = (pct) => {
-  if (pct == null || isNaN(pct)) return { direction: 'neutral', color: '#6b7280', arrow: '' };
-  const val = parseFloat(pct);
-  if (val > 0) return { direction: 'up', color: '#22c55e', arrow: '↑' };
-  if (val < 0) return { direction: 'down', color: '#ef4444', arrow: '↓' };
-  return { direction: 'neutral', color: '#94a3b8', arrow: '' };
-};
-
-/** Get risk color based on score (DEPRECATED) */
-export const getRiskColor = (score) => {
-  const s = parseFloat(score) || 0;
-  if (s >= 70) return '#ef4444';
-  if (s >= 40) return '#f97316';
-  return '#22c55e';
-};
-
-/** Get risk label (DEPRECATED) */
-export const getRiskLabel = (score) => {
-  const s = parseFloat(score) || 0;
-  if (s >= 70) return 'HIGH';
-  if (s >= 40) return 'MEDIUM';
-  return 'LOW';
-};
-
-/** Get Impact Tier configuration */
-export const getImpactTier = (score, mom = 0) => {
-  const s = parseFloat(score) || 0;
-  const m = parseFloat(mom) || 0;
-  if (s >= 75) return { label: 'Critical', icon: '🔴', color: '#ef4444', bg: 'bg-severity-critical/20', text: 'text-severity-critical' };
-  if (s >= 60) return { label: 'High', icon: '🟠', color: '#f97316', bg: 'bg-severity-high/20', text: 'text-severity-high' };
-  if (s >= 40) return { label: 'Moderate', icon: '🟡', color: '#eab308', bg: 'bg-severity-medium/20', text: 'text-severity-medium' };
-  if (s < 25 && m > -5) return { label: 'Stable', icon: '🟢', color: '#22c55e', bg: 'bg-severity-none/20', text: 'text-severity-none' };
-  return { label: 'Low', icon: '🟢', color: '#10b981', bg: 'bg-severity-none/20', text: 'text-emerald-500' };
 };
 
 /** Slugify a string for URLs */

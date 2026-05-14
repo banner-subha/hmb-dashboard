@@ -30,7 +30,7 @@ function GeoIntelligenceWrapper() {
       states[s.state] = {
         volume: s.cur ?? s.volume ?? null,
         trend:  s.mom ?? s.trend ?? null,
-        impact: imp >= 75 ? 'Critical' : imp >= 60 ? 'High' : imp >= 40 ? 'Moderate' : imp < 25 && (s.mom ?? s.trend ?? 0) > -5 ? 'Stable' : 'Low',
+        impact: s.impactTier || 'Stable',
       };
     });
 
@@ -43,7 +43,7 @@ function GeoIntelligenceWrapper() {
       districts[d.state][d.district] = {
         volume: d.cur ?? d.volume ?? null,
         trend:  d.mom ?? d.trend ?? null,
-        impact: imp >= 75 ? 'Critical' : imp >= 60 ? 'High' : imp >= 40 ? 'Moderate' : imp < 25 && (d.mom ?? d.trend ?? 0) > -5 ? 'Stable' : 'Low',
+        impact: d.impactTier || 'Stable',
       };
     });
 

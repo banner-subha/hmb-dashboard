@@ -445,7 +445,7 @@ export default function AlertIntelligence() {
                           {alert.drop ? formatNum(alert.drop) : (alert.data?.drop ? formatNum(alert.data.drop) : '-')}
                         </td>
                         <td className="p-4 text-right">
-                          <ImpactBadge score={alert.impactScore || alert.data?.riskScore || 0} mom={alert.mom || alert.data?.mom || 0} />
+                          <ImpactBadge tier={alert.impactTier || alert.data?.impactTier} score={alert.impactScore || alert.data?.riskScore || 0} />
                         </td>
                         <td className="p-4 text-center">
                           {alert.rootCause ? (

@@ -39,7 +39,7 @@ export default function DistrictIntelligence() {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
           <div className="flex items-center gap-2">
-            <ImpactBadge score={impact} mom={info.row.original.mom} />
+            <ImpactBadge tier={info.row.original.impactTier} score={impact} />
             <span className="font-medium">{info.getValue()}</span>
           </div>
         );
@@ -56,16 +56,22 @@ export default function DistrictIntelligence() {
       cell: info => <span className="font-medium">{formatMT(info.getValue())}</span>,
     },
     {
-      accessorKey: 'mom',
       header: 'Trend',
-      cell: info => <MoMIndicator pct={info.getValue()} />,
+      accessorKey: 'mom',
+      cell: info => (
+        <MoMIndicator 
+          direction={info.row.original.trendDirection} 
+          label={info.row.original.trendLabel} 
+          pct={info.getValue()} 
+        />
+      ),
     },
     {
       id: 'impact',
       header: 'Impact',
       cell: info => {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
-        return <ImpactBadge score={impact} mom={info.row.original.mom} />;
+        return <ImpactBadge tier={info.row.original.impactTier} score={impact} />;
       },
     },
   ], []);

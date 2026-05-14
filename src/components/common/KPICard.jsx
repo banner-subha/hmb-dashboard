@@ -1,20 +1,6 @@
-import { getMoMInfo } from '../../utils/formatters';
-
-export default function KPICard({ label, value, momPct, subtitle, accentColor = '#3b82f6' }) {
-  const val = parseFloat(momPct);
-
-  let color = '#94a3b8';
-  let arrow = '';
-
-  if (!isNaN(val)) {
-    if (val > 0) {
-      color = '#22c55e';
-      arrow = '↑';
-    } else if (val < 0) {
-      color = '#ef4444';
-      arrow = '↓';
-    }
-  }
+export default function KPICard({ label, value, subtitle, momDisplay, momColor, accentColor = '#3b82f6' }) {
+  // Graceful fallback: if momColor is missing, use neutral grey
+  const displayColor = momColor || '#94a3b8';
 
   return (
     <div
@@ -30,9 +16,9 @@ export default function KPICard({ label, value, momPct, subtitle, accentColor = 
       </div>
 
       <div className="text-[10px] sm:text-xs text-text-secondary mt-1 flex items-center gap-1.5 truncate">
-        {momPct !== undefined && momPct !== null && !isNaN(val) && (
-          <span style={{ color }} className="font-bold whitespace-nowrap">
-            {arrow && <span className="mr-0.5">{arrow}</span>}{val.toFixed(1)}%
+        {momDisplay && (
+          <span style={{ color: displayColor }} className="font-bold whitespace-nowrap">
+            {momDisplay}
           </span>
         )}
         <span className="truncate">{subtitle}</span>
