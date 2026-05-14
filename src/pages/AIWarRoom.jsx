@@ -1,6 +1,7 @@
 import { useData } from '../context/DataContext';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import SeverityBadge from '../components/common/SeverityBadge';
+import AlertIntelligenceGrid from '../components/common/AlertIntelligenceGrid';
 import { Brain, AlertTriangle, Target, Search, Map } from 'lucide-react';
 import { formatMT } from '../utils/formatters';
 
@@ -122,6 +123,9 @@ export default function AIWarRoom() {
           )}
         </div>
       </div>
+
+      {/* Alert Intelligence Layer */}
+      <AlertIntelligenceGrid alerts={data.alerts || []} />
     </div>
   );
 }
