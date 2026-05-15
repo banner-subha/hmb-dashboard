@@ -325,7 +325,7 @@ export default function GeoIntelligence({ salesData }) {
 
   // ── tooltip helpers ──
   const showTip = useCallback((e, name, map) => {
-    const d = map[norm(name)];
+    const d = map[normKey(name)];
     setTooltip({ visible: true, x: e.clientX, y: e.clientY, name, data: d ?? null });
   }, []);
   const moveTip = useCallback((e) => {
@@ -431,7 +431,7 @@ export default function GeoIntelligence({ salesData }) {
                     geo.properties?.name ||
                     geo.properties?.NAME_2 ||
                     `Region ${i}`;
-                  const entry = activeMap[norm(name)];
+                  const entry = activeMap[normKey(name)];
                   const fill  = getColor(entry?.volume);
                   const d     = pathGen(geo);
                   if (!d) return null;
