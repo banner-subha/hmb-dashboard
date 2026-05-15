@@ -30,7 +30,8 @@ export function calculateMoM(cur = 0, prev = 0) {
  *
  * Rules:
  *   mom <= -25  →  CRITICAL (red)
- *   mom <= -10  →  MODERATE (orange)
+ *   mom <= -15  →  HIGH (orange)
+ *   mom <= -5   →  MEDIUM (yellow)
  *   else        →  LOW      (green)
  */
 export function getSeverityTheme(level) {
@@ -50,13 +51,7 @@ export function getSeverityTheme(level) {
       border: 'rgba(249,115,22,0.45)',
       shadow: '0 0 15px rgba(249,115,22,0.15)',
     },
-    MODERATE: { // Aliased to HIGH for backward compat with UI updates
-      severity: 'MODERATE',
-      color: '#f97316',
-      bg: 'rgba(249,115,22,0.12)',
-      border: 'rgba(249,115,22,0.45)',
-      shadow: '0 0 15px rgba(249,115,22,0.15)',
-    },
+
     MEDIUM: {
       severity: 'MEDIUM',
       color: '#eab308',
@@ -77,35 +72,40 @@ export function getSeverityTheme(level) {
 
 export function getSeverityLevel(score) {
   if (score >= 75) return 'CRITICAL';
-  if (score >= 50) return 'HIGH';
-  if (score >= 25) return 'MEDIUM';
+  if (score >= 55) return 'HIGH';
+  if (score >= 30) return 'MEDIUM';
   return 'LOW';
 }
 
 export function calculateImpactScore(cur, prev, inactivityDays = 0, volatility = 0) {
-  let volumeWeight = 0;
-  if (prev > 1000) volumeWeight = 25;
-  else if (prev > 500) volumeWeight = 20;
-  else if (prev > 100) volumeWeight = 10;
-  else if (prev > 0) volumeWeight = 5;
+  // Normalize each component to 0-100
+  let volumeLossScore = 0;
+  let drop = prev - cur;
+  if (drop > 0) {
+    if (drop > 1000) volumeLossScore = 100;
+    else if (drop > 500) volumeLossScore = 80;
+    else if (drop > 100) volumeLossScore = 50;
+    else volumeLossScore = 20;
+  }
   
   let mom = calculateMoM(cur, prev);
-  let declineWeight = 0;
-  if (mom <= -75) declineWeight = 40;
-  else if (mom <= -50) declineWeight = 30;
-  else if (mom <= -25) declineWeight = 20;
-  else if (mom < 0) declineWeight = 10;
+  let declineScore = 0;
+  if (mom <= -75) declineScore = 100;
+  else if (mom <= -50) declineScore = 80;
+  else if (mom <= -25) declineScore = 50;
+  else if (mom < 0) declineScore = 20;
   
-  let inactivityWeight = Math.min(20, (inactivityDays || 0) * 2);
-  let volatilityWeight = Math.min(15, (volatility || 0) * 10);
+  let inactivityScore = Math.min(100, (inactivityDays || 0) * 10);
+  let volatilityScore = Math.min(100, (volatility || 0) * 20);
   
-  let score = volumeWeight + declineWeight + inactivityWeight + volatilityWeight;
-  return Math.min(100, Math.max(0, score));
+  let impactScore = (declineScore * 0.40) + (volumeLossScore * 0.30) + (inactivityScore * 0.20) + (volatilityScore * 0.10);
+  return Math.min(100, Math.max(0, impactScore));
 }
 
 export function getSeverity(mom) {
   if (mom <= -25) return getSeverityTheme('CRITICAL');
-  if (mom <= -10) return getSeverityTheme('MODERATE');
+  if (mom <= -15) return getSeverityTheme('HIGH');
+  if (mom <= -5) return getSeverityTheme('MEDIUM');
   return getSeverityTheme('LOW');
 }
 

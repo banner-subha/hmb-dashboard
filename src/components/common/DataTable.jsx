@@ -21,7 +21,7 @@ export default function DataTable({ data, columns, onRowClick }) {
 
   return (
     <div className="w-full overflow-x-auto rounded-lg border border-border bg-bg-card">
-      <table className="w-full text-sm text-left">
+      <table className="w-full text-sm text-left table-fixed">
         <thead className="text-xs text-text-muted uppercase bg-bg-secondary border-b border-border">
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
@@ -31,6 +31,7 @@ export default function DataTable({ data, columns, onRowClick }) {
                     key={header.id} 
                     className="px-4 py-3 font-semibold tracking-wider whitespace-nowrap cursor-pointer select-none hover:bg-bg-card-hover transition-colors"
                     onClick={header.column.getToggleSortingHandler()}
+                    style={{ width: header.column.columnDef.meta?.width }}
                   >
                     <div className="flex items-center gap-2">
                       {flexRender(
@@ -63,7 +64,11 @@ export default function DataTable({ data, columns, onRowClick }) {
                 className={`transition-colors ${onRowClick ? 'cursor-pointer hover:bg-bg-card-hover' : ''}`}
               >
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3">
+                  <td 
+                    key={cell.id} 
+                    className="px-4 py-3"
+                    style={{ width: cell.column.columnDef.meta?.width }}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}

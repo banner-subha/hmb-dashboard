@@ -120,7 +120,6 @@ export default function AlertIntelligence() {
   const [selectedLevel, setSelectedLevel] = useState('ALL');
   const [selectedState, setSelectedState] = useState('ALL');
   const [selectedProduct, setSelectedProduct] = useState('ALL');
-  const [showRootCauseOnly, setShowRootCauseOnly] = useState(false);
   const [expandedRows, setExpandedRows] = useState(new Set());
 
   if (loading) return <div className="text-center py-12">Loading Alert Intelligence...</div>;
@@ -147,10 +146,11 @@ export default function AlertIntelligence() {
       const sev = getSeverity(calculateMoM(cur, prev)).severity;
       
       if (sev === 'CRITICAL') acc.critical++;
-      if (sev === 'MODERATE') acc.moderate++;
+      if (sev === 'HIGH') acc.high++;
+      if (sev === 'MEDIUM') acc.medium++;
       if (sev === 'LOW') acc.low++;
       return acc;
-    }, { critical: 0, moderate: 0, low: 0 });
+    }, { critical: 0, high: 0, medium: 0, low: 0 });
   }, [alerts]);
 
   // 2. Filter logic
@@ -179,12 +179,9 @@ export default function AlertIntelligence() {
       const alertProd = alert.product || alert.products || alert.data?.product || '';
       if (selectedProduct !== 'ALL' && !alertProd.includes(selectedProduct)) return false;
 
-      // root cause only
-      if (showRootCauseOnly && !alert.rootCause) return false;
-
       return true;
     });
-  }, [alerts, searchQuery, selectedSeverity, selectedLevel, selectedState, selectedProduct, showRootCauseOnly]);
+  }, [alerts, searchQuery, selectedSeverity, selectedLevel, selectedState, selectedProduct]);
 
   // 3. Sorting
   const groupedAlerts = useMemo(() => {
@@ -281,28 +278,52 @@ export default function AlertIntelligence() {
             <div className="w-2.5 h-2.5 rounded-full bg-severity-critical animate-pulse-subtle"></div>
           </button>
 
-          {/* Moderate — soft orange tint */}
+          {/* High — orange tint */}
           <button
-            onClick={() => setSelectedSeverity(selectedSeverity === 'MODERATE' ? 'ALL' : 'MODERATE')}
+            onClick={() => setSelectedSeverity(selectedSeverity === 'HIGH' ? 'ALL' : 'HIGH')}
             className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
             style={{
-              background: selectedSeverity === 'MODERATE'
+              background: selectedSeverity === 'HIGH'
                 ? 'rgba(249,115,22,0.18)'
                 : 'rgba(249,115,22,0.12)',
-              borderColor: selectedSeverity === 'MODERATE'
+              borderColor: selectedSeverity === 'HIGH'
                 ? 'rgba(249,115,22,0.6)'
                 : 'rgba(249,115,22,0.35)',
-              boxShadow: selectedSeverity === 'MODERATE'
+              boxShadow: selectedSeverity === 'HIGH'
                 ? '0 0 20px rgba(249,115,22,0.12)'
                 : '0 0 10px rgba(249,115,22,0.04)',
               backdropFilter: 'blur(8px)',
             }}
           >
             <div className="flex flex-col text-left">
-              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(249,115,22,0.7)' }}>Moderate</span>
-              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.moderate}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(249,115,22,0.7)' }}>High</span>
+              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.high}</span>
             </div>
             <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#f97316' }}></div>
+          </button>
+
+          {/* Medium — yellow tint */}
+          <button
+            onClick={() => setSelectedSeverity(selectedSeverity === 'MEDIUM' ? 'ALL' : 'MEDIUM')}
+            className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
+            style={{
+              background: selectedSeverity === 'MEDIUM'
+                ? 'rgba(234,179,8,0.18)'
+                : 'rgba(234,179,8,0.12)',
+              borderColor: selectedSeverity === 'MEDIUM'
+                ? 'rgba(234,179,8,0.6)'
+                : 'rgba(234,179,8,0.35)',
+              boxShadow: selectedSeverity === 'MEDIUM'
+                ? '0 0 20px rgba(234,179,8,0.12)'
+                : '0 0 10px rgba(234,179,8,0.04)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(234,179,8,0.7)' }}>Medium</span>
+              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.medium}</span>
+            </div>
+            <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#eab308' }}></div>
           </button>
 
           {/* Low — soft green tint */}
@@ -379,18 +400,6 @@ export default function AlertIntelligence() {
             </select>
           </div>
 
-          <div className="flex items-center gap-3 w-full lg:w-auto">
-            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-text-secondary hover:text-text-primary transition-colors bg-bg-input/50 px-3 py-2 rounded-lg border border-border/50">
-              <input 
-                type="checkbox" 
-                checked={showRootCauseOnly}
-                onChange={(e) => setShowRootCauseOnly(e.target.checked)}
-                className="rounded border-border bg-bg-input text-accent-blue focus:ring-accent-blue"
-              />
-              <Layers className="w-4 h-4" />
-              Show Root Causes Only
-            </label>
-          </div>
         </div>
 
         {/* TABLE */}
@@ -405,13 +414,12 @@ export default function AlertIntelligence() {
                 <th className="p-4 font-bold text-right">MoM %</th>
                 <th className="p-4 font-bold text-right">MT Loss</th>
                 <th className="p-4 font-bold text-right">Impact Score</th>
-                <th className="p-4 font-bold text-center">Root Cause</th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-border/30">
               {groupedAlerts.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="p-12 text-center text-text-muted">
+                  <td colSpan="7" className="p-12 text-center text-text-muted">
                     <AlertTriangle className="w-8 h-8 mx-auto mb-3 opacity-20" />
                     No alerts match the selected filters.
                   </td>
@@ -471,15 +479,7 @@ export default function AlertIntelligence() {
                             {alert.impactScore || alert.data?.riskScore || alert.data?.impactScore || 0}
                           </span>
                         </td>
-                        <td className="p-4 text-center">
-                          {alert.rootCause ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-accent-blue/10 text-accent-blue border border-accent-blue/20">
-                              ROOT
-                            </span>
-                          ) : (
-                            <span className="text-text-muted">-</span>
-                          )}
-                        </td>
+
                       </tr>
 
                       {/* EXPANDED DETAILS (2-COLUMN LAYOUT) */}
@@ -489,7 +489,7 @@ export default function AlertIntelligence() {
                         
                         return (
                           <tr className="bg-bg-primary/40 shadow-inner">
-                            <td colSpan="9" className="p-0 border-b border-border/50">
+                            <td colSpan="7" className="p-0 border-b border-border/50">
                               <div className="p-6 pl-14 border-l-2 border-accent-blue ml-5 my-2 space-y-6 animate-slide-up">
                                 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

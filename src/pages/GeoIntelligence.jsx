@@ -49,6 +49,35 @@ function norm(s = '') {
   return s.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
 }
 
+// Map TopoJSON name anomalies to our backend normalized keys
+const TOPO_ALIASES = {
+  // 24 Parganas North / South
+  'paraganasnorth': 'northparganas',
+  'northparaganas': 'northparganas',
+  'paraganassouth': 'southparganas',
+  'southparaganas': 'southparganas',
+  
+  // Medinipur
+  'purbamedinipur': 'medinipureast',
+  'paschimmedinipur': 'medinipurwest',
+  'eastmidnapore': 'medinipureast',
+  'westmidnapore': 'medinipurwest',
+  
+  // Others
+  'darjiling': 'darjeeling',
+  'hugli': 'hooghly',
+  'kochbihar': 'coochbehar',
+  'puruliya': 'purulia',
+  'malda': 'maldah',
+  'maldah': 'maldah',
+  'barddhaman': 'purbabardhaman', // Default undivided to Purba
+};
+
+function normKey(s = '') {
+  const k = norm(s);
+  return TOPO_ALIASES[k] || k;
+}
+
 import { calculateMoM, getSeverity, getTrendColor as _getTrendColor, formatTrend } from '../utils/trendEngine';
 import ImpactBadge from '../components/common/ImpactBadge';
 

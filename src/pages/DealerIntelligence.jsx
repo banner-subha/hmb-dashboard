@@ -37,6 +37,7 @@ export default function DealerIntelligence() {
     {
       accessorKey: 'client',
       header: 'Dealer Name',
+      meta: { width: '35%' },
       cell: info => {
         const row = info.row.original;
         return (
@@ -55,24 +56,28 @@ export default function DealerIntelligence() {
     {
       accessorKey: 'district',
       header: 'Location',
-      cell: info => <span className="text-text-muted text-xs truncate max-w-[150px] inline-block" title={`${info.getValue()}, ${info.row.original.state}`}>{info.getValue()}, {info.row.original.state}</span>,
+      meta: { width: '25%' },
+      cell: info => <span className="text-text-muted text-xs truncate inline-block w-full" title={`${info.getValue()}, ${info.row.original.state}`}>{info.getValue()}, {info.row.original.state}</span>,
     },
     {
       accessorKey: 'cur',
       header: 'Vol (MT)',
-      cell: info => <span className="font-medium">{formatMT(info.getValue())}</span>,
+      meta: { width: '12%' },
+      cell: info => <span className="font-medium whitespace-nowrap">{formatMT(info.getValue())}</span>,
     },
     {
       header: 'Trend',
       accessorKey: 'mom',
+      meta: { width: '13%' },
       cell: info => {
         const row = info.row.original;
-        return <MoMIndicator cur={row.cur} prev={row.prev} />;
+        return <MoMIndicator cur={row.cur} prev={row.prev} className="whitespace-nowrap" />;
       },
     },
     {
       header: 'Status',
       accessorKey: 'operationalStatus',
+      meta: { width: '15%' },
       cell: info => {
         const row = info.row.original;
         // Derive status from frontend data
@@ -88,7 +93,7 @@ export default function DealerIntelligence() {
         if (status === 'Declining') badgeClass = 'badge-medium';
         if (status === 'Inactive') badgeClass = 'badge-critical';
         
-        return <span className={`badge ${badgeClass}`}>{status}</span>;
+        return <span className={`badge ${badgeClass} whitespace-nowrap`}>{status}</span>;
       },
     },
   ], []);
@@ -117,7 +122,7 @@ export default function DealerIntelligence() {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Col: Dealer Directory */}
-        <div className={`${selectedDealer ? 'xl:col-span-8' : 'xl:col-span-12'} space-y-6 transition-all duration-300`}>
+        <div className={`${selectedDealer ? 'xl:col-span-8' : 'xl:col-span-12'} space-y-6 transition-all duration-300 min-w-0`}>
           <CollapsibleCard title="Dealer Directory" badge={<span className="badge bg-bg-secondary text-text-muted">{dealers.length}</span>}>
             <DataTable 
               data={dealers} 
@@ -129,7 +134,7 @@ export default function DealerIntelligence() {
 
         {/* Right Col: Detail Panel */}
         {selectedDealer && (
-          <div className="xl:col-span-4 space-y-6 animate-slide-up">
+          <div className="xl:col-span-4 space-y-6 animate-slide-up min-w-0">
             <CollapsibleCard 
               title="Dealer Intelligence" 
               accentColor={selectedAccentColor}
