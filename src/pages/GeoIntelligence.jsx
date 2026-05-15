@@ -49,22 +49,17 @@ function norm(s = '') {
   return s.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
 }
 
-import { getSeverityMeta } from '../utils/severity';
+import { calculateMoM, getSeverity, getTrendColor as _getTrendColor, formatTrend } from '../utils/trendEngine';
 import ImpactBadge from '../components/common/ImpactBadge';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getTrendColor(t) {
-  if (t == null) return '#94a3b8';
-  if (t > 0) return '#22c55e';
-  if (t < 0) return '#ef4444';
-  return '#94a3b8';
+  return _getTrendColor(t);
 }
 
 function trendStr(t) {
   if (t == null) return '—';
-  const val = parseFloat(t);
-  const arrow = val > 0 ? '↑ ' : (val < 0 ? '↓ ' : '');
-  return `${arrow}${Math.abs(val).toFixed(1)}%`;
+  return formatTrend(t);
 }
 
 // ─── Tooltip (fixed-positioned, follows mouse) ────────────────────────────────
@@ -91,8 +86,8 @@ function Tooltip({ x, y, visible, name, data }) {
             <div className="flex justify-between gap-6 items-center">
               <span className="text-slate-500">Impact</span>
               <ImpactBadge 
-                tier={getSeverityMeta(data.original).severityTag} 
-                color={getSeverityMeta(data.original).severityColor}
+                cur={data.original?.cur ?? 0}
+                prev={data.original?.prev ?? 0}
               />
             </div>
           </div>

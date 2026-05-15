@@ -9,7 +9,7 @@ import MoMTrendChart from '../components/charts/MoMTrendChart';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT, formatMoM } from '../utils/formatters';
-import { getSeverityMeta } from '../utils/severity';
+import { calculateMoM, getSeverity } from '../utils/trendEngine';
 
 export default function StateIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -36,15 +36,15 @@ export default function StateIntelligence() {
       accessorKey: 'state',
       header: 'State',
       cell: info => {
-        const { severityTag, severityColor } = getSeverityMeta(info.row.original);
-        const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
+        const row = info.row.original;
+        const mom = calculateMoM(row.cur, row.prev);
+        const sev = getSeverity(mom);
         return (
           <div className="flex items-center gap-4">
             <div className="w-[100px] flex-shrink-0">
               <ImpactBadge 
-                tier={severityTag} 
-                score={impact} 
-                color={severityColor} 
+                cur={row.cur} 
+                prev={row.prev}
               />
             </div>
             <span className="font-medium">{info.getValue()}</span>
@@ -65,9 +65,10 @@ export default function StateIntelligence() {
     {
       header: 'Trend',
       accessorKey: 'mom',
-      cell: info => (
-        <MoMIndicator pct={info.getValue()} />
-      ),
+      cell: info => {
+        const row = info.row.original;
+        return <MoMIndicator cur={row.cur} prev={row.prev} />;
+      },
     },
     {
       accessorKey: 'share',
@@ -82,6 +83,11 @@ export default function StateIntelligence() {
 
   const states = data.states || [];
   const selectedStateData = states.find(s => s.state && filters.selectedState && s.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase());
+
+  // Compute accent color from frontend engine for selected state
+  const selectedAccentColor = selectedStateData 
+    ? getSeverity(calculateMoM(selectedStateData.cur, selectedStateData.prev)).color 
+    : '#6b7280';
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -104,7 +110,7 @@ export default function StateIntelligence() {
           <div className="lg:col-span-5 space-y-6 animate-slide-up">
             <CollapsibleCard 
               title={`${selectedStateData.state} Intelligence`} 
-              accentColor={selectedStateData.displayColor || '#6b7280'}
+              accentColor={selectedAccentColor}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SET_STATE', payload: null }); }}
                 className="text-xs text-text-muted hover:text-text-primary underline"
@@ -114,7 +120,8 @@ export default function StateIntelligence() {
                 <div className="p-3 bg-bg-secondary rounded-lg flex justify-between items-center">
                   <div className="text-xs text-text-muted">MoM Trend</div>
                   <MoMIndicator 
-                    pct={selectedStateData.mom} 
+                    cur={selectedStateData.cur}
+                    prev={selectedStateData.prev}
                     className="text-base" 
                   />
                 </div>
@@ -123,9 +130,8 @@ export default function StateIntelligence() {
                   <div className="text-xs text-text-muted mb-2">Business Impact</div>
                   <div className="mt-1">
                     <ImpactBadge 
-                      tier={getSeverityMeta(selectedStateData).severityTag} 
-                      score={selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0} 
-                      color={getSeverityMeta(selectedStateData).severityColor}
+                      cur={selectedStateData.cur}
+                      prev={selectedStateData.prev}
                     />
                   </div>
                 </div>
@@ -140,12 +146,16 @@ export default function StateIntelligence() {
                 <div>
                   <h4 className="text-xs font-bold text-text-muted uppercase mb-3">Product MoM Breakdown</h4>
                   <div className="space-y-2">
-                    {selectedStateData.products?.sort((a,b)=>a.mom-b.mom).map(p => (
+                    {selectedStateData.products?.sort((a,b) => {
+                      const momA = calculateMoM(a.cur, a.prev);
+                      const momB = calculateMoM(b.cur, b.prev);
+                      return momA - momB;
+                    }).map(p => (
                       <div key={p.product} className="flex justify-between items-center text-sm p-2 bg-bg-secondary rounded">
                         <span className="font-medium">{p.product}</span>
                         <div className="flex gap-4">
                           <span className="text-text-muted w-16 text-right">{formatMT(p.cur)}</span>
-                          <span className="w-16 text-right"><MoMIndicator pct={p.mom} /></span>
+                          <span className="w-16 text-right"><MoMIndicator cur={p.cur} prev={p.prev} /></span>
                         </div>
                       </div>
                     ))}

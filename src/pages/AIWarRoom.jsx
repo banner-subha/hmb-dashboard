@@ -1,6 +1,7 @@
 import { useData } from '../context/DataContext';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import SeverityBadge from '../components/common/SeverityBadge';
+import PriorityBadge from '../components/common/PriorityBadge';
 import { Brain, AlertTriangle, Target, Search, Map } from 'lucide-react';
 import { formatMT } from '../utils/formatters';
 
@@ -54,14 +55,15 @@ export default function AIWarRoom() {
           <CollapsibleCard title="Action Recommendations" accentColor="#22c55e" badge={<span className="badge bg-severity-none/20 text-severity-none">{intelligence.recommended_actions?.length || 0}</span>}>
             <div className="space-y-4">
               {intelligence.recommended_actions?.map((act, i) => (
-                <div key={i} className="relative pl-4 border-l-2 border-border pb-4 last:pb-0">
-                  <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-bg-card border-2 border-accent-blue"></div>
-                  <div className="flex gap-2 items-center mb-1">
-                    <SeverityBadge severity={act.priority} />
-                    <span className="text-xs font-bold text-text-muted uppercase">{act.owner}</span>
-                    <span className="text-xs text-text-secondary ml-auto">{act.deadline_hint}</span>
+                <div key={i} className="flex flex-col gap-3 p-4 bg-bg-secondary rounded-lg border border-border">
+                  <div className="flex items-center justify-between">
+                    <PriorityBadge priority={act.priority} />
+                    <div className="flex flex-col items-end">
+                      <span className="text-xs font-bold text-text-muted uppercase">{act.owner}</span>
+                      <span className="text-[10px] text-text-secondary">{act.deadline_hint}</span>
+                    </div>
                   </div>
-                  <p className="text-sm text-text-primary leading-relaxed mt-1">
+                  <p className="text-sm text-text-primary leading-relaxed">
                     {act.action}
                   </p>
                 </div>

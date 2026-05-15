@@ -6,9 +6,10 @@ import ProductBarChart from '../components/charts/ProductBarChart';
 import AlertSeverityChart from '../components/charts/AlertSeverityChart';
 import ImpactBadge from '../components/common/ImpactBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
+import PriorityBadge from '../components/common/PriorityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
-import { getSeverityMeta } from '../utils/severity';
+import { calculateMoM, getSeverity, formatTrend, getTrendColor } from '../utils/trendEngine';
 import { useNavigate } from 'react-router-dom';
 
 export default function ExecutiveOverview() {
@@ -21,10 +22,22 @@ export default function ExecutiveOverview() {
 
   const { intel, intelligence, products, alerts, alertCount } = data;
 
-  const topStates = (intel?.scoredStates || []).filter(s => s.mom < 0).slice(0, 5);
+  // Compute total MoM on frontend
+  const totalMoM = calculateMoM(data.totalCur, data.totalPrev);
+  const totalTrendDisplay = formatTrend(totalMoM);
+  const totalTrendColor = getTrendColor(totalMoM);
+
+  const topStates = (intel?.scoredStates || []).filter(s => {
+    const mom = calculateMoM(s.cur, s.prev);
+    return mom < 0;
+  }).slice(0, 5);
   const topDistricts = (intel?.scoredDistricts || []).slice(0, 5);
   const inactiveDealers = (intel?.inactiveDealers || []).slice(0, 3);
-  const decliningDealers = (intel?.scoredDealers || []).filter(d => !d.isInactive && d.mom < 0).slice(0, 3);
+  const decliningDealers = (intel?.scoredDealers || []).filter(d => {
+    if (d.isInactive) return false;
+    const mom = calculateMoM(d.cur, d.prev);
+    return mom < 0;
+  }).slice(0, 3);
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -35,8 +48,8 @@ export default function ExecutiveOverview() {
         <KPICard 
           label="Total Dispatch" 
           value={formatMT(data.totalCur)} 
-          momDisplay={data.totalMoMDisplay}
-          momColor={data.totalMoMColor}
+          momDisplay={totalTrendDisplay}
+          momColor={totalTrendColor}
           subtitle="vs Previous Period"
           accentColor="#3b82f6"
         />
@@ -76,16 +89,15 @@ export default function ExecutiveOverview() {
                   <div className="flex items-center gap-4">
                     <div className="w-[100px] flex-shrink-0">
                       <ImpactBadge 
-                        tier={getSeverityMeta(s).severityTag} 
-                        score={s.impactScore ?? s.riskScore ?? 0} 
-                        color={getSeverityMeta(s).severityColor}
+                        cur={s.cur}
+                        prev={s.prev}
                       />
                     </div>
                     <span className="text-sm font-medium">{s.state}</span>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-bold text-text-primary">{formatMT(s.cur)}</div>
-                    <MoMIndicator pct={s.mom} className="text-[10px]" />
+                    <MoMIndicator cur={s.cur} prev={s.prev} className="text-[10px]" />
                   </div>
                 </div>
               ))}
@@ -100,9 +112,8 @@ export default function ExecutiveOverview() {
                   <div className="flex items-center gap-4">
                     <div className="w-[100px] flex-shrink-0">
                       <ImpactBadge 
-                        tier={getSeverityMeta(d).severityTag} 
-                        score={d.impactScore ?? d.riskScore ?? 0} 
-                        color={getSeverityMeta(d).severityColor}
+                        cur={d.cur}
+                        prev={d.prev}
                       />
                     </div>
                     <div>
@@ -112,7 +123,7 @@ export default function ExecutiveOverview() {
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-bold text-text-primary">{formatMT(d.cur)}</div>
-                    <MoMIndicator pct={d.mom} className="text-[10px]" />
+                    <MoMIndicator cur={d.cur} prev={d.prev} className="text-[10px]" />
                   </div>
                 </div>
               ))}
@@ -164,12 +175,12 @@ export default function ExecutiveOverview() {
             <CollapsibleCard title="Recommended Actions">
               <div className="space-y-3">
                 {intelligence?.recommended_actions?.slice(0, 4).map((act, idx) => (
-                  <div key={idx} className="flex gap-3 p-3 border-b border-border last:border-0">
-                    <SeverityBadge severity={act.priority} className="mt-0.5" />
-                    <div>
-                      <div className="text-xs text-text-primary leading-relaxed">{act.action}</div>
-                      <div className="text-[10px] text-text-muted mt-1">{act.owner} • {act.deadline_hint}</div>
+                  <div key={idx} className="flex flex-col gap-3 p-3 border-b border-border last:border-0">
+                    <div className="flex items-center justify-between">
+                      <PriorityBadge priority={act.priority} />
+                      <div className="text-[10px] text-text-muted">{act.owner} • {act.deadline_hint}</div>
                     </div>
+                    <div className="text-xs text-text-primary leading-relaxed">{act.action}</div>
                   </div>
                 ))}
               </div>
@@ -193,21 +204,25 @@ export default function ExecutiveOverview() {
                   <SeverityBadge severity="CRITICAL" />
                 </div>
               ))}
-              {decliningDealers.map((d, i) => (
-                <div key={`dec-${i}`} 
-                  className="flex items-center justify-between p-3 rounded-xl border transition-all"
-                  style={{
-                    background: 'rgba(249,115,22,0.05)',
-                    borderColor: 'rgba(249,115,22,0.15)',
-                  }}
-                >
-                  <div>
-                    <div className="text-sm text-text-primary font-medium truncate max-w-[150px] sm:max-w-[200px]">{d.client}</div>
-                    <div className="text-xs text-text-muted mt-0.5">{d.district}, {d.state}</div>
+              {decliningDealers.map((d, i) => {
+                const mom = calculateMoM(d.cur, d.prev);
+                const sev = getSeverity(mom);
+                return (
+                  <div key={`dec-${i}`} 
+                    className="flex items-center justify-between p-3 rounded-xl border transition-all"
+                    style={{
+                      background: sev.bg,
+                      borderColor: sev.border,
+                    }}
+                  >
+                    <div>
+                      <div className="text-sm text-text-primary font-medium truncate max-w-[150px] sm:max-w-[200px]">{d.client}</div>
+                      <div className="text-xs text-text-muted mt-0.5">{d.district}, {d.state}</div>
+                    </div>
+                    <SeverityBadge severity={sev.severity} />
                   </div>
-                  <SeverityBadge severity="HIGH" />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CollapsibleCard>
 

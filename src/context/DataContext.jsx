@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useState, useMemo, useCallback } from 'react';
 import { dataService } from '../services/dataService';
+import { calculateMoM, formatTrend, getTrendColor } from '../utils/trendEngine';
 
 const DataContext = createContext(null);
 
@@ -134,12 +135,6 @@ export function DataProvider({ children }) {
             productMap[p.product] = {
               product: p.product,
               label: baseProduct.label || p.product,
-              displayColor: baseProduct.displayColor,
-              impactTier: baseProduct.impactTier,
-              trendDirection: baseProduct.trendDirection,
-              trendLabel: baseProduct.trendLabel,
-              healthStatus: baseProduct.healthStatus,
-              healthColor: baseProduct.healthColor,
               cur_mt: 0,
               prev_mt: 0
             };
@@ -149,33 +144,20 @@ export function DataProvider({ children }) {
         });
       });
 
-      dynamicTotalMoM = dynamicTotalPrev > 0 
-        ? Math.round((dynamicTotalCur / dynamicTotalPrev) * 100) 
-        : (dynamicTotalCur > 0 ? 100 : 0);
+      dynamicTotalMoM = calculateMoM(dynamicTotalCur, dynamicTotalPrev);
 
       dynamicProducts = Object.values(productMap).map(p => ({
         ...p,
-        mom_pct: p.prev_mt > 0 ? Math.round((p.cur_mt / p.prev_mt) * 100) : (p.cur_mt > 0 ? 100 : 0),
+        cur: p.cur_mt,
+        prev: p.prev_mt,
+        mom_pct: calculateMoM(p.cur_mt, p.prev_mt),
         share_pct: dynamicTotalCur > 0 ? Math.round((p.cur_mt / dynamicTotalCur) * 100) : 0
       })).sort((a, b) => b.cur_mt - a.cur_mt);
     }
 
-    let dynamicTotalMoMDisplay = rawData.totalMoMDisplay;
-    let dynamicTotalMoMColor = rawData.totalMoMColor;
-
-    if (filters.selectedState && !filters.selectedDistrict) {
-      const selectedStateData = rawData.states?.find(s => s.state === filters.selectedState);
-      if (selectedStateData) {
-        dynamicTotalMoMDisplay = selectedStateData.trendLabel;
-        dynamicTotalMoMColor = selectedStateData.displayColor;
-      }
-    } else if (filters.selectedDistrict) {
-      const selectedDistrictData = rawData.districts?.find(d => d.district === filters.selectedDistrict);
-      if (selectedDistrictData) {
-        dynamicTotalMoMDisplay = selectedDistrictData.trendLabel;
-        dynamicTotalMoMColor = selectedDistrictData.displayColor;
-      }
-    }
+    // Compute display values on frontend
+    const dynamicTotalMoMDisplay = formatTrend(calculateMoM(dynamicTotalCur, dynamicTotalPrev));
+    const dynamicTotalMoMColor = getTrendColor(calculateMoM(dynamicTotalCur, dynamicTotalPrev));
 
     return { 
       ...rawData, 

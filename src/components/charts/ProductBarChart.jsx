@@ -1,17 +1,13 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { getSeverityMeta } from '../../utils/severity';
+import { calculateMoM, getSeverity, getTrendColor, formatTrend } from '../../utils/trendEngine';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    const trendValue = data.mom_pct !== undefined ? data.mom_pct : data.mom;
-    let trendColor = '#94a3b8';
-    let trendDisplay = '—';
-    if (trendValue != null) {
-      trendColor = trendValue > 0 ? '#22c55e' : (trendValue < 0 ? '#ef4444' : '#94a3b8');
-      trendDisplay = `${trendValue > 0 ? '↑ ' : (trendValue < 0 ? '↓ ' : '')}${Math.abs(parseFloat(trendValue)).toFixed(1)}%`;
-    }
-    const meta = getSeverityMeta({ mom: trendValue, impactScore: data.impactScore ?? data.riskScore ?? 0, impactTier: data.impactTier });
+    const mom = data._mom;
+    const sev = data._severity;
+    const trendColor = data._trendColor;
+    const trendDisplay = data._trendDisplay;
 
     return (
       <div className="glass-card p-3 shadow-xl border-border-accent">
@@ -19,7 +15,7 @@ const CustomTooltip = ({ active, payload }) => {
         <div className="space-y-2 text-xs">
           <div className="flex justify-between gap-4">
             <span className="text-text-muted">Impact:</span>
-            <span className="font-bold" style={{ color: meta.severityColor }}>{meta.severityTag}</span>
+            <span className="font-bold" style={{ color: sev.color }}>{sev.severity}</span>
           </div>
           <div className="pt-2 border-t border-border mt-2 space-y-1">
             <div className="flex justify-between gap-4">
@@ -49,13 +45,26 @@ export default function ProductBarChart({ data, height = 300 }) {
     return <div className="flex items-center justify-center h-full text-text-muted text-sm">No data available</div>;
   }
 
-  const chartData = data.map(d => ({
-    ...d,
-    cur_mt: d.cur_mt !== undefined ? d.cur_mt : d.cur,
-    prev_mt: d.prev_mt !== undefined ? d.prev_mt : d.prev,
-    share_pct: d.share_pct !== undefined ? d.share_pct : d.share,
-    mom: d.mom_pct !== undefined ? d.mom_pct : d.mom
-  }));
+  // Compute ALL derived values on the frontend from raw cur/prev
+  const chartData = data.map(d => {
+    const cur = d.cur_mt !== undefined ? d.cur_mt : (d.cur ?? 0);
+    const prev = d.prev_mt !== undefined ? d.prev_mt : (d.prev ?? 0);
+    const mom = calculateMoM(cur, prev);
+    const severity = getSeverity(mom);
+    const trendColor = getTrendColor(mom);
+    const trendDisplay = formatTrend(mom);
+
+    return {
+      ...d,
+      cur_mt: cur,
+      prev_mt: prev,
+      share_pct: d.share_pct !== undefined ? d.share_pct : d.share,
+      _mom: mom,
+      _severity: severity,
+      _trendColor: trendColor,
+      _trendDisplay: trendDisplay,
+    };
+  });
 
   return (
     <div style={{ height: `${height}px`, width: '100%' }}>
@@ -70,10 +79,9 @@ export default function ProductBarChart({ data, height = 300 }) {
           <YAxis dataKey="product" type="category" stroke="#94a3b8" fontSize={12} width={50} />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} />
           <Bar dataKey="cur_mt" radius={[0, 4, 4, 0]} maxBarSize={32}>
-            {chartData.map((entry, index) => {
-              const meta = getSeverityMeta({ mom: entry.mom, impactScore: entry.impactScore ?? entry.riskScore ?? 0, impactTier: entry.impactTier });
-              return <Cell key={`cell-${index}`} fill={meta.severityColor} />;
-            })}
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry._severity.color} />
+            ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

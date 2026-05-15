@@ -18,7 +18,7 @@ import {
 import SeverityBadge from '../components/common/SeverityBadge';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
-import { getSeverityMeta } from '../utils/severity';
+import { calculateMoM, getSeverity } from '../utils/trendEngine';
 
 // Helper to format numbers safely
 const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toFixed(1) : fallback);
@@ -307,7 +307,7 @@ export default function AlertIntelligence() {
             }}
           >
             <div className="flex flex-col text-left">
-              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(234,179,8,0.7)' }}>Medium</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(234,179,8,0.7)' }}>Moderate</span>
               <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.medium}</span>
             </div>
             <div className="w-2.5 h-2.5 rounded-full bg-severity-medium"></div>
@@ -418,10 +418,13 @@ export default function AlertIntelligence() {
                           {isExpanded ? <ChevronDown className="w-4 h-4 mx-auto text-accent-blue" /> : <ChevronRight className="w-4 h-4 mx-auto group-hover:text-text-primary transition-colors" />}
                         </td>
                         <td className="p-4">
-                          <SeverityBadge 
-                            severity={getSeverityMeta({ mom: alert.mom, impactScore: alert.impactScore || alert.data?.riskScore || 0, impactTier: alert.severity || alert.impactTier || alert.data?.impactTier, severityColor: alert.severityColor || alert.data?.severityColor || alert.displayColor || alert.data?.displayColor }).severityTag} 
-                            color={getSeverityMeta({ mom: alert.mom, impactScore: alert.impactScore || alert.data?.riskScore || 0, impactTier: alert.severity || alert.impactTier || alert.data?.impactTier, severityColor: alert.severityColor || alert.data?.severityColor || alert.displayColor || alert.data?.displayColor }).severityColor} 
-                          />
+                          {(() => {
+                            const cur = alert.data?.cur ?? alert.cur ?? 0;
+                            const prev = alert.data?.prev ?? alert.prev ?? 0;
+                            const mom = calculateMoM(cur, prev);
+                            const sev = getSeverity(mom);
+                            return <SeverityBadge severity={sev.severity} color={sev.color} />;
+                          })()}
                         </td>
                         <td className="p-4">
                           <span className="text-xs font-bold text-text-muted">{lvl}</span>
@@ -437,17 +440,15 @@ export default function AlertIntelligence() {
                           </div>
                         </td>
                         <td className="p-4 text-right font-medium whitespace-nowrap">
-                          <MoMIndicator pct={alert.mom} />
+                          <MoMIndicator cur={alert.data?.cur ?? alert.cur} prev={alert.data?.prev ?? alert.prev} />
                         </td>
                         <td className="p-4 text-right text-text-secondary whitespace-nowrap">
                           {alert.drop ? formatNum(alert.drop) : (alert.data?.drop ? formatNum(alert.data.drop) : '-')}
                         </td>
                         <td className="p-4 text-right">
-                          <ImpactBadge 
-                            tier={getSeverityMeta({ mom: alert.mom, impactScore: alert.impactScore || alert.data?.riskScore || 0, impactTier: alert.impactTier || alert.data?.impactTier, severityColor: alert.severityColor || alert.data?.severityColor || alert.displayColor || alert.data?.displayColor }).severityTag} 
-                            score={alert.impactScore || alert.data?.riskScore || 0} 
-                            color={getSeverityMeta({ mom: alert.mom, impactScore: alert.impactScore || alert.data?.riskScore || 0, impactTier: alert.impactTier || alert.data?.impactTier, severityColor: alert.severityColor || alert.data?.severityColor || alert.displayColor || alert.data?.displayColor }).severityColor}
-                          />
+                          <span className="font-bold text-text-primary">
+                            {alert.impactScore || alert.data?.riskScore || alert.data?.impactScore || 0}
+                          </span>
                         </td>
                         <td className="p-4 text-center">
                           {alert.rootCause ? (

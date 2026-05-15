@@ -9,7 +9,7 @@ import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
 import { formatMT } from '../utils/formatters';
-import { getSeverityMeta } from '../utils/severity';
+import { calculateMoM, getSeverity } from '../utils/trendEngine';
 
 export default function DealerIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -38,15 +38,13 @@ export default function DealerIntelligence() {
       accessorKey: 'client',
       header: 'Dealer Name',
       cell: info => {
-        const { severityTag, severityColor } = getSeverityMeta(info.row.original);
-        const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
+        const row = info.row.original;
         return (
           <div className="flex items-center gap-4">
             <div className="w-[100px] flex-shrink-0">
               <ImpactBadge 
-                tier={severityTag} 
-                score={impact} 
-                color={severityColor}
+                cur={row.cur} 
+                prev={row.prev}
               />
             </div>
             <span className="font-medium text-sm truncate" title={info.getValue()}>{info.getValue()}</span>
@@ -67,15 +65,24 @@ export default function DealerIntelligence() {
     {
       header: 'Trend',
       accessorKey: 'mom',
-      cell: info => (
-        <MoMIndicator pct={info.getValue()} />
-      ),
+      cell: info => {
+        const row = info.row.original;
+        return <MoMIndicator cur={row.cur} prev={row.prev} />;
+      },
     },
     {
       header: 'Status',
       accessorKey: 'operationalStatus',
       cell: info => {
-        const status = info.getValue() || (info.row.original.isInactive ? 'Inactive' : 'Stable');
+        const row = info.row.original;
+        // Derive status from frontend data
+        let status;
+        const mom = calculateMoM(row.cur, row.prev);
+        if (row.isInactive || row.cur === 0) status = 'Inactive';
+        else if (mom > 0) status = 'Growing';
+        else if (mom <= -10) status = 'Declining';
+        else status = 'Stable';
+
         let badgeClass = 'badge-none';
         if (status === 'Growing') badgeClass = 'badge-none';
         if (status === 'Declining') badgeClass = 'badge-medium';
@@ -93,6 +100,11 @@ export default function DealerIntelligence() {
   const dealers = data.dealers || [];
   const dealerAlerts = data.alerts?.filter(a => a.category === 'DEALER' && a.data?.client === selectedDealer?.client) || [];
   const aiRisk = data.intelligence?.dealer_risks?.find(r => r.dealer === selectedDealer?.client);
+
+  // Compute accent color from frontend engine for selected dealer
+  const selectedAccentColor = selectedDealer 
+    ? getSeverity(calculateMoM(selectedDealer.cur, selectedDealer.prev)).color 
+    : '#6b7280';
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -120,7 +132,7 @@ export default function DealerIntelligence() {
           <div className="xl:col-span-4 space-y-6 animate-slide-up">
             <CollapsibleCard 
               title="Dealer Intelligence" 
-              accentColor={selectedDealer.displayColor || '#6b7280'}
+              accentColor={selectedAccentColor}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); setSelectedDealer(null); }}
                 className="text-xs text-text-muted hover:text-text-primary underline"
@@ -129,7 +141,7 @@ export default function DealerIntelligence() {
               <div className="mb-6">
                 <h3 className="text-lg font-bold text-text-primary break-words">{selectedDealer.client}</h3>
                 <p className="text-sm text-text-muted">{selectedDealer.district}, {selectedDealer.state}</p>
-                {selectedDealer.isInactive && (
+                {(selectedDealer.isInactive || selectedDealer.cur === 0) && (
                   <div className="mt-2 inline-block px-2 py-1 bg-bg-secondary border border-border rounded text-xs font-bold text-text-muted">
                     INACTIVE THIS CYCLE
                   </div>
@@ -146,16 +158,16 @@ export default function DealerIntelligence() {
                   <div className="text-xs text-text-muted mb-2">Business Impact</div>
                   <div className="mt-1">
                     <ImpactBadge 
-                      tier={getSeverityMeta(selectedDealer).severityTag} 
-                      score={selectedDealer.impactScore ?? selectedDealer.riskScore ?? 0} 
-                      color={getSeverityMeta(selectedDealer).severityColor}
+                      cur={selectedDealer.cur}
+                      prev={selectedDealer.prev}
                     />
                   </div>
                 </div>
                 <div className="p-3 bg-bg-secondary rounded-lg col-span-2 flex justify-between items-center">
                   <div className="text-xs text-text-muted">MoM Trend</div>
                   <MoMIndicator 
-                    pct={selectedDealer.mom} 
+                    cur={selectedDealer.cur}
+                    prev={selectedDealer.prev}
                     className="text-base" 
                   />
                 </div>
