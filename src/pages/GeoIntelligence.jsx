@@ -49,25 +49,21 @@ function norm(s = '') {
   return s.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
 }
 
+import { getSeverityMeta } from '../utils/severity';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function trendColor(t) {
+function getTrendColor(t) {
   if (t == null) return '#94a3b8';
-  if (t >= 75) return '#34d399';
-  if (t >= 50) return '#fbbf24';
-  return '#f87171';
+  if (t > 0) return '#22c55e';
+  if (t < 0) return '#ef4444';
+  return '#94a3b8';
 }
-function impactColor(i) {
-  if (!i) return '#22c55e'; // STABLE by default
-  const u = i.toUpperCase();
-  if (u === 'CRITICAL') return '#ef4444';
-  if (u === 'HIGH') return '#f97316';
-  if (u === 'MODERATE') return '#eab308';
-  if (u === 'LOW') return '#10b981';
-  return '#22c55e';
-}
+
 function trendStr(t) {
   if (t == null) return '—';
-  return `${t}%`;
+  const val = parseFloat(t);
+  const arrow = val > 0 ? '↑ ' : (val < 0 ? '↓ ' : '');
+  return `${arrow}${Math.abs(val).toFixed(1)}%`;
 }
 
 // ─── Tooltip (fixed-positioned, follows mouse) ────────────────────────────────
@@ -90,8 +86,8 @@ function Tooltip({ x, y, visible, name, data }) {
         {data ? (
           <div className="space-y-1.5">
             <Row label="Volume" value={`${data.volume?.toLocaleString() ?? '—'} MT`} valueColor="#f1f5f9" />
-            <Row label="Trend"  value={trendStr(data.trend)}  valueColor={trendColor(data.trend)} />
-            <Row label="Impact" value={data.impact ?? '—'}    valueColor={impactColor(data.impact)} />
+            <Row label="Trend"  value={trendStr(data.trend)}  valueColor={getTrendColor(data.trend)} />
+            <Row label="Impact" value={getSeverityMeta(data.original).severityTag} valueColor={getSeverityMeta(data.original).severityColor} />
           </div>
         ) : (
           <div className="text-slate-500 italic">No data</div>
@@ -148,7 +144,7 @@ function RankRow({ rank, name, volume, trend, isTop }) {
         {volume?.toLocaleString() ?? '—'}
       </span>
       {trend != null && (
-        <span className="text-[10px] flex-shrink-0" style={{ color: trendColor(trend) }}>
+        <span className="text-[10px] flex-shrink-0 font-bold" style={{ color: getTrendColor(trend) }}>
           {trendStr(trend)}
         </span>
       )}

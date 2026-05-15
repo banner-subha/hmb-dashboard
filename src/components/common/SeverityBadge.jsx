@@ -1,12 +1,14 @@
-import { SEVERITY_CONFIG } from '../../utils/constants';
-
-export default function SeverityBadge({ severity, className = '' }) {
-  const config = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.NONE;
-  const badgeClass = `badge-${(severity || 'none').toLowerCase()}`;
+export default function SeverityBadge({ severity, color, className = '' }) {
+  const displayColor = color || '#94a3b8';
+  const label = severity ? severity.toUpperCase() : '–';
   
   return (
-    <span className={`${badgeClass} ${className}`}>
-      {config.label || severity}
-    </span>
+    <div className={`inline-flex items-center gap-2 text-xs font-bold tracking-wider ${className}`}>
+      <span 
+        className="w-2 h-2 rounded-full" 
+        style={{ backgroundColor: displayColor }}
+      />
+      <span style={{ color: displayColor }}>{label}</span>
+    </div>
   );
 }

@@ -1,25 +1,25 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { getSeverityMeta } from '../../utils/severity';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    // Use backend intelligence
-    const trendColor = data.displayColor || '#94a3b8';
-    const trendDisplay = data.trendLabel || (data.mom != null ? `${data.mom.toFixed(1)}%` : '—');
-    const healthStatus = data.healthStatus || 'Stable';
-    const healthColor = data.healthColor || '#94a3b8';
+    const trendValue = data.mom_pct !== undefined ? data.mom_pct : data.mom;
+    let trendColor = '#94a3b8';
+    let trendDisplay = '—';
+    if (trendValue != null) {
+      trendColor = trendValue > 0 ? '#22c55e' : (trendValue < 0 ? '#ef4444' : '#94a3b8');
+      trendDisplay = `${trendValue > 0 ? '↑ ' : (trendValue < 0 ? '↓ ' : '')}${Math.abs(parseFloat(trendValue)).toFixed(1)}%`;
+    }
+    const meta = getSeverityMeta({ mom: trendValue, impactScore: data.impactScore ?? data.riskScore ?? 0, impactTier: data.impactTier });
 
     return (
       <div className="glass-card p-3 shadow-xl border-border-accent">
         <p className="font-bold text-text-primary text-sm mb-2">{data.label || data.product}</p>
         <div className="space-y-2 text-xs">
           <div className="flex justify-between gap-4">
-            <span className="text-text-muted">Health:</span>
-            <span className="font-bold uppercase tracking-tight" style={{ color: healthColor }}>{healthStatus}</span>
-          </div>
-          <div className="flex justify-between gap-4">
             <span className="text-text-muted">Impact:</span>
-            <span className="font-bold text-text-primary">{data.impactTier || 'Stable'}</span>
+            <span className="font-bold" style={{ color: meta.severityColor }}>{meta.severityTag}</span>
           </div>
           <div className="pt-2 border-t border-border mt-2 space-y-1">
             <div className="flex justify-between gap-4">
@@ -70,9 +70,10 @@ export default function ProductBarChart({ data, height = 300 }) {
           <YAxis dataKey="product" type="category" stroke="#94a3b8" fontSize={12} width={50} />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} />
           <Bar dataKey="cur_mt" radius={[0, 4, 4, 0]} maxBarSize={32}>
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.displayColor || '#6b7280'} />
-            ))}
+            {chartData.map((entry, index) => {
+              const meta = getSeverityMeta({ mom: entry.mom, impactScore: entry.impactScore ?? entry.riskScore ?? 0, impactTier: entry.impactTier });
+              return <Cell key={`cell-${index}`} fill={meta.severityColor} />;
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

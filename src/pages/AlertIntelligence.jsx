@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import SeverityBadge from '../components/common/SeverityBadge';
 import ImpactBadge from '../components/common/ImpactBadge';
+import MoMIndicator from '../components/common/MoMIndicator';
+import { getSeverityMeta } from '../utils/severity';
 
 // Helper to format numbers safely
 const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toFixed(1) : fallback);
@@ -199,12 +201,6 @@ export default function AlertIntelligence() {
     setExpandedRows(newExpanded);
   };
 
-  const renderTrendIcon = (mom) => {
-    if (typeof mom !== 'number') return <Minus className="w-4 h-4 text-text-muted" />;
-    if (mom < 0) return <TrendingDown className="w-4 h-4 text-severity-critical" />;
-    if (mom > 0) return <TrendingUp className="w-4 h-4 text-severity-none" />;
-    return <Minus className="w-4 h-4 text-text-muted" />;
-  };
 
   const getIndentLevel = (alert) => {
     const lvl = (alert.level || alert.category || '').toUpperCase();
@@ -394,7 +390,6 @@ export default function AlertIntelligence() {
                 <th className="p-4 font-bold text-right">MT Loss</th>
                 <th className="p-4 font-bold text-right">Impact Score</th>
                 <th className="p-4 font-bold text-center">Root Cause</th>
-                <th className="p-4 font-bold text-center">Trend</th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-border/30">
@@ -423,7 +418,10 @@ export default function AlertIntelligence() {
                           {isExpanded ? <ChevronDown className="w-4 h-4 mx-auto text-accent-blue" /> : <ChevronRight className="w-4 h-4 mx-auto group-hover:text-text-primary transition-colors" />}
                         </td>
                         <td className="p-4">
-                          <SeverityBadge severity={alert.severity || 'LOW'} />
+                          <SeverityBadge 
+                            severity={getSeverityMeta({ mom: alert.mom, impactScore: alert.impactScore || alert.data?.riskScore || 0, impactTier: alert.severity || alert.impactTier || alert.data?.impactTier, severityColor: alert.severityColor || alert.data?.severityColor || alert.displayColor || alert.data?.displayColor }).severityTag} 
+                            color={getSeverityMeta({ mom: alert.mom, impactScore: alert.impactScore || alert.data?.riskScore || 0, impactTier: alert.severity || alert.impactTier || alert.data?.impactTier, severityColor: alert.severityColor || alert.data?.severityColor || alert.displayColor || alert.data?.displayColor }).severityColor} 
+                          />
                         </td>
                         <td className="p-4">
                           <span className="text-xs font-bold text-text-muted">{lvl}</span>
@@ -438,14 +436,18 @@ export default function AlertIntelligence() {
                             <span className="font-medium text-text-primary whitespace-nowrap">{entityName}</span>
                           </div>
                         </td>
-                        <td className={`p-4 text-right font-medium whitespace-nowrap ${alert.mom < 0 ? 'text-severity-critical' : 'text-text-primary'}`}>
-                          {alert.mom ? `${alert.mom > 0 ? '+' : ''}${formatNum(alert.mom)}%` : '-'}
+                        <td className="p-4 text-right font-medium whitespace-nowrap">
+                          <MoMIndicator pct={alert.mom} />
                         </td>
                         <td className="p-4 text-right text-text-secondary whitespace-nowrap">
                           {alert.drop ? formatNum(alert.drop) : (alert.data?.drop ? formatNum(alert.data.drop) : '-')}
                         </td>
                         <td className="p-4 text-right">
-                          <ImpactBadge tier={alert.impactTier || alert.data?.impactTier} score={alert.impactScore || alert.data?.riskScore || 0} />
+                          <ImpactBadge 
+                            tier={getSeverityMeta({ mom: alert.mom, impactScore: alert.impactScore || alert.data?.riskScore || 0, impactTier: alert.impactTier || alert.data?.impactTier, severityColor: alert.severityColor || alert.data?.severityColor || alert.displayColor || alert.data?.displayColor }).severityTag} 
+                            score={alert.impactScore || alert.data?.riskScore || 0} 
+                            color={getSeverityMeta({ mom: alert.mom, impactScore: alert.impactScore || alert.data?.riskScore || 0, impactTier: alert.impactTier || alert.data?.impactTier, severityColor: alert.severityColor || alert.data?.severityColor || alert.displayColor || alert.data?.displayColor }).severityColor}
+                          />
                         </td>
                         <td className="p-4 text-center">
                           {alert.rootCause ? (
@@ -455,9 +457,6 @@ export default function AlertIntelligence() {
                           ) : (
                             <span className="text-text-muted">-</span>
                           )}
-                        </td>
-                        <td className="p-4 flex justify-center">
-                          {renderTrendIcon(alert.mom)}
                         </td>
                       </tr>
 

@@ -9,6 +9,7 @@ import MoMTrendChart from '../components/charts/MoMTrendChart';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT, formatMoM } from '../utils/formatters';
+import { getSeverityMeta } from '../utils/severity';
 
 export default function StateIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -35,11 +36,16 @@ export default function StateIntelligence() {
       accessorKey: 'state',
       header: 'State',
       cell: info => {
+        const { severityTag, severityColor } = getSeverityMeta(info.row.original);
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
           <div className="flex items-center gap-4">
             <div className="w-[100px] flex-shrink-0">
-              <ImpactBadge tier={info.row.original.impactTier} score={impact} />
+              <ImpactBadge 
+                tier={severityTag} 
+                score={impact} 
+                color={severityColor} 
+              />
             </div>
             <span className="font-medium">{info.getValue()}</span>
           </div>
@@ -60,11 +66,7 @@ export default function StateIntelligence() {
       header: 'Trend',
       accessorKey: 'mom',
       cell: info => (
-        <MoMIndicator 
-          direction={info.row.original.trendDirection} 
-          label={info.row.original.trendLabel} 
-          pct={info.getValue()} 
-        />
+        <MoMIndicator pct={info.getValue()} />
       ),
     },
     {
@@ -112,8 +114,6 @@ export default function StateIntelligence() {
                 <div className="p-3 bg-bg-secondary rounded-lg flex justify-between items-center">
                   <div className="text-xs text-text-muted">MoM Trend</div>
                   <MoMIndicator 
-                    direction={selectedStateData.trendDirection} 
-                    label={selectedStateData.trendLabel} 
                     pct={selectedStateData.mom} 
                     className="text-base" 
                   />
@@ -122,7 +122,11 @@ export default function StateIntelligence() {
                 <div className="p-3 bg-bg-secondary rounded-lg">
                   <div className="text-xs text-text-muted mb-2">Business Impact</div>
                   <div className="mt-1">
-                    <ImpactBadge tier={selectedStateData.impactTier} score={selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0} />
+                    <ImpactBadge 
+                      tier={getSeverityMeta(selectedStateData).severityTag} 
+                      score={selectedStateData.impactScore ?? selectedStateData.riskScore ?? 0} 
+                      color={getSeverityMeta(selectedStateData).severityColor}
+                    />
                   </div>
                 </div>
               </div>

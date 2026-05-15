@@ -9,6 +9,7 @@ import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
 import { formatMT } from '../utils/formatters';
+import { getSeverityMeta } from '../utils/severity';
 
 export default function DealerIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -37,11 +38,16 @@ export default function DealerIntelligence() {
       accessorKey: 'client',
       header: 'Dealer Name',
       cell: info => {
+        const { severityTag, severityColor } = getSeverityMeta(info.row.original);
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
           <div className="flex items-center gap-4">
             <div className="w-[100px] flex-shrink-0">
-              <ImpactBadge tier={info.row.original.impactTier} score={impact} />
+              <ImpactBadge 
+                tier={severityTag} 
+                score={impact} 
+                color={severityColor}
+              />
             </div>
             <span className="font-medium text-sm truncate" title={info.getValue()}>{info.getValue()}</span>
           </div>
@@ -62,11 +68,7 @@ export default function DealerIntelligence() {
       header: 'Trend',
       accessorKey: 'mom',
       cell: info => (
-        <MoMIndicator 
-          direction={info.row.original.trendDirection} 
-          label={info.row.original.trendLabel} 
-          pct={info.getValue()} 
-        />
+        <MoMIndicator pct={info.getValue()} />
       ),
     },
     {
@@ -143,14 +145,16 @@ export default function DealerIntelligence() {
                 <div className="p-3 bg-bg-secondary rounded-lg">
                   <div className="text-xs text-text-muted mb-2">Business Impact</div>
                   <div className="mt-1">
-                    <ImpactBadge tier={selectedDealer.impactTier} score={selectedDealer.impactScore ?? selectedDealer.riskScore ?? 0} />
+                    <ImpactBadge 
+                      tier={getSeverityMeta(selectedDealer).severityTag} 
+                      score={selectedDealer.impactScore ?? selectedDealer.riskScore ?? 0} 
+                      color={getSeverityMeta(selectedDealer).severityColor}
+                    />
                   </div>
                 </div>
                 <div className="p-3 bg-bg-secondary rounded-lg col-span-2 flex justify-between items-center">
                   <div className="text-xs text-text-muted">MoM Trend</div>
                   <MoMIndicator 
-                    direction={selectedDealer.trendDirection} 
-                    label={selectedDealer.trendLabel} 
                     pct={selectedDealer.mom} 
                     className="text-base" 
                   />

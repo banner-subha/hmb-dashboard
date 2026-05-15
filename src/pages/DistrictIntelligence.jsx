@@ -8,6 +8,7 @@ import RiskScatterPlot from '../components/charts/RiskScatterPlot';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
+import { getSeverityMeta } from '../utils/severity';
 
 export default function DistrictIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -36,11 +37,16 @@ export default function DistrictIntelligence() {
       accessorKey: 'district',
       header: 'District',
       cell: info => {
+        const { severityTag, severityColor } = getSeverityMeta(info.row.original);
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
           <div className="flex items-center gap-4">
             <div className="w-[100px] flex-shrink-0">
-              <ImpactBadge tier={info.row.original.impactTier} score={impact} />
+              <ImpactBadge 
+                tier={severityTag} 
+                score={impact} 
+                color={severityColor}
+              />
             </div>
             <span className="font-medium">{info.getValue()}</span>
           </div>
@@ -61,11 +67,7 @@ export default function DistrictIntelligence() {
       header: 'Trend',
       accessorKey: 'mom',
       cell: info => (
-        <MoMIndicator 
-          direction={info.row.original.trendDirection} 
-          label={info.row.original.trendLabel} 
-          pct={info.getValue()} 
-        />
+        <MoMIndicator pct={info.getValue()} />
       ),
     },
 

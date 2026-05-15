@@ -8,6 +8,7 @@ import ImpactBadge from '../components/common/ImpactBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
+import { getSeverityMeta } from '../utils/severity';
 import { useNavigate } from 'react-router-dom';
 
 export default function ExecutiveOverview() {
@@ -75,16 +76,16 @@ export default function ExecutiveOverview() {
                   <div className="flex items-center gap-4">
                     <div className="w-[100px] flex-shrink-0">
                       <ImpactBadge 
-                        tier={s.impactTier} 
+                        tier={getSeverityMeta(s).severityTag} 
                         score={s.impactScore ?? s.riskScore ?? 0} 
-                        color={s.severityColor || s.displayColor}
+                        color={getSeverityMeta(s).severityColor}
                       />
                     </div>
                     <span className="text-sm font-medium">{s.state}</span>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-bold text-text-primary">{formatMT(s.cur)}</div>
-                    <MoMIndicator direction={s.trendDirection} label={s.trendLabel} pct={s.mom} className="text-[10px]" />
+                    <MoMIndicator pct={s.mom} className="text-[10px]" />
                   </div>
                 </div>
               ))}
@@ -99,9 +100,9 @@ export default function ExecutiveOverview() {
                   <div className="flex items-center gap-4">
                     <div className="w-[100px] flex-shrink-0">
                       <ImpactBadge 
-                        tier={d.impactTier} 
+                        tier={getSeverityMeta(d).severityTag} 
                         score={d.impactScore ?? d.riskScore ?? 0} 
-                        color={d.severityColor || d.displayColor}
+                        color={getSeverityMeta(d).severityColor}
                       />
                     </div>
                     <div>
@@ -111,7 +112,7 @@ export default function ExecutiveOverview() {
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-bold text-text-primary">{formatMT(d.cur)}</div>
-                    <MoMIndicator direction={d.trendDirection} label={d.trendLabel} pct={d.mom} className="text-[10px]" />
+                    <MoMIndicator pct={d.mom} className="text-[10px]" />
                   </div>
                 </div>
               ))}
