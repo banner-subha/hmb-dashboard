@@ -58,13 +58,13 @@ const normKey = (value = "") => {
   return String(value)
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "")
-    .replace(/paraganas/g, "parganas");
+    .replace(/paraganas|paragans|pargans/g, "parganas");
 };
 
 const TOPO_ALIASES = {
   // 24 Parganas
-  "24paraganasnorth": "north24parganas",
-  "24paraganassouth": "south24parganas",
+  "24parganasnorth": "north24parganas",
+  "24parganassouth": "south24parganas",
 
   // Medinipur
   "medinipureast": "purbamedinipur",
@@ -222,7 +222,8 @@ export default function GeoIntelligence({ salesData }) {
     const m = {};
     Object.entries(src).forEach(([name, district]) => {
       // Prioritize backend lookupKey, fallback to frontend normalized name
-      const key = district.lookupKey || normKey(name);
+      let key = normKey(district.lookupKey || name);
+      key = TOPO_ALIASES[key] || key;
       m[key] = { ...district, name };
     });
     return m;
