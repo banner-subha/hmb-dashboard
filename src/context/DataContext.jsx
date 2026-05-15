@@ -157,7 +157,7 @@ export function DataProvider({ children }) {
 
     // Compute display values on frontend
     const dynamicTotalMoMDisplay = formatTrend(calculateMoM(dynamicTotalCur, dynamicTotalPrev));
-    const dynamicTotalMoMColor = getTrendColor(calculateMoM(dynamicTotalCur, dynamicTotalPrev));
+    const dynamicTotalMoMColor = getTrendColor(calculateMoM(dynamicTotalCur, dynamicTotalPrev), dynamicTotalCur, dynamicTotalPrev);
 
     return { 
       ...rawData, 

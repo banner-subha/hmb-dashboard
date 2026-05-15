@@ -85,8 +85,8 @@ import { calculateMoM, getSeverity, getTrendColor as _getTrendColor, formatTrend
 import ImpactBadge from '../components/common/ImpactBadge';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function getTrendColor(t) {
-  return _getTrendColor(t);
+function getTrendColor(t, cur, prev) {
+  return _getTrendColor(t, cur, prev);
 }
 
 function trendStr(t) {
@@ -114,7 +114,7 @@ function Tooltip({ x, y, visible, name, data }) {
         {data ? (
           <div className="space-y-1.5">
             <Row label="Volume" value={`${data.volume?.toLocaleString() ?? '—'} MT`} valueColor="#f1f5f9" />
-            <Row label="Trend"  value={trendStr(data.trend)}  valueColor={getTrendColor(data.trend)} />
+            <Row label="Trend"  value={trendStr(data.trend)}  valueColor={getTrendColor(data.trend, data.cur, data.prev)} />
             <div className="flex justify-between gap-6 items-center">
               <span className="text-slate-500">Impact</span>
               <ImpactBadge 
@@ -162,7 +162,7 @@ function Legend() {
 }
 
 // ─── Ranked entry row ─────────────────────────────────────────────────────────
-function RankRow({ rank, name, volume, trend, isTop }) {
+function RankRow({ rank, name, volume, trend, cur, prev, isTop }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors"
       style={{ background: '#0d1526', borderColor: '#1e293b' }}>
@@ -178,7 +178,7 @@ function RankRow({ rank, name, volume, trend, isTop }) {
         {volume?.toLocaleString() ?? '—'}
       </span>
       {trend != null && (
-        <span className="text-[10px] flex-shrink-0 font-bold" style={{ color: getTrendColor(trend) }}>
+        <span className="text-[10px] flex-shrink-0 font-bold" style={{ color: getTrendColor(trend, cur, prev) }}>
           {trendStr(trend)}
         </span>
       )}
@@ -533,7 +533,7 @@ export default function GeoIntelligence({ salesData }) {
             </div>
             <div className="space-y-1.5">
               {top5.length ? top5.map((e, i) => (
-                <RankRow key={e.name} rank={i + 1} name={e.name} volume={e.volume} trend={e.trend} isTop />
+                <RankRow key={e.name} rank={i + 1} name={e.name} volume={e.volume} trend={e.trend} cur={e.cur} prev={e.prev} isTop />
               )) : (
                 <p className="text-xs text-center py-3 italic" style={{ color: '#334155' }}>No data available</p>
               )}
@@ -547,7 +547,7 @@ export default function GeoIntelligence({ salesData }) {
             </div>
             <div className="space-y-1.5">
               {bottom5.length ? bottom5.map((e, i) => (
-                <RankRow key={e.name} rank={i + 1} name={e.name} volume={e.volume} trend={e.trend} isTop={false} />
+                <RankRow key={e.name} rank={i + 1} name={e.name} volume={e.volume} trend={e.trend} cur={e.cur} prev={e.prev} isTop={false} />
               )) : (
                 <p className="text-xs text-center py-3 italic" style={{ color: '#334155' }}>No data available</p>
               )}

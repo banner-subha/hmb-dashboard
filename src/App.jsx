@@ -28,6 +28,8 @@ function GeoIntelligenceWrapper() {
       if (!s.state) return;
       const imp = s.impactScore ?? s.riskScore ?? 0;
       states[s.state] = {
+        cur: s.cur ?? 0,
+        prev: s.prev ?? 0,
         volume: s.cur ?? s.volume ?? null,
         trend:  s.mom ?? s.trend ?? null,
         impact: s.impactTier || 'Stable',

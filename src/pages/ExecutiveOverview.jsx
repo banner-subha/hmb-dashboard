@@ -25,7 +25,7 @@ export default function ExecutiveOverview() {
   // Compute total MoM on frontend
   const totalMoM = calculateMoM(data.totalCur, data.totalPrev);
   const totalTrendDisplay = formatTrend(totalMoM);
-  const totalTrendColor = getTrendColor(totalMoM);
+  const totalTrendColor = getTrendColor(totalMoM, data.totalCur, data.totalPrev);
 
   const topStates = (intel?.scoredStates || []).filter(s => {
     const mom = calculateMoM(s.cur, s.prev);

@@ -51,7 +51,7 @@ export default function ProductBarChart({ data, height = 300 }) {
     const prev = d.prev_mt !== undefined ? d.prev_mt : (d.prev ?? 0);
     const mom = calculateMoM(cur, prev);
     const severity = getSeverity(mom);
-    const trendColor = getTrendColor(mom);
+    const trendColor = getTrendColor(mom, cur, prev);
     const trendDisplay = formatTrend(mom);
 
     return {

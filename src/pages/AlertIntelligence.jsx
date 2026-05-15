@@ -413,7 +413,7 @@ export default function AlertIntelligence() {
                 <th className="p-4 font-bold">Entity</th>
                 <th className="p-4 font-bold text-right">MoM %</th>
                 <th className="p-4 font-bold text-right">MT Loss</th>
-                <th className="p-4 font-bold text-right">Impact Score</th>
+                <th className="p-4 font-bold text-center">Impact Score</th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-border/30">
@@ -469,7 +469,7 @@ export default function AlertIntelligence() {
                         <td className="p-4 text-right text-text-secondary whitespace-nowrap">
                           {alert.drop ? formatNum(alert.drop) : (alert.data?.drop ? formatNum(alert.data.drop) : '-')}
                         </td>
-                        <td className="p-4 text-right">
+                        <td className="p-4 text-center">
                           <span
                             style={{
                               color: getImpactScoreColor(alert.impactScore || alert.data?.riskScore || alert.data?.impactScore || 0),

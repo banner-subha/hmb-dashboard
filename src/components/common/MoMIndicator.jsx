@@ -17,7 +17,7 @@ export default function MoMIndicator({ cur, prev, pct, className = '' }) {
     mom = pct != null ? parseFloat(pct) : null;
   }
 
-  const color = getTrendColor(mom);
+  const color = getTrendColor(mom, cur, prev);
   const display = mom != null ? formatTrend(mom) : '—';
 
   return (

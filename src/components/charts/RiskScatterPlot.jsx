@@ -58,7 +58,7 @@ export default function RiskScatterPlot({ data, height = 300 }) {
 
   const chartData = data.map(item => {
     const mom = calculateMoM(item.cur, item.prev);
-    const trendColor = getTrendColor(mom);
+    const trendColor = getTrendColor(mom, item.cur, item.prev);
     const trendDisplay = formatTrend(mom);
     const impactScore = item.impactScore ?? item.riskScore ?? 0;
     const sevLevel = getSeverityLevel(impactScore);

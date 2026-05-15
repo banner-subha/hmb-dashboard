@@ -115,9 +115,16 @@ export function getSeverity(mom) {
  *   negative → red
  *   zero/null → neutral grey
  */
-export function getTrendColor(mom) {
+export function getTrendColor(mom, cur = null, prev = null) {
   if (mom == null) return '#94a3b8';
   if (mom >= 0) return '#22c55e';
+  
+  if (cur != null && prev != null) {
+    const score = calculateImpactScore(cur, prev);
+    const sevLevel = getSeverityLevel(score);
+    return getSeverityTheme(sevLevel).color;
+  }
+  
   return getSeverity(mom).color;
 }
 
