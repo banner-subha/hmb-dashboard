@@ -11,7 +11,12 @@ import {
 const STATE_GEO_URL =
   'https://raw.githubusercontent.com/geohacker/india/master/state/india_state.geojson';
 
+const geoCache = {};
+
 const districtTopoUrl = (stateName) => {
+  if (stateName === 'West Bengal') {
+    return '/geo/westbengal.json';
+  }
   const slug = stateName
     .toLowerCase()
     .replace(/\s+/g, '')
@@ -49,34 +54,32 @@ function norm(s = '') {
   return s.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
 }
 
-// Map TopoJSON name anomalies to our backend normalized keys
-const TOPO_ALIASES = {
-  // 24 Parganas North / South
-  'paraganasnorth': 'northparganas',
-  'northparaganas': 'northparganas',
-  'paraganassouth': 'southparganas',
-  'southparaganas': 'southparganas',
-  
-  // Medinipur
-  'purbamedinipur': 'medinipureast',
-  'paschimmedinipur': 'medinipurwest',
-  'eastmidnapore': 'medinipureast',
-  'westmidnapore': 'medinipurwest',
-  
-  // Others
-  'darjiling': 'darjeeling',
-  'hugli': 'hooghly',
-  'kochbihar': 'coochbehar',
-  'puruliya': 'purulia',
-  'malda': 'maldah',
-  'maldah': 'maldah',
-  'barddhaman': 'purbabardhaman', // Default undivided to Purba
+const normKey = (value = "") => {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .replace(/paraganas/g, "parganas");
 };
 
-function normKey(s = '') {
-  const k = norm(s);
-  return TOPO_ALIASES[k] || k;
-}
+const TOPO_ALIASES = {
+  // 24 Parganas
+  "24paraganasnorth": "north24parganas",
+  "24paraganassouth": "south24parganas",
+
+  // Medinipur
+  "medinipureast": "purbamedinipur",
+  "medinipurwest": "paschimmedinipur",
+  "eastmidnapore": "purbamedinipur",
+  "westmidnapore": "paschimmedinipur",
+
+  // Bardhaman
+  "bardhamaneast": "purbabardhaman",
+  "bardhamanwest": "paschimbardhaman",
+
+  // Dinajpur
+  "northdinajpur": "uttardinajpur",
+  "southdinajpur": "dakshindinajpur"
+};
 
 import { calculateMoM, getSeverity, getTrendColor as _getTrendColor, formatTrend } from '../utils/trendEngine';
 import ImpactBadge from '../components/common/ImpactBadge';
@@ -203,9 +206,6 @@ export default function GeoIntelligence({ salesData }) {
   // ── hover tooltip ──
   const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, name: '', data: null });
 
-  // ── cache ──
-  const geoCache = useRef({});
-
   // ── salesData lookup maps ──
   const stateMap = useMemo(() => {
     if (!salesData?.states) return {};
@@ -220,23 +220,25 @@ export default function GeoIntelligence({ salesData }) {
     if (!salesData?.districts || !selectedState) return {};
     const src = salesData.districts[selectedState] ?? {};
     const m = {};
-    Object.entries(src).forEach(([k, v]) => {
-      m[norm(k)] = { name: k, ...v };
+    Object.values(src).forEach(district => {
+      if (district.lookupKey) {
+        m[district.lookupKey] = district;
+      }
     });
     return m;
   }, [salesData, selectedState]);
 
   // ── load state GeoJSON on mount ──
   useEffect(() => {
-    if (geoCache.current['__states__']) {
-      setStateGeo(geoCache.current['__states__']);
+    if (geoCache['__states__']) {
+      setStateGeo(geoCache['__states__']);
       setGeoLoading(false);
       return;
     }
     fetch(STATE_GEO_URL)
       .then(r => r.json())
       .then(gj => {
-        geoCache.current['__states__'] = gj.features;
+        geoCache['__states__'] = gj.features;
         setStateGeo(gj.features);
       })
       .catch(console.error)
@@ -251,8 +253,8 @@ export default function GeoIntelligence({ salesData }) {
     setDistLoading(true);
     setZoom(1); setPanX(0); setPanY(0);
 
-    if (geoCache.current[name]) {
-      setDistrictGeo(geoCache.current[name]);
+    if (geoCache[name]) {
+      setDistrictGeo(geoCache[name]);
       setDistLoading(false);
       return;
     }
@@ -262,7 +264,7 @@ export default function GeoIntelligence({ salesData }) {
       const topo = await res.json();
       const key  = Object.keys(topo.objects)[0];
       const geo  = feature(topo, topo.objects[key]);
-      geoCache.current[name] = geo.features;
+      geoCache[name] = geo.features;
       setDistrictGeo(geo.features);
     } catch (e) {
       setDistError(e.message);
@@ -324,9 +326,8 @@ export default function GeoIntelligence({ salesData }) {
   const bottom5 = [...ranked].reverse().slice(0, 5);
 
   // ── tooltip helpers ──
-  const showTip = useCallback((e, name, map) => {
-    const d = map[normKey(name)];
-    setTooltip({ visible: true, x: e.clientX, y: e.clientY, name, data: d ?? null });
+  const showTip = useCallback((e, name, entry) => {
+    setTooltip({ visible: true, x: e.clientX, y: e.clientY, name, data: entry ?? null });
   }, []);
   const moveTip = useCallback((e) => {
     setTooltip(t => t.visible ? { ...t, x: e.clientX, y: e.clientY } : t);
@@ -424,14 +425,21 @@ export default function GeoIntelligence({ salesData }) {
               <g transform={`translate(${panX},${panY}) scale(${zoom})`}
                 style={{ transformOrigin: '50% 50%' }}>
                 {(activeFeatures || []).map((geo, i) => {
-                  const name =
-                    geo.properties?.NAME_1 ||
+                  const topoName =
                     geo.properties?.district ||
-                    geo.properties?.DISTRICT ||
-                    geo.properties?.name ||
                     geo.properties?.NAME_2 ||
-                    `Region ${i}`;
-                  const entry = activeMap[normKey(name)];
+                    geo.properties?.name ||
+                    geo.properties?.NAME_1 ||
+                    "";
+                    
+                  let topoKey = normKey(topoName);
+                  topoKey = TOPO_ALIASES[topoKey] || topoKey;
+                  
+                  const entry = selectedState ? activeMap[topoKey] : activeMap[norm(topoName || `Region ${i}`)];
+                  
+                  if (selectedState && !entry) {
+                    console.warn("UNMATCHED TOPO DISTRICT:", topoName, topoKey);
+                  }
                   const fill  = getColor(entry?.volume);
                   const d     = pathGen(geo);
                   if (!d) return null;
@@ -443,11 +451,11 @@ export default function GeoIntelligence({ salesData }) {
                       stroke="#0f1117"
                       strokeWidth={selectedState ? 0.4 : 0.7}
                       style={{ transition: 'fill 0.15s', cursor: selectedState ? 'default' : 'pointer' }}
-                      onClick={() => !selectedState && handleStateClick(name)}
+                      onClick={() => !selectedState && handleStateClick(topoName)}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.fill = '#3b82f6';
                         e.currentTarget.style.opacity = '0.85';
-                        showTip(e, name, activeMap);
+                        showTip(e, topoName, entry);
                       }}
                       onMouseMove={moveTip}
                       onMouseLeave={(e) => {

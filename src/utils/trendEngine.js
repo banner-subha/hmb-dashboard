@@ -71,9 +71,9 @@ export function getSeverityTheme(level) {
 }
 
 export function getSeverityLevel(score) {
-  if (score >= 75) return 'CRITICAL';
-  if (score >= 55) return 'HIGH';
-  if (score >= 30) return 'MEDIUM';
+  if (score >= 65) return 'CRITICAL';
+  if (score >= 45) return 'HIGH';
+  if (score >= 20) return 'MEDIUM';
   return 'LOW';
 }
 
