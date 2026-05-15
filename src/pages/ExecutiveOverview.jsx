@@ -5,7 +5,6 @@ import CollapsibleCard from '../components/common/CollapsibleCard';
 import ProductBarChart from '../components/charts/ProductBarChart';
 import AlertSeverityChart from '../components/charts/AlertSeverityChart';
 import ImpactBadge from '../components/common/ImpactBadge';
-import HealthBadge from '../components/common/HealthBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
@@ -73,10 +72,13 @@ export default function ExecutiveOverview() {
               {topStates.length === 0 && <div className="text-text-muted text-sm">No declining states</div>}
               {topStates.map(s => (
                 <div key={s.state} className="flex items-center justify-between p-2 hover:bg-bg-card-hover rounded-lg cursor-pointer transition-colors" onClick={() => navigate(`/states?state=${s.state}`)}>
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col gap-0.5 items-start">
-                      <ImpactBadge tier={s.impactTier} score={s.impactScore ?? s.riskScore ?? 0} />
-                      <HealthBadge status={s.healthStatus} color={s.healthColor} />
+                  <div className="flex items-center gap-4">
+                    <div className="w-[100px] flex-shrink-0">
+                      <ImpactBadge 
+                        tier={s.impactTier} 
+                        score={s.impactScore ?? s.riskScore ?? 0} 
+                        color={s.severityColor || s.displayColor}
+                      />
                     </div>
                     <span className="text-sm font-medium">{s.state}</span>
                   </div>
@@ -94,10 +96,13 @@ export default function ExecutiveOverview() {
               {topDistricts.length === 0 && <div className="text-text-muted text-sm">No district data</div>}
               {topDistricts.map(d => (
                 <div key={d.district} className="flex items-center justify-between p-2 hover:bg-bg-card-hover rounded-lg cursor-pointer transition-colors" onClick={() => navigate(`/districts?district=${d.district}`)}>
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col gap-0.5 items-start">
-                      <ImpactBadge tier={d.impactTier} score={d.impactScore ?? d.riskScore ?? 0} />
-                      <HealthBadge status={d.healthStatus} color={d.healthColor} />
+                  <div className="flex items-center gap-4">
+                    <div className="w-[100px] flex-shrink-0">
+                      <ImpactBadge 
+                        tier={d.impactTier} 
+                        score={d.impactScore ?? d.riskScore ?? 0} 
+                        color={d.severityColor || d.displayColor}
+                      />
                     </div>
                     <div>
                       <div className="text-sm font-medium leading-none">{d.district}</div>
@@ -173,19 +178,31 @@ export default function ExecutiveOverview() {
           <CollapsibleCard title="Dealer Impact Alerts">
             <div className="space-y-3">
               {inactiveDealers.map((d, i) => (
-                <div key={`in-${i}`} className="flex items-center justify-between p-2">
+                <div key={`in-${i}`} 
+                  className="flex items-center justify-between p-3 rounded-xl border transition-all"
+                  style={{
+                    background: 'rgba(239,68,68,0.05)',
+                    borderColor: 'rgba(239,68,68,0.15)',
+                  }}
+                >
                   <div>
                     <div className="text-sm text-text-primary font-medium truncate max-w-[150px] sm:max-w-[200px]">{d.client}</div>
-                    <div className="text-xs text-text-muted">{d.district}, {d.state}</div>
+                    <div className="text-xs text-text-muted mt-0.5">{d.district}, {d.state}</div>
                   </div>
                   <SeverityBadge severity="CRITICAL" />
                 </div>
               ))}
               {decliningDealers.map((d, i) => (
-                <div key={`dec-${i}`} className="flex items-center justify-between p-2">
+                <div key={`dec-${i}`} 
+                  className="flex items-center justify-between p-3 rounded-xl border transition-all"
+                  style={{
+                    background: 'rgba(249,115,22,0.05)',
+                    borderColor: 'rgba(249,115,22,0.15)',
+                  }}
+                >
                   <div>
                     <div className="text-sm text-text-primary font-medium truncate max-w-[150px] sm:max-w-[200px]">{d.client}</div>
-                    <div className="text-xs text-text-muted">{d.district}, {d.state}</div>
+                    <div className="text-xs text-text-muted mt-0.5">{d.district}, {d.state}</div>
                   </div>
                   <SeverityBadge severity="HIGH" />
                 </div>
