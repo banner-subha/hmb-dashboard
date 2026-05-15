@@ -37,13 +37,16 @@ function GeoIntelligenceWrapper() {
       };
     });
 
-    // Build districts map: { "West Bengal": { "Kolkata": { volume, trend, impact } } }
+    // Build districts map: { "West Bengal": { "Kolkata": { volume, trend, impact, lookupKey } } }
     const districts = {};
     (rawData.districts || []).forEach((d) => {
       if (!d.state || !d.district) return;
       if (!districts[d.state]) districts[d.state] = {};
       const imp = d.impactScore ?? d.riskScore ?? 0;
       districts[d.state][d.district] = {
+        lookupKey: d.lookupKey,
+        cur: d.cur ?? 0,
+        prev: d.prev ?? 0,
         volume: d.cur ?? d.volume ?? null,
         trend:  d.mom ?? d.trend ?? null,
         impact: d.impactTier || 'Stable',

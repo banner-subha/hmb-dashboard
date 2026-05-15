@@ -31,8 +31,7 @@ export default function SeverityBadge({ severity, color, className = '' }) {
           width: '8px',
           height: '8px',
           borderRadius: '999px',
-          background: 'currentColor',
-          boxShadow: '0 0 10px currentColor'
+          background: 'currentColor'
         }}
       />
       <span>{severity || 'LOW'}</span>

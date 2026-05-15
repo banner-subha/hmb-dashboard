@@ -35,19 +35,20 @@ export default function StateIntelligence() {
     {
       accessorKey: 'state',
       header: 'State',
+      meta: { width: '45%', minWidth: '240px' },
       cell: info => {
         const row = info.row.original;
         const mom = calculateMoM(row.cur, row.prev);
         const sev = getSeverity(mom);
         return (
-          <div className="flex items-center gap-4">
-            <div className="w-[100px] flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-[85px] flex-shrink-0">
               <ImpactBadge 
-                cur={row.cur} 
+                cur={row.cur}
                 prev={row.prev}
               />
             </div>
-            <span className="font-medium">{info.getValue()}</span>
+            <span className="font-medium truncate block">{info.getValue()}</span>
           </div>
         );
       },
@@ -55,16 +56,19 @@ export default function StateIntelligence() {
     {
       accessorKey: 'cur',
       header: 'Current Vol',
+      meta: { width: '15%' },
       cell: info => <span className="font-medium">{formatMT(info.getValue())}</span>,
     },
     {
       accessorKey: 'prev',
       header: 'Prev Vol',
+      meta: { width: '15%' },
       cell: info => <span className="text-text-muted">{formatMT(info.getValue())}</span>,
     },
     {
       header: 'Trend',
       accessorKey: 'mom',
+      meta: { width: '15%' },
       cell: info => {
         const row = info.row.original;
         return <MoMIndicator cur={row.cur} prev={row.prev} />;
@@ -73,6 +77,7 @@ export default function StateIntelligence() {
     {
       accessorKey: 'share',
       header: 'Share %',
+      meta: { width: '10%' },
       cell: info => <span className="text-text-muted">{info.getValue()}%</span>,
     },
   ], []);

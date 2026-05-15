@@ -42,14 +42,14 @@ export function getSeverityTheme(level) {
       color: '#ef4444',
       bg: 'rgba(239,68,68,0.12)',
       border: 'rgba(239,68,68,0.45)',
-      shadow: '0 0 15px rgba(239,68,68,0.15)',
+      shadow: 'none',
     },
     HIGH: {
       severity: 'HIGH',
       color: '#f97316',
       bg: 'rgba(249,115,22,0.12)',
       border: 'rgba(249,115,22,0.45)',
-      shadow: '0 0 15px rgba(249,115,22,0.15)',
+      shadow: 'none',
     },
 
     MEDIUM: {
@@ -57,14 +57,14 @@ export function getSeverityTheme(level) {
       color: '#eab308',
       bg: 'rgba(234,179,8,0.12)',
       border: 'rgba(234,179,8,0.45)',
-      shadow: '0 0 15px rgba(234,179,8,0.15)',
+      shadow: 'none',
     },
     LOW: {
       severity: 'LOW',
       color: '#22c55e',
       bg: 'rgba(34,197,94,0.12)',
       border: 'rgba(34,197,94,0.45)',
-      shadow: '0 0 15px rgba(34,197,94,0.15)',
+      shadow: 'none',
     }
   };
   return themes[lvl] || themes['LOW'];
@@ -117,9 +117,8 @@ export function getSeverity(mom) {
  */
 export function getTrendColor(mom) {
   if (mom == null) return '#94a3b8';
-  if (mom > 0) return '#22c55e';
-  if (mom < 0) return '#ef4444';
-  return '#94a3b8';
+  if (mom >= 0) return '#22c55e';
+  return getSeverity(mom).color;
 }
 
 /**

@@ -118,8 +118,8 @@ function Tooltip({ x, y, visible, name, data }) {
             <div className="flex justify-between gap-6 items-center">
               <span className="text-slate-500">Impact</span>
               <ImpactBadge 
-                cur={data.original?.cur ?? 0}
-                prev={data.original?.prev ?? 0}
+                cur={data.cur ?? 0}
+                prev={data.prev ?? 0}
               />
             </div>
           </div>

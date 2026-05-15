@@ -51,8 +51,7 @@ export default function ImpactBadge({ cur, prev, tier, score, color, className =
           width: '8px',
           height: '8px',
           borderRadius: '999px',
-          background: 'currentColor',
-          boxShadow: '0 0 10px currentColor'
+          background: 'currentColor'
         }}
       />
       <span>{theme.severity}</span>
