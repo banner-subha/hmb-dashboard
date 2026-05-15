@@ -50,6 +50,7 @@ function norm(s = '') {
 }
 
 import { getSeverityMeta } from '../utils/severity';
+import ImpactBadge from '../components/common/ImpactBadge';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getTrendColor(t) {
@@ -87,7 +88,13 @@ function Tooltip({ x, y, visible, name, data }) {
           <div className="space-y-1.5">
             <Row label="Volume" value={`${data.volume?.toLocaleString() ?? '—'} MT`} valueColor="#f1f5f9" />
             <Row label="Trend"  value={trendStr(data.trend)}  valueColor={getTrendColor(data.trend)} />
-            <Row label="Impact" value={getSeverityMeta(data.original).severityTag} valueColor={getSeverityMeta(data.original).severityColor} />
+            <div className="flex justify-between gap-6 items-center">
+              <span className="text-slate-500">Impact</span>
+              <ImpactBadge 
+                tier={getSeverityMeta(data.original).severityTag} 
+                color={getSeverityMeta(data.original).severityColor}
+              />
+            </div>
           </div>
         ) : (
           <div className="text-slate-500 italic">No data</div>
