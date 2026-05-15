@@ -23,6 +23,16 @@ import { calculateMoM, getSeverity } from '../utils/trendEngine';
 // Helper to format numbers safely
 const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toFixed(1) : fallback);
 
+function getImpactScoreColor(score) {
+  if (score >= 75) {
+    return '#ef4444'; // red
+  }
+  if (score >= 45) {
+    return '#f97316'; // orange
+  }
+  return '#22c55e'; // green
+}
+
 // Dynamic Hierarchy Generator
 const buildHierarchy = (alert, fullData) => {
   if (!fullData || !alert) return null;
@@ -132,12 +142,15 @@ export default function AlertIntelligence() {
   // 1. Alert Summary Chips counts
   const counts = useMemo(() => {
     return alerts.reduce((acc, alert) => {
-      const sev = alert.severity?.toUpperCase();
+      const cur = alert.data?.cur ?? alert.cur ?? 0;
+      const prev = alert.data?.prev ?? alert.prev ?? 0;
+      const sev = getSeverity(calculateMoM(cur, prev)).severity;
+      
       if (sev === 'CRITICAL') acc.critical++;
-      if (sev === 'HIGH') acc.high++;
-      if (sev === 'MEDIUM') acc.medium++;
+      if (sev === 'MODERATE') acc.moderate++;
+      if (sev === 'LOW') acc.low++;
       return acc;
-    }, { critical: 0, high: 0, medium: 0 });
+    }, { critical: 0, moderate: 0, low: 0 });
   }, [alerts]);
 
   // 2. Filter logic
@@ -149,7 +162,10 @@ export default function AlertIntelligence() {
       if (searchQuery && !searchable.includes(query)) return false;
 
       // severity
-      if (selectedSeverity !== 'ALL' && alert.severity?.toUpperCase() !== selectedSeverity) return false;
+      const cur = alert.data?.cur ?? alert.cur ?? 0;
+      const prev = alert.data?.prev ?? alert.prev ?? 0;
+      const derivedSev = getSeverity(calculateMoM(cur, prev)).severity;
+      if (selectedSeverity !== 'ALL' && derivedSev !== selectedSeverity) return false;
 
       // level
       const level = alert.level || alert.category || 'OVERALL';
@@ -248,10 +264,10 @@ export default function AlertIntelligence() {
             style={{
               background: selectedSeverity === 'CRITICAL'
                 ? 'rgba(239,68,68,0.18)'
-                : 'rgba(239,68,68,0.07)',
+                : 'rgba(239,68,68,0.12)',
               borderColor: selectedSeverity === 'CRITICAL'
                 ? 'rgba(239,68,68,0.6)'
-                : 'rgba(239,68,68,0.2)',
+                : 'rgba(239,68,68,0.35)',
               boxShadow: selectedSeverity === 'CRITICAL'
                 ? '0 0 20px rgba(239,68,68,0.15)'
                 : '0 0 10px rgba(239,68,68,0.05)',
@@ -265,52 +281,52 @@ export default function AlertIntelligence() {
             <div className="w-2.5 h-2.5 rounded-full bg-severity-critical animate-pulse-subtle"></div>
           </button>
 
-          {/* High — soft orange tint */}
+          {/* Moderate — soft orange tint */}
           <button
-            onClick={() => setSelectedSeverity(selectedSeverity === 'HIGH' ? 'ALL' : 'HIGH')}
+            onClick={() => setSelectedSeverity(selectedSeverity === 'MODERATE' ? 'ALL' : 'MODERATE')}
             className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
             style={{
-              background: selectedSeverity === 'HIGH'
+              background: selectedSeverity === 'MODERATE'
                 ? 'rgba(249,115,22,0.18)'
-                : 'rgba(249,115,22,0.07)',
-              borderColor: selectedSeverity === 'HIGH'
+                : 'rgba(249,115,22,0.12)',
+              borderColor: selectedSeverity === 'MODERATE'
                 ? 'rgba(249,115,22,0.6)'
-                : 'rgba(249,115,22,0.2)',
-              boxShadow: selectedSeverity === 'HIGH'
+                : 'rgba(249,115,22,0.35)',
+              boxShadow: selectedSeverity === 'MODERATE'
                 ? '0 0 20px rgba(249,115,22,0.12)'
                 : '0 0 10px rgba(249,115,22,0.04)',
               backdropFilter: 'blur(8px)',
             }}
           >
             <div className="flex flex-col text-left">
-              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(249,115,22,0.7)' }}>High</span>
-              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.high}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(249,115,22,0.7)' }}>Moderate</span>
+              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.moderate}</span>
             </div>
-            <div className="w-2.5 h-2.5 rounded-full bg-severity-high"></div>
+            <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#f97316' }}></div>
           </button>
 
-          {/* Medium — soft yellow tint */}
+          {/* Low — soft green tint */}
           <button
-            onClick={() => setSelectedSeverity(selectedSeverity === 'MEDIUM' ? 'ALL' : 'MEDIUM')}
+            onClick={() => setSelectedSeverity(selectedSeverity === 'LOW' ? 'ALL' : 'LOW')}
             className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
             style={{
-              background: selectedSeverity === 'MEDIUM'
-                ? 'rgba(234,179,8,0.15)'
-                : 'rgba(234,179,8,0.06)',
-              borderColor: selectedSeverity === 'MEDIUM'
-                ? 'rgba(234,179,8,0.5)'
-                : 'rgba(234,179,8,0.18)',
-              boxShadow: selectedSeverity === 'MEDIUM'
-                ? '0 0 20px rgba(234,179,8,0.1)'
-                : '0 0 10px rgba(234,179,8,0.04)',
+              background: selectedSeverity === 'LOW'
+                ? 'rgba(34,197,94,0.18)'
+                : 'rgba(34,197,94,0.12)',
+              borderColor: selectedSeverity === 'LOW'
+                ? 'rgba(34,197,94,0.6)'
+                : 'rgba(34,197,94,0.35)',
+              boxShadow: selectedSeverity === 'LOW'
+                ? '0 0 20px rgba(34,197,94,0.1)'
+                : '0 0 10px rgba(34,197,94,0.04)',
               backdropFilter: 'blur(8px)',
             }}
           >
             <div className="flex flex-col text-left">
-              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(234,179,8,0.7)' }}>Moderate</span>
-              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.medium}</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(34,197,94,0.7)' }}>Low</span>
+              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.low}</span>
             </div>
-            <div className="w-2.5 h-2.5 rounded-full bg-severity-medium"></div>
+            <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#22c55e' }}></div>
           </button>
         </div>
       </div>
@@ -446,7 +462,12 @@ export default function AlertIntelligence() {
                           {alert.drop ? formatNum(alert.drop) : (alert.data?.drop ? formatNum(alert.data.drop) : '-')}
                         </td>
                         <td className="p-4 text-right">
-                          <span className="font-bold text-text-primary">
+                          <span
+                            style={{
+                              color: getImpactScoreColor(alert.impactScore || alert.data?.riskScore || alert.data?.impactScore || 0),
+                              fontWeight: 700
+                            }}
+                          >
                             {alert.impactScore || alert.data?.riskScore || alert.data?.impactScore || 0}
                           </span>
                         </td>

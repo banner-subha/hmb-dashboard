@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { SEVERITY_CONFIG } from '../../utils/constants';
+import { calculateMoM, getSeverity } from '../../utils/trendEngine';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -28,7 +29,10 @@ export default function AlertSeverityChart({ alerts, height = 250 }) {
 
   // Aggregate alerts by severity
   const counts = alerts.reduce((acc, alert) => {
-    acc[alert.severity] = (acc[alert.severity] || 0) + 1;
+    const cur = alert.data?.cur ?? alert.cur ?? 0;
+    const prev = alert.data?.prev ?? alert.prev ?? 0;
+    const sev = getSeverity(calculateMoM(cur, prev)).severity;
+    acc[sev] = (acc[sev] || 0) + 1;
     return acc;
   }, {});
 
@@ -37,7 +41,7 @@ export default function AlertSeverityChart({ alerts, height = 250 }) {
     value: counts[severity]
   })).sort((a, b) => {
     // Sort by SEVERITY_ORDER
-    const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, NONE: 4 };
+    const order = { CRITICAL: 0, MODERATE: 1, LOW: 2, NONE: 3 };
     return order[a.name] - order[b.name];
   });
 

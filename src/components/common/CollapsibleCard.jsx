@@ -28,7 +28,7 @@ export default function CollapsibleCard({
       </button>
       
       <div 
-        className={`transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}
+        className={`transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[75vh] overflow-y-auto opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}
       >
         <div className="p-4 sm:p-5">
           {children}

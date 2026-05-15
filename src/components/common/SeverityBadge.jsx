@@ -1,28 +1,10 @@
+import { getSeverityTheme } from '../../utils/trendEngine';
+
 export default function SeverityBadge({ severity, color, className = '' }) {
-  let displayColor = color;
-  const s = (severity || '').toUpperCase();
-  if (!displayColor) {
-    if (s === 'CRITICAL') displayColor = '#ef4444';
-    else if (s === 'HIGH' || s === 'MODERATE') displayColor = '#f97316';
-    else if (s === 'LOW' || s === 'STABLE') displayColor = '#22c55e';
-    else displayColor = '#94a3b8';
-  }
+  const theme = getSeverityTheme(severity);
 
-  const label = s || '–';
-
-  let bg = 'rgba(148,163,184,0.12)';
-  let border = 'rgba(148,163,184,0.35)';
-
-  if (displayColor === '#22c55e') {
-    bg = 'rgba(34,197,94,0.12)';
-    border = 'rgba(34,197,94,0.35)';
-  } else if (displayColor === '#f97316') {
-    bg = 'rgba(249,115,22,0.12)';
-    border = 'rgba(249,115,22,0.35)';
-  } else if (displayColor === '#ef4444') {
-    bg = 'rgba(239,68,68,0.12)';
-    border = 'rgba(239,68,68,0.35)';
-  }
+  // Allow manual color override if provided, else use theme
+  const displayColor = color || theme.color;
 
   return (
     <div 
@@ -37,9 +19,10 @@ export default function SeverityBadge({ severity, color, className = '' }) {
         fontWeight: 700,
         letterSpacing: '0.4px',
         backdropFilter: 'blur(6px)',
-        background: bg,
-        border: `1px solid ${border}`,
+        background: theme.bg,
+        border: `1px solid ${theme.border}`,
         color: displayColor,
+        boxShadow: theme.shadow,
         whiteSpace: 'nowrap'
       }}
     >
@@ -52,7 +35,7 @@ export default function SeverityBadge({ severity, color, className = '' }) {
           boxShadow: '0 0 10px currentColor'
         }}
       />
-      <span>{label}</span>
+      <span>{severity || 'LOW'}</span>
     </div>
   );
 }

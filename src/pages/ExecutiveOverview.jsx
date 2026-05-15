@@ -9,7 +9,7 @@ import SeverityBadge from '../components/common/SeverityBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
-import { calculateMoM, getSeverity, formatTrend, getTrendColor } from '../utils/trendEngine';
+import { calculateMoM, getSeverity, formatTrend, getTrendColor, getSeverityTheme, calculateImpactScore, getSeverityLevel } from '../utils/trendEngine';
 import { useNavigate } from 'react-router-dom';
 
 export default function ExecutiveOverview() {
@@ -190,29 +190,32 @@ export default function ExecutiveOverview() {
           <CollapsibleCard title="Dealer Impact Alerts">
             <div className="space-y-3">
               {inactiveDealers.map((d, i) => (
-                <div key={`in-${i}`} 
-                  className="flex items-center justify-between p-3 rounded-xl border transition-all"
-                  style={{
-                    background: 'rgba(239,68,68,0.05)',
-                    borderColor: 'rgba(239,68,68,0.15)',
-                  }}
-                >
-                  <div>
-                    <div className="text-sm text-text-primary font-medium truncate max-w-[150px] sm:max-w-[200px]">{d.client}</div>
-                    <div className="text-xs text-text-muted mt-0.5">{d.district}, {d.state}</div>
+                  <div key={`in-${i}`} 
+                    className="flex items-center justify-between p-3 rounded-xl border transition-all hover:scale-[1.02]"
+                    style={{
+                      background: getSeverityTheme('CRITICAL').bg,
+                      borderColor: getSeverityTheme('CRITICAL').border,
+                      boxShadow: getSeverityTheme('CRITICAL').shadow,
+                    }}
+                  >
+                    <div>
+                      <div className="text-sm text-text-primary font-medium truncate max-w-[150px] sm:max-w-[200px]">{d.client}</div>
+                      <div className="text-xs text-text-muted mt-0.5">{d.district}, {d.state}</div>
+                    </div>
+                    <SeverityBadge severity="CRITICAL" />
                   </div>
-                  <SeverityBadge severity="CRITICAL" />
-                </div>
               ))}
               {decliningDealers.map((d, i) => {
-                const mom = calculateMoM(d.cur, d.prev);
-                const sev = getSeverity(mom);
+                const score = calculateImpactScore(d.cur, d.prev, d.inactivityDays, d.volatility);
+                const sevLevel = getSeverityLevel(score);
+                const sev = getSeverityTheme(sevLevel);
                 return (
                   <div key={`dec-${i}`} 
-                    className="flex items-center justify-between p-3 rounded-xl border transition-all"
+                    className="flex items-center justify-between p-3 rounded-xl border transition-all hover:scale-[1.02]"
                     style={{
                       background: sev.bg,
                       borderColor: sev.border,
+                      boxShadow: sev.shadow,
                     }}
                   >
                     <div>
