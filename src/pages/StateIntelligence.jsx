@@ -7,7 +7,6 @@ import CollapsibleCard from '../components/common/CollapsibleCard';
 import ShareDonutChart from '../components/charts/ShareDonutChart';
 import MoMTrendChart from '../components/charts/MoMTrendChart';
 import ImpactBadge from '../components/common/ImpactBadge';
-import HealthBadge from '../components/common/HealthBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT, formatMoM } from '../utils/formatters';
 
@@ -38,10 +37,9 @@ export default function StateIntelligence() {
       cell: info => {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col gap-1 items-start min-w-[80px]">
+          <div className="flex items-center gap-4">
+            <div className="w-[100px] flex-shrink-0">
               <ImpactBadge tier={info.row.original.impactTier} score={impact} />
-              <HealthBadge status={info.row.original.healthStatus} color={info.row.original.healthColor} />
             </div>
             <span className="font-medium">{info.getValue()}</span>
           </div>
@@ -120,16 +118,7 @@ export default function StateIntelligence() {
                     className="text-base" 
                   />
                 </div>
-                <div className="p-3 bg-bg-secondary rounded-lg">
-                  <div className="text-xs text-text-muted mb-2">Operational Health</div>
-                  <div className="mt-1">
-                    <HealthBadge 
-                      status={selectedStateData.healthStatus} 
-                      color={selectedStateData.healthColor} 
-                      className="text-xs px-2 py-1"
-                    />
-                  </div>
-                </div>
+
                 <div className="p-3 bg-bg-secondary rounded-lg">
                   <div className="text-xs text-text-muted mb-2">Business Impact</div>
                   <div className="mt-1">

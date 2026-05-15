@@ -6,7 +6,6 @@ import SearchInput from '../components/common/SearchInput';
 import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import ImpactBadge from '../components/common/ImpactBadge';
-import HealthBadge from '../components/common/HealthBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
 import { formatMT } from '../utils/formatters';
@@ -40,10 +39,9 @@ export default function DealerIntelligence() {
       cell: info => {
         const impact = info.row.original.impactScore ?? info.row.original.riskScore ?? 0;
         return (
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col gap-1 items-start min-w-[80px]">
+          <div className="flex items-center gap-4">
+            <div className="w-[100px] flex-shrink-0">
               <ImpactBadge tier={info.row.original.impactTier} score={impact} />
-              <HealthBadge status={info.row.original.healthStatus} color={info.row.original.healthColor} />
             </div>
             <span className="font-medium text-sm truncate" title={info.getValue()}>{info.getValue()}</span>
           </div>
@@ -141,16 +139,7 @@ export default function DealerIntelligence() {
                   <div className="text-xs text-text-muted mb-1">Current Vol</div>
                   <div className="text-base font-bold text-text-primary">{formatMT(selectedDealer.cur)}</div>
                 </div>
-                <div className="p-3 bg-bg-secondary rounded-lg">
-                  <div className="text-xs text-text-muted mb-2">Operational Health</div>
-                  <div className="mt-1">
-                    <HealthBadge 
-                      status={selectedDealer.healthStatus} 
-                      color={selectedDealer.healthColor} 
-                      className="text-xs px-2 py-1"
-                    />
-                  </div>
-                </div>
+
                 <div className="p-3 bg-bg-secondary rounded-lg">
                   <div className="text-xs text-text-muted mb-2">Business Impact</div>
                   <div className="mt-1">
