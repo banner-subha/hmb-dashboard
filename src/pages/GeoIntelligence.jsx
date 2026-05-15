@@ -220,10 +220,10 @@ export default function GeoIntelligence({ salesData }) {
     if (!salesData?.districts || !selectedState) return {};
     const src = salesData.districts[selectedState] ?? {};
     const m = {};
-    Object.values(src).forEach(district => {
-      if (district.lookupKey) {
-        m[district.lookupKey] = district;
-      }
+    Object.entries(src).forEach(([name, district]) => {
+      // Prioritize backend lookupKey, fallback to frontend normalized name
+      const key = district.lookupKey || normKey(name);
+      m[key] = { ...district, name };
     });
     return m;
   }, [salesData, selectedState]);
@@ -435,7 +435,10 @@ export default function GeoIntelligence({ salesData }) {
                   let topoKey = normKey(topoName);
                   topoKey = TOPO_ALIASES[topoKey] || topoKey;
                   
-                  const entry = selectedState ? activeMap[topoKey] : activeMap[norm(topoName || `Region ${i}`)];
+                  // Hybrid Lookup: Check topoKey first, then fallback to normalized topoName
+                  const entry = selectedState 
+                    ? (activeMap[topoKey] || activeMap[normKey(topoName)]) 
+                    : activeMap[norm(topoName || `Region ${i}`)];
                   
                   if (selectedState && !entry) {
                     console.warn("UNMATCHED TOPO DISTRICT:", topoName, topoKey);
