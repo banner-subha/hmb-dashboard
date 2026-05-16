@@ -71,6 +71,9 @@ const TOPO_ALIASES = {
   "southtwentyfourparganas": "south24parganas",
   "north24paragnas": "north24parganas",
   "south24paragnas": "south24parganas",
+  // digit-stripped aliases (backend districtKey strips [^a-z])
+  "northparganas": "north24parganas",
+  "southparganas": "south24parganas",
 
   // Medinipur
   "medinipureast": "purbamedinipur",
@@ -87,7 +90,7 @@ const TOPO_ALIASES = {
   "southdinajpur": "dakshindinajpur"
 };
 
-import { calculateMoM, getSeverity, getTrendColor as _getTrendColor, formatTrend } from '../utils/trendEngine';
+import { calculateMoM, getTrendColor as _getTrendColor, formatTrend } from '../utils/trendEngine';
 import ImpactBadge from '../components/common/ImpactBadge';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -227,10 +230,16 @@ export default function GeoIntelligence({ salesData }) {
     const src = salesData.districts[selectedState] ?? {};
     const m = {};
     Object.entries(src).forEach(([name, district]) => {
-      // Prioritize backend lookupKey, fallback to frontend normalized name
+      // Store under lookupKey (from backend, may have digits stripped)
       let key = normKey(district.lookupKey || name);
       key = TOPO_ALIASES[key] || key;
       m[key] = { ...district, name };
+      
+      // Also store under the normKey of the display name (preserves digits)
+      // This ensures TopoJSON names like "North 24 Parganas" always find a match
+      let nameKey = normKey(name);
+      nameKey = TOPO_ALIASES[nameKey] || nameKey;
+      if (!m[nameKey]) m[nameKey] = { ...district, name };
     });
     return m;
   }, [salesData, selectedState]);
