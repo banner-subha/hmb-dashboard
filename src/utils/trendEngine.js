@@ -25,14 +25,26 @@ export function calculateMoM(cur = 0, prev = 0) {
 }
 
 /**
- * Derive severity classification from MoM percentage.
- * Returns severity tag, color, and glassmorphism pill styles.
+ * SINGLE CENTRALIZED severity classifier.
+ * This is the ONLY function that maps impactScore → severity tag.
+ * ALL components, charts, maps, and tables MUST use this.
  *
- * Rules:
- *   mom <= -25  →  CRITICAL (red)
- *   mom <= -15  →  HIGH (orange)
- *   mom <= -5   →  MEDIUM (yellow)
- *   else        →  LOW      (green)
+ * Thresholds:
+ *   score >= 75  →  CRITICAL
+ *   score >= 50  →  HIGH
+ *   score >= 30  →  MEDIUM
+ *   else         →  LOW
+ */
+export function getSeverityFromImpactScore(score) {
+  if (score >= 75) return 'CRITICAL';
+  if (score >= 50) return 'HIGH';
+  if (score >= 30) return 'MEDIUM';
+  return 'LOW';
+}
+
+/**
+ * Return glassmorphism theme styles for a severity level.
+ * Input MUST be a severity tag from getSeverityFromImpactScore().
  */
 export function getSeverityTheme(level) {
   const lvl = (level || 'LOW').toUpperCase();
@@ -101,15 +113,20 @@ export function getBusinessImpact(cur = 0, prev = 0, inactivityDays = 0, volatil
 
   // 5. Final Score Formula (Preserves distribution)
   let impactScore = (rawRisk * 0.8) + ((rawRisk * businessWeight) * 0.2);
+
+  // 6. Strategic MT Loss Escalation
+  const mtLoss = Math.abs(prev - cur);
+  if (mtLoss >= 1000) impactScore += 15;
+  else if (mtLoss >= 500) impactScore += 8;
+
+  // 7. Non-Linear Escalation Boost
+  if (impactScore >= 75) impactScore += 10;
+  else if (impactScore >= 60) impactScore += 5;
+
   impactScore = Math.min(100, Math.round(impactScore));
 
-  // 6. Severity Thresholds
-  let severity = 'LOW';
-  if (impactScore >= 75) severity = 'CRITICAL';
-  else if (impactScore >= 50) severity = 'HIGH';
-  else if (impactScore >= 30) severity = 'MEDIUM';
-  else severity = 'LOW';
-
+  // 8. Severity STRICTLY from final impactScore (single source of truth)
+  const severity = getSeverityFromImpactScore(impactScore);
   const theme = getSeverityTheme(severity);
 
   return { impactScore, severity, theme };
@@ -137,5 +154,3 @@ export function formatTrend(mom) {
   if (mom < 0) return `↓ ${Math.abs(mom)}%`;
   return '0%';
 }
-
-

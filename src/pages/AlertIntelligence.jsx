@@ -25,12 +25,15 @@ const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toFixe
 
 function getImpactScoreColor(score) {
   if (score >= 75) {
-    return '#ef4444'; // red
+    return '#ef4444'; // CRITICAL red
   }
-  if (score >= 45) {
-    return '#f97316'; // orange
+  if (score >= 50) {
+    return '#f97316'; // HIGH orange
   }
-  return '#22c55e'; // green
+  if (score >= 30) {
+    return '#eab308'; // MEDIUM yellow
+  }
+  return '#22c55e'; // LOW green
 }
 
 // Dynamic Hierarchy Generator
@@ -447,14 +450,21 @@ export default function AlertIntelligence() {
                           {alert.drop ? formatNum(alert.drop) : (alert.data?.drop ? formatNum(alert.data.drop) : '-')}
                         </td>
                         <td className="p-4 text-center">
-                          <span
-                            style={{
-                              color: getImpactScoreColor(alert.impactScore || alert.data?.riskScore || alert.data?.impactScore || 0),
-                              fontWeight: 700
-                            }}
-                          >
-                            {alert.impactScore || alert.data?.riskScore || alert.data?.impactScore || 0}
-                          </span>
+                          {(() => {
+                            const curVal = alert.data?.cur ?? alert.cur ?? 0;
+                            const prevVal = alert.data?.prev ?? alert.prev ?? 0;
+                            const { impactScore: computedScore } = getBusinessImpact(curVal, prevVal);
+                            return (
+                              <span
+                                style={{
+                                  color: getImpactScoreColor(computedScore),
+                                  fontWeight: 700
+                                }}
+                              >
+                                {computedScore}
+                              </span>
+                            );
+                          })()}
                         </td>
 
                       </tr>

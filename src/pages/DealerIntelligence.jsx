@@ -195,15 +195,20 @@ export default function DealerIntelligence() {
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-text-muted uppercase mb-3">Active Alerts</h4>
                   <div className="space-y-2">
-                    {dealerAlerts.map((a, i) => (
+                    {dealerAlerts.map((a, i) => {
+                      const aCur = a.data?.cur ?? a.cur ?? 0;
+                      const aPrev = a.data?.prev ?? a.prev ?? 0;
+                      const { severity: derivedSev } = getBusinessImpact(aCur, aPrev);
+                      return (
                       <div key={i} className="p-3 bg-bg-secondary rounded-lg border-l-2 border-severity-high">
                         <div className="flex items-center gap-2 mb-1">
-                          <SeverityBadge severity={a.severity} />
+                          <SeverityBadge severity={derivedSev} />
                           <span className="text-xs font-bold truncate max-w-[200px]">{a.title}</span>
                         </div>
                         <p className="text-xs text-text-muted whitespace-pre-line">{a.detail}</p>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
