@@ -65,6 +65,10 @@ const TOPO_ALIASES = {
   // 24 Parganas
   "24parganasnorth": "north24parganas",
   "24parganassouth": "south24parganas",
+  "north24parganas": "north24parganas",
+  "south24parganas": "south24parganas",
+  "northtwentyfourparganas": "north24parganas",
+  "southtwentyfourparganas": "south24parganas",
 
   // Medinipur
   "medinipureast": "purbamedinipur",

@@ -42,6 +42,8 @@ pnpm-debug.log*
 *.local
 .DS_Store
 Thumbs.db
+temp_script.js
+temp_script.cjs
 
 # ==============================
 # Test Artifacts

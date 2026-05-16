@@ -79,9 +79,19 @@ export default function ProductBarChart({ data, height = 300 }) {
           <YAxis dataKey="product" type="category" stroke="#94a3b8" fontSize={12} width={50} />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} />
           <Bar dataKey="cur_mt" radius={[0, 4, 4, 0]} maxBarSize={32}>
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry._severity.color} />
-            ))}
+            {chartData.map((entry, index) => {
+              const PRODUCT_COLORS = {
+                IG:  '#378ADD',
+                GI:  '#5DCAA5',
+                IGG: '#97C459',
+                HGI: '#EF9F27',
+                P:   '#E24B4A',
+                RS:  '#A32D2D',
+                SS:  '#6B1A1A',
+              };
+              const fillColor = PRODUCT_COLORS[entry.product] || '#94a3b8';
+              return <Cell key={`cell-${index}`} fill={fillColor} />;
+            })}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

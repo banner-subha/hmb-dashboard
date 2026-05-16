@@ -71,7 +71,7 @@ export function getSeverityTheme(level) {
 }
 
 export function getSeverityLevel(score) {
-  if (score >= 65) return 'CRITICAL';
+  if (score >= 60) return 'CRITICAL';
   if (score >= 45) return 'HIGH';
   if (score >= 20) return 'MEDIUM';
   return 'LOW';
@@ -111,21 +111,12 @@ export function getSeverity(mom) {
 
 /**
  * Get trend display color based ONLY on direction.
- *   positive → green
+ *   positive or zero/null → green
  *   negative → red
- *   zero/null → neutral grey
  */
 export function getTrendColor(mom, cur = null, prev = null) {
-  if (mom == null) return '#94a3b8';
-  if (mom >= 0) return '#22c55e';
-  
-  if (cur != null && prev != null) {
-    const score = calculateImpactScore(cur, prev);
-    const sevLevel = getSeverityLevel(score);
-    return getSeverityTheme(sevLevel).color;
-  }
-  
-  return getSeverity(mom).color;
+  if (mom == null || mom >= 0) return '#22c55e';
+  return '#ef4444';
 }
 
 /**

@@ -326,29 +326,7 @@ export default function AlertIntelligence() {
             <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#eab308' }}></div>
           </button>
 
-          {/* Low — soft green tint */}
-          <button
-            onClick={() => setSelectedSeverity(selectedSeverity === 'LOW' ? 'ALL' : 'LOW')}
-            className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
-            style={{
-              background: selectedSeverity === 'LOW'
-                ? 'rgba(34,197,94,0.18)'
-                : 'rgba(34,197,94,0.12)',
-              borderColor: selectedSeverity === 'LOW'
-                ? 'rgba(34,197,94,0.6)'
-                : 'rgba(34,197,94,0.35)',
-              boxShadow: selectedSeverity === 'LOW'
-                ? '0 0 20px rgba(34,197,94,0.1)'
-                : '0 0 10px rgba(34,197,94,0.04)',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            <div className="flex flex-col text-left">
-              <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(34,197,94,0.7)' }}>Low</span>
-              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.low}</span>
-            </div>
-            <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#22c55e' }}></div>
-          </button>
+
         </div>
       </div>
 

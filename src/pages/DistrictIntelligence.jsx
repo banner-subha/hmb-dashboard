@@ -39,22 +39,12 @@ export default function DistrictIntelligence() {
       cell: info => {
         const row = info.row.original;
         return (
-          <div className="flex items-center gap-4">
-            <div className="w-[100px] flex-shrink-0">
-              <ImpactBadge 
-                cur={row.cur} 
-                prev={row.prev}
-              />
-            </div>
-            <span className="font-medium">{info.getValue()}</span>
+          <div className="flex flex-col">
+            <span className="font-medium leading-tight">{info.getValue()}</span>
+            <span className="text-[10px] text-text-muted tracking-wide uppercase mt-0.5">{row.state}</span>
           </div>
         );
       },
-    },
-    {
-      accessorKey: 'state',
-      header: 'State',
-      cell: info => <span className="text-text-muted text-xs">{info.getValue()}</span>,
     },
     {
       accessorKey: 'cur',
@@ -69,7 +59,20 @@ export default function DistrictIntelligence() {
         return <MoMIndicator cur={row.cur} prev={row.prev} />;
       },
     },
-
+    {
+      id: 'severity',
+      header: <div className="text-right">Severity</div>,
+      cell: info => {
+        const row = info.row.original;
+        return (
+          <div className="flex justify-end w-full">
+            <div className="w-[100px] flex-shrink-0">
+              <ImpactBadge cur={row.cur} prev={row.prev} />
+            </div>
+          </div>
+        );
+      }
+    }
   ], []);
 
   if (loading) return <div className="text-center py-12">Loading...</div>;
