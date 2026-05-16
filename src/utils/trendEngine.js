@@ -73,33 +73,41 @@ export function getSeverityTheme(level) {
 export function getBusinessImpact(cur = 0, prev = 0, inactivityDays = 0, volatility = 0) {
   const mom = calculateMoM(cur, prev);
   
+  // 1. Decline Risk Curve (Stronger escalation)
   let declineRisk = 0;
-  if (mom <= -70) declineRisk = 100;
-  else if (mom <= -55) declineRisk = 85;
-  else if (mom <= -40) declineRisk = 65;
-  else if (mom <= -25) declineRisk = 45;
-  else if (mom <= -10) declineRisk = 25;
-  else if (mom < 0) declineRisk = 10;
+  if (mom <= -75) declineRisk = 100;
+  else if (mom <= -60) declineRisk = 92;
+  else if (mom <= -45) declineRisk = 78;
+  else if (mom <= -30) declineRisk = 62;
+  else if (mom <= -20) declineRisk = 48;
+  else if (mom <= -10) declineRisk = 30;
+  else if (mom < 0) declineRisk = 15;
   else declineRisk = 0;
 
-  let inactivityRisk = Math.min((inactivityDays || 0) * 12, 100);
-  let volatilityRisk = Math.min((volatility || 0) * 20, 100);
+  // 2. Inactivity + Volatility Impact (Strengthened)
+  let inactivityRisk = Math.min((inactivityDays || 0) * 15, 100);
+  let volatilityRisk = Math.min((volatility || 0) * 28, 100);
 
-  let rawRisk = (declineRisk * 0.55) + (inactivityRisk * 0.25) + (volatilityRisk * 0.20);
+  // 3. Raw Risk Weights (Decline dominates)
+  let rawRisk = (declineRisk * 0.65) + (inactivityRisk * 0.20) + (volatilityRisk * 0.15);
 
+  // 4. Business Weight Logic (Using CURRENT volume, softer scaling)
   let businessWeight = 1.0;
-  if (prev < 100) businessWeight = 0.45;
-  else if (prev <= 300) businessWeight = 0.65;
-  else if (prev <= 700) businessWeight = 0.85;
-  else if (prev <= 1500) businessWeight = 1.0;
-  else businessWeight = 1.2;
+  if (cur < 100) businessWeight = 0.75;
+  else if (cur <= 300) businessWeight = 0.90;
+  else if (cur <= 700) businessWeight = 1.00;
+  else if (cur <= 1500) businessWeight = 1.10;
+  else businessWeight = 1.25;
 
-  let impactScore = Math.min(100, Math.round(rawRisk * businessWeight));
+  // 5. Final Score Formula (Preserves distribution)
+  let impactScore = (rawRisk * 0.8) + ((rawRisk * businessWeight) * 0.2);
+  impactScore = Math.min(100, Math.round(impactScore));
 
+  // 6. Severity Thresholds
   let severity = 'LOW';
-  if (impactScore >= 70) severity = 'CRITICAL';
-  else if (impactScore >= 45) severity = 'HIGH';
-  else if (impactScore >= 25) severity = 'MEDIUM';
+  if (impactScore >= 75) severity = 'CRITICAL';
+  else if (impactScore >= 50) severity = 'HIGH';
+  else if (impactScore >= 30) severity = 'MEDIUM';
   else severity = 'LOW';
 
   const theme = getSeverityTheme(severity);
