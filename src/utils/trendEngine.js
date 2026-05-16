@@ -70,43 +70,41 @@ export function getSeverityTheme(level) {
   return themes[lvl] || themes['LOW'];
 }
 
-export function getSeverityLevel(score) {
-  if (score >= 60) return 'CRITICAL';
-  if (score >= 45) return 'HIGH';
-  if (score >= 20) return 'MEDIUM';
-  return 'LOW';
-}
+export function getBusinessImpact(cur = 0, prev = 0, inactivityDays = 0, volatility = 0) {
+  const mom = calculateMoM(cur, prev);
+  
+  let declineRisk = 0;
+  if (mom <= -70) declineRisk = 100;
+  else if (mom <= -55) declineRisk = 85;
+  else if (mom <= -40) declineRisk = 65;
+  else if (mom <= -25) declineRisk = 45;
+  else if (mom <= -10) declineRisk = 25;
+  else if (mom < 0) declineRisk = 10;
+  else declineRisk = 0;
 
-export function calculateImpactScore(cur, prev, inactivityDays = 0, volatility = 0) {
-  // Normalize each component to 0-100
-  let volumeLossScore = 0;
-  let drop = prev - cur;
-  if (drop > 0) {
-    if (drop > 1000) volumeLossScore = 100;
-    else if (drop > 500) volumeLossScore = 80;
-    else if (drop > 100) volumeLossScore = 50;
-    else volumeLossScore = 20;
-  }
-  
-  let mom = calculateMoM(cur, prev);
-  let declineScore = 0;
-  if (mom <= -75) declineScore = 100;
-  else if (mom <= -50) declineScore = 80;
-  else if (mom <= -25) declineScore = 50;
-  else if (mom < 0) declineScore = 20;
-  
-  let inactivityScore = Math.min(100, (inactivityDays || 0) * 10);
-  let volatilityScore = Math.min(100, (volatility || 0) * 20);
-  
-  let impactScore = (declineScore * 0.40) + (volumeLossScore * 0.30) + (inactivityScore * 0.20) + (volatilityScore * 0.10);
-  return Math.min(100, Math.max(0, impactScore));
-}
+  let inactivityRisk = Math.min((inactivityDays || 0) * 12, 100);
+  let volatilityRisk = Math.min((volatility || 0) * 20, 100);
 
-export function getSeverity(mom) {
-  if (mom <= -25) return getSeverityTheme('CRITICAL');
-  if (mom <= -15) return getSeverityTheme('HIGH');
-  if (mom <= -5) return getSeverityTheme('MEDIUM');
-  return getSeverityTheme('LOW');
+  let rawRisk = (declineRisk * 0.55) + (inactivityRisk * 0.25) + (volatilityRisk * 0.20);
+
+  let businessWeight = 1.0;
+  if (prev < 100) businessWeight = 0.45;
+  else if (prev <= 300) businessWeight = 0.65;
+  else if (prev <= 700) businessWeight = 0.85;
+  else if (prev <= 1500) businessWeight = 1.0;
+  else businessWeight = 1.2;
+
+  let impactScore = Math.min(100, Math.round(rawRisk * businessWeight));
+
+  let severity = 'LOW';
+  if (impactScore >= 70) severity = 'CRITICAL';
+  else if (impactScore >= 45) severity = 'HIGH';
+  else if (impactScore >= 25) severity = 'MEDIUM';
+  else severity = 'LOW';
+
+  const theme = getSeverityTheme(severity);
+
+  return { impactScore, severity, theme };
 }
 
 /**
@@ -132,20 +130,4 @@ export function formatTrend(mom) {
   return '0%';
 }
 
-/**
- * All-in-one: compute MoM from cur/prev, then derive full severity + trend metadata.
- * Use this when you have raw cur/prev values and want everything computed fresh.
- */
-export function computeEntityMeta(cur = 0, prev = 0) {
-  const mom = calculateMoM(cur, prev);
-  const severity = getSeverity(mom);
-  const trendColor = getTrendColor(mom);
-  const trendDisplay = formatTrend(mom);
 
-  return {
-    mom,
-    ...severity,
-    trendColor,
-    trendDisplay,
-  };
-}

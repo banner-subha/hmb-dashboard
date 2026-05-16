@@ -18,7 +18,7 @@ import {
 import SeverityBadge from '../components/common/SeverityBadge';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
-import { calculateMoM, getSeverity } from '../utils/trendEngine';
+import { calculateMoM, getBusinessImpact } from '../utils/trendEngine';
 
 // Helper to format numbers safely
 const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toFixed(1) : fallback);
@@ -143,7 +143,7 @@ export default function AlertIntelligence() {
     return alerts.reduce((acc, alert) => {
       const cur = alert.data?.cur ?? alert.cur ?? 0;
       const prev = alert.data?.prev ?? alert.prev ?? 0;
-      const sev = getSeverity(calculateMoM(cur, prev)).severity;
+      const sev = getBusinessImpact(cur, prev).severity;
       
       if (sev === 'CRITICAL') acc.critical++;
       if (sev === 'HIGH') acc.high++;
@@ -164,7 +164,7 @@ export default function AlertIntelligence() {
       // severity
       const cur = alert.data?.cur ?? alert.cur ?? 0;
       const prev = alert.data?.prev ?? alert.prev ?? 0;
-      const derivedSev = getSeverity(calculateMoM(cur, prev)).severity;
+      const derivedSev = getBusinessImpact(cur, prev).severity;
       if (selectedSeverity !== 'ALL' && derivedSev !== selectedSeverity) return false;
 
       // level
@@ -423,8 +423,7 @@ export default function AlertIntelligence() {
                           {(() => {
                             const cur = alert.data?.cur ?? alert.cur ?? 0;
                             const prev = alert.data?.prev ?? alert.prev ?? 0;
-                            const mom = calculateMoM(cur, prev);
-                            const sev = getSeverity(mom);
+                            const { theme: sev } = getBusinessImpact(cur, prev);
                             return <SeverityBadge severity={sev.severity} color={sev.color} />;
                           })()}
                         </td>

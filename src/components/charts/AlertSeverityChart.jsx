@@ -1,6 +1,6 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { SEVERITY_CONFIG } from '../../utils/constants';
-import { calculateMoM, getSeverity } from '../../utils/trendEngine';
+import { getBusinessImpact } from '../../utils/trendEngine';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -31,7 +31,7 @@ export default function AlertSeverityChart({ alerts, height = 250 }) {
   const counts = alerts.reduce((acc, alert) => {
     const cur = alert.data?.cur ?? alert.cur ?? 0;
     const prev = alert.data?.prev ?? alert.prev ?? 0;
-    const sev = getSeverity(calculateMoM(cur, prev)).severity;
+    const sev = getBusinessImpact(cur, prev).severity;
     acc[sev] = (acc[sev] || 0) + 1;
     return acc;
   }, {});

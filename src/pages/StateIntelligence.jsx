@@ -9,7 +9,7 @@ import MoMTrendChart from '../components/charts/MoMTrendChart';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT, formatMoM } from '../utils/formatters';
-import { calculateMoM, getSeverity } from '../utils/trendEngine';
+import { calculateMoM, getBusinessImpact } from '../utils/trendEngine';
 
 export default function StateIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -39,7 +39,7 @@ export default function StateIntelligence() {
       cell: info => {
         const row = info.row.original;
         const mom = calculateMoM(row.cur, row.prev);
-        const sev = getSeverity(mom);
+        const { theme: sev } = getBusinessImpact(row.cur, row.prev, row.inactivityDays, row.volatility);
         return (
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-[85px] flex-shrink-0">
@@ -91,7 +91,7 @@ export default function StateIntelligence() {
 
   // Compute accent color from frontend engine for selected state
   const selectedAccentColor = selectedStateData 
-    ? getSeverity(calculateMoM(selectedStateData.cur, selectedStateData.prev)).color 
+    ? getBusinessImpact(selectedStateData.cur, selectedStateData.prev, selectedStateData.inactivityDays, selectedStateData.volatility).theme.color 
     : '#6b7280';
 
   return (

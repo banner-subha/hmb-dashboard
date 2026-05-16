@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { calculateMoM, getSeverity, getTrendColor, formatTrend } from '../../utils/trendEngine';
+import { calculateMoM, getBusinessImpact, getTrendColor, formatTrend } from '../../utils/trendEngine';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -50,7 +50,7 @@ export default function ProductBarChart({ data, height = 300 }) {
     const cur = d.cur_mt !== undefined ? d.cur_mt : (d.cur ?? 0);
     const prev = d.prev_mt !== undefined ? d.prev_mt : (d.prev ?? 0);
     const mom = calculateMoM(cur, prev);
-    const severity = getSeverity(mom);
+    const severity = getBusinessImpact(cur, prev).theme;
     const trendColor = getTrendColor(mom, cur, prev);
     const trendDisplay = formatTrend(mom);
 

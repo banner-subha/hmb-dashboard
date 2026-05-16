@@ -9,7 +9,7 @@ import SeverityBadge from '../components/common/SeverityBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
-import { calculateMoM, getSeverity, formatTrend, getTrendColor, getSeverityTheme, calculateImpactScore, getSeverityLevel } from '../utils/trendEngine';
+import { calculateMoM, formatTrend, getTrendColor, getSeverityTheme, getBusinessImpact } from '../utils/trendEngine';
 import { useNavigate } from 'react-router-dom';
 
 export default function ExecutiveOverview() {
@@ -206,9 +206,7 @@ export default function ExecutiveOverview() {
                   </div>
               ))}
               {decliningDealers.map((d, i) => {
-                const score = calculateImpactScore(d.cur, d.prev, d.inactivityDays, d.volatility);
-                const sevLevel = getSeverityLevel(score);
-                const sev = getSeverityTheme(sevLevel);
+                const { theme: sev } = getBusinessImpact(d.cur, d.prev, d.inactivityDays, d.volatility);
                 return (
                   <div key={`dec-${i}`} 
                     className="flex items-center justify-between p-3 rounded-xl border transition-all hover:scale-[1.02]"

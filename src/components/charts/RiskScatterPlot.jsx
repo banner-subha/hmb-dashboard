@@ -1,5 +1,5 @@
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { calculateMoM, getTrendColor, formatTrend, getSeverityLevel, getSeverityTheme } from '../../utils/trendEngine';
+import { calculateMoM, getTrendColor, formatTrend, getBusinessImpact } from '../../utils/trendEngine';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -60,9 +60,7 @@ export default function RiskScatterPlot({ data, height = 300 }) {
     const mom = calculateMoM(item.cur, item.prev);
     const trendColor = getTrendColor(mom, item.cur, item.prev);
     const trendDisplay = formatTrend(mom);
-    const impactScore = item.impactScore ?? item.riskScore ?? 0;
-    const sevLevel = getSeverityLevel(impactScore);
-    const severity = getSeverityTheme(sevLevel);
+    const { impactScore, theme: severity } = getBusinessImpact(item.cur, item.prev, item.inactivityDays, item.volatility);
 
     return {
       ...item,

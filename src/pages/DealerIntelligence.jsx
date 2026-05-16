@@ -9,7 +9,7 @@ import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
 import { formatMT } from '../utils/formatters';
-import { calculateMoM, getSeverity } from '../utils/trendEngine';
+import { calculateMoM, getBusinessImpact } from '../utils/trendEngine';
 
 export default function DealerIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -108,7 +108,7 @@ export default function DealerIntelligence() {
 
   // Compute accent color from frontend engine for selected dealer
   const selectedAccentColor = selectedDealer 
-    ? getSeverity(calculateMoM(selectedDealer.cur, selectedDealer.prev)).color 
+    ? getBusinessImpact(selectedDealer.cur, selectedDealer.prev, selectedDealer.inactivityDays, selectedDealer.volatility).theme.color 
     : '#6b7280';
 
   return (

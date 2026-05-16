@@ -1,4 +1,4 @@
-import { calculateImpactScore, getSeverityLevel, getSeverityTheme } from '../../utils/trendEngine';
+import { getBusinessImpact, getSeverityTheme } from '../../utils/trendEngine';
 
 /**
  * ImpactBadge — glassmorphism severity pill.
@@ -15,9 +15,9 @@ export default function ImpactBadge({ cur, prev, tier, score, color, className =
 
   // Prefer frontend calculation from raw values
   if (cur != null && prev != null) {
-    const impactScore = calculateImpactScore(cur, prev);
-    const sevLevel = getSeverityLevel(impactScore);
-    theme = getSeverityTheme(sevLevel);
+    const { theme: derivedTheme, impactScore: computedScore } = getBusinessImpact(cur, prev);
+    theme = derivedTheme;
+    if (!score) score = computedScore;
   } else if (tier) {
     theme = getSeverityTheme(tier);
   } else {

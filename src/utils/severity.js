@@ -6,7 +6,7 @@
 // NO backend visual fields are trusted.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { calculateMoM, getSeverity } from './trendEngine';
+import { calculateMoM, getBusinessImpact } from './trendEngine';
 
 /**
  * Derive severity metadata for any entity that has cur/prev (or mom).
@@ -18,18 +18,18 @@ export function getSeverityMeta(entity) {
     return { severityTag: 'LOW', severityColor: '#22c55e' };
   }
 
-  // Always prefer fresh frontend calculation from raw values
-  let mom;
-  if (entity.cur != null && entity.prev != null) {
-    mom = calculateMoM(entity.cur, entity.prev);
-  } else {
-    mom = typeof entity.mom === 'number' ? entity.mom : 0;
+  let cur = entity.cur != null ? entity.cur : 0;
+  let prev = entity.prev != null ? entity.prev : 0;
+
+  if (entity.cur == null && entity.prev == null && typeof entity.mom === 'number') {
+    prev = 100;
+    cur = 100 * (1 + entity.mom / 100);
   }
 
-  const result = getSeverity(mom);
+  const { theme } = getBusinessImpact(cur, prev, entity.inactivityDays, entity.volatility);
 
   return {
-    severityTag: result.severity,
-    severityColor: result.color,
+    severityTag: theme.severity,
+    severityColor: theme.color,
   };
 }

@@ -58,7 +58,7 @@ const normKey = (value = "") => {
   return String(value)
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "")
-    .replace(/paraganas|paragans|pargans/g, "parganas");
+    .replace(/paraganas|paragans|pargans|paragnas|prgs/g, "parganas");
 };
 
 const TOPO_ALIASES = {
@@ -69,6 +69,8 @@ const TOPO_ALIASES = {
   "south24parganas": "south24parganas",
   "northtwentyfourparganas": "north24parganas",
   "southtwentyfourparganas": "south24parganas",
+  "north24paragnas": "north24parganas",
+  "south24paragnas": "south24parganas",
 
   // Medinipur
   "medinipureast": "purbamedinipur",
