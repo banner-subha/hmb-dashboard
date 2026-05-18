@@ -80,20 +80,18 @@ export default function DealerIntelligence() {
       meta: { width: '15%' },
       cell: info => {
         const row = info.row.original;
-        // Derive status from frontend data
-        let status;
-        const mom = calculateMoM(row.cur, row.prev);
-        if (row.isInactive || row.cur === 0) status = 'Inactive';
-        else if (mom > 0) status = 'Growing';
-        else if (mom <= -10) status = 'Declining';
-        else status = 'Stable';
+        // Derive status and theme from trendEngine
+        const { severity, theme } = getBusinessImpact(row.cur, row.prev);
+        const statusLabel = (row.isInactive || row.cur === 0) ? 'Inactive' : (severity === 'LOW' || severity === 'NONE') ? 'Growing' : 'Declining';
 
-        let badgeClass = 'badge-none';
-        if (status === 'Growing') badgeClass = 'badge-none';
-        if (status === 'Declining') badgeClass = 'badge-medium';
-        if (status === 'Inactive') badgeClass = 'badge-critical';
-        
-        return <span className={`badge ${badgeClass} whitespace-nowrap`}>{status}</span>;
+        return (
+          <span 
+            className="badge whitespace-nowrap" 
+            style={{ backgroundColor: theme.bg, color: theme.color, borderColor: theme.border }}
+          >
+            {statusLabel}
+          </span>
+        );
       },
     },
   ], []);

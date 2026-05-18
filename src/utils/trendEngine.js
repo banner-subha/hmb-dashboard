@@ -84,52 +84,53 @@ export function getSeverityTheme(level) {
 
 export function getBusinessImpact(cur = 0, prev = 0, inactivityDays = 0, volatility = 0) {
   const mom = calculateMoM(cur, prev);
-  
-  // 1. Decline Risk Curve (Aggressive escalation at high-decline end)
+  const drop = Math.max(0, prev - cur);
+
+  // 1. MoM decline risk curve
   let declineRisk = 0;
   if (mom <= -75) declineRisk = 100;
   else if (mom <= -60) declineRisk = 95;
   else if (mom <= -45) declineRisk = 83;
   else if (mom <= -30) declineRisk = 68;
   else if (mom <= -20) declineRisk = 52;
-  else if (mom <= -10) declineRisk = 30;
-  else if (mom < 0) declineRisk = 15;
-  else declineRisk = 0;
+  else if (mom <= -10) declineRisk = 34;
+  else if (mom < 0)    declineRisk = 16;
 
-  // 2. Inactivity + Volatility Impact (Strengthened)
-  let inactivityRisk = Math.min((inactivityDays || 0) * 15, 100);
-  let volatilityRisk = Math.min((volatility || 0) * 28, 100);
+  // 2. Supporting risk signals
+  const inactivityRisk = Math.min((inactivityDays || 0) * 15, 100);
+  const volatilityRisk = Math.min((volatility || 0) * 28, 100);
 
-  // 3. Raw Risk Weights (Decline dominates)
-  let rawRisk = (declineRisk * 0.65) + (inactivityRisk * 0.20) + (volatilityRisk * 0.15);
+  // 3. Raw risk — MoM dominates
+  const rawRisk = (declineRisk * 0.70) + (inactivityRisk * 0.18) + (volatilityRisk * 0.12);
 
-  // 4. Business Weight Logic (Using CURRENT volume)
+  // 4. Business weight by current volume
   let businessWeight = 1.0;
-  if (cur < 100) businessWeight = 0.80;
-  else if (cur <= 300) businessWeight = 0.90;
+  if (cur < 100)       businessWeight = 0.80;
+  else if (cur <= 300) businessWeight = 0.92;
   else if (cur <= 700) businessWeight = 1.00;
-  else if (cur <= 1500) businessWeight = 1.10;
-  else businessWeight = 1.25;
+  else if (cur <= 1500)businessWeight = 1.10;
+  else                 businessWeight = 1.22;
 
-  // 5. Final Score Formula (Direct — no dampener)
+  // 5. Score — no dampener
   let impactScore = rawRisk * businessWeight;
 
-  // 6. Strategic MT Loss Escalation (reduced to avoid double-stacking)
-  const mtLoss = Math.abs(prev - cur);
-  if (mtLoss >= 1000) impactScore += 12;
-  else if (mtLoss >= 500) impactScore += 6;
+  // 6. MT loss bonus (reduced to avoid double-stacking)
+  const mtLoss = drop;
+  if (mtLoss >= 1000)      impactScore += 12;
+  else if (mtLoss >= 500)  impactScore += 6;
 
-  // 7. Pre-Threshold Escalation Boost (fires on raw ingredients, not final score)
+  // 7. Pre-threshold boost when raw ingredients are severe
   if (rawRisk >= 55) impactScore += 8;
 
-  // 8. Hard CRITICAL floor — unambiguous severe decline
-  if (mom <= -60 && cur < prev * 0.5) {
+  // 8. Hard CRITICAL floor — complete market collapse
+  // Only fires when inactivityDays/volatility are NOT available (zeroed)
+  // When real inactivity data exists, organic score should reach CRITICAL naturally
+  if (cur === 0 && prev >= 100) {
     impactScore = Math.max(impactScore, 75);
   }
 
   impactScore = Math.min(100, Math.round(impactScore));
 
-  // 9. Severity STRICTLY from final impactScore (single source of truth)
   const severity = getSeverityFromImpactScore(impactScore);
   const theme = getSeverityTheme(severity);
 

@@ -28,7 +28,7 @@ export default function ImpactBadge({ cur, prev, tier, score, color, className =
   return (
     <div 
       className={className}
-      title={score ? `Impact Score: ${score}` : ''}
+      title={score ? `Risk Score: ${score}` : ''}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
