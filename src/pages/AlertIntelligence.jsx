@@ -178,12 +178,19 @@ export default function AlertIntelligence() {
 
   // Fix 1: Header counts come from n8n-computed meta block in latest.json.
   // n8n processes all 11,587 rows; the frontend only receives top-N summaries.
-  const counts = useMemo(() => ({
-    critical: data?.criticalCount ?? 0,
-    high:     data?.highCount     ?? 0,
-    medium:   data?.mediumCount   ?? 0,
-    low:      Math.max(0, (data?.alertCount ?? 0) - (data?.criticalCount ?? 0) - (data?.highCount ?? 0) - (data?.mediumCount ?? 0)),
-  }), [data]);
+  // Counts derived from alertSeverityMap (post worst-child propagation) so they
+  // match the tags actually visible in the table — not the raw n8n meta counters
+  // which are pre-propagation and can differ by 1-2 when a parent gets escalated.
+  const counts = useMemo(() => {
+    const c = { critical: 0, high: 0, medium: 0, low: 0 };
+    alertSeverityMap.forEach(({ severity }) => {
+      if (severity === 'CRITICAL') c.critical++;
+      else if (severity === 'HIGH') c.high++;
+      else if (severity === 'MEDIUM') c.medium++;
+      else c.low++;
+    });
+    return c;
+  }, [alertSeverityMap]);
 
   // Fix 2/3/4: Pre-compute display severity + score for every alert row.
   // Use backend impactScore as the scoring input (computed from full granular data).
@@ -215,19 +222,16 @@ export default function AlertIntelligence() {
     });
   }, [alerts, data]);
 
-  // 2. Filter logic
+  // 2. Filter logic — always look up severity via original alerts[] index
   const filteredAlerts = useMemo(() => {
-    return alerts.filter(alert => {
+    return alerts.filter((alert, originalIdx) => {
       // search
       const query = searchQuery.toLowerCase();
       const searchable = `${alert.dealer || ''} ${alert.district || ''} ${alert.state || ''} ${alert.products || alert.product || ''} ${alert.reason || alert.title || ''}`.toLowerCase();
       if (searchQuery && !searchable.includes(query)) return false;
 
-      // severity — use pre-computed map so parent rows filter by worst-child severity
-      const alertIdx = alerts.indexOf(alert);
-      const _cur = alert.data?.cur ?? alert.cur ?? 0;
-      const _prev = alert.data?.prev ?? alert.prev ?? 0;
-      const derivedSev = alertSeverityMap[alertIdx]?.severity || getBusinessImpact(_cur, _prev).severity;
+      // severity — use originalIdx so we always hit the correct alertSeverityMap entry
+      const derivedSev = alertSeverityMap[originalIdx]?.severity || 'LOW';
       if (selectedSeverity !== 'ALL' && derivedSev !== selectedSeverity) return false;
 
       // level
@@ -461,6 +465,8 @@ export default function AlertIntelligence() {
                 </tr>
               ) : (
                 groupedAlerts.map((alert, idx) => {
+                  // Resolve back to original index so severity lookups are always correct
+                  const originalIdx = alerts.indexOf(alert);
                   const isExpanded = expandedRows.has(idx);
                   const indent = getIndentLevel(alert);
                   const entityName = alert.dealer || alert.district || alert.state || alert.product || alert.products || (alert.title ? alert.title.split(':')[0] : 'Unknown');
@@ -478,9 +484,9 @@ export default function AlertIntelligence() {
                         </td>
                         <td className="p-4">
                           {(() => {
-                            // Use pre-computed worst-child severity for parent rows (Part 3)
-                            const precomputed = alertSeverityMap[idx];
-                            const severity = precomputed?.severity || getBusinessImpact(alert.data?.cur ?? alert.cur ?? 0, alert.data?.prev ?? alert.prev ?? 0).severity;
+                            // Use originalIdx — not rendered idx — to get correct pre-computed severity
+                            const precomputed = alertSeverityMap[originalIdx];
+                            const severity = precomputed?.severity || 'LOW';
                             const theme = getSeverityTheme(severity);
                             return <SeverityBadge severity={theme.severity} color={theme.color} />;
                           })()}
@@ -514,9 +520,8 @@ export default function AlertIntelligence() {
                           {alert.drop ? formatNum(alert.drop) : (alert.data?.drop ? formatNum(alert.data.drop) : '-')}
                         </td>
                         <td className="p-4 text-center">
-                          {/* Fix 3: Show backend impactScore directly — real differentiated values */}
                           {(() => {
-                            const score = alertSeverityMap[idx]?.impactScore ?? (alert.data?.impactScore ?? alert.impactScore ?? 0);
+                            const score = alertSeverityMap[originalIdx]?.impactScore ?? (alert.data?.impactScore ?? alert.impactScore ?? 0);
                             return <span style={{ color: getImpactScoreColor(score), fontWeight: 700 }}>{score}</span>;
                           })()}
                         </td>
