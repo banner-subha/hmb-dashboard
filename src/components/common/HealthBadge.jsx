@@ -1,16 +1,23 @@
 import React from 'react';
+import { getBusinessImpact } from '../../utils/trendEngine';
 
 /**
  * HealthBadge Component
- * Purely presentational component that renders operational health status
- * based on backend-provided intelligence fields.
+ * Derives operational health status from trendEngine when cur/prev are available.
+ * Falls back to presentational-only rendering for legacy callers.
  */
-export default function HealthBadge({ status, color, className = '' }) {
-  // Graceful fallback for missing fields
-  if (!status) return null;
-  
-  const displayColor = color || '#94a3b8';
-  const label = status || '–';
+export default function HealthBadge({ cur, prev, status, color, className = '' }) {
+  let displayColor = color || '#94a3b8';
+  let label = status || '–';
+
+  // Prefer frontend derivation from raw values
+  if (cur != null && prev != null) {
+    const { severity, theme } = getBusinessImpact(cur, prev);
+    displayColor = theme.color;
+    label = severity;
+  }
+
+  if (!label || label === '–') return null;
 
   return (
     <div 

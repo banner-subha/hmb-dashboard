@@ -18,22 +18,14 @@ import {
 import SeverityBadge from '../components/common/SeverityBadge';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
-import { calculateMoM, getBusinessImpact } from '../utils/trendEngine';
+import { calculateMoM, getBusinessImpact, getSeverityFromImpactScore, getSeverityTheme } from '../utils/trendEngine';
 
 // Helper to format numbers safely
 const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toFixed(1) : fallback);
 
+// Derive impact score color from the centralized trendEngine
 function getImpactScoreColor(score) {
-  if (score >= 75) {
-    return '#ef4444'; // CRITICAL red
-  }
-  if (score >= 50) {
-    return '#f97316'; // HIGH orange
-  }
-  if (score >= 30) {
-    return '#eab308'; // MEDIUM yellow
-  }
-  return '#22c55e'; // LOW green
+  return getSeverityTheme(getSeverityFromImpactScore(score)).color;
 }
 
 // Dynamic Hierarchy Generator
@@ -92,9 +84,13 @@ const buildHierarchy = (alert, fullData) => {
 
 // Contextual Recommendation Generator
 const generateRecommendation = (alert) => {
-  const sev = (alert.severity || '').toUpperCase();
+  // Derive severity from cur/prev, never trust backend severity field
+  const cur = alert.data?.cur ?? alert.cur ?? 0;
+  const prev = alert.data?.prev ?? alert.prev ?? 0;
+  const { severity: derivedSev } = getBusinessImpact(cur, prev);
+  const sev = derivedSev;
   const lvl = (alert.level || alert.category || '').toUpperCase();
-  const mom = alert.mom || 0;
+  const mom = calculateMoM(cur, prev);
   
   if (sev === 'CRITICAL') {
     return "Escalate to regional leadership for immediate intervention. Verify supply lines and dealer operational status within 24 hours.";
@@ -533,7 +529,7 @@ export default function AlertIntelligence() {
                                       </h4>
                                       <div className="bg-bg-card border border-border/50 rounded-lg p-4 text-sm">
                                         <div className="flex gap-3 items-start">
-                                          <Activity className={`w-5 h-5 shrink-0 mt-0.5 ${alert.severity === 'CRITICAL' ? 'text-severity-critical' : 'text-accent-blue'}`} />
+                                          <Activity className={`w-5 h-5 shrink-0 mt-0.5 ${(() => { const c = alert.data?.cur ?? alert.cur ?? 0; const p = alert.data?.prev ?? alert.prev ?? 0; return getBusinessImpact(c, p).severity === 'CRITICAL' ? 'text-severity-critical' : 'text-accent-blue'; })()}`} />
                                           <span className="text-text-primary leading-relaxed font-medium">
                                             {rec}
                                           </span>

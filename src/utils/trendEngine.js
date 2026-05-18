@@ -85,13 +85,13 @@ export function getSeverityTheme(level) {
 export function getBusinessImpact(cur = 0, prev = 0, inactivityDays = 0, volatility = 0) {
   const mom = calculateMoM(cur, prev);
   
-  // 1. Decline Risk Curve (Stronger escalation)
+  // 1. Decline Risk Curve (Aggressive escalation at high-decline end)
   let declineRisk = 0;
   if (mom <= -75) declineRisk = 100;
-  else if (mom <= -60) declineRisk = 92;
-  else if (mom <= -45) declineRisk = 78;
-  else if (mom <= -30) declineRisk = 62;
-  else if (mom <= -20) declineRisk = 48;
+  else if (mom <= -60) declineRisk = 95;
+  else if (mom <= -45) declineRisk = 83;
+  else if (mom <= -30) declineRisk = 68;
+  else if (mom <= -20) declineRisk = 52;
   else if (mom <= -10) declineRisk = 30;
   else if (mom < 0) declineRisk = 15;
   else declineRisk = 0;
@@ -103,29 +103,33 @@ export function getBusinessImpact(cur = 0, prev = 0, inactivityDays = 0, volatil
   // 3. Raw Risk Weights (Decline dominates)
   let rawRisk = (declineRisk * 0.65) + (inactivityRisk * 0.20) + (volatilityRisk * 0.15);
 
-  // 4. Business Weight Logic (Using CURRENT volume, softer scaling)
+  // 4. Business Weight Logic (Using CURRENT volume)
   let businessWeight = 1.0;
-  if (cur < 100) businessWeight = 0.75;
+  if (cur < 100) businessWeight = 0.80;
   else if (cur <= 300) businessWeight = 0.90;
   else if (cur <= 700) businessWeight = 1.00;
   else if (cur <= 1500) businessWeight = 1.10;
   else businessWeight = 1.25;
 
-  // 5. Final Score Formula (Preserves distribution)
-  let impactScore = (rawRisk * 0.8) + ((rawRisk * businessWeight) * 0.2);
+  // 5. Final Score Formula (Direct — no dampener)
+  let impactScore = rawRisk * businessWeight;
 
-  // 6. Strategic MT Loss Escalation
+  // 6. Strategic MT Loss Escalation (reduced to avoid double-stacking)
   const mtLoss = Math.abs(prev - cur);
-  if (mtLoss >= 1000) impactScore += 15;
-  else if (mtLoss >= 500) impactScore += 8;
+  if (mtLoss >= 1000) impactScore += 12;
+  else if (mtLoss >= 500) impactScore += 6;
 
-  // 7. Non-Linear Escalation Boost
-  if (impactScore >= 75) impactScore += 10;
-  else if (impactScore >= 60) impactScore += 5;
+  // 7. Pre-Threshold Escalation Boost (fires on raw ingredients, not final score)
+  if (rawRisk >= 55) impactScore += 8;
+
+  // 8. Hard CRITICAL floor — unambiguous severe decline
+  if (mom <= -60 && cur < prev * 0.5) {
+    impactScore = Math.max(impactScore, 75);
+  }
 
   impactScore = Math.min(100, Math.round(impactScore));
 
-  // 8. Severity STRICTLY from final impactScore (single source of truth)
+  // 9. Severity STRICTLY from final impactScore (single source of truth)
   const severity = getSeverityFromImpactScore(impactScore);
   const theme = getSeverityTheme(severity);
 

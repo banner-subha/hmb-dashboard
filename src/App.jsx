@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import { useData } from './context/DataContext';
 import { useMemo } from 'react';
+import { calculateMoM, getBusinessImpact } from './utils/trendEngine';
 
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
@@ -23,38 +24,46 @@ function GeoIntelligenceWrapper() {
     if (!rawData) return { states: {}, districts: {} };
 
     // Build states map: { "West Bengal": { volume, trend, impact } }
+    // ALL trend/severity derived from trendEngine — NEVER trust backend visual fields
     const states = {};
     (rawData.states || []).forEach((s) => {
       if (!s.state) return;
-      const imp = s.impactScore ?? s.riskScore ?? 0;
+      const cur = s.cur ?? 0;
+      const prev = s.prev ?? 0;
+      const mom = calculateMoM(cur, prev);
+      const { severity, theme } = getBusinessImpact(cur, prev, s.inactivityDays, s.volatility);
       states[s.state] = {
-        cur: s.cur ?? 0,
-        prev: s.prev ?? 0,
-        volume: s.cur ?? s.volume ?? null,
-        trend:  s.mom ?? s.trend ?? null,
-        impact: s.impactTier || 'Stable',
-        impactTier: s.impactTier || 'Stable',
-        healthStatus: s.healthStatus || 'Stable',
-        healthColor: s.healthColor || '#94a3b8',
+        cur,
+        prev,
+        volume: cur,
+        trend: mom,
+        impact: severity,
+        impactTier: severity,
+        healthStatus: severity,
+        healthColor: theme.color,
       };
     });
 
     // Build districts map: { "West Bengal": { "Kolkata": { volume, trend, impact, lookupKey } } }
+    // ALL trend/severity derived from trendEngine — NEVER trust backend visual fields
     const districts = {};
     (rawData.districts || []).forEach((d) => {
       if (!d.state || !d.district) return;
       if (!districts[d.state]) districts[d.state] = {};
-      const imp = d.impactScore ?? d.riskScore ?? 0;
+      const cur = d.cur ?? 0;
+      const prev = d.prev ?? 0;
+      const mom = calculateMoM(cur, prev);
+      const { severity, theme } = getBusinessImpact(cur, prev, d.inactivityDays, d.volatility);
       districts[d.state][d.district] = {
         lookupKey: d.lookupKey,
-        cur: d.cur ?? 0,
-        prev: d.prev ?? 0,
-        volume: d.cur ?? d.volume ?? null,
-        trend:  d.mom ?? d.trend ?? null,
-        impact: d.impactTier || 'Stable',
-        impactTier: d.impactTier || 'Stable',
-        healthStatus: d.healthStatus || 'Stable',
-        healthColor: d.healthColor || '#94a3b8',
+        cur,
+        prev,
+        volume: cur,
+        trend: mom,
+        impact: severity,
+        impactTier: severity,
+        healthStatus: severity,
+        healthColor: theme.color,
       };
     });
 

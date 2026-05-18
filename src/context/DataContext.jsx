@@ -86,12 +86,14 @@ export function DataProvider({ children }) {
           .filter(item => item.products?.some(prod => prod.product === p))
           .map(item => {
             const prodData = item.products.find(prod => prod.product === p);
+            const pCur = prodData.cur || 0;
+            const pPrev = prodData.prev || 0;
             return {
               ...item,
-              cur: prodData.cur || 0,
-              prev: prodData.prev || 0,
-              mom: prodData.mom || 0,
-              drop: (prodData.prev || 0) - (prodData.cur || 0)
+              cur: pCur,
+              prev: pPrev,
+              mom: calculateMoM(pCur, pPrev),
+              drop: pPrev - pCur
             };
           });
       };

@@ -1,27 +1,24 @@
+import { getSeverityTheme } from '../../utils/trendEngine';
+
+/**
+ * PriorityBadge — renders action priority using trendEngine-derived colors.
+ * Maps IMMEDIATE/CRITICAL/HIGH/MEDIUM/LOW to the centralized severity theme.
+ */
 export default function PriorityBadge({ priority, className = '' }) {
   const s = (priority || '').toString().trim().toUpperCase();
   
-  let bg = 'rgba(148,163,184,0.12)';
-  let border = 'rgba(148,163,184,0.35)';
-  let color = '#94a3b8';
+  // Map priority labels to severity levels for color derivation
+  let severityKey = 'LOW';
+  if (s === 'IMMEDIATE' || s === 'CRITICAL') severityKey = 'CRITICAL';
+  else if (s === 'HIGH') severityKey = 'HIGH';
+  else if (s === 'MEDIUM') severityKey = 'MEDIUM';
+  else if (s === 'LOW') severityKey = 'LOW';
 
-  if (s === 'IMMEDIATE' || s === 'CRITICAL') {
-    bg = 'rgba(239,68,68,0.12)';
-    border = 'rgba(239,68,68,0.35)';
-    color = '#ef4444';
-  } else if (s === 'HIGH') {
-    bg = 'rgba(249,115,22,0.12)';
-    border = 'rgba(249,115,22,0.35)';
-    color = '#f97316';
-  } else if (s === 'MEDIUM') {
-    bg = 'rgba(234,179,8,0.12)';
-    border = 'rgba(234,179,8,0.35)';
-    color = '#eab308';
-  } else if (s === 'LOW') {
-    bg = 'rgba(34,197,94,0.12)';
-    border = 'rgba(34,197,94,0.35)';
-    color = '#22c55e';
-  }
+  const theme = getSeverityTheme(severityKey);
+  // For unrecognized priorities, use neutral
+  const bg = (s && severityKey !== 'LOW' && s !== 'LOW') ? theme.bg : (s === 'LOW' ? theme.bg : 'rgba(148,163,184,0.12)');
+  const border = (s && severityKey !== 'LOW' && s !== 'LOW') ? theme.border : (s === 'LOW' ? theme.border : 'rgba(148,163,184,0.35)');
+  const color = (s && (severityKey !== 'LOW' || s === 'LOW')) ? theme.color : '#94a3b8';
 
   return (
     <div 

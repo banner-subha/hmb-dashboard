@@ -11,13 +11,15 @@ export const PRODUCT_LABELS = {
 
 export const ALL_PRODUCTS = Object.keys(PRODUCT_LABELS);
 
-// Severity configuration
+import { getSeverityTheme } from './trendEngine';
+
+// Severity configuration — colors derived from trendEngine single source of truth
 export const SEVERITY_CONFIG = {
-  CRITICAL: { color: '#ef4444', bg: 'bg-severity-critical/20', text: 'text-severity-critical', label: 'Critical' },
-  HIGH:     { color: '#f97316', bg: 'bg-severity-high/20',     text: 'text-severity-high',     label: 'High' },
-  MEDIUM:   { color: '#eab308', bg: 'bg-severity-medium/20',   text: 'text-severity-medium',   label: 'Medium' },
-  LOW:      { color: '#22c55e', bg: 'bg-severity-low/20',      text: 'text-severity-low',      label: 'Low' },
-  NONE:     { color: '#6b7280', bg: 'bg-severity-none/20',     text: 'text-severity-none',     label: 'None' },
+  CRITICAL: { color: getSeverityTheme('CRITICAL').color, bg: 'bg-severity-critical/20', text: 'text-severity-critical', label: 'Critical' },
+  HIGH:     { color: getSeverityTheme('HIGH').color,     bg: 'bg-severity-high/20',     text: 'text-severity-high',     label: 'High' },
+  MEDIUM:   { color: getSeverityTheme('MEDIUM').color,   bg: 'bg-severity-medium/20',   text: 'text-severity-medium',   label: 'Medium' },
+  LOW:      { color: getSeverityTheme('LOW').color,      bg: 'bg-severity-low/20',      text: 'text-severity-low',      label: 'Low' },
+  NONE:     { color: '#6b7280',                          bg: 'bg-severity-none/20',      text: 'text-severity-none',     label: 'None' },
 };
 
 export const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'NONE'];

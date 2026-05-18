@@ -1,6 +1,6 @@
 // Formatting utilities used across the dashboard
-// INTELLIGENCE NOTE: Semantic logic (impact tiers, trend colors, business status) has been moved to the backend/workflow layer.
-// Frontend now purely renders pre-computed intelligence fields.
+// NOTE: All trend calculations, severity classification, and color mapping
+// are derived from trendEngine.js. These are pure display formatters only.
 
 /** Format a number as MT (metric tons) */
 export const formatMT = (n) => {

@@ -1,4 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { calculateMoM } from '../../utils/trendEngine';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -12,14 +13,18 @@ const CustomTooltip = ({ active, payload, label }) => {
               <span className="font-medium" style={{ color: entry.color }}>{entry.value.toFixed(1)} MT</span>
             </div>
           ))}
-          {payload.length === 2 && (
+          {payload.length === 2 && (() => {
+            const d = payload[1].payload;
+            const mom = calculateMoM(d.cur ?? d.cur_mt ?? 0, d.prev ?? d.prev_mt ?? 0);
+            return (
             <div className="flex justify-between gap-4 pt-1 border-t border-border mt-1">
               <span className="text-text-muted">MoM:</span>
-              <span className={`font-bold ${payload[1].payload.mom > 0 ? 'text-severity-none' : payload[1].payload.mom < 0 ? 'text-severity-critical' : 'text-text-muted'}`}>
-                {payload[1].payload.mom > 0 ? '↑' : payload[1].payload.mom < 0 ? '↓' : ''} {payload[1].payload.mom.toFixed(1)}%
+              <span className={`font-bold ${mom > 0 ? 'text-severity-none' : mom < 0 ? 'text-severity-critical' : 'text-text-muted'}`}>
+                {mom > 0 ? '↑' : mom < 0 ? '↓' : ''} {mom.toFixed(1)}%
               </span>
             </div>
-          )}
+            );
+          })()}
         </div>
       </div>
     );
