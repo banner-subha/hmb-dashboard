@@ -54,8 +54,9 @@ function getWorstImpactScore(children = []) {
 }
 
 // Dynamic Hierarchy Generator
-// Every leaf node is enriched with trendEngine-derived severity + impactScore.
-// Every parent node inherits the worst (highest) severity among its descendants.
+// Fix 4: Leaf nodes use backend impactScore re-derived via getSeverityFromImpactScore.
+// This avoids calling getBusinessImpact(cur, prev, 0, 0) with missing inactivity/volatility.
+// Parent nodes inherit the worst severity of their descendants.
 const buildHierarchy = (alert, fullData) => {
   if (!fullData || !alert) return null;
   const level = (alert.level || alert.category || '').toUpperCase();
@@ -69,11 +70,13 @@ const buildHierarchy = (alert, fullData) => {
     if (districts.length === 0 && products.length === 0) return null;
     const children = [
       ...districts.map(d => {
-        const { impactScore, severity } = getBusinessImpact(d.cur ?? 0, d.prev ?? 0);
+        const impactScore = d.impactScore ?? 0;
+        const severity = getSeverityFromImpactScore(impactScore);
         return { type: 'DISTRICT', name: cleanName(d.district), severity, impactScore };
       }),
       ...products.map(p => {
-        const { impactScore, severity } = getBusinessImpact(p.cur ?? 0, p.prev ?? 0);
+        const impactScore = p.impactScore ?? 0;
+        const severity = getSeverityFromImpactScore(impactScore);
         return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore };
       }),
     ];
@@ -88,11 +91,13 @@ const buildHierarchy = (alert, fullData) => {
     if (dealers.length === 0 && products.length === 0) return null;
     const children = [
       ...dealers.map(d => {
-        const { impactScore, severity } = getBusinessImpact(d.cur ?? 0, d.prev ?? 0);
+        const impactScore = d.impactScore ?? 0;
+        const severity = getSeverityFromImpactScore(impactScore);
         return { type: 'DEALER', name: cleanName(d.client), severity, impactScore };
       }),
       ...products.map(p => {
-        const { impactScore, severity } = getBusinessImpact(p.cur ?? 0, p.prev ?? 0);
+        const impactScore = p.impactScore ?? 0;
+        const severity = getSeverityFromImpactScore(impactScore);
         return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore };
       }),
     ];
@@ -104,7 +109,8 @@ const buildHierarchy = (alert, fullData) => {
     const products = dealerObj?.products || [];
     if (products.length === 0) return null;
     const children = products.map(p => {
-      const { impactScore, severity } = getBusinessImpact(p.cur ?? 0, p.prev ?? 0);
+      const impactScore = p.impactScore ?? 0;
+      const severity = getSeverityFromImpactScore(impactScore);
       return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore };
     });
     return { type: 'DEALER', name: cleanName(alert.dealer || entityName), children, severity: getWorstSeverity(children), impactScore: getWorstImpactScore(children) };
@@ -115,13 +121,15 @@ const buildHierarchy = (alert, fullData) => {
 
 // Contextual Recommendation Generator
 const generateRecommendation = (alert) => {
-  // Derive severity from cur/prev, never trust backend severity field
+  // Fix 2: Use backend impactScore as ground truth; re-derive severity via trendEngine
+  const impactScore = alert.data?.impactScore ?? alert.impactScore ?? 0;
+  const sev = getSeverityFromImpactScore(impactScore);
+  const lvl = (alert.level || alert.category || '').toUpperCase();
+  // Fix 5: Prefer backend mom field; only recalculate if missing
+  const rawMom = alert.data?.mom ?? alert.mom;
   const cur = alert.data?.cur ?? alert.cur ?? 0;
   const prev = alert.data?.prev ?? alert.prev ?? 0;
-  const { severity: derivedSev } = getBusinessImpact(cur, prev);
-  const sev = derivedSev;
-  const lvl = (alert.level || alert.category || '').toUpperCase();
-  const mom = calculateMoM(cur, prev);
+  const mom = rawMom != null ? rawMom : calculateMoM(cur, prev);
   
   if (sev === 'CRITICAL') {
     return "Escalate to regional leadership for immediate intervention. Verify supply lines and dealer operational status within 24 hours.";
@@ -168,42 +176,41 @@ export default function AlertIntelligence() {
     return Array.from(prods).sort();
   }, [alerts]);
 
-  // 1. Alert Summary Chips — leaf nodes only (DEALER / PRODUCT).
-  //    STATE / DISTRICT / OVERALL are containers, not individual alerts.
-  const counts = useMemo(() => {
-    return alerts.reduce((acc, alert) => {
-      const lvl = (alert.level || alert.category || '').toUpperCase();
-      if (lvl !== 'DEALER' && lvl !== 'PRODUCT') return acc;
-      const cur = alert.data?.cur ?? alert.cur ?? 0;
-      const prev = alert.data?.prev ?? alert.prev ?? 0;
-      const sev = getBusinessImpact(cur, prev).severity;
-      if (sev === 'CRITICAL') acc.critical++;
-      else if (sev === 'HIGH') acc.high++;
-      else if (sev === 'MEDIUM') acc.medium++;
-      else acc.low++;
-      return acc;
-    }, { critical: 0, high: 0, medium: 0, low: 0 });
-  }, [alerts]);
+  // Fix 1: Header counts come from n8n-computed meta block in latest.json.
+  // n8n processes all 11,587 rows; the frontend only receives top-N summaries.
+  const counts = useMemo(() => ({
+    critical: data?.criticalCount ?? 0,
+    high:     data?.highCount     ?? 0,
+    medium:   data?.mediumCount   ?? 0,
+    low:      Math.max(0, (data?.alertCount ?? 0) - (data?.criticalCount ?? 0) - (data?.highCount ?? 0) - (data?.mediumCount ?? 0)),
+  }), [data]);
 
-  // Pre-compute severity & impactScore for every row.
-  // Parent rows inherit the worst descendant value via buildHierarchy.
+  // Fix 2/3/4: Pre-compute display severity + score for every alert row.
+  // Use backend impactScore as the scoring input (computed from full granular data).
+  // Re-derive severity + theme client-side via trendEngine for consistent display.
+  // Parent rows (STATE/DISTRICT) propagate the worst child severity upward.
   const alertSeverityMap = useMemo(() => {
     return alerts.map(alert => {
       const lvl = (alert.level || alert.category || '').toUpperCase();
-      const cur = alert.data?.cur ?? alert.cur ?? 0;
-      const prev = alert.data?.prev ?? alert.prev ?? 0;
-      // Leaf rows — derive directly from trendEngine, never trust backend
-      if (lvl === 'DEALER' || lvl === 'PRODUCT') {
-        const { impactScore, severity } = getBusinessImpact(cur, prev);
-        return { severity, impactScore };
+      // Fix 3: Use backend impactScore directly — it's real, differentiated data
+      const impactScore = alert.data?.impactScore ?? alert.impactScore ?? 0;
+      // Fix 2: Re-derive severity via trendEngine; never read row.impactTier/healthStatus
+      const severity = getSeverityFromImpactScore(impactScore);
+
+      // For parent rows: also propagate worst-child severity from the hierarchy tree
+      if (lvl !== 'DEALER' && lvl !== 'PRODUCT') {
+        const hierarchy = buildHierarchy(alert, data);
+        if (hierarchy?.children?.length) {
+          // Worst child wins — a single CRITICAL child escalates the parent
+          const worstSev = hierarchy.severity;
+          const worstScore = hierarchy.impactScore;
+          // Surface whichever is higher: the row's own backend score or the child propagation
+          const ownRank = SEVERITY_RANK[severity] || 0;
+          const childRank = SEVERITY_RANK[worstSev] || 0;
+          if (childRank > ownRank) return { severity: worstSev, impactScore: worstScore };
+        }
       }
-      // Parent rows — propagate worst child severity up
-      const hierarchy = buildHierarchy(alert, data);
-      if (hierarchy?.children?.length) {
-        return { severity: hierarchy.severity, impactScore: hierarchy.impactScore };
-      }
-      // Fallback (OVERALL or no child data available)
-      const { impactScore, severity } = getBusinessImpact(cur, prev);
+
       return { severity, impactScore };
     });
   }, [alerts, data]);
@@ -299,7 +306,7 @@ export default function AlertIntelligence() {
           >
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-accent-blue/70 uppercase tracking-widest mb-0.5">Active Alerts</span>
-              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.critical + counts.high + counts.medium + counts.low}</span>
+              <span className="text-2xl font-extrabold text-text-primary leading-none">{data?.alertCount ?? (counts.critical + counts.high + counts.medium + counts.low)}</span>
             </div>
             <Activity className="w-5 h-5 text-accent-blue/40" />
           </div>
@@ -492,21 +499,25 @@ export default function AlertIntelligence() {
                           </div>
                         </td>
                         <td className="p-4 text-right font-medium whitespace-nowrap">
-                          <MoMIndicator cur={alert.data?.cur ?? alert.cur} prev={alert.data?.prev ?? alert.prev} />
+                          {/* Fix 5: Prefer backend mom integer; only recalc if missing */}
+                          {(() => {
+                            const rawMom = alert.data?.mom ?? alert.mom;
+                            if (rawMom != null) {
+                              const color = rawMom < 0 ? '#ef4444' : rawMom > 0 ? '#22c55e' : '#6b7280';
+                              const icon = rawMom < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : rawMom > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />;
+                              return <span style={{ color }} className="flex items-center justify-end gap-1 font-semibold">{icon}{rawMom > 0 ? '+' : ''}{rawMom}%</span>;
+                            }
+                            return <MoMIndicator cur={alert.data?.cur ?? alert.cur} prev={alert.data?.prev ?? alert.prev} />;
+                          })()}
                         </td>
                         <td className="p-4 text-right text-text-secondary whitespace-nowrap">
                           {alert.drop ? formatNum(alert.drop) : (alert.data?.drop ? formatNum(alert.data.drop) : '-')}
                         </td>
                         <td className="p-4 text-center">
+                          {/* Fix 3: Show backend impactScore directly — real differentiated values */}
                           {(() => {
-                            // Use pre-computed worst-child score for parent rows
-                            const computedScore = alertSeverityMap[idx]?.impactScore
-                              ?? getBusinessImpact(alert.data?.cur ?? alert.cur ?? 0, alert.data?.prev ?? alert.prev ?? 0).impactScore;
-                            return (
-                              <span style={{ color: getImpactScoreColor(computedScore), fontWeight: 700 }}>
-                                {computedScore}
-                              </span>
-                            );
+                            const score = alertSeverityMap[idx]?.impactScore ?? (alert.data?.impactScore ?? alert.impactScore ?? 0);
+                            return <span style={{ color: getImpactScoreColor(score), fontWeight: 700 }}>{score}</span>;
                           })()}
                         </td>
 
