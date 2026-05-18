@@ -28,7 +28,34 @@ function getImpactScoreColor(score) {
   return getSeverityTheme(getSeverityFromImpactScore(score)).color;
 }
 
+// ── Severity propagation helpers ─────────────────────────────────────────────
+const SEVERITY_RANK = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+
+function getWorstSeverity(children = []) {
+  let worst = 'LOW';
+  for (const child of children) {
+    const childSev = child.children?.length
+      ? getWorstSeverity(child.children)
+      : (child.severity || 'LOW');
+    if ((SEVERITY_RANK[childSev] || 0) > (SEVERITY_RANK[worst] || 0)) worst = childSev;
+  }
+  return worst;
+}
+
+function getWorstImpactScore(children = []) {
+  let best = 0;
+  for (const child of children) {
+    const score = child.children?.length
+      ? getWorstImpactScore(child.children)
+      : (child.impactScore ?? 0);
+    if (score > best) best = score;
+  }
+  return best;
+}
+
 // Dynamic Hierarchy Generator
+// Every leaf node is enriched with trendEngine-derived severity + impactScore.
+// Every parent node inherits the worst (highest) severity among its descendants.
 const buildHierarchy = (alert, fullData) => {
   if (!fullData || !alert) return null;
   const level = (alert.level || alert.category || '').toUpperCase();
@@ -39,46 +66,50 @@ const buildHierarchy = (alert, fullData) => {
     const districts = (fullData.districts || []).filter(d => d.state?.toUpperCase() === entityName);
     const stateObj = (fullData.states || []).find(s => s.state?.toUpperCase() === entityName);
     const products = stateObj?.products || [];
-    
     if (districts.length === 0 && products.length === 0) return null;
-    return {
-      type: 'STATE',
-      name: cleanName(alert.state || entityName),
-      children: [
-        ...districts.map(d => ({ type: 'DISTRICT', name: cleanName(d.district) })),
-        ...products.map(p => ({ type: 'PRODUCT', name: cleanName(p.product) }))
-      ]
-    };
+    const children = [
+      ...districts.map(d => {
+        const { impactScore, severity } = getBusinessImpact(d.cur ?? 0, d.prev ?? 0);
+        return { type: 'DISTRICT', name: cleanName(d.district), severity, impactScore };
+      }),
+      ...products.map(p => {
+        const { impactScore, severity } = getBusinessImpact(p.cur ?? 0, p.prev ?? 0);
+        return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore };
+      }),
+    ];
+    return { type: 'STATE', name: cleanName(alert.state || entityName), children, severity: getWorstSeverity(children), impactScore: getWorstImpactScore(children) };
   }
-  
+
   if (level === 'DISTRICT') {
-    const matchName = entityName.split(',')[0].trim(); // Handle "KOLKATA, WEST BENGAL"
+    const matchName = entityName.split(',')[0].trim();
     const dealers = (fullData.dealers || []).filter(d => d.district?.toUpperCase() === matchName);
     const distObj = (fullData.districts || []).find(d => d.district?.toUpperCase() === matchName);
     const products = distObj?.products || [];
-    
     if (dealers.length === 0 && products.length === 0) return null;
-    return {
-      type: 'DISTRICT',
-      name: cleanName(alert.district || matchName),
-      children: [
-        ...dealers.map(d => ({ type: 'DEALER', name: cleanName(d.client) })),
-        ...products.map(p => ({ type: 'PRODUCT', name: cleanName(p.product) }))
-      ]
-    };
+    const children = [
+      ...dealers.map(d => {
+        const { impactScore, severity } = getBusinessImpact(d.cur ?? 0, d.prev ?? 0);
+        return { type: 'DEALER', name: cleanName(d.client), severity, impactScore };
+      }),
+      ...products.map(p => {
+        const { impactScore, severity } = getBusinessImpact(p.cur ?? 0, p.prev ?? 0);
+        return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore };
+      }),
+    ];
+    return { type: 'DISTRICT', name: cleanName(alert.district || matchName), children, severity: getWorstSeverity(children), impactScore: getWorstImpactScore(children) };
   }
-  
+
   if (level === 'DEALER') {
     const dealerObj = (fullData.dealers || []).find(d => d.client?.toUpperCase() === entityName);
     const products = dealerObj?.products || [];
     if (products.length === 0) return null;
-    return {
-      type: 'DEALER',
-      name: cleanName(alert.dealer || entityName),
-      children: products.map(p => ({ type: 'PRODUCT', name: cleanName(p.product) }))
-    };
+    const children = products.map(p => {
+      const { impactScore, severity } = getBusinessImpact(p.cur ?? 0, p.prev ?? 0);
+      return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore };
+    });
+    return { type: 'DEALER', name: cleanName(alert.dealer || entityName), children, severity: getWorstSeverity(children), impactScore: getWorstImpactScore(children) };
   }
-  
+
   return null;
 };
 
@@ -137,20 +168,45 @@ export default function AlertIntelligence() {
     return Array.from(prods).sort();
   }, [alerts]);
 
-  // 1. Alert Summary Chips counts
+  // 1. Alert Summary Chips — leaf nodes only (DEALER / PRODUCT).
+  //    STATE / DISTRICT / OVERALL are containers, not individual alerts.
   const counts = useMemo(() => {
     return alerts.reduce((acc, alert) => {
+      const lvl = (alert.level || alert.category || '').toUpperCase();
+      if (lvl !== 'DEALER' && lvl !== 'PRODUCT') return acc;
       const cur = alert.data?.cur ?? alert.cur ?? 0;
       const prev = alert.data?.prev ?? alert.prev ?? 0;
       const sev = getBusinessImpact(cur, prev).severity;
-      
       if (sev === 'CRITICAL') acc.critical++;
-      if (sev === 'HIGH') acc.high++;
-      if (sev === 'MEDIUM') acc.medium++;
-      if (sev === 'LOW') acc.low++;
+      else if (sev === 'HIGH') acc.high++;
+      else if (sev === 'MEDIUM') acc.medium++;
+      else acc.low++;
       return acc;
     }, { critical: 0, high: 0, medium: 0, low: 0 });
   }, [alerts]);
+
+  // Pre-compute severity & impactScore for every row.
+  // Parent rows inherit the worst descendant value via buildHierarchy.
+  const alertSeverityMap = useMemo(() => {
+    return alerts.map(alert => {
+      const lvl = (alert.level || alert.category || '').toUpperCase();
+      const cur = alert.data?.cur ?? alert.cur ?? 0;
+      const prev = alert.data?.prev ?? alert.prev ?? 0;
+      // Leaf rows — derive directly from trendEngine, never trust backend
+      if (lvl === 'DEALER' || lvl === 'PRODUCT') {
+        const { impactScore, severity } = getBusinessImpact(cur, prev);
+        return { severity, impactScore };
+      }
+      // Parent rows — propagate worst child severity up
+      const hierarchy = buildHierarchy(alert, data);
+      if (hierarchy?.children?.length) {
+        return { severity: hierarchy.severity, impactScore: hierarchy.impactScore };
+      }
+      // Fallback (OVERALL or no child data available)
+      const { impactScore, severity } = getBusinessImpact(cur, prev);
+      return { severity, impactScore };
+    });
+  }, [alerts, data]);
 
   // 2. Filter logic
   const filteredAlerts = useMemo(() => {
@@ -160,10 +216,11 @@ export default function AlertIntelligence() {
       const searchable = `${alert.dealer || ''} ${alert.district || ''} ${alert.state || ''} ${alert.products || alert.product || ''} ${alert.reason || alert.title || ''}`.toLowerCase();
       if (searchQuery && !searchable.includes(query)) return false;
 
-      // severity
-      const cur = alert.data?.cur ?? alert.cur ?? 0;
-      const prev = alert.data?.prev ?? alert.prev ?? 0;
-      const derivedSev = getBusinessImpact(cur, prev).severity;
+      // severity — use pre-computed map so parent rows filter by worst-child severity
+      const alertIdx = alerts.indexOf(alert);
+      const _cur = alert.data?.cur ?? alert.cur ?? 0;
+      const _prev = alert.data?.prev ?? alert.prev ?? 0;
+      const derivedSev = alertSeverityMap[alertIdx]?.severity || getBusinessImpact(_cur, _prev).severity;
       if (selectedSeverity !== 'ALL' && derivedSev !== selectedSeverity) return false;
 
       // level
@@ -180,28 +237,22 @@ export default function AlertIntelligence() {
 
       return true;
     });
-  }, [alerts, searchQuery, selectedSeverity, selectedLevel, selectedState, selectedProduct]);
+  }, [alerts, searchQuery, selectedSeverity, selectedLevel, selectedState, selectedProduct, alertSeverityMap]);
 
-  // 3. Sorting
+  // 3. Sort by worst-child severity descending, then impactScore descending
   const groupedAlerts = useMemo(() => {
     return [...filteredAlerts].sort((a, b) => {
-      const stateA = (a.state || '').toLowerCase();
-      const stateB = (b.state || '').toLowerCase();
-      if (stateA !== stateB) return stateA.localeCompare(stateB);
-
-      const levelOrder = { 'STATE': 1, 'DISTRICT': 2, 'DEALER': 3, 'PRODUCT': 4, 'OVERALL': 5 };
-      const lvlA = levelOrder[(a.level || a.category || '').toUpperCase()] || 99;
-      const lvlB = levelOrder[(b.level || b.category || '').toUpperCase()] || 99;
-      
-      if (lvlA !== lvlB) return lvlA - lvlB;
-
-      const distA = (a.district || '').toLowerCase();
-      const distB = (b.district || '').toLowerCase();
-      if (distA !== distB) return distA.localeCompare(distB);
-
-      return 0;
+      const idxA = alerts.indexOf(a);
+      const idxB = alerts.indexOf(b);
+      const sevA = alertSeverityMap[idxA]?.severity || 'LOW';
+      const sevB = alertSeverityMap[idxB]?.severity || 'LOW';
+      const rankDiff = (SEVERITY_RANK[sevB] || 0) - (SEVERITY_RANK[sevA] || 0);
+      if (rankDiff !== 0) return rankDiff;
+      return (alertSeverityMap[idxB]?.impactScore || 0) - (alertSeverityMap[idxA]?.impactScore || 0);
     });
-  }, [filteredAlerts]);
+  }, [filteredAlerts, alertSeverityMap, alerts]);
+
+
 
   const toggleRow = (index) => {
     const newExpanded = new Set(expandedRows);
@@ -248,7 +299,7 @@ export default function AlertIntelligence() {
           >
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-accent-blue/70 uppercase tracking-widest mb-0.5">Active Alerts</span>
-              <span className="text-2xl font-extrabold text-text-primary leading-none">{alerts.length}</span>
+              <span className="text-2xl font-extrabold text-text-primary leading-none">{counts.critical + counts.high + counts.medium + counts.low}</span>
             </div>
             <Activity className="w-5 h-5 text-accent-blue/40" />
           </div>
@@ -420,10 +471,11 @@ export default function AlertIntelligence() {
                         </td>
                         <td className="p-4">
                           {(() => {
-                            const cur = alert.data?.cur ?? alert.cur ?? 0;
-                            const prev = alert.data?.prev ?? alert.prev ?? 0;
-                            const { theme: sev } = getBusinessImpact(cur, prev);
-                            return <SeverityBadge severity={sev.severity} color={sev.color} />;
+                            // Use pre-computed worst-child severity for parent rows (Part 3)
+                            const precomputed = alertSeverityMap[idx];
+                            const severity = precomputed?.severity || getBusinessImpact(alert.data?.cur ?? alert.cur ?? 0, alert.data?.prev ?? alert.prev ?? 0).severity;
+                            const theme = getSeverityTheme(severity);
+                            return <SeverityBadge severity={theme.severity} color={theme.color} />;
                           })()}
                         </td>
                         <td className="p-4">
@@ -447,16 +499,11 @@ export default function AlertIntelligence() {
                         </td>
                         <td className="p-4 text-center">
                           {(() => {
-                            const curVal = alert.data?.cur ?? alert.cur ?? 0;
-                            const prevVal = alert.data?.prev ?? alert.prev ?? 0;
-                            const { impactScore: computedScore } = getBusinessImpact(curVal, prevVal);
+                            // Use pre-computed worst-child score for parent rows
+                            const computedScore = alertSeverityMap[idx]?.impactScore
+                              ?? getBusinessImpact(alert.data?.cur ?? alert.cur ?? 0, alert.data?.prev ?? alert.prev ?? 0).impactScore;
                             return (
-                              <span
-                                style={{
-                                  color: getImpactScoreColor(computedScore),
-                                  fontWeight: 700
-                                }}
-                              >
+                              <span style={{ color: getImpactScoreColor(computedScore), fontWeight: 700 }}>
                                 {computedScore}
                               </span>
                             );
