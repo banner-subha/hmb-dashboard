@@ -178,30 +178,18 @@ export default function AlertIntelligence() {
 
   // Pre-compute display severity + score for every alert row FIRST —
   // counts depends on this map so it must be declared before counts.
-  // Use backend impactScore as the scoring input (computed from full granular data).
-  // Re-derive severity + theme client-side via trendEngine for consistent display.
-  // Parent rows (STATE/DISTRICT) propagate the worst child severity upward.
+  // Trust backend impactScore as canonical — n8n computed it from 11,587 rows of
+  // full granular data. Do NOT override with worst-child propagation: that caused
+  // a district (score 69 = HIGH) to be escalated to CRITICAL because one dealer
+  // hit exactly 75, producing wrong counts (CRITICAL: 3, HIGH: 8 vs correct 2/9).
+  // The hierarchy tree in expanded rows still shows child severity badges correctly.
   const alertSeverityMap = useMemo(() => {
     return alerts.map(alert => {
-      const lvl = (alert.level || alert.category || '').toUpperCase();
       const impactScore = alert.data?.impactScore ?? alert.impactScore ?? 0;
       const severity = getSeverityFromImpactScore(impactScore);
-
-      // For parent rows: propagate worst-child severity from the hierarchy tree
-      if (lvl !== 'DEALER' && lvl !== 'PRODUCT') {
-        const hierarchy = buildHierarchy(alert, data);
-        if (hierarchy?.children?.length) {
-          const worstSev = hierarchy.severity;
-          const worstScore = hierarchy.impactScore;
-          const ownRank = SEVERITY_RANK[severity] || 0;
-          const childRank = SEVERITY_RANK[worstSev] || 0;
-          if (childRank > ownRank) return { severity: worstSev, impactScore: worstScore };
-        }
-      }
-
       return { severity, impactScore };
     });
-  }, [alerts, data]);
+  }, [alerts]);
 
   // Counts derived from alertSeverityMap (post worst-child propagation) so header
   // numbers always match the tags actually visible in the table.
