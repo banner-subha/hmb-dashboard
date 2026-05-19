@@ -10,6 +10,7 @@ import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT, formatMoM } from '../utils/formatters';
 import { calculateMoM, getBusinessImpact } from '../utils/trendEngine';
+import SkeletonLoader from '../components/common/SkeletonLoader';
 
 export default function StateIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -19,17 +20,18 @@ export default function StateIntelligence() {
   // Sync URL params to Context filters
   useEffect(() => {
     const stateParam = searchParams.get('state');
+    const districtParam = searchParams.get('district');
     dispatch({ type: 'SET_STATE', payload: stateParam || null });
+    if (districtParam) dispatch({ type: 'SET_DISTRICT', payload: districtParam });
   }, [searchParams, dispatch]);
 
   // Sync Context filters to URL params
   useEffect(() => {
-    if (filters.selectedState) {
-      setSearchParams({ state: filters.selectedState });
-    } else {
-      setSearchParams({});
-    }
-  }, [filters.selectedState, setSearchParams]);
+    const params = {};
+    if (filters.selectedState) params.state = filters.selectedState;
+    if (filters.selectedDistrict) params.district = filters.selectedDistrict;
+    setSearchParams(params);
+  }, [filters.selectedState, filters.selectedDistrict, setSearchParams]);
 
   const columns = useMemo(() => [
     {
@@ -82,7 +84,13 @@ export default function StateIntelligence() {
     },
   ], []);
 
-  if (loading) return <div className="text-center py-12">Loading...</div>;
+  if (loading) return (
+    <div className="space-y-6">
+      <div className="glass-card shadow-lg">
+        <SkeletonLoader variant="table-row" count={8} />
+      </div>
+    </div>
+  );
   if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
   if (!data) return null;
 
@@ -95,7 +103,7 @@ export default function StateIntelligence() {
     : '#6b7280';
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="space-y-6">
       <FilterBar />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -112,7 +120,7 @@ export default function StateIntelligence() {
 
         {/* Right Col: Detail Panel (only shows if state selected) */}
         {selectedStateData && (
-          <div className="lg:col-span-5 space-y-6 animate-slide-up">
+          <div className="lg:col-span-5 space-y-6">
             <CollapsibleCard 
               title={`${selectedStateData.state} Intelligence`} 
               accentColor={selectedAccentColor}
@@ -145,7 +153,7 @@ export default function StateIntelligence() {
               <div className="space-y-6">
                 <div>
                   <h4 className="text-xs font-bold text-text-muted uppercase mb-3">Product Mix</h4>
-                  <ShareDonutChart data={selectedStateData.products} height={200} />
+                  <ShareDonutChart data={selectedStateData.products} height={240} />
                 </div>
                 
                 <div>

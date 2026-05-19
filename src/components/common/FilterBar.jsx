@@ -4,13 +4,13 @@ export default function FilterBar() {
   const { filters, dispatch, filterOptions } = useData();
 
   return (
-    <div className="glass-card p-4 flex flex-wrap items-center gap-4 mb-6">
+    <div className="glass-card p-4 flex flex-col md:flex-row flex-wrap items-center gap-4 mb-6">
       <div className="text-xs font-bold text-text-muted uppercase tracking-wider mr-2 hidden md:block">
         Global Filters
       </div>
       
       <select
-        className="filter-select min-w-[140px]"
+        className="filter-select w-full md:w-auto md:min-w-[140px]"
         value={filters.selectedState || ''}
         onChange={(e) => dispatch({ type: 'SET_STATE', payload: e.target.value || null })}
       >
@@ -21,7 +21,7 @@ export default function FilterBar() {
       </select>
 
       <select
-        className="filter-select min-w-[140px]"
+        className="filter-select w-full md:w-auto md:min-w-[140px]"
         value={filters.selectedDistrict || ''}
         onChange={(e) => dispatch({ type: 'SET_DISTRICT', payload: e.target.value || null })}
         disabled={!filters.selectedState}
@@ -33,7 +33,7 @@ export default function FilterBar() {
       </select>
 
       <select
-        className="filter-select min-w-[140px]"
+        className="filter-select w-full md:w-auto md:min-w-[140px]"
         value={filters.selectedProduct || ''}
         onChange={(e) => dispatch({ type: 'SET_PRODUCT', payload: e.target.value || null })}
       >
@@ -43,7 +43,7 @@ export default function FilterBar() {
         ))}
       </select>
 
-      <div className="flex-1 min-w-[200px] flex justify-end">
+      <div className="w-full md:flex-1 md:min-w-[200px] flex justify-end">
         {(filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.searchQuery) && (
           <button
             onClick={() => dispatch({ type: 'RESET' })}

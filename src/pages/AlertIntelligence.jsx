@@ -19,6 +19,7 @@ import SeverityBadge from '../components/common/SeverityBadge';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { calculateMoM, getBusinessImpact, getSeverityFromImpactScore, getSeverityTheme } from '../utils/trendEngine';
+import SkeletonLoader from '../components/common/SkeletonLoader';
 
 // Helper to format numbers safely
 const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toFixed(1) : fallback);
@@ -152,7 +153,7 @@ const generateRecommendation = (alert) => {
 };
 
 export default function AlertIntelligence() {
-  const { data, loading, error } = useData();
+  const { data, rawData, loading, error } = useData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSeverity, setSelectedSeverity] = useState('ALL');
   const [selectedLevel, setSelectedLevel] = useState('ALL');
@@ -160,10 +161,23 @@ export default function AlertIntelligence() {
   const [selectedProduct, setSelectedProduct] = useState('ALL');
   const [expandedRows, setExpandedRows] = useState(new Set());
 
-  if (loading) return <div className="text-center py-12">Loading Alert Intelligence...</div>;
+  if (loading) return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-4">
+        <SkeletonLoader variant="kpi" count={1} className="w-48 h-16" />
+        <div className="flex gap-3">
+          <SkeletonLoader variant="kpi" count={4} className="w-24 h-16 flex-row" />
+        </div>
+      </div>
+      <div className="glass-card shadow-lg">
+        <SkeletonLoader variant="table-row" count={6} />
+      </div>
+    </div>
+  );
   if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
 
-  const alerts = data?.alerts || [];
+  // Use rawData.alerts to completely isolate this tab from Executive Overview filters
+  const alerts = rawData?.alerts || [];
 
   // Extract unique states and products for filters
   const uniqueStates = useMemo(() => {
@@ -377,9 +391,9 @@ export default function AlertIntelligence() {
       <div className="glass-card overflow-hidden flex flex-col shadow-lg shadow-black/20">
         
         {/* SMART FILTER BAR */}
-        <div className="p-4 flex flex-col lg:flex-row gap-4 items-center justify-between border-b border-border bg-bg-card">
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto flex-1">
-            <div className="relative flex-1 md:max-w-xs min-w-[200px]">
+        <div className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between border-b border-border bg-bg-card">
+          <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full lg:w-auto flex-1">
+            <div className="relative flex-1 w-full sm:w-auto md:max-w-xs min-w-[200px]">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input 
                 type="text" 
@@ -393,7 +407,7 @@ export default function AlertIntelligence() {
             <select 
               value={selectedLevel}
               onChange={(e) => setSelectedLevel(e.target.value)}
-              className="filter-select bg-bg-input border-border/50 text-xs w-32"
+              className="filter-select bg-bg-input border-border/50 text-xs w-full sm:w-32"
             >
               <option value="ALL">All Levels</option>
               <option value="STATE">State</option>
@@ -405,7 +419,7 @@ export default function AlertIntelligence() {
             <select 
               value={selectedState}
               onChange={(e) => setSelectedState(e.target.value)}
-              className="filter-select bg-bg-input border-border/50 text-xs w-40"
+              className="filter-select bg-bg-input border-border/50 text-xs w-full sm:w-40"
             >
               <option value="ALL">All States</option>
               {uniqueStates.map(st => <option key={st} value={st}>{st}</option>)}
@@ -414,7 +428,7 @@ export default function AlertIntelligence() {
             <select 
               value={selectedProduct}
               onChange={(e) => setSelectedProduct(e.target.value)}
-              className="filter-select bg-bg-input border-border/50 text-xs w-40"
+              className="filter-select bg-bg-input border-border/50 text-xs w-full sm:w-40"
             >
               <option value="ALL">All Products</option>
               {uniqueProducts.map(pr => <option key={pr} value={pr}>{pr}</option>)}
@@ -433,8 +447,8 @@ export default function AlertIntelligence() {
                 <th className="p-4 font-bold">Level</th>
                 <th className="p-4 font-bold">Entity</th>
                 <th className="p-4 font-bold text-right">MoM %</th>
-                <th className="p-4 font-bold text-right">MT Loss</th>
-                <th className="p-4 font-bold text-center">Impact Score</th>
+                <th className="p-4 font-bold text-right hidden md:table-cell">MT Loss</th>
+                <th className="p-4 font-bold text-center hidden md:table-cell">Impact Score</th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-border/30">
@@ -481,9 +495,9 @@ export default function AlertIntelligence() {
                             {indent > 0 && <div className="w-3 h-px bg-border-accent opacity-50"></div>}
                             {lvl === 'PRODUCT' && <Target className="w-3.5 h-3.5 text-text-muted" />}
                             {lvl === 'STATE' && <Map className="w-3.5 h-3.5 text-text-muted" />}
-                            {lvl === 'DISTRICT' && <Map className="w-3.5 h-3.5 text-text-muted" />}
-                            {lvl === 'DEALER' && <Search className="w-3.5 h-3.5 text-text-muted" />}
-                            <span className="font-medium text-text-primary whitespace-nowrap">{entityName}</span>
+                            {lvl === 'DISTRICT' && <Map className="w-3.5 h-3.5 text-text-muted shrink-0" />}
+                            {lvl === 'DEALER' && <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />}
+                            <span className="font-medium text-text-primary break-words line-clamp-2">{entityName}</span>
                           </div>
                         </td>
                         <td className="p-4 text-right font-medium whitespace-nowrap">
@@ -498,10 +512,10 @@ export default function AlertIntelligence() {
                             return <MoMIndicator cur={alert.data?.cur ?? alert.cur} prev={alert.data?.prev ?? alert.prev} />;
                           })()}
                         </td>
-                        <td className="p-4 text-right text-text-secondary whitespace-nowrap">
+                        <td className="p-4 text-right text-text-secondary whitespace-nowrap hidden md:table-cell">
                           {alert.drop ? formatNum(alert.drop) : (alert.data?.drop ? formatNum(alert.data.drop) : '-')}
                         </td>
-                        <td className="p-4 text-center">
+                        <td className="p-4 text-center hidden md:table-cell">
                           {(() => {
                             const score = alertSeverityMap[originalIdx]?.impactScore ?? (alert.data?.impactScore ?? alert.impactScore ?? 0);
                             return <span style={{ color: getImpactScoreColor(score), fontWeight: 700 }}>{score}</span>;
@@ -512,13 +526,15 @@ export default function AlertIntelligence() {
 
                       {/* EXPANDED DETAILS (2-COLUMN LAYOUT) */}
                       {isExpanded && (() => {
-                        const hierarchy = buildHierarchy(alert, data);
-                        const rec = generateRecommendation(alert);
-                        
-                        return (
-                          <tr className="bg-bg-primary/40 shadow-inner">
-                            <td colSpan="7" className="p-0 border-b border-border/50">
-                              <div className="p-6 pl-14 border-l-2 border-accent-blue ml-5 my-2 space-y-6 animate-slide-up">
+                          const hierarchy = buildHierarchy(alert, data);
+                          const rec = generateRecommendation(alert);
+                          
+                          return (
+                            <tr 
+                              className="bg-bg-primary/40 shadow-inner overflow-hidden transition-all duration-300"
+                            >
+                              <td colSpan="7" className="p-0 border-b border-border/50">
+                                <div className="p-4 md:p-6 md:pl-14 border-l-2 border-accent-blue ml-5 my-2 space-y-6">
                                 
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                   
@@ -607,11 +623,11 @@ export default function AlertIntelligence() {
                                   {alert.suppressedBy && <span>Suppressed By: <strong className="text-text-primary">{alert.suppressedBy}</strong></span>}
                                   <span>Generated At: <strong className="text-text-primary">{data.meta?.generatedAt ? new Date(data.meta.generatedAt).toLocaleString() : 'N/A'}</strong></span>
                                 </div>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })()}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })()}
                     </React.Fragment>
                   );
                 })

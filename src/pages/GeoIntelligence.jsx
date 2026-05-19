@@ -358,7 +358,7 @@ export default function GeoIntelligence({ salesData }) {
 
   // ─── JSX ──────────────────────────────────────────────────────────────────
   return (
-    <div className="animate-fade-in">
+    <div>
       {/* Header row */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         {selectedState && (
@@ -387,12 +387,12 @@ export default function GeoIntelligence({ salesData }) {
       </div>
 
       {/* Main body: 72% map | 28% panel */}
-      <div className="flex gap-4" style={{ minHeight: 560 }}>
+      <div className="flex flex-col lg:flex-row gap-4 lg:min-h-[560px]">
 
         {/* ── MAP ── */}
         <div
-          className="rounded-xl border overflow-hidden relative flex-shrink-0"
-          style={{ width: '72%', background: '#161b22', borderColor: '#1e293b' }}
+          className="rounded-xl border overflow-hidden relative flex-shrink-0 w-full lg:w-[72%] min-h-[400px] lg:min-h-[560px]"
+          style={{ background: '#161b22', borderColor: '#1e293b' }}
         >
           {/* Loading state */}
           {(geoLoading || distLoading) && (

@@ -1,10 +1,12 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { calculateMoM } from '../../utils/trendEngine';
+import { useRef } from 'react';
+import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="glass-card p-3 shadow-xl border-border-accent">
+      <div className="chart-tooltip p-3">
         <p className="font-bold text-text-primary text-sm mb-2">{label}</p>
         <div className="space-y-1 text-xs">
           {payload.map((entry, index) => (
@@ -33,14 +35,19 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function MoMTrendChart({ data, nameKey = "name", height = 300 }) {
+  const containerRef = useRef(null);
+  const { width } = useDebouncedResize(containerRef, 150);
+
   if (!data || data.length === 0) {
     return <div className="flex items-center justify-center h-full text-text-muted text-sm">No data available</div>;
   }
 
   return (
-    <div style={{ height: `${height}px`, width: '100%' }}>
-      <ResponsiveContainer width="100%" height="100%">
+    <div ref={containerRef} style={{ height: `${height}px`, width: '100%' }}>
+      {width > 0 && (
         <BarChart
+          width={width}
+          height={height}
           data={data}
           margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
         >
@@ -52,7 +59,7 @@ export default function MoMTrendChart({ data, nameKey = "name", height = 300 }) 
           <Bar dataKey="prev" name="Previous" fill="#475569" radius={[2, 2, 0, 0]} maxBarSize={40} />
           <Bar dataKey="cur" name="Current" fill="#3b82f6" radius={[2, 2, 0, 0]} maxBarSize={40} />
         </BarChart>
-      </ResponsiveContainer>
+      )}
     </div>
   );
 }

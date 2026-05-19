@@ -76,6 +76,20 @@ export function DataProvider({ children }) {
       const d = filters.selectedDistrict;
       districts = districts.filter(dist => dist.district === d);
       dealers = dealers.filter(dl => dl.district === d);
+      
+      const targetDist = rawData.districts?.find(dist => dist.district === d);
+      if (targetDist) {
+        states = states.filter(st => st.state === targetDist.state).map(st => ({
+          ...st,
+          cur: targetDist.cur,
+          prev: targetDist.prev,
+          mom: targetDist.mom,
+          drop: targetDist.drop,
+          products: targetDist.products
+        }));
+      } else {
+        states = [];
+      }
     }
     if (filters.selectedProduct) {
       const p = filters.selectedProduct;

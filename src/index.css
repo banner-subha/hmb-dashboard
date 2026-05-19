@@ -8,9 +8,9 @@
   --color-bg-input: #0f172a;
   --color-border: #1e293b;
   --color-border-accent: #1e3a5f;
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #475569;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: rgba(255, 255, 255, 0.72);
+  --color-text-muted: rgba(255, 255, 255, 0.58);
   --color-text-dim: #334155;
   --color-accent-blue: #3b82f6;
   --color-accent-cyan: #06b6d4;
@@ -111,6 +111,17 @@
   .search-input {
     @apply bg-bg-input border border-border rounded-lg pl-10 pr-4 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-blue transition-colors w-full;
   }
+
+  .chart-tooltip {
+    background: rgba(10, 16, 32, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    border-radius: 12px;
+    transition: all 0.25s ease;
+  }
+  .chart-tooltip:hover {
+    filter: brightness(1.08);
+  }
 }
 
 @layer utilities {
@@ -136,4 +147,68 @@
 @keyframes pulseSub {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ENTERPRISE RESPONSIVE ENHANCEMENTS
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  --text-fluid-xs: clamp(0.625rem, 0.55rem + 0.25vw, 0.75rem);
+  --text-fluid-sm: clamp(0.75rem, 0.7rem + 0.2vw, 0.875rem);
+  --text-fluid-base: clamp(0.8125rem, 0.75rem + 0.25vw, 1rem);
+  --text-fluid-lg: clamp(1rem, 0.9rem + 0.4vw, 1.25rem);
+  --text-fluid-xl: clamp(1.125rem, 1rem + 0.5vw, 1.5rem);
+  --text-fluid-2xl: clamp(1.25rem, 1.1rem + 0.6vw, 1.875rem);
+}
+
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+@media (pointer: coarse) {
+  .filter-select, .search-input, button, a, [role="button"] {
+    min-height: 44px; /* Apple HIG minimum */
+  }
+  html { -webkit-tap-highlight-color: transparent; }
+  body { -webkit-overflow-scrolling: touch; }
+  button, a, select, input { touch-action: manipulation; }
+}
+
+@media (max-width: 768px) {
+  ::-webkit-scrollbar { width: 0px; height: 0px; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--color-bg-card) 25%, var(--color-bg-card-hover) 50%, var(--color-bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+@media (max-width: 767px) {
+  .glass-card { border-radius: 0.625rem; }
+  .glass-card-hover:hover { transform: none; box-shadow: none; }
+  .kpi-value { font-size: var(--text-fluid-xl); }
+  .section-header { font-size: 9px; }
+  .filter-select { width: 100%; font-size: 14px; }
+  .search-input { font-size: 16px; }
 }

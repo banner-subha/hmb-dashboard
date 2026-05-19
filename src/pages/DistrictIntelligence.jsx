@@ -9,6 +9,7 @@ import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
 import { calculateMoM } from '../utils/trendEngine';
+import SkeletonLoader from '../components/common/SkeletonLoader';
 
 export default function DistrictIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -75,14 +76,25 @@ export default function DistrictIntelligence() {
     }
   ], []);
 
-  if (loading) return <div className="text-center py-12">Loading...</div>;
+  if (loading) return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-7 glass-card shadow-lg">
+          <SkeletonLoader variant="table-row" count={8} />
+        </div>
+        <div className="lg:col-span-5">
+          <SkeletonLoader variant="chart" className="h-72" />
+        </div>
+      </div>
+    </div>
+  );
   if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
   if (!data) return null;
 
   const districts = data.districts || [];
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="space-y-6">
       <FilterBar />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

@@ -4,30 +4,39 @@ import SeverityBadge from '../components/common/SeverityBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
 import { Brain, AlertTriangle, Target, Search, Map } from 'lucide-react';
 import { formatMT } from '../utils/formatters';
+import SkeletonLoader from '../components/common/SkeletonLoader';
 
 export default function AIWarRoom() {
   const { data, loading, error } = useData();
 
-  if (loading) return <div className="text-center py-12">Loading AI Intel...</div>;
+  if (loading) return (
+    <div className="max-w-5xl mx-auto space-y-6">
+      <SkeletonLoader variant="card" className="h-32" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SkeletonLoader variant="card" count={2} />
+        <SkeletonLoader variant="card" count={2} />
+      </div>
+    </div>
+  );
   if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
   if (!data?.intelligence) return <div className="text-center text-text-muted py-12">No AI intelligence data available for this cycle.</div>;
 
   const { intelligence } = data;
 
   return (
-    <div className="animate-fade-in max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       
       {/* Header Panel */}
       <div className="glass-card p-6 border-l-4 border-accent-blue bg-gradient-to-br from-bg-card to-bg-secondary relative overflow-hidden">
         <div className="absolute right-0 top-0 opacity-5 p-4 pointer-events-none">
           <Brain className="w-32 h-32" />
         </div>
-        <div className="relative z-10">
+        <div className="relative z-10 pr-12 md:pr-16">
           <h2 className="text-2xl font-extrabold text-text-primary mb-2 flex items-center gap-3">
             <Brain className="w-6 h-6 text-accent-blue" />
-            AI Operations Command Center
+            AI Executive Summary
           </h2>
-          <p className="text-text-secondary max-w-3xl leading-relaxed">
+          <p className="text-text-secondary leading-relaxed">
             {intelligence.executive_summary}
           </p>
         </div>

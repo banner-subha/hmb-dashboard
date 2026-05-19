@@ -11,6 +11,17 @@ export const PRODUCT_LABELS = {
 
 export const ALL_PRODUCTS = Object.keys(PRODUCT_LABELS);
 
+// Unified product color palette
+export const PRODUCT_COLORS = {
+  IG: '#3B82F6',   // Electric Blue
+  GI: '#F97316',   // Premium Orange
+  IGG: '#A3E635',  // Neon Lime
+  HGI: '#8B5CF6',  // Violet Purple
+  P: '#FB923C',    // Soft Amber Orange
+  RS: '#EF4444',   // Rose Red
+  SS: '#22D3EE',   // Slate Cyan
+};
+
 import { getSeverityTheme } from './trendEngine';
 
 // Severity configuration — colors derived from trendEngine single source of truth
@@ -41,7 +52,7 @@ export const NAV_ITEMS = [
   { path: '/states',    label: 'State Intelligence', icon: 'Map' },
   { path: '/districts', label: 'District Intelligence', icon: 'MapPin' },
   { path: '/dealers',   label: 'Dealer Intelligence', icon: 'Store' },
-  { path: '/war-room',  label: 'AI War Room', icon: 'Brain' },
+  { path: '/war-room',  label: 'AI Insights Hub', icon: 'Brain' },
   { path: '/alerts',    label: 'Alert Intelligence', icon: 'Activity' },
   { path: '/geo',       label: 'Geo Intelligence', icon: 'Globe' },
 ];

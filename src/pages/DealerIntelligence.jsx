@@ -10,6 +10,7 @@ import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
 import { formatMT } from '../utils/formatters';
 import { calculateMoM, getBusinessImpact } from '../utils/trendEngine';
+import SkeletonLoader from '../components/common/SkeletonLoader';
 
 export default function DealerIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
@@ -96,7 +97,13 @@ export default function DealerIntelligence() {
     },
   ], []);
 
-  if (loading) return <div className="text-center py-12">Loading...</div>;
+  if (loading) return (
+    <div className="space-y-6">
+      <div className="glass-card shadow-lg">
+        <SkeletonLoader variant="table-row" count={8} />
+      </div>
+    </div>
+  );
   if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
   if (!data) return null;
 
@@ -110,7 +117,7 @@ export default function DealerIntelligence() {
     : '#6b7280';
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
         <FilterBar />
         <div className="w-full sm:w-auto -mt-6 sm:mt-0">
@@ -132,7 +139,7 @@ export default function DealerIntelligence() {
 
         {/* Right Col: Detail Panel */}
         {selectedDealer && (
-          <div className="xl:col-span-4 space-y-6 animate-slide-up min-w-0">
+          <div className="xl:col-span-4 space-y-6 min-w-0">
             <CollapsibleCard 
               title="Dealer Intelligence" 
               accentColor={selectedAccentColor}

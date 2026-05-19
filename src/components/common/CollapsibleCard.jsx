@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { AnimatePresence, m } from 'framer-motion';
+import { collapseVariants } from '../../utils/motionVariants';
 
 export default function CollapsibleCard({ 
   title, 
@@ -27,13 +29,21 @@ export default function CollapsibleCard({
         </div>
       </button>
       
-      <div 
-        className={`transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[75vh] overflow-y-auto opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}
-      >
-        <div className="p-4 sm:p-5">
-          {children}
-        </div>
-      </div>
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <m.div
+            variants={collapseVariants}
+            initial="closed"
+            animate="open"
+            exit="closed"
+            className="overflow-hidden"
+          >
+            <div className="p-4 sm:p-5">
+              {children}
+            </div>
+          </m.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

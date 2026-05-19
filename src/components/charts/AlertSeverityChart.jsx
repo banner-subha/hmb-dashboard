@@ -1,13 +1,15 @@
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { SEVERITY_CONFIG } from '../../utils/constants';
 import { getBusinessImpact } from '../../utils/trendEngine';
+import { useRef } from 'react';
+import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     const config = SEVERITY_CONFIG[data.name] || SEVERITY_CONFIG.NONE;
     return (
-      <div className="glass-card p-3 shadow-xl border-border-accent">
+      <div className="chart-tooltip p-3">
         <div className="flex items-center gap-2 mb-1">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: config.color }}></span>
           <span className="font-bold text-text-primary text-sm">{data.name}</span>
@@ -23,6 +25,9 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export default function AlertSeverityChart({ alerts, height = 250 }) {
+  const containerRef = useRef(null);
+  const { width } = useDebouncedResize(containerRef, 150);
+
   if (!alerts || alerts.length === 0) {
     return <div className="flex items-center justify-center h-full text-text-muted text-sm">No alerts available</div>;
   }
@@ -46,9 +51,9 @@ export default function AlertSeverityChart({ alerts, height = 250 }) {
   });
 
   return (
-    <div style={{ height: `${height}px`, width: '100%' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
+    <div ref={containerRef} style={{ height: `${height}px`, width: '100%' }}>
+      {width > 0 && (
+        <PieChart width={width} height={height}>
           <Pie
             data={chartData}
             cx="50%"
@@ -74,7 +79,7 @@ export default function AlertSeverityChart({ alerts, height = 250 }) {
             wrapperStyle={{ fontSize: '10px', color: '#94a3b8' }}
           />
         </PieChart>
-      </ResponsiveContainer>
+      )}
     </div>
   );
 }

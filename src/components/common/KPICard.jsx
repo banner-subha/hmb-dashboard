@@ -4,7 +4,7 @@ export default function KPICard({ label, value, subtitle, momDisplay, momColor, 
 
   return (
     <div
-      className="glass-card-hover p-4 sm:p-5 flex flex-col justify-between"
+      className="glass-card-hover p-4 sm:p-5 flex flex-col justify-between hover:border-accent-blue/30 hover:shadow-[0_4px_24px_rgba(59,130,246,0.08)] transition-all duration-200 hover:-translate-y-0.5"
       style={{ borderTopWidth: '3px', borderTopColor: accentColor }}
     >
       <div className="text-[10px] sm:text-xs font-bold text-text-muted uppercase tracking-wider mb-2">

@@ -1,5 +1,7 @@
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import { calculateMoM, getTrendColor, formatTrend, getBusinessImpact } from '../../utils/trendEngine';
+import { useRef } from 'react';
+import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -9,12 +11,9 @@ const CustomTooltip = ({ active, payload }) => {
     
     return (
       <div 
-        className="glass-card p-4 shadow-2xl transition-all"
+        className="chart-tooltip p-4"
         style={{
-          borderColor: sev.border,
-          boxShadow: sev.shadow,
           borderLeft: `4px solid ${sev.color}`,
-          background: 'rgba(15, 23, 42, 0.95)'
         }}
       >
         <p className="font-bold text-text-primary text-sm mb-3">{data.name}</p>
@@ -52,6 +51,9 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export default function RiskScatterPlot({ data, height = 300 }) {
+  const containerRef = useRef(null);
+  const { width } = useDebouncedResize(containerRef, 150);
+
   if (!data || data.length === 0) {
     return <div className="flex items-center justify-center h-full text-text-muted text-sm">No data available</div>;
   }
@@ -75,9 +77,13 @@ export default function RiskScatterPlot({ data, height = 300 }) {
   }).filter(d => d.volume > 0 || d.prev > 0);
 
   return (
-    <div style={{ height: `${height}px`, width: '100%' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: -20 }}>
+    <div ref={containerRef} style={{ height: `${height}px`, width: '100%' }}>
+      {width > 0 && (
+        <ScatterChart 
+          width={width} 
+          height={height} 
+          margin={{ top: 10, right: 10, bottom: 10, left: -20 }}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
           <XAxis 
             type="number" 
@@ -102,7 +108,7 @@ export default function RiskScatterPlot({ data, height = 300 }) {
             ))}
           </Scatter>
         </ScatterChart>
-      </ResponsiveContainer>
+      )}
     </div>
   );
 }
