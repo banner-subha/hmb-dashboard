@@ -2,130 +2,1463 @@
 // This file is used as fallback during development
 
 export const sampleData = {
-  meta: { generatedAt: "2026-05-08T08:30:00.000Z", curPeriod: "8 Apr 2026 – 8 May 2026", prevPeriod: "8 Mar 2026 – 8 Apr 2026", rowsProcessed: 1247 },
-  totalCur: 2847.5, totalPrev: 3101.2, totalMoM: -8, totalMoMDisplay: "↓ 8.0%", totalMoMColor: "#ef4444", pendingTotal: 1203.4, targetTotal: 3500,
-  alertCount: 22, hasAlert: true,
-  products: [
-    { product: "IG",  label: "IG (Iron Gate)",          cur: 633, prev: 722, mom: -12.3, share: 22, trendDirection: "down", trendLabel: "↓ 12.3%", displayColor: "#eab308" },
-    { product: "GI",  label: "GI (Galvanised Iron)",    cur: 892, prev: 857, mom: 4.1,   share: 31, trendDirection: "up",   trendLabel: "↑ 4.1%",  displayColor: "#22c55e" },
-    { product: "IGG", label: "IGG (Iron Gate — Heavy)", cur: 287, prev: 310, mom: -7.4,  share: 10, trendDirection: "down", trendLabel: "↓ 7.4%",  displayColor: "#22c55e" },
-    { product: "HGI", label: "HGI (Heavy GI)",          cur: 412, prev: 507, mom: -18.7, share: 14, trendDirection: "down", trendLabel: "↓ 18.7%", displayColor: "#f97316" },
-    { product: "P",   label: "P (Pipe)",                cur: 341, prev: 331, mom: 2.9,   share: 12, trendDirection: "up",   trendLabel: "↑ 2.9%",  displayColor: "#22c55e" },
-    { product: "RS",  label: "RS (Roofing Sheet)",      cur: 0.5, prev: 2,   mom: -75,   share: 0,  trendDirection: "down", trendLabel: "↓ 75%",   displayColor: "#ef4444" },
-    { product: "SS",  label: "SS (Stainless Steel)",    cur: 282, prev: 362, mom: -22.1, share: 10, trendDirection: "down", trendLabel: "↓ 22.1%", displayColor: "#ef4444" }
+  "meta": {
+    "generatedAt": "2026-05-08T08:30:00.000Z",
+    "curPeriod": "8 Apr 2026 – 8 May 2026",
+    "prevPeriod": "8 Mar 2026 – 8 Apr 2026",
+    "rowsProcessed": 1247
+  },
+  "totalCur": 2847.5,
+  "totalPrev": 3101.2,
+  "totalMoM": -8,
+  "totalMoMDisplay": "↓ 8.0%",
+  "totalMoMColor": "#ef4444",
+  "pendingTotal": 1203.4,
+  "targetTotal": 3500,
+  "alertCount": 22,
+  "hasAlert": true,
+  "products": [
+    {
+      "product": "IG",
+      "label": "IG (Iron Gate)",
+      "cur": 633,
+      "prev": 722,
+      "mom": -12.3,
+      "share": 22,
+      "trendDirection": "down",
+      "trendLabel": "↓ 12.3%",
+      "displayColor": "#eab308"
+    },
+    {
+      "product": "GI",
+      "label": "GI (Galvanised Iron)",
+      "cur": 892,
+      "prev": 857,
+      "mom": 4.1,
+      "share": 31,
+      "trendDirection": "up",
+      "trendLabel": "↑ 4.1%",
+      "displayColor": "#22c55e"
+    },
+    {
+      "product": "IGG",
+      "label": "IGG (Iron Gate — Heavy)",
+      "cur": 287,
+      "prev": 310,
+      "mom": -7.4,
+      "share": 10,
+      "trendDirection": "down",
+      "trendLabel": "↓ 7.4%",
+      "displayColor": "#22c55e"
+    },
+    {
+      "product": "HGI",
+      "label": "HGI (Heavy GI)",
+      "cur": 412,
+      "prev": 507,
+      "mom": -18.7,
+      "share": 14,
+      "trendDirection": "down",
+      "trendLabel": "↓ 18.7%",
+      "displayColor": "#f97316"
+    },
+    {
+      "product": "P",
+      "label": "P (Pipe)",
+      "cur": 341,
+      "prev": 331,
+      "mom": 2.9,
+      "share": 12,
+      "trendDirection": "up",
+      "trendLabel": "↑ 2.9%",
+      "displayColor": "#22c55e"
+    },
+    {
+      "product": "RS",
+      "label": "RS (Roofing Sheet)",
+      "cur": 0.5,
+      "prev": 2,
+      "mom": -75,
+      "share": 0,
+      "trendDirection": "down",
+      "trendLabel": "↓ 75%",
+      "displayColor": "#ef4444"
+    },
+    {
+      "product": "SS",
+      "label": "SS (Stainless Steel)",
+      "cur": 282,
+      "prev": 362,
+      "mom": -22.1,
+      "share": 10,
+      "trendDirection": "down",
+      "trendLabel": "↓ 22.1%",
+      "displayColor": "#ef4444"
+    }
   ],
-  states: [
-    { state: "WEST BENGAL",    cur: 541, prev: 688, mom: -21.4, share: 19, drop: 147, riskScore: 72, impactTier: "Critical", healthStatus: "Weak",     healthColor: "#f97316", healthSeverity: "HIGH",     trendDirection: "down", trendLabel: "↓ 21.4%", displayColor: "#ef4444", operationalStatus: "Declining", products: [{ product: "IG", cur: 180, prev: 250, mom: -28 }, { product: "GI", cur: 200, prev: 210, mom: -4.8 }, { product: "HGI", cur: 80, prev: 120, mom: -33.3 }, { product: "SS", cur: 81, prev: 108, mom: -25 }] },
-    { state: "BIHAR",          cur: 388, prev: 474, mom: -18.2, share: 14, drop: 86,  riskScore: 65, impactTier: "High",     healthStatus: "Weak",     healthColor: "#f97316", healthSeverity: "HIGH",     trendDirection: "down", trendLabel: "↓ 18.2%", displayColor: "#f97316", operationalStatus: "Declining", products: [{ product: "IG", cur: 140, prev: 170, mom: -17.6 }, { product: "GI", cur: 120, prev: 130, mom: -7.7 }, { product: "HGI", cur: 68, prev: 94, mom: -27.7 }] },
-    { state: "ODISHA",         cur: 271, prev: 307, mom: -11.7, share: 10, drop: 36,  riskScore: 48, impactTier: "Moderate", healthStatus: "At Risk",  healthColor: "#eab308", healthSeverity: "MEDIUM",   trendDirection: "down", trendLabel: "↓ 11.7%", displayColor: "#eab308", operationalStatus: "Declining", products: [{ product: "IG", cur: 90, prev: 100, mom: -10 }, { product: "GI", cur: 100, prev: 110, mom: -9.1 }] },
-    { state: "JHARKHAND",      cur: 193, prev: 213, mom: -9.3,  share: 7,  drop: 20,  riskScore: 42, impactTier: "Moderate", healthStatus: "Stable",   healthColor: "#22c55e", healthSeverity: "LOW",      trendDirection: "down", trendLabel: "↓ 9.3%",  displayColor: "#eab308", operationalStatus: "Declining", products: [{ product: "IG", cur: 70, prev: 80, mom: -12.5 }, { product: "P", cur: 60, prev: 55, mom: 9.1 }] },
-    { state: "ASSAM",          cur: 147, prev: 157, mom: -6.1,  share: 5,  drop: 10,  riskScore: 28, impactTier: "Stable",   healthStatus: "Healthy",  healthColor: "#22c55e", healthSeverity: "NONE",     trendDirection: "down", trendLabel: "↓ 6.1%",  displayColor: "#22c55e", operationalStatus: "Stable",   products: [{ product: "GI", cur: 80, prev: 85, mom: -5.9 }] },
-    { state: "UTTAR PRADESH",  cur: 420, prev: 380, mom: 10.5,  share: 15, drop: -40, riskScore: 12, impactTier: "Stable",   healthStatus: "Healthy",  healthColor: "#22c55e", healthSeverity: "NONE",     trendDirection: "up",   trendLabel: "↑ 10.5%", displayColor: "#22c55e", operationalStatus: "Growing",  products: [{ product: "GI", cur: 200, prev: 170, mom: 17.6 }, { product: "P", cur: 120, prev: 110, mom: 9.1 }] },
-    { state: "CHHATTISGARH",   cur: 310, prev: 295, mom: 5.1,   share: 11, drop: -15, riskScore: 15, impactTier: "Stable",   healthStatus: "Healthy",  healthColor: "#22c55e", healthSeverity: "NONE",     trendDirection: "up",   trendLabel: "↑ 5.1%",  displayColor: "#22c55e", operationalStatus: "Growing",  products: [{ product: "IG", cur: 130, prev: 120, mom: 8.3 }] },
-    { state: "MADHYA PRADESH", cur: 180, prev: 190, mom: -5.3,  share: 6,  drop: 10,  riskScore: 30, impactTier: "Low",      healthStatus: "Warning",  healthColor: "#eab308", healthSeverity: "LOW",      trendDirection: "down", trendLabel: "↓ 5.3%",  displayColor: "#10b981", operationalStatus: "Declining", products: [{ product: "SS", cur: 80, prev: 100, mom: -20 }] }
+  "states": [
+    {
+      "state": "WEST BENGAL",
+      "cur": 541,
+      "prev": 688,
+      "mom": -21.4,
+      "share": 19,
+      "drop": 147,
+      "riskScore": 72,
+      "impactTier": "Critical",
+      "healthStatus": "Weak",
+      "healthColor": "#f97316",
+      "healthSeverity": "HIGH",
+      "trendDirection": "down",
+      "trendLabel": "↓ 21.4%",
+      "displayColor": "#ef4444",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "IG",
+          "cur": 180,
+          "prev": 250,
+          "mom": -28,
+          "orderCur": 225,
+          "orderPrev": 280
+        },
+        {
+          "product": "GI",
+          "cur": 200,
+          "prev": 210,
+          "mom": -4.8,
+          "orderCur": 250,
+          "orderPrev": 235.2
+        },
+        {
+          "product": "HGI",
+          "cur": 80,
+          "prev": 120,
+          "mom": -33.3,
+          "orderCur": 100,
+          "orderPrev": 134.4
+        },
+        {
+          "product": "SS",
+          "cur": 81,
+          "prev": 108,
+          "mom": -25,
+          "orderCur": 101.3,
+          "orderPrev": 121
+        }
+      ],
+      "orderCur": 676.3,
+      "orderPrev": 770.6
+    },
+    {
+      "state": "BIHAR",
+      "cur": 388,
+      "prev": 474,
+      "mom": -18.2,
+      "share": 14,
+      "drop": 86,
+      "riskScore": 65,
+      "impactTier": "High",
+      "healthStatus": "Weak",
+      "healthColor": "#f97316",
+      "healthSeverity": "HIGH",
+      "trendDirection": "down",
+      "trendLabel": "↓ 18.2%",
+      "displayColor": "#f97316",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "IG",
+          "cur": 140,
+          "prev": 170,
+          "mom": -17.6,
+          "orderCur": 175,
+          "orderPrev": 190.4
+        },
+        {
+          "product": "GI",
+          "cur": 120,
+          "prev": 130,
+          "mom": -7.7,
+          "orderCur": 150,
+          "orderPrev": 145.6
+        },
+        {
+          "product": "HGI",
+          "cur": 68,
+          "prev": 94,
+          "mom": -27.7,
+          "orderCur": 85,
+          "orderPrev": 105.3
+        }
+      ],
+      "orderCur": 485,
+      "orderPrev": 530.9
+    },
+    {
+      "state": "ODISHA",
+      "cur": 271,
+      "prev": 307,
+      "mom": -11.7,
+      "share": 10,
+      "drop": 36,
+      "riskScore": 48,
+      "impactTier": "Moderate",
+      "healthStatus": "At Risk",
+      "healthColor": "#eab308",
+      "healthSeverity": "MEDIUM",
+      "trendDirection": "down",
+      "trendLabel": "↓ 11.7%",
+      "displayColor": "#eab308",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "IG",
+          "cur": 90,
+          "prev": 100,
+          "mom": -10,
+          "orderCur": 112.5,
+          "orderPrev": 112
+        },
+        {
+          "product": "GI",
+          "cur": 100,
+          "prev": 110,
+          "mom": -9.1,
+          "orderCur": 125,
+          "orderPrev": 123.2
+        }
+      ],
+      "orderCur": 338.8,
+      "orderPrev": 343.8
+    },
+    {
+      "state": "JHARKHAND",
+      "cur": 193,
+      "prev": 213,
+      "mom": -9.3,
+      "share": 7,
+      "drop": 20,
+      "riskScore": 42,
+      "impactTier": "Moderate",
+      "healthStatus": "Stable",
+      "healthColor": "#22c55e",
+      "healthSeverity": "LOW",
+      "trendDirection": "down",
+      "trendLabel": "↓ 9.3%",
+      "displayColor": "#eab308",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "IG",
+          "cur": 70,
+          "prev": 80,
+          "mom": -12.5,
+          "orderCur": 87.5,
+          "orderPrev": 89.6
+        },
+        {
+          "product": "P",
+          "cur": 60,
+          "prev": 55,
+          "mom": 9.1,
+          "orderCur": 75,
+          "orderPrev": 61.6
+        }
+      ],
+      "orderCur": 241.3,
+      "orderPrev": 238.6
+    },
+    {
+      "state": "ASSAM",
+      "cur": 147,
+      "prev": 157,
+      "mom": -6.1,
+      "share": 5,
+      "drop": 10,
+      "riskScore": 28,
+      "impactTier": "Stable",
+      "healthStatus": "Healthy",
+      "healthColor": "#22c55e",
+      "healthSeverity": "NONE",
+      "trendDirection": "down",
+      "trendLabel": "↓ 6.1%",
+      "displayColor": "#22c55e",
+      "operationalStatus": "Stable",
+      "products": [
+        {
+          "product": "GI",
+          "cur": 80,
+          "prev": 85,
+          "mom": -5.9,
+          "orderCur": 100,
+          "orderPrev": 95.2
+        }
+      ],
+      "orderCur": 183.8,
+      "orderPrev": 175.8
+    },
+    {
+      "state": "UTTAR PRADESH",
+      "cur": 420,
+      "prev": 380,
+      "mom": 10.5,
+      "share": 15,
+      "drop": -40,
+      "riskScore": 12,
+      "impactTier": "Stable",
+      "healthStatus": "Healthy",
+      "healthColor": "#22c55e",
+      "healthSeverity": "NONE",
+      "trendDirection": "up",
+      "trendLabel": "↑ 10.5%",
+      "displayColor": "#22c55e",
+      "operationalStatus": "Growing",
+      "products": [
+        {
+          "product": "GI",
+          "cur": 200,
+          "prev": 170,
+          "mom": 17.6,
+          "orderCur": 250,
+          "orderPrev": 190.4
+        },
+        {
+          "product": "P",
+          "cur": 120,
+          "prev": 110,
+          "mom": 9.1,
+          "orderCur": 150,
+          "orderPrev": 123.2
+        }
+      ],
+      "orderCur": 525,
+      "orderPrev": 425.6
+    },
+    {
+      "state": "CHHATTISGARH",
+      "cur": 310,
+      "prev": 295,
+      "mom": 5.1,
+      "share": 11,
+      "drop": -15,
+      "riskScore": 15,
+      "impactTier": "Stable",
+      "healthStatus": "Healthy",
+      "healthColor": "#22c55e",
+      "healthSeverity": "NONE",
+      "trendDirection": "up",
+      "trendLabel": "↑ 5.1%",
+      "displayColor": "#22c55e",
+      "operationalStatus": "Growing",
+      "products": [
+        {
+          "product": "IG",
+          "cur": 130,
+          "prev": 120,
+          "mom": 8.3,
+          "orderCur": 162.5,
+          "orderPrev": 134.4
+        }
+      ],
+      "orderCur": 387.5,
+      "orderPrev": 330.4
+    },
+    {
+      "state": "MADHYA PRADESH",
+      "cur": 180,
+      "prev": 190,
+      "mom": -5.3,
+      "share": 6,
+      "drop": 10,
+      "riskScore": 30,
+      "impactTier": "Low",
+      "healthStatus": "Warning",
+      "healthColor": "#eab308",
+      "healthSeverity": "LOW",
+      "trendDirection": "down",
+      "trendLabel": "↓ 5.3%",
+      "displayColor": "#10b981",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "SS",
+          "cur": 80,
+          "prev": 100,
+          "mom": -20,
+          "orderCur": 100,
+          "orderPrev": 112
+        }
+      ],
+      "orderCur": 225,
+      "orderPrev": 212.8
+    }
   ],
-  districts: [
-    { district: "KOLKATA",     state: "WEST BENGAL",    cur: 180, prev: 250, mom: -28,   drop: 70, riskScore: 78, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 28%",   displayColor: "#ef4444", operationalStatus: "Declining", products: [{ product: "IG", cur: 60, prev: 90, mom: -33.3 }, { product: "HGI", cur: 40, prev: 70, mom: -42.9 }] },
-    { district: "HOWRAH",      state: "WEST BENGAL",    cur: 120, prev: 160, mom: -25,   drop: 40, riskScore: 65, impactTier: "High",     trendDirection: "down", trendLabel: "↓ 25%",   displayColor: "#f97316", operationalStatus: "Declining", products: [{ product: "GI", cur: 50, prev: 70, mom: -28.6 }] },
-    { district: "PATNA",       state: "BIHAR",          cur: 140, prev: 190, mom: -26.3, drop: 50, riskScore: 68, impactTier: "High",     trendDirection: "down", trendLabel: "↓ 26.3%", displayColor: "#f97316", operationalStatus: "Declining", products: [{ product: "IG", cur: 50, prev: 70, mom: -28.6 }, { product: "HGI", cur: 30, prev: 50, mom: -40 }] },
-    { district: "MUZAFFARPUR", state: "BIHAR",          cur: 90,  prev: 110, mom: -18.2, drop: 20, riskScore: 50, impactTier: "Moderate", trendDirection: "down", trendLabel: "↓ 18.2%", displayColor: "#eab308", operationalStatus: "Declining", products: [{ product: "GI", cur: 40, prev: 50, mom: -20 }] },
-    { district: "CUTTACK",     state: "ODISHA",         cur: 85,  prev: 100, mom: -15,   drop: 15, riskScore: 45, impactTier: "Moderate", trendDirection: "down", trendLabel: "↓ 15%",   displayColor: "#eab308", operationalStatus: "Declining", products: [{ product: "IG", cur: 35, prev: 40, mom: -12.5 }] },
-    { district: "RANCHI",      state: "JHARKHAND",      cur: 70,  prev: 90,  mom: -22.2, drop: 20, riskScore: 55, impactTier: "Moderate", trendDirection: "down", trendLabel: "↓ 22.2%", displayColor: "#eab308", operationalStatus: "Declining", products: [{ product: "IG", cur: 30, prev: 40, mom: -25 }] },
-    { district: "GUWAHATI",    state: "ASSAM",          cur: 60,  prev: 65,  mom: -7.7,  drop: 5,  riskScore: 25, impactTier: "Stable",   trendDirection: "down", trendLabel: "↓ 7.7%",  displayColor: "#22c55e", operationalStatus: "Stable",    products: [{ product: "GI", cur: 30, prev: 33, mom: -9.1 }] },
-    { district: "LUCKNOW",     state: "UTTAR PRADESH",  cur: 150, prev: 130, mom: 15.4,  drop: -20, riskScore: 10, impactTier: "Stable",   trendDirection: "up",   trendLabel: "↑ 15.4%", displayColor: "#22c55e", operationalStatus: "Growing",   products: [{ product: "GI", cur: 80, prev: 65, mom: 23.1 }] },
-    { district: "RAIPUR",      state: "CHHATTISGARH",   cur: 140, prev: 130, mom: 7.7,   drop: -10, riskScore: 12, impactTier: "Stable",   trendDirection: "up",   trendLabel: "↑ 7.7%",  displayColor: "#22c55e", operationalStatus: "Growing",   products: [{ product: "IG", cur: 70, prev: 60, mom: 16.7 }] },
-    { district: "BHOPAL",      state: "MADHYA PRADESH", cur: 80,  prev: 90,  mom: -11.1, drop: 10, riskScore: 35, impactTier: "Low",      trendDirection: "down", trendLabel: "↓ 11.1%", displayColor: "#10b981", operationalStatus: "Declining", products: [{ product: "SS", cur: 30, prev: 40, mom: -25 }] }
+  "districts": [
+    {
+      "district": "KOLKATA",
+      "state": "WEST BENGAL",
+      "cur": 180,
+      "prev": 250,
+      "mom": -28,
+      "drop": 70,
+      "riskScore": 78,
+      "impactTier": "Critical",
+      "trendDirection": "down",
+      "trendLabel": "↓ 28%",
+      "displayColor": "#ef4444",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "IG",
+          "cur": 60,
+          "prev": 90,
+          "mom": -33.3,
+          "orderCur": 75,
+          "orderPrev": 100.8
+        },
+        {
+          "product": "HGI",
+          "cur": 40,
+          "prev": 70,
+          "mom": -42.9,
+          "orderCur": 50,
+          "orderPrev": 78.4
+        }
+      ],
+      "orderCur": 225,
+      "orderPrev": 280
+    },
+    {
+      "district": "HOWRAH",
+      "state": "WEST BENGAL",
+      "cur": 120,
+      "prev": 160,
+      "mom": -25,
+      "drop": 40,
+      "riskScore": 65,
+      "impactTier": "High",
+      "trendDirection": "down",
+      "trendLabel": "↓ 25%",
+      "displayColor": "#f97316",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "GI",
+          "cur": 50,
+          "prev": 70,
+          "mom": -28.6,
+          "orderCur": 62.5,
+          "orderPrev": 78.4
+        }
+      ],
+      "orderCur": 150,
+      "orderPrev": 179.2
+    },
+    {
+      "district": "PATNA",
+      "state": "BIHAR",
+      "cur": 140,
+      "prev": 190,
+      "mom": -26.3,
+      "drop": 50,
+      "riskScore": 68,
+      "impactTier": "High",
+      "trendDirection": "down",
+      "trendLabel": "↓ 26.3%",
+      "displayColor": "#f97316",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "IG",
+          "cur": 50,
+          "prev": 70,
+          "mom": -28.6,
+          "orderCur": 62.5,
+          "orderPrev": 78.4
+        },
+        {
+          "product": "HGI",
+          "cur": 30,
+          "prev": 50,
+          "mom": -40,
+          "orderCur": 37.5,
+          "orderPrev": 56
+        }
+      ],
+      "orderCur": 175,
+      "orderPrev": 212.8
+    },
+    {
+      "district": "MUZAFFARPUR",
+      "state": "BIHAR",
+      "cur": 90,
+      "prev": 110,
+      "mom": -18.2,
+      "drop": 20,
+      "riskScore": 50,
+      "impactTier": "Moderate",
+      "trendDirection": "down",
+      "trendLabel": "↓ 18.2%",
+      "displayColor": "#eab308",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "GI",
+          "cur": 40,
+          "prev": 50,
+          "mom": -20,
+          "orderCur": 50,
+          "orderPrev": 56
+        }
+      ],
+      "orderCur": 112.5,
+      "orderPrev": 123.2
+    },
+    {
+      "district": "CUTTACK",
+      "state": "ODISHA",
+      "cur": 85,
+      "prev": 100,
+      "mom": -15,
+      "drop": 15,
+      "riskScore": 45,
+      "impactTier": "Moderate",
+      "trendDirection": "down",
+      "trendLabel": "↓ 15%",
+      "displayColor": "#eab308",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "IG",
+          "cur": 35,
+          "prev": 40,
+          "mom": -12.5,
+          "orderCur": 43.8,
+          "orderPrev": 44.8
+        }
+      ],
+      "orderCur": 106.3,
+      "orderPrev": 112
+    },
+    {
+      "district": "RANCHI",
+      "state": "JHARKHAND",
+      "cur": 70,
+      "prev": 90,
+      "mom": -22.2,
+      "drop": 20,
+      "riskScore": 55,
+      "impactTier": "Moderate",
+      "trendDirection": "down",
+      "trendLabel": "↓ 22.2%",
+      "displayColor": "#eab308",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "IG",
+          "cur": 30,
+          "prev": 40,
+          "mom": -25,
+          "orderCur": 37.5,
+          "orderPrev": 44.8
+        }
+      ],
+      "orderCur": 87.5,
+      "orderPrev": 100.8
+    },
+    {
+      "district": "GUWAHATI",
+      "state": "ASSAM",
+      "cur": 60,
+      "prev": 65,
+      "mom": -7.7,
+      "drop": 5,
+      "riskScore": 25,
+      "impactTier": "Stable",
+      "trendDirection": "down",
+      "trendLabel": "↓ 7.7%",
+      "displayColor": "#22c55e",
+      "operationalStatus": "Stable",
+      "products": [
+        {
+          "product": "GI",
+          "cur": 30,
+          "prev": 33,
+          "mom": -9.1,
+          "orderCur": 37.5,
+          "orderPrev": 37
+        }
+      ],
+      "orderCur": 75,
+      "orderPrev": 72.8
+    },
+    {
+      "district": "LUCKNOW",
+      "state": "UTTAR PRADESH",
+      "cur": 150,
+      "prev": 130,
+      "mom": 15.4,
+      "drop": -20,
+      "riskScore": 10,
+      "impactTier": "Stable",
+      "trendDirection": "up",
+      "trendLabel": "↑ 15.4%",
+      "displayColor": "#22c55e",
+      "operationalStatus": "Growing",
+      "products": [
+        {
+          "product": "GI",
+          "cur": 80,
+          "prev": 65,
+          "mom": 23.1,
+          "orderCur": 100,
+          "orderPrev": 72.8
+        }
+      ],
+      "orderCur": 187.5,
+      "orderPrev": 145.6
+    },
+    {
+      "district": "RAIPUR",
+      "state": "CHHATTISGARH",
+      "cur": 140,
+      "prev": 130,
+      "mom": 7.7,
+      "drop": -10,
+      "riskScore": 12,
+      "impactTier": "Stable",
+      "trendDirection": "up",
+      "trendLabel": "↑ 7.7%",
+      "displayColor": "#22c55e",
+      "operationalStatus": "Growing",
+      "products": [
+        {
+          "product": "IG",
+          "cur": 70,
+          "prev": 60,
+          "mom": 16.7,
+          "orderCur": 87.5,
+          "orderPrev": 67.2
+        }
+      ],
+      "orderCur": 175,
+      "orderPrev": 145.6
+    },
+    {
+      "district": "BHOPAL",
+      "state": "MADHYA PRADESH",
+      "cur": 80,
+      "prev": 90,
+      "mom": -11.1,
+      "drop": 10,
+      "riskScore": 35,
+      "impactTier": "Low",
+      "trendDirection": "down",
+      "trendLabel": "↓ 11.1%",
+      "displayColor": "#10b981",
+      "operationalStatus": "Declining",
+      "products": [
+        {
+          "product": "SS",
+          "cur": 30,
+          "prev": 40,
+          "mom": -25,
+          "orderCur": 37.5,
+          "orderPrev": 44.8
+        }
+      ],
+      "orderCur": 100,
+      "orderPrev": 100.8
+    }
   ],
-  dealers: [
-    { client: "Ramesh Traders",    state: "WEST BENGAL",    district: "KOLKATA",     cur: 0,  prev: 45, mom: -100,  drop: 45, riskScore: 90, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 100%",  displayColor: "#ef4444", operationalStatus: "Inactive",  isInactive: true,  products: [{ product: "IG", prev: 25, cur: 0, mom: -100 }, { product: "HGI", prev: 20, cur: 0, mom: -100 }] },
-    { client: "Sharma Steel Mart", state: "BIHAR",          district: "PATNA",       cur: 12, prev: 38, mom: -68.4, drop: 26, riskScore: 78, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 68.4%", displayColor: "#ef4444", operationalStatus: "Declining", isInactive: false, products: [{ product: "IG", cur: 5, prev: 18, mom: -72.2 }, { product: "HGI", cur: 7, prev: 20, mom: -65 }] },
-    { client: "Gupta Iron Works",  state: "JHARKHAND",      district: "RANCHI",      cur: 0,  prev: 28, mom: -100,  drop: 28, riskScore: 85, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 100%",  displayColor: "#ef4444", operationalStatus: "Inactive",  isInactive: true,  products: [{ product: "IG", prev: 15, cur: 0, mom: -100 }] },
-    { client: "Bengal Steel Hub",  state: "WEST BENGAL",    district: "HOWRAH",      cur: 18, prev: 40, mom: -55,   drop: 22, riskScore: 72, impactTier: "High",     trendDirection: "down", trendLabel: "↓ 55%",   displayColor: "#f97316", operationalStatus: "Declining", isInactive: false, products: [{ product: "GI", cur: 10, prev: 25, mom: -60 }] },
-    { client: "Patna Steel Depot", state: "BIHAR",          district: "PATNA",       cur: 0,  prev: 22, mom: -100,  drop: 22, riskScore: 82, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 100%",  displayColor: "#ef4444", operationalStatus: "Inactive",  isInactive: true,  products: [{ product: "IG", prev: 12, cur: 0, mom: -100 }] },
-    { client: "Eastern Metals",    state: "WEST BENGAL",    district: "KOLKATA",     cur: 85, prev: 90, mom: -5.6,  drop: 5,  riskScore: 20, impactTier: "Stable",   trendDirection: "down", trendLabel: "↓ 5.6%",  displayColor: "#22c55e", operationalStatus: "Stable",    isInactive: false, products: [{ product: "GI", cur: 50, prev: 52, mom: -3.8 }] },
-    { client: "Odisha Iron House", state: "ODISHA",         district: "CUTTACK",     cur: 25, prev: 35, mom: -28.6, drop: 10, riskScore: 55, impactTier: "Moderate", trendDirection: "down", trendLabel: "↓ 28.6%", displayColor: "#eab308", operationalStatus: "Declining", isInactive: false, products: [{ product: "IG", cur: 12, prev: 18, mom: -33.3 }] },
-    { client: "Assam Steel Center", state: "ASSAM",         district: "GUWAHATI",    cur: 30, prev: 32, mom: -6.3,  drop: 2,  riskScore: 18, impactTier: "Stable",   trendDirection: "down", trendLabel: "↓ 6.3%",  displayColor: "#22c55e", operationalStatus: "Stable",    isInactive: false, products: [{ product: "GI", cur: 15, prev: 16, mom: -6.3 }] },
-    { client: "UP Steel Solutions", state: "UTTAR PRADESH", district: "LUCKNOW",     cur: 65, prev: 50, mom: 30,    drop: -15, riskScore: 5,  impactTier: "Stable",   trendDirection: "up",   trendLabel: "↑ 30%",   displayColor: "#22c55e", operationalStatus: "Growing",   isInactive: false, products: [{ product: "GI", cur: 35, prev: 25, mom: 40 }] },
-    { client: "Raipur Metal Works", state: "CHHATTISGARH",  district: "RAIPUR",      cur: 55, prev: 48, mom: 14.6,  drop: -7, riskScore: 8,  impactTier: "Stable",   trendDirection: "up",   trendLabel: "↑ 14.6%", displayColor: "#22c55e", operationalStatus: "Growing",   isInactive: false, products: [{ product: "IG", cur: 30, prev: 25, mom: 20 }] },
-    { client: "Kolkata Iron Palace", state: "WEST BENGAL", district: "KOLKATA",     cur: 42, prev: 55, mom: -23.6, drop: 13, riskScore: 52, impactTier: "Moderate", trendDirection: "down", trendLabel: "↓ 23.6%", displayColor: "#eab308", operationalStatus: "Declining", isInactive: false, products: [{ product: "SS", cur: 20, prev: 30, mom: -33.3 }] },
-    { client: "Bihar Metal House",  state: "BIHAR",         district: "MUZAFFARPUR", cur: 35, prev: 45, mom: -22.2, drop: 10, riskScore: 48, impactTier: "Moderate", trendDirection: "down", trendLabel: "↓ 22.2%", displayColor: "#eab308", operationalStatus: "Declining", isInactive: false, products: [{ product: "GI", cur: 18, prev: 25, mom: -28 }] }
+  "dealers": [
+    {
+      "client": "Ramesh Traders",
+      "state": "WEST BENGAL",
+      "district": "KOLKATA",
+      "cur": 0,
+      "prev": 45,
+      "mom": -100,
+      "drop": 45,
+      "riskScore": 90,
+      "impactTier": "Critical",
+      "trendDirection": "down",
+      "trendLabel": "↓ 100%",
+      "displayColor": "#ef4444",
+      "operationalStatus": "Inactive",
+      "isInactive": true,
+      "products": [
+        {
+          "product": "IG",
+          "prev": 25,
+          "cur": 0,
+          "mom": -100
+        },
+        {
+          "product": "HGI",
+          "prev": 20,
+          "cur": 0,
+          "mom": -100
+        }
+      ]
+    },
+    {
+      "client": "Sharma Steel Mart",
+      "state": "BIHAR",
+      "district": "PATNA",
+      "cur": 12,
+      "prev": 38,
+      "mom": -68.4,
+      "drop": 26,
+      "riskScore": 78,
+      "impactTier": "Critical",
+      "trendDirection": "down",
+      "trendLabel": "↓ 68.4%",
+      "displayColor": "#ef4444",
+      "operationalStatus": "Declining",
+      "isInactive": false,
+      "products": [
+        {
+          "product": "IG",
+          "cur": 5,
+          "prev": 18,
+          "mom": -72.2
+        },
+        {
+          "product": "HGI",
+          "cur": 7,
+          "prev": 20,
+          "mom": -65
+        }
+      ]
+    },
+    {
+      "client": "Gupta Iron Works",
+      "state": "JHARKHAND",
+      "district": "RANCHI",
+      "cur": 0,
+      "prev": 28,
+      "mom": -100,
+      "drop": 28,
+      "riskScore": 85,
+      "impactTier": "Critical",
+      "trendDirection": "down",
+      "trendLabel": "↓ 100%",
+      "displayColor": "#ef4444",
+      "operationalStatus": "Inactive",
+      "isInactive": true,
+      "products": [
+        {
+          "product": "IG",
+          "prev": 15,
+          "cur": 0,
+          "mom": -100
+        }
+      ]
+    },
+    {
+      "client": "Bengal Steel Hub",
+      "state": "WEST BENGAL",
+      "district": "HOWRAH",
+      "cur": 18,
+      "prev": 40,
+      "mom": -55,
+      "drop": 22,
+      "riskScore": 72,
+      "impactTier": "High",
+      "trendDirection": "down",
+      "trendLabel": "↓ 55%",
+      "displayColor": "#f97316",
+      "operationalStatus": "Declining",
+      "isInactive": false,
+      "products": [
+        {
+          "product": "GI",
+          "cur": 10,
+          "prev": 25,
+          "mom": -60
+        }
+      ]
+    },
+    {
+      "client": "Patna Steel Depot",
+      "state": "BIHAR",
+      "district": "PATNA",
+      "cur": 0,
+      "prev": 22,
+      "mom": -100,
+      "drop": 22,
+      "riskScore": 82,
+      "impactTier": "Critical",
+      "trendDirection": "down",
+      "trendLabel": "↓ 100%",
+      "displayColor": "#ef4444",
+      "operationalStatus": "Inactive",
+      "isInactive": true,
+      "products": [
+        {
+          "product": "IG",
+          "prev": 12,
+          "cur": 0,
+          "mom": -100
+        }
+      ]
+    },
+    {
+      "client": "Eastern Metals",
+      "state": "WEST BENGAL",
+      "district": "KOLKATA",
+      "cur": 85,
+      "prev": 90,
+      "mom": -5.6,
+      "drop": 5,
+      "riskScore": 20,
+      "impactTier": "Stable",
+      "trendDirection": "down",
+      "trendLabel": "↓ 5.6%",
+      "displayColor": "#22c55e",
+      "operationalStatus": "Stable",
+      "isInactive": false,
+      "products": [
+        {
+          "product": "GI",
+          "cur": 50,
+          "prev": 52,
+          "mom": -3.8
+        }
+      ]
+    },
+    {
+      "client": "Odisha Iron House",
+      "state": "ODISHA",
+      "district": "CUTTACK",
+      "cur": 25,
+      "prev": 35,
+      "mom": -28.6,
+      "drop": 10,
+      "riskScore": 55,
+      "impactTier": "Moderate",
+      "trendDirection": "down",
+      "trendLabel": "↓ 28.6%",
+      "displayColor": "#eab308",
+      "operationalStatus": "Declining",
+      "isInactive": false,
+      "products": [
+        {
+          "product": "IG",
+          "cur": 12,
+          "prev": 18,
+          "mom": -33.3
+        }
+      ]
+    },
+    {
+      "client": "Assam Steel Center",
+      "state": "ASSAM",
+      "district": "GUWAHATI",
+      "cur": 30,
+      "prev": 32,
+      "mom": -6.3,
+      "drop": 2,
+      "riskScore": 18,
+      "impactTier": "Stable",
+      "trendDirection": "down",
+      "trendLabel": "↓ 6.3%",
+      "displayColor": "#22c55e",
+      "operationalStatus": "Stable",
+      "isInactive": false,
+      "products": [
+        {
+          "product": "GI",
+          "cur": 15,
+          "prev": 16,
+          "mom": -6.3
+        }
+      ]
+    },
+    {
+      "client": "UP Steel Solutions",
+      "state": "UTTAR PRADESH",
+      "district": "LUCKNOW",
+      "cur": 65,
+      "prev": 50,
+      "mom": 30,
+      "drop": -15,
+      "riskScore": 5,
+      "impactTier": "Stable",
+      "trendDirection": "up",
+      "trendLabel": "↑ 30%",
+      "displayColor": "#22c55e",
+      "operationalStatus": "Growing",
+      "isInactive": false,
+      "products": [
+        {
+          "product": "GI",
+          "cur": 35,
+          "prev": 25,
+          "mom": 40
+        }
+      ]
+    },
+    {
+      "client": "Raipur Metal Works",
+      "state": "CHHATTISGARH",
+      "district": "RAIPUR",
+      "cur": 55,
+      "prev": 48,
+      "mom": 14.6,
+      "drop": -7,
+      "riskScore": 8,
+      "impactTier": "Stable",
+      "trendDirection": "up",
+      "trendLabel": "↑ 14.6%",
+      "displayColor": "#22c55e",
+      "operationalStatus": "Growing",
+      "isInactive": false,
+      "products": [
+        {
+          "product": "IG",
+          "cur": 30,
+          "prev": 25,
+          "mom": 20
+        }
+      ]
+    },
+    {
+      "client": "Kolkata Iron Palace",
+      "state": "WEST BENGAL",
+      "district": "KOLKATA",
+      "cur": 42,
+      "prev": 55,
+      "mom": -23.6,
+      "drop": 13,
+      "riskScore": 52,
+      "impactTier": "Moderate",
+      "trendDirection": "down",
+      "trendLabel": "↓ 23.6%",
+      "displayColor": "#eab308",
+      "operationalStatus": "Declining",
+      "isInactive": false,
+      "products": [
+        {
+          "product": "SS",
+          "cur": 20,
+          "prev": 30,
+          "mom": -33.3
+        }
+      ]
+    },
+    {
+      "client": "Bihar Metal House",
+      "state": "BIHAR",
+      "district": "MUZAFFARPUR",
+      "cur": 35,
+      "prev": 45,
+      "mom": -22.2,
+      "drop": 10,
+      "riskScore": 48,
+      "impactTier": "Moderate",
+      "trendDirection": "down",
+      "trendLabel": "↓ 22.2%",
+      "displayColor": "#eab308",
+      "operationalStatus": "Declining",
+      "isInactive": false,
+      "products": [
+        {
+          "product": "GI",
+          "cur": 18,
+          "prev": 25,
+          "mom": -28
+        }
+      ]
+    }
   ],
-  alerts: [
-    { severity: "CRITICAL", category: "DEALER", title: "Ramesh Traders — Kolkata, WB: 100% drop", detail: "8 Apr – 8 May: 0 MT | 8 Mar – 8 Apr: 45 MT | ▼ 45 MT lost", hasAlert: true, data: { client: "Ramesh Traders", cur: 0, prev: 45, mom: -100, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 100%" } },
-    { severity: "CRITICAL", category: "DEALER", title: "Gupta Iron Works — Ranchi, JH: 100% drop", detail: "8 Apr – 8 May: 0 MT | 8 Mar – 8 Apr: 28 MT | ▼ 28 MT lost", hasAlert: true, data: { client: "Gupta Iron Works", cur: 0, prev: 28, mom: -100, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 100%" } },
-    { severity: "CRITICAL", category: "DEALER", title: "Patna Steel Depot — Patna, BR: 100% drop", detail: "8 Apr – 8 May: 0 MT | 8 Mar – 8 Apr: 22 MT | ▼ 22 MT lost", hasAlert: true, data: { client: "Patna Steel Depot", cur: 0, prev: 22, mom: -100, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 100%" } },
-    { severity: "HIGH", category: "STATE", title: "WEST BENGAL: 21.4% MoM drop — 19% of total", detail: "Cur: 541 MT | Prev: 688 MT | ▼ 147 MT lost", hasAlert: true, data: { state: "WEST BENGAL", cur: 541, prev: 688, mom: -21.4, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 21.4%" } },
-    { severity: "HIGH", category: "PRODUCT", title: "SS (Stainless Steel): 22.1% drop", detail: "Cur: 282 MT | Prev: 362 MT | ▼ 80 MT lost | Share: 10%", hasAlert: true, data: { product: "SS", cur: 282, prev: 362, mom: -22.1, impactTier: "High", trendDirection: "down", trendLabel: "↓ 22.1%" } },
-    { severity: "HIGH", category: "PRODUCT", title: "HGI (Heavy GI): 18.7% drop", detail: "Cur: 412 MT | Prev: 507 MT | ▼ 95 MT lost | Share: 14%", hasAlert: true, data: { product: "HGI", cur: 412, prev: 507, mom: -18.7, impactTier: "High", trendDirection: "down", trendLabel: "↓ 18.7%" } },
-    { severity: "HIGH", category: "STATE", title: "BIHAR: 18.2% MoM drop — 14% of total", detail: "Cur: 388 MT | Prev: 474 MT | ▼ 86 MT lost", hasAlert: true, data: { state: "BIHAR", cur: 388, prev: 474, mom: -18.2, impactTier: "High", trendDirection: "down", trendLabel: "↓ 18.2%" } },
-    { severity: "HIGH", category: "DEALER", title: "Sharma Steel Mart — Patna, BR: 68.4% drop", detail: "Cur: 12 MT | Prev: 38 MT | ▼ 26 MT lost", hasAlert: true, data: { client: "Sharma Steel Mart", cur: 12, prev: 38, mom: -68.4, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 68.4%" } },
-    { severity: "HIGH", category: "DEALER", title: "Bengal Steel Hub — Howrah, WB: 55% drop", detail: "Cur: 18 MT | Prev: 40 MT | ▼ 22 MT lost", hasAlert: true, data: { client: "Bengal Steel Hub", cur: 18, prev: 40, mom: -55, impactTier: "High", trendDirection: "down", trendLabel: "↓ 55%" } },
-    { severity: "HIGH", category: "DISTRICT", title: "KOLKATA, WEST BENGAL: 28% MoM drop", detail: "Cur: 180 MT | Prev: 250 MT | ▼ 70 MT lost", hasAlert: true, data: { district: "KOLKATA", state: "WEST BENGAL", cur: 180, prev: 250, mom: -28, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 28%" } },
-    { severity: "MEDIUM", category: "PRODUCT", title: "IG (Iron Gate): 12.3% drop", detail: "Cur: 633 MT | Prev: 722 MT | ▼ 89 MT lost | Share: 22%", hasAlert: true, data: { product: "IG", cur: 633, prev: 722, mom: -12.3, impactTier: "Moderate", trendDirection: "down", trendLabel: "↓ 12.3%" } },
-    { severity: "MEDIUM", category: "STATE", title: "ODISHA: 11.7% MoM drop", detail: "Cur: 271 MT | Prev: 307 MT | ▼ 36 MT lost", hasAlert: true, data: { state: "ODISHA", cur: 271, prev: 307, mom: -11.7, impactTier: "Moderate", trendDirection: "down", trendLabel: "↓ 11.7%" } }
+  "alerts": [
+    {
+      "severity": "CRITICAL",
+      "category": "DEALER",
+      "title": "Ramesh Traders — Kolkata, WB: 100% drop",
+      "detail": "8 Apr – 8 May: 0 MT | 8 Mar – 8 Apr: 45 MT | ▼ 45 MT lost",
+      "hasAlert": true,
+      "data": {
+        "client": "Ramesh Traders",
+        "cur": 0,
+        "prev": 45,
+        "mom": -100,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 100%"
+      }
+    },
+    {
+      "severity": "CRITICAL",
+      "category": "DEALER",
+      "title": "Gupta Iron Works — Ranchi, JH: 100% drop",
+      "detail": "8 Apr – 8 May: 0 MT | 8 Mar – 8 Apr: 28 MT | ▼ 28 MT lost",
+      "hasAlert": true,
+      "data": {
+        "client": "Gupta Iron Works",
+        "cur": 0,
+        "prev": 28,
+        "mom": -100,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 100%"
+      }
+    },
+    {
+      "severity": "CRITICAL",
+      "category": "DEALER",
+      "title": "Patna Steel Depot — Patna, BR: 100% drop",
+      "detail": "8 Apr – 8 May: 0 MT | 8 Mar – 8 Apr: 22 MT | ▼ 22 MT lost",
+      "hasAlert": true,
+      "data": {
+        "client": "Patna Steel Depot",
+        "cur": 0,
+        "prev": 22,
+        "mom": -100,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 100%"
+      }
+    },
+    {
+      "severity": "HIGH",
+      "category": "STATE",
+      "title": "WEST BENGAL: 21.4% MoM drop — 19% of total",
+      "detail": "Cur: 541 MT | Prev: 688 MT | ▼ 147 MT lost",
+      "hasAlert": true,
+      "data": {
+        "state": "WEST BENGAL",
+        "cur": 541,
+        "prev": 688,
+        "mom": -21.4,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 21.4%"
+      }
+    },
+    {
+      "severity": "HIGH",
+      "category": "PRODUCT",
+      "title": "SS (Stainless Steel): 22.1% drop",
+      "detail": "Cur: 282 MT | Prev: 362 MT | ▼ 80 MT lost | Share: 10%",
+      "hasAlert": true,
+      "data": {
+        "product": "SS",
+        "cur": 282,
+        "prev": 362,
+        "mom": -22.1,
+        "impactTier": "High",
+        "trendDirection": "down",
+        "trendLabel": "↓ 22.1%"
+      }
+    },
+    {
+      "severity": "HIGH",
+      "category": "PRODUCT",
+      "title": "HGI (Heavy GI): 18.7% drop",
+      "detail": "Cur: 412 MT | Prev: 507 MT | ▼ 95 MT lost | Share: 14%",
+      "hasAlert": true,
+      "data": {
+        "product": "HGI",
+        "cur": 412,
+        "prev": 507,
+        "mom": -18.7,
+        "impactTier": "High",
+        "trendDirection": "down",
+        "trendLabel": "↓ 18.7%"
+      }
+    },
+    {
+      "severity": "HIGH",
+      "category": "STATE",
+      "title": "BIHAR: 18.2% MoM drop — 14% of total",
+      "detail": "Cur: 388 MT | Prev: 474 MT | ▼ 86 MT lost",
+      "hasAlert": true,
+      "data": {
+        "state": "BIHAR",
+        "cur": 388,
+        "prev": 474,
+        "mom": -18.2,
+        "impactTier": "High",
+        "trendDirection": "down",
+        "trendLabel": "↓ 18.2%"
+      }
+    },
+    {
+      "severity": "HIGH",
+      "category": "DEALER",
+      "title": "Sharma Steel Mart — Patna, BR: 68.4% drop",
+      "detail": "Cur: 12 MT | Prev: 38 MT | ▼ 26 MT lost",
+      "hasAlert": true,
+      "data": {
+        "client": "Sharma Steel Mart",
+        "cur": 12,
+        "prev": 38,
+        "mom": -68.4,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 68.4%"
+      }
+    },
+    {
+      "severity": "HIGH",
+      "category": "DEALER",
+      "title": "Bengal Steel Hub — Howrah, WB: 55% drop",
+      "detail": "Cur: 18 MT | Prev: 40 MT | ▼ 22 MT lost",
+      "hasAlert": true,
+      "data": {
+        "client": "Bengal Steel Hub",
+        "cur": 18,
+        "prev": 40,
+        "mom": -55,
+        "impactTier": "High",
+        "trendDirection": "down",
+        "trendLabel": "↓ 55%"
+      }
+    },
+    {
+      "severity": "HIGH",
+      "category": "DISTRICT",
+      "title": "KOLKATA, WEST BENGAL: 28% MoM drop",
+      "detail": "Cur: 180 MT | Prev: 250 MT | ▼ 70 MT lost",
+      "hasAlert": true,
+      "data": {
+        "district": "KOLKATA",
+        "state": "WEST BENGAL",
+        "cur": 180,
+        "prev": 250,
+        "mom": -28,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 28%"
+      }
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "PRODUCT",
+      "title": "IG (Iron Gate): 12.3% drop",
+      "detail": "Cur: 633 MT | Prev: 722 MT | ▼ 89 MT lost | Share: 22%",
+      "hasAlert": true,
+      "data": {
+        "product": "IG",
+        "cur": 633,
+        "prev": 722,
+        "mom": -12.3,
+        "impactTier": "Moderate",
+        "trendDirection": "down",
+        "trendLabel": "↓ 12.3%"
+      }
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "STATE",
+      "title": "ODISHA: 11.7% MoM drop",
+      "detail": "Cur: 271 MT | Prev: 307 MT | ▼ 36 MT lost",
+      "hasAlert": true,
+      "data": {
+        "state": "ODISHA",
+        "cur": 271,
+        "prev": 307,
+        "mom": -11.7,
+        "impactTier": "Moderate",
+        "trendDirection": "down",
+        "trendLabel": "↓ 11.7%"
+      }
+    }
   ],
-  intelligence: {
-    executive_summary: "May 2026 dispatch declined 8.0% MoM to 2,847.5 MT, driven primarily by SS product (-22.1%) and HGI (-18.7%) weakness concentrated in West Bengal and Bihar. Three dealers are flagged CRITICAL with zero activity this cycle. GI and Pipe segments show resilience with positive growth, partially offsetting the decline. Immediate intervention required in West Bengal channel where top-3 dealers represent 61% of state volume, creating dangerous concentration risk.",
-    root_cause_analysis: [
-      { dimension: "PRODUCT", finding: "SS segment supply allocation shortfall — 80 MT volume loss from 362 to 282 MT", impact_mt: 80, pct_of_total_decline: 31 },
-      { dimension: "STATE", finding: "West Bengal region dropped 147 MT due to 3 inactive dealers and HGI product weakness", impact_mt: 147, pct_of_total_decline: 58 },
-      { dimension: "DEALER", finding: "HGI dealer churn in Bihar corridor — Sharma Steel Mart and Patna Steel Depot combined loss of 48 MT", impact_mt: 48, pct_of_total_decline: 19 },
-      { dimension: "DISTRICT", finding: "Kolkata district alone accounts for 70 MT drop with Ramesh Traders going fully inactive", impact_mt: 70, pct_of_total_decline: 28 }
+  "intelligence": {
+    "executive_summary": "May 2026 dispatch declined 8.0% MoM to 2,847.5 MT, driven primarily by SS product (-22.1%) and HGI (-18.7%) weakness concentrated in West Bengal and Bihar. Three dealers are flagged CRITICAL with zero activity this cycle. GI and Pipe segments show resilience with positive growth, partially offsetting the decline. Immediate intervention required in West Bengal channel where top-3 dealers represent 61% of state volume, creating dangerous concentration risk.",
+    "root_cause_analysis": [
+      {
+        "dimension": "PRODUCT",
+        "finding": "SS segment supply allocation shortfall — 80 MT volume loss from 362 to 282 MT",
+        "impact_mt": 80,
+        "pct_of_total_decline": 31
+      },
+      {
+        "dimension": "STATE",
+        "finding": "West Bengal region dropped 147 MT due to 3 inactive dealers and HGI product weakness",
+        "impact_mt": 147,
+        "pct_of_total_decline": 58
+      },
+      {
+        "dimension": "DEALER",
+        "finding": "HGI dealer churn in Bihar corridor — Sharma Steel Mart and Patna Steel Depot combined loss of 48 MT",
+        "impact_mt": 48,
+        "pct_of_total_decline": 19
+      },
+      {
+        "dimension": "DISTRICT",
+        "finding": "Kolkata district alone accounts for 70 MT drop with Ramesh Traders going fully inactive",
+        "impact_mt": 70,
+        "pct_of_total_decline": 28
+      }
     ],
-    dealer_risks: [
-      { dealer: "Ramesh Traders", district: "KOLKATA", state: "WEST BENGAL", risk_type: "INACTIVE", recommended_action: "RSM to call within 24 hours — confirm pipeline and reactivation plan" },
-      { dealer: "Gupta Iron Works", district: "RANCHI", state: "JHARKHAND", risk_type: "INACTIVE", recommended_action: "ASM site visit this week — assess competitor switching risk" },
-      { dealer: "Patna Steel Depot", district: "PATNA", state: "BIHAR", risk_type: "INACTIVE", recommended_action: "Immediate call by Bihar RSM — check credit/payment issues" },
-      { dealer: "Sharma Steel Mart", district: "PATNA", state: "BIHAR", risk_type: "DECLINING", recommended_action: "Offer volume incentive — prevent full churn by end of cycle" },
-      { dealer: "Bengal Steel Hub", district: "HOWRAH", state: "WEST BENGAL", risk_type: "DECLINING", recommended_action: "Sales Manager to review product mix — shift to GI/Pipe" }
+    "dealer_risks": [
+      {
+        "dealer": "Ramesh Traders",
+        "district": "KOLKATA",
+        "state": "WEST BENGAL",
+        "risk_type": "INACTIVE",
+        "recommended_action": "RSM to call within 24 hours — confirm pipeline and reactivation plan"
+      },
+      {
+        "dealer": "Gupta Iron Works",
+        "district": "RANCHI",
+        "state": "JHARKHAND",
+        "risk_type": "INACTIVE",
+        "recommended_action": "ASM site visit this week — assess competitor switching risk"
+      },
+      {
+        "dealer": "Patna Steel Depot",
+        "district": "PATNA",
+        "state": "BIHAR",
+        "risk_type": "INACTIVE",
+        "recommended_action": "Immediate call by Bihar RSM — check credit/payment issues"
+      },
+      {
+        "dealer": "Sharma Steel Mart",
+        "district": "PATNA",
+        "state": "BIHAR",
+        "risk_type": "DECLINING",
+        "recommended_action": "Offer volume incentive — prevent full churn by end of cycle"
+      },
+      {
+        "dealer": "Bengal Steel Hub",
+        "district": "HOWRAH",
+        "state": "WEST BENGAL",
+        "risk_type": "DECLINING",
+        "recommended_action": "Sales Manager to review product mix — shift to GI/Pipe"
+      }
     ],
-    geographic_insights: "Eastern corridor (WB + Bihar + Jharkhand) accounts for 78% of total volume decline. West Bengal concentration risk is critical — top 3 dealers = 61% of state volume. Bihar HGI channel is destabilizing with 2 of top 5 dealers inactive or declining. Positive growth in UP (+10.5%) and Chhattisgarh (+5.1%) partially compensates but insufficient to offset eastern losses.",
-    recommended_actions: [
-      { priority: "IMMEDIATE", action: "Call all 3 CRITICAL dealers within 24hrs — confirm order pipeline status", owner: "RSM / Zonal Head", deadline_hint: "24h" },
-      { priority: "IMMEDIATE", action: "Investigate SS product dispatch bottleneck — check plant allocation logs", owner: "Plant Operations", deadline_hint: "24h" },
-      { priority: "HIGH", action: "Push 1,203 MT pending WB orders to dispatch — prioritize before month-end", owner: "Sales + Dispatch", deadline_hint: "48h" },
-      { priority: "HIGH", action: "Onboard 2 backup dealers in Patna — reduce HGI concentration risk", owner: "Business Development", deadline_hint: "This week" },
-      { priority: "MEDIUM", action: "Review Bihar territory allocation — consider ASM rotation for underperforming zones", owner: "Sales Manager", deadline_hint: "End of cycle" },
-      { priority: "MEDIUM", action: "Analyze UP growth drivers — replicate successful GI strategy in other states", owner: "Strategy", deadline_hint: "End of cycle" }
+    "geographic_insights": "Eastern corridor (WB + Bihar + Jharkhand) accounts for 78% of total volume decline. West Bengal concentration risk is critical — top 3 dealers = 61% of state volume. Bihar HGI channel is destabilizing with 2 of top 5 dealers inactive or declining. Positive growth in UP (+10.5%) and Chhattisgarh (+5.1%) partially compensates but insufficient to offset eastern losses.",
+    "recommended_actions": [
+      {
+        "priority": "IMMEDIATE",
+        "action": "Call all 3 CRITICAL dealers within 24hrs — confirm order pipeline status",
+        "owner": "RSM / Zonal Head",
+        "deadline_hint": "24h"
+      },
+      {
+        "priority": "IMMEDIATE",
+        "action": "Investigate SS product dispatch bottleneck — check plant allocation logs",
+        "owner": "Plant Operations",
+        "deadline_hint": "24h"
+      },
+      {
+        "priority": "HIGH",
+        "action": "Push 1,203 MT pending WB orders to dispatch — prioritize before month-end",
+        "owner": "Sales + Dispatch",
+        "deadline_hint": "48h"
+      },
+      {
+        "priority": "HIGH",
+        "action": "Onboard 2 backup dealers in Patna — reduce HGI concentration risk",
+        "owner": "Business Development",
+        "deadline_hint": "This week"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Review Bihar territory allocation — consider ASM rotation for underperforming zones",
+        "owner": "Sales Manager",
+        "deadline_hint": "End of cycle"
+      },
+      {
+        "priority": "MEDIUM",
+        "action": "Analyze UP growth drivers — replicate successful GI strategy in other states",
+        "owner": "Strategy",
+        "deadline_hint": "End of cycle"
+      }
     ],
-    escalation_flags: [
+    "escalation_flags": [
       "3 CRITICAL dealers at zero dispatch — immediate RSM escalation required",
       "SS product dispatch -22.1% — check supply chain / allocation bottleneck",
       "WB region concentration risk: top-3 dealers = 61% of state volume"
     ]
   },
-  intel: {
-    inactiveDealers: [
-      { client: "Ramesh Traders", district: "KOLKATA", state: "WEST BENGAL", prevVolume: 45, products: "IG, HGI" },
-      { client: "Gupta Iron Works", district: "RANCHI", state: "JHARKHAND", prevVolume: 28, products: "IG" },
-      { client: "Patna Steel Depot", district: "PATNA", state: "BIHAR", prevVolume: 22, products: "IG" }
+  "intel": {
+    "inactiveDealers": [
+      {
+        "client": "Ramesh Traders",
+        "district": "KOLKATA",
+        "state": "WEST BENGAL",
+        "prevVolume": 45,
+        "products": "IG, HGI"
+      },
+      {
+        "client": "Gupta Iron Works",
+        "district": "RANCHI",
+        "state": "JHARKHAND",
+        "prevVolume": 28,
+        "products": "IG"
+      },
+      {
+        "client": "Patna Steel Depot",
+        "district": "PATNA",
+        "state": "BIHAR",
+        "prevVolume": 22,
+        "products": "IG"
+      }
     ],
-    inactiveDealerCount: 3,
-    top3DealerShare: 61,
-    top3DealerNames: ["Eastern Metals", "Ramesh Traders", "UP Steel Solutions"],
-    concentrationRisk: "HIGH",
-    hasDispatchBottleneck: true,
-    dispatchOrderGapPct: 42,
-    totalDrop: 253.7,
-    scoredStates: [
-      { state: "WEST BENGAL", cur: 541, prev: 688, mom: -21.4, share: 19, drop: 147, riskScore: 72, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 21.4%", displayColor: "#ef4444" },
-      { state: "BIHAR",       cur: 388, prev: 474, mom: -18.2, share: 14, drop: 86,  riskScore: 65, impactTier: "High",     trendDirection: "down", trendLabel: "↓ 18.2%", displayColor: "#f97316" },
-      { state: "ODISHA",      cur: 271, prev: 307, mom: -11.7, share: 10, drop: 36,  riskScore: 48, impactTier: "Moderate", trendDirection: "down", trendLabel: "↓ 11.7%", displayColor: "#eab308" }
+    "inactiveDealerCount": 3,
+    "top3DealerShare": 61,
+    "top3DealerNames": [
+      "Eastern Metals",
+      "Ramesh Traders",
+      "UP Steel Solutions"
     ],
-    scoredDistricts: [
-      { district: "KOLKATA", state: "WEST BENGAL", cur: 180, prev: 250, mom: -28,   drop: 70, riskScore: 78, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 28%",   displayColor: "#ef4444" },
-      { district: "PATNA",   state: "BIHAR",       cur: 140, prev: 190, mom: -26.3, drop: 50, riskScore: 68, impactTier: "High",     trendDirection: "down", trendLabel: "↓ 26.3%", displayColor: "#f97316" },
-      { district: "HOWRAH",  state: "WEST BENGAL", cur: 120, prev: 160, mom: -25,   drop: 40, riskScore: 65, impactTier: "High",     trendDirection: "down", trendLabel: "↓ 25%",   displayColor: "#f97316" }
+    "concentrationRisk": "HIGH",
+    "hasDispatchBottleneck": true,
+    "dispatchOrderGapPct": 42,
+    "totalDrop": 253.7,
+    "scoredStates": [
+      {
+        "state": "WEST BENGAL",
+        "cur": 541,
+        "prev": 688,
+        "mom": -21.4,
+        "share": 19,
+        "drop": 147,
+        "riskScore": 72,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 21.4%",
+        "displayColor": "#ef4444"
+      },
+      {
+        "state": "BIHAR",
+        "cur": 388,
+        "prev": 474,
+        "mom": -18.2,
+        "share": 14,
+        "drop": 86,
+        "riskScore": 65,
+        "impactTier": "High",
+        "trendDirection": "down",
+        "trendLabel": "↓ 18.2%",
+        "displayColor": "#f97316"
+      },
+      {
+        "state": "ODISHA",
+        "cur": 271,
+        "prev": 307,
+        "mom": -11.7,
+        "share": 10,
+        "drop": 36,
+        "riskScore": 48,
+        "impactTier": "Moderate",
+        "trendDirection": "down",
+        "trendLabel": "↓ 11.7%",
+        "displayColor": "#eab308"
+      }
     ],
-    scoredDealers: [
-      { client: "Ramesh Traders",    state: "WEST BENGAL", district: "KOLKATA", cur: 0,  prev: 45, mom: -100,  riskScore: 90, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 100%",  displayColor: "#ef4444", isInactive: true },
-      { client: "Gupta Iron Works",  state: "JHARKHAND",   district: "RANCHI",  cur: 0,  prev: 28, mom: -100,  riskScore: 85, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 100%",  displayColor: "#ef4444", isInactive: true },
-      { client: "Sharma Steel Mart", state: "BIHAR",       district: "PATNA",   cur: 12, prev: 38, mom: -68.4, riskScore: 78, impactTier: "Critical", trendDirection: "down", trendLabel: "↓ 68.4%", displayColor: "#ef4444", isInactive: false }
+    "scoredDistricts": [
+      {
+        "district": "KOLKATA",
+        "state": "WEST BENGAL",
+        "cur": 180,
+        "prev": 250,
+        "mom": -28,
+        "drop": 70,
+        "riskScore": 78,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 28%",
+        "displayColor": "#ef4444"
+      },
+      {
+        "district": "PATNA",
+        "state": "BIHAR",
+        "cur": 140,
+        "prev": 190,
+        "mom": -26.3,
+        "drop": 50,
+        "riskScore": 68,
+        "impactTier": "High",
+        "trendDirection": "down",
+        "trendLabel": "↓ 26.3%",
+        "displayColor": "#f97316"
+      },
+      {
+        "district": "HOWRAH",
+        "state": "WEST BENGAL",
+        "cur": 120,
+        "prev": 160,
+        "mom": -25,
+        "drop": 40,
+        "riskScore": 65,
+        "impactTier": "High",
+        "trendDirection": "down",
+        "trendLabel": "↓ 25%",
+        "displayColor": "#f97316"
+      }
     ],
-    declineDrivers: [
-      { type: "STATE", name: "WEST BENGAL", drop: 147, pctOfTotal: 58 },
-      { type: "STATE", name: "BIHAR", drop: 86, pctOfTotal: 34 },
-      { type: "DISTRICT", name: "KOLKATA, WEST BENGAL", drop: 70, pctOfTotal: 28 }
+    "scoredDealers": [
+      {
+        "client": "Ramesh Traders",
+        "state": "WEST BENGAL",
+        "district": "KOLKATA",
+        "cur": 0,
+        "prev": 45,
+        "mom": -100,
+        "riskScore": 90,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 100%",
+        "displayColor": "#ef4444",
+        "isInactive": true
+      },
+      {
+        "client": "Gupta Iron Works",
+        "state": "JHARKHAND",
+        "district": "RANCHI",
+        "cur": 0,
+        "prev": 28,
+        "mom": -100,
+        "riskScore": 85,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 100%",
+        "displayColor": "#ef4444",
+        "isInactive": true
+      },
+      {
+        "client": "Sharma Steel Mart",
+        "state": "BIHAR",
+        "district": "PATNA",
+        "cur": 12,
+        "prev": 38,
+        "mom": -68.4,
+        "riskScore": 78,
+        "impactTier": "Critical",
+        "trendDirection": "down",
+        "trendLabel": "↓ 68.4%",
+        "displayColor": "#ef4444",
+        "isInactive": false
+      }
+    ],
+    "declineDrivers": [
+      {
+        "type": "STATE",
+        "name": "WEST BENGAL",
+        "drop": 147,
+        "pctOfTotal": 58
+      },
+      {
+        "type": "STATE",
+        "name": "BIHAR",
+        "drop": 86,
+        "pctOfTotal": 34
+      },
+      {
+        "type": "DISTRICT",
+        "name": "KOLKATA, WEST BENGAL",
+        "drop": 70,
+        "pctOfTotal": 28
+      }
     ]
   }
 };

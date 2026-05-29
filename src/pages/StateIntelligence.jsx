@@ -5,10 +5,9 @@ import FilterBar from '../components/common/FilterBar';
 import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import ShareDonutChart from '../components/charts/ShareDonutChart';
-import MoMTrendChart from '../components/charts/MoMTrendChart';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
-import { formatMT, formatMoM } from '../utils/formatters';
+import { formatMT } from '../utils/formatters';
 import { calculateMoM, getBusinessImpact } from '../utils/trendEngine';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 
@@ -40,8 +39,6 @@ export default function StateIntelligence() {
       meta: { width: '45%', minWidth: '240px' },
       cell: info => {
         const row = info.row.original;
-        const mom = calculateMoM(row.cur, row.prev);
-        const { theme: sev } = getBusinessImpact(row.cur, row.prev, row.inactivityDays, row.volatility);
         return (
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-[85px] flex-shrink-0">
@@ -84,6 +81,34 @@ export default function StateIntelligence() {
     },
   ], []);
 
+  const topImpactedDistricts = useMemo(() => {
+    if (!data || !data.states || !data.districts || !filters.selectedState) return [];
+
+    const selectedStateData = data.states.find(s => s.state && filters.selectedState && s.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase());
+    if (!selectedStateData) return [];
+
+    return data.districts
+      .map(d => {
+        const cur = d.cur || 0;
+        const prev = d.prev || 0;
+        const mom = calculateMoM(cur, prev);
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, d.inactivityDays || 0, d.volatility || 0);
+        const drop = Math.max(0, prev - cur);
+        return {
+          ...d,
+          cur,
+          prev,
+          mom,
+          impactScore,
+          severity,
+          theme,
+          drop
+        };
+      })
+      .sort((a, b) => b.impactScore - a.impactScore || b.drop - a.drop || b.cur - a.cur)
+      .slice(0, 5);
+  }, [data, filters.selectedState]);
+
   if (loading) return (
     <div className="space-y-6">
       <div className="glass-card shadow-lg">
@@ -116,6 +141,80 @@ export default function StateIntelligence() {
               onRowClick={(row) => dispatch({ type: 'SET_STATE', payload: row.state })}
             />
           </CollapsibleCard>
+
+          {/* Top 5 Impacted Districts */}
+          {selectedStateData && (
+            <CollapsibleCard title={`Top 5 Impacted Districts (${selectedStateData.state})`}>
+              {topImpactedDistricts.length === 0 ? (
+                <div className="text-center text-text-muted py-6 text-sm">
+                  No district data available for this state.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {topImpactedDistricts.map(d => (
+                    <div 
+                      key={d.district}
+                      onClick={() => {
+                        dispatch({ type: 'SET_STATE', payload: d.state });
+                        dispatch({ type: 'SET_DISTRICT', payload: d.district });
+                        navigate(`/districts?state=${d.state}&district=${d.district}`);
+                      }}
+                      className="p-3 bg-bg-secondary/40 hover:bg-bg-card-hover border border-border/20 hover:border-border/60 rounded-xl transition-all duration-200 cursor-pointer flex flex-col gap-2 relative overflow-hidden group shadow-sm"
+                    >
+                      {/* Top Row: Name and badge, Volume and trend */}
+                      <div className="flex justify-between items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="font-bold text-text-primary text-sm sm:text-base truncate group-hover:text-accent-blue transition-colors">
+                            {d.district}
+                          </span>
+                          <ImpactBadge cur={d.cur} prev={d.prev} />
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0 text-right">
+                          <div>
+                            <span className="font-semibold text-text-primary text-sm block">
+                              {formatMT(d.cur)}
+                            </span>
+                            <span className="text-[10px] text-text-muted">Current Vol</span>
+                          </div>
+                          <div className="w-[70px] flex justify-end">
+                            <MoMIndicator cur={d.cur} prev={d.prev} className="text-xs font-bold" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bottom Row: Progress bar and description */}
+                      <div className="space-y-1.5 mt-1">
+                        <div className="w-full h-1.5 bg-bg-primary rounded-full overflow-hidden relative border border-border/10">
+                          <div 
+                            className="h-full rounded-full transition-all duration-500 ease-out" 
+                            style={{ 
+                              width: `${d.impactScore}%`, 
+                              backgroundColor: d.theme.color,
+                              boxShadow: `0 0 8px ${d.theme.color}40`
+                            }} 
+                          />
+                        </div>
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="text-text-muted">
+                            {d.drop > 0 ? (
+                              <>
+                                Loss of <strong style={{ color: d.theme.color }} className="font-bold">{formatMT(d.drop)}</strong>
+                              </>
+                            ) : (
+                              <span className="text-severity-low font-medium">No volume loss</span>
+                            )}
+                          </span>
+                          <span className="text-[10px] text-text-muted bg-bg-primary/50 px-2 py-0.5 rounded font-mono border border-border/10">
+                            Impact: {d.impactScore}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CollapsibleCard>
+          )}
         </div>
 
         {/* Right Col: Detail Panel (only shows if state selected) */}

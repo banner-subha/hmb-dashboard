@@ -34,7 +34,7 @@ export default function AIWarRoom() {
         <div className="relative z-10 pr-12 md:pr-16">
           <h2 className="text-2xl font-extrabold text-text-primary mb-2 flex items-center gap-3">
             <Brain className="w-6 h-6 text-accent-blue" />
-            AI Executive Summary
+            Executive Summary
           </h2>
           <p className="text-text-secondary leading-relaxed">
             {intelligence.executive_summary}

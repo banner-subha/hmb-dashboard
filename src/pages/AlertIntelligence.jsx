@@ -124,7 +124,7 @@ const buildHierarchy = (alert, fullData) => {
 const generateRecommendation = (alert) => {
   // Fix 2: Use backend impactScore as ground truth; re-derive severity via trendEngine
   const impactScore = alert.data?.impactScore ?? alert.impactScore ?? 0;
-  const sev = getSeverityFromImpactScore(impactScore);
+  const sev = alert.severity || alert.data?.severity || getSeverityFromImpactScore(impactScore);
   const lvl = (alert.level || alert.category || '').toUpperCase();
   // Fix 5: Prefer backend mom field; only recalculate if missing
   const rawMom = alert.data?.mom ?? alert.mom;
@@ -200,7 +200,7 @@ export default function AlertIntelligence() {
   const alertSeverityMap = useMemo(() => {
     return alerts.map(alert => {
       const impactScore = alert.data?.impactScore ?? alert.impactScore ?? 0;
-      const severity = getSeverityFromImpactScore(impactScore);
+      const severity = alert.severity || alert.data?.severity || getSeverityFromImpactScore(impactScore);
       return { severity, impactScore };
     });
   }, [alerts]);

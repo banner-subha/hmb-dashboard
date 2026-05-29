@@ -35,14 +35,14 @@ class DataService {
 
       // Fallback: Calculate curPeriod from prevPeriod if it's missing
       if (data.meta && !data.meta.curPeriod && data.meta.prevPeriod) {
-        const parts = data.meta.prevPeriod.split(/[-–—]/).map(s => s.trim());
+        const parts = data.meta.prevPeriod.split(/\s*(?:[-–—]|â€“)\s*/).map(s => s.trim());
         if (parts.length === 2) {
           const endDate = new Date(parts[1]);
           if (!isNaN(endDate.getTime())) {
             const nextMonth = new Date(endDate);
             nextMonth.setMonth(nextMonth.getMonth() + 1);
             const formatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
-            data.meta.curPeriod = `${parts[1]} – ${nextMonth.toLocaleDateString('en-GB', formatOptions)}`;
+            data.meta.curPeriod = `${parts[1]} - ${nextMonth.toLocaleDateString('en-GB', formatOptions)}`;
           }
         }
       }

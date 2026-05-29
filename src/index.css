@@ -32,6 +32,13 @@
     min-height: 100vh;
   }
 
+  /* Disable focus outlines on all elements when focused or active */
+  *:focus,
+  *:focus-visible,
+  *:active {
+    outline: none !important;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;

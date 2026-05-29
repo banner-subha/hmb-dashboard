@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
@@ -22,6 +22,48 @@ export default function DashboardLayout() {
     logout();
     navigate('/login');
   };
+
+  const headerSubtitle = useMemo(() => {
+    if (!rawData) return "";
+    const prevPeriod = rawData?.meta?.prevPeriod || "";
+    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+    const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
+    // derive curYear and curMonth from generatedAt or base date
+    const baseDateStr = rawData?.meta?.generatedAt || rawData?.generatedAt || "2026-05-18T00:00:00.000Z";
+    let baseDate = new Date(baseDateStr);
+    if (isNaN(baseDate.getTime())) {
+      baseDate = new Date("2026-05-18T00:00:00.000Z");
+    }
+    let curMonthNum = baseDate.getMonth() + 1;
+    let curYear = baseDate.getFullYear();
+
+    // check if prevPeriod has month/year
+    let prevMonthNum = curMonthNum === 1 ? 12 : curMonthNum - 1;
+    let prevYear = curMonthNum === 1 ? curYear - 1 : curYear;
+
+    const prevParts = prevPeriod.split(/\s*(?:[–-]|â€“|—)\s*/);
+    const prevEndPart = prevParts[prevParts.length - 1] || "";
+    for (let i = 0; i < months.length; i++) {
+      if (prevEndPart.toUpperCase().includes(months[i])) {
+        prevMonthNum = i + 1;
+        break;
+      }
+    }
+    const prevYearMatch = prevPeriod.match(/\d{4}/);
+    if (prevYearMatch) {
+      prevYear = parseInt(prevYearMatch[0], 10);
+    } else {
+      if (prevMonthNum > curMonthNum) {
+        prevYear = curYear - 1;
+      }
+    }
+
+    const curMonthName = capitalize(months[curMonthNum - 1]);
+    const prevMonthName = capitalize(months[prevMonthNum - 1]);
+
+    return `${curMonthName} ${curYear} vs ${prevMonthName} ${prevYear}`;
+  }, [rawData]);
 
   return (
     <LazyMotion features={domAnimation}>
@@ -107,13 +149,15 @@ export default function DashboardLayout() {
               <Icons.Menu className="w-5 h-5" />
             </button>
             <div className="flex flex-col">
-              <h1 className="text-[16px] md:text-[18px] font-bold text-[#F8FAFC] hidden sm:block leading-none mb-1">Sales Intelligence Platform</h1>
+              <h1 className="text-[16px] md:text-[18px] font-bold text-[#F8FAFC] hidden sm:block leading-none mb-1">
+                HMB Ispat Executive Dashboard
+              </h1>
               <h1 className="text-sm font-bold text-[#F8FAFC] sm:hidden leading-none mb-1">
                 {NAV_ITEMS.find(n => n.path === (location.pathname === '' ? '/' : location.pathname))?.label || 'Dashboard'}
               </h1>
-              {rawData?.meta && (
+              {headerSubtitle && (
                 <span className="text-[12px] md:text-[13px] font-medium text-white/72">
-                  {rawData.meta.curPeriod} vs {rawData.meta.prevPeriod}
+                  {headerSubtitle}
                 </span>
               )}
             </div>

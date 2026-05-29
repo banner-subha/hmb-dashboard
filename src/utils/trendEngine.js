@@ -38,7 +38,7 @@ export function calculateMoM(cur = 0, prev = 0) {
 export function getSeverityFromImpactScore(score) {
   if (score >= 75) return 'CRITICAL';
   if (score >= 50) return 'HIGH';
-  if (score >= 30) return 'MEDIUM';
+  if (score >= 40) return 'MEDIUM';
   return 'LOW';
 }
 

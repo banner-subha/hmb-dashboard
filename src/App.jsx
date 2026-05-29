@@ -31,16 +31,33 @@ function GeoIntelligenceWrapper() {
       const cur = s.cur ?? 0;
       const prev = s.prev ?? 0;
       const mom = calculateMoM(cur, prev);
-      const { severity, theme } = getBusinessImpact(cur, prev, s.inactivityDays, s.volatility);
+      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, s.inactivityDays, s.volatility);
+
+      const orderCur = s.orderCur ?? 0;
+      const orderPrev = s.orderPrev ?? 0;
+      const orderMoM = calculateMoM(orderCur, orderPrev);
+      const orderImpact = getBusinessImpact(orderCur, orderPrev, 0, 0);
+
       states[s.state] = {
         cur,
         prev,
         volume: cur,
         trend: mom,
+        impactScore,
         impact: severity,
         impactTier: severity,
         healthStatus: severity,
         healthColor: theme.color,
+        slug: s.slug || '',
+
+        // Order variables
+        orderCur,
+        orderPrev,
+        orderMoM,
+        orderImpactScore: orderImpact.impactScore,
+        orderImpactTier: orderImpact.severity,
+        orderHealthStatus: orderImpact.severity,
+        orderHealthColor: orderImpact.theme.color,
       };
     });
 
@@ -53,17 +70,34 @@ function GeoIntelligenceWrapper() {
       const cur = d.cur ?? 0;
       const prev = d.prev ?? 0;
       const mom = calculateMoM(cur, prev);
-      const { severity, theme } = getBusinessImpact(cur, prev, d.inactivityDays, d.volatility);
+      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, d.inactivityDays, d.volatility);
+
+      const orderCur = d.orderCur ?? 0;
+      const orderPrev = d.orderPrev ?? 0;
+      const orderMoM = calculateMoM(orderCur, orderPrev);
+      const orderImpact = getBusinessImpact(orderCur, orderPrev, 0, 0);
+
       districts[d.state][d.district] = {
         lookupKey: d.lookupKey,
         cur,
         prev,
         volume: cur,
         trend: mom,
+        impactScore,
         impact: severity,
+        slug: d.slug || '',
         impactTier: severity,
         healthStatus: severity,
         healthColor: theme.color,
+
+        // Order variables
+        orderCur,
+        orderPrev,
+        orderMoM,
+        orderImpactScore: orderImpact.impactScore,
+        orderImpactTier: orderImpact.severity,
+        orderHealthStatus: orderImpact.severity,
+        orderHealthColor: orderImpact.theme.color,
       };
     });
 
