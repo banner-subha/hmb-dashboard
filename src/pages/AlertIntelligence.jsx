@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { 
   AlertTriangle, 
@@ -155,6 +155,14 @@ const generateRecommendation = (alert) => {
 export default function AlertIntelligence() {
   const { data, rawData, loading, error } = useData();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   const [selectedSeverity, setSelectedSeverity] = useState('ALL');
   const [selectedLevel, setSelectedLevel] = useState('ALL');
   const [selectedState, setSelectedState] = useState('ALL');
@@ -222,9 +230,9 @@ export default function AlertIntelligence() {
   const filteredAlerts = useMemo(() => {
     return alerts.filter((alert, originalIdx) => {
       // search
-      const query = searchQuery.toLowerCase();
+      const query = debouncedSearchQuery.toLowerCase();
       const searchable = `${alert.dealer || ''} ${alert.district || ''} ${alert.state || ''} ${alert.products || alert.product || ''} ${alert.reason || alert.title || ''}`.toLowerCase();
-      if (searchQuery && !searchable.includes(query)) return false;
+      if (debouncedSearchQuery && !searchable.includes(query)) return false;
 
       // severity — use originalIdx so we always hit the correct alertSeverityMap entry
       const derivedSev = alertSeverityMap[originalIdx]?.severity || 'LOW';
@@ -244,7 +252,7 @@ export default function AlertIntelligence() {
 
       return true;
     });
-  }, [alerts, searchQuery, selectedSeverity, selectedLevel, selectedState, selectedProduct, alertSeverityMap]);
+  }, [alerts, debouncedSearchQuery, selectedSeverity, selectedLevel, selectedState, selectedProduct, alertSeverityMap]);
 
   // 3. Sort by worst-child severity descending, then impactScore descending
   const groupedAlerts = useMemo(() => {

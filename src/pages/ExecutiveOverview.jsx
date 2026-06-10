@@ -106,8 +106,8 @@ export default function ExecutiveOverview() {
                     <div className="flex items-center gap-4">
                       <div className="w-[100px] flex-shrink-0">
                         <ImpactBadge 
-                          cur={s.cur}
-                          prev={s.prev}
+                          tier={s.impactTier}
+                          score={s.impactScore}
                         />
                       </div>
                       <span className="text-sm font-medium">{s.state}</span>
@@ -131,8 +131,8 @@ export default function ExecutiveOverview() {
                     <div className="flex items-center gap-4">
                       <div className="w-[100px] flex-shrink-0">
                         <ImpactBadge 
-                          cur={d.cur}
-                          prev={d.prev}
+                          tier={d.impactTier}
+                          score={d.impactScore}
                         />
                       </div>
                       <div>
@@ -226,7 +226,6 @@ export default function ExecutiveOverview() {
                     </div>
                 ))}
                 {decliningDealers.map((d, i) => {
-                  const { theme: sev } = getBusinessImpact(d.cur, d.prev, d.inactivityDays, d.volatility);
                   return (
                     <div key={`dec-${i}`} 
                       className="flex items-center justify-between p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary"
@@ -235,7 +234,7 @@ export default function ExecutiveOverview() {
                         <div className="text-sm text-text-primary font-medium truncate max-w-[150px] sm:max-w-[200px]">{d.client}</div>
                         <div className="text-xs text-text-muted mt-0.5">{d.district}, {d.state}</div>
                       </div>
-                      <SeverityBadge severity={sev.severity} />
+                      <SeverityBadge severity={d.impactTier || 'LOW'} />
                     </div>
                   );
                 })}

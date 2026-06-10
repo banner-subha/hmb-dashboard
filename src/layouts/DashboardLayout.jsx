@@ -25,44 +25,38 @@ export default function DashboardLayout() {
 
   const headerSubtitle = useMemo(() => {
     if (!rawData) return "";
-    const prevPeriod = rawData?.meta?.prevPeriod || "";
-    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-    const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-
-    // derive curYear and curMonth from generatedAt or base date
-    const baseDateStr = rawData?.meta?.generatedAt || rawData?.generatedAt || "2026-05-18T00:00:00.000Z";
+    const getOrdinal = (day) => {
+      if (day > 3 && day < 21) return day + 'th';
+      switch (day % 10) {
+        case 1:  return day + 'st';
+        case 2:  return day + 'nd';
+        case 3:  return day + 'rd';
+        default: return day + 'th';
+      }
+    };
+    
+    const baseDateStr = rawData?.meta?.generatedAt || rawData?.generatedAt || new Date().toISOString();
     let baseDate = new Date(baseDateStr);
     if (isNaN(baseDate.getTime())) {
-      baseDate = new Date("2026-05-18T00:00:00.000Z");
+      baseDate = new Date();
     }
-    let curMonthNum = baseDate.getMonth() + 1;
-    let curYear = baseDate.getFullYear();
+    
+    const today = new Date();
+    const targetDate = (today.getFullYear() === baseDate.getFullYear() && today.getMonth() === baseDate.getMonth()) 
+      ? baseDate 
+      : today;
+      
+    const day = targetDate.getDate();
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const curMonthName = months[targetDate.getMonth()];
+    
+    const prevMonthDate = new Date(targetDate);
+    prevMonthDate.setMonth(targetDate.getMonth() - 1);
+    const prevMonthName = months[prevMonthDate.getMonth()];
+    const prevDay = prevMonthDate.getDate();
+    const prevYear = prevMonthDate.getFullYear();
 
-    // check if prevPeriod has month/year
-    let prevMonthNum = curMonthNum === 1 ? 12 : curMonthNum - 1;
-    let prevYear = curMonthNum === 1 ? curYear - 1 : curYear;
-
-    const prevParts = prevPeriod.split(/\s*(?:[–-]|â€“|—)\s*/);
-    const prevEndPart = prevParts[prevParts.length - 1] || "";
-    for (let i = 0; i < months.length; i++) {
-      if (prevEndPart.toUpperCase().includes(months[i])) {
-        prevMonthNum = i + 1;
-        break;
-      }
-    }
-    const prevYearMatch = prevPeriod.match(/\d{4}/);
-    if (prevYearMatch) {
-      prevYear = parseInt(prevYearMatch[0], 10);
-    } else {
-      if (prevMonthNum > curMonthNum) {
-        prevYear = curYear - 1;
-      }
-    }
-
-    const curMonthName = capitalize(months[curMonthNum - 1]);
-    const prevMonthName = capitalize(months[prevMonthNum - 1]);
-
-    return `${curMonthName} ${curYear} vs ${prevMonthName} ${prevYear}`;
+    return `${getOrdinal(day)} ${curMonthName} - ${getOrdinal(prevDay)} ${prevMonthName} ${prevYear}`;
   }, [rawData]);
 
   return (
@@ -164,13 +158,13 @@ export default function DashboardLayout() {
           </div>
           
           <div className="flex items-center gap-3">
-             {rawData?.alerts && rawData.alertCount > 0 && (
+             {rawData?.alerts && rawData.alerts.length > 0 && (
                 <div className="hidden sm:flex items-center gap-2 mr-2">
                    <div className="flex h-2.5 w-2.5 relative">
                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-severity-critical opacity-75 shadow-[0_0_12px_#ef4444]"></span>
                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-severity-critical shadow-[0_0_12px_#ef4444]"></span>
                    </div>
-                   <span className="text-[16px] md:text-[18px] font-bold text-severity-critical drop-shadow-sm">{rawData.alertCount} Active Alerts</span>
+                   <span className="text-[16px] md:text-[18px] font-bold text-severity-critical drop-shadow-sm">{rawData.alerts.length} Active Alerts</span>
                 </div>
              )}
           </div>

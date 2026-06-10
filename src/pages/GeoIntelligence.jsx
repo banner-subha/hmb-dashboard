@@ -214,14 +214,16 @@ function trendStr(t) {
 }
 
 // ─── Tooltip (fixed-positioned, follows mouse) ────────────────────────────────
-function Tooltip({ x, y, visible, name, data }) {
+function Tooltip({ tooltipRef, visible, name, data }) {
   if (!visible || !name) return null;
   return (
     <div
-      className="pointer-events-none fixed z-[9999] border"
+      ref={tooltipRef}
+      className="pointer-events-none fixed z-[9999] border transition-transform duration-75"
       style={{
-        left: x + 16,
-        top:  y - 12,
+        left: 0,
+        top:  0,
+        transform: 'translate3d(0, 0, 0)',
         minWidth: 190,
         background: '#1a2332',
         borderColor: '#2d3f55',
@@ -238,7 +240,7 @@ function Tooltip({ x, y, visible, name, data }) {
           <Row label="Change" value={trendStr(data.trend)} valueColor={getTrendColor(data.trend, data.cur, data.prev)} />
           <div className="flex justify-between gap-6 items-center">
             <span className="text-slate-500">Alert</span>
-            <SeverityBadge severity={getSeverityMeta({ mom: data.trend })?.severityTag || 'LOW'} />
+            <SeverityBadge severity={data.impactTier || 'LOW'} />
           </div>
         </div>
       ) : (
@@ -312,9 +314,33 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
   const [filterState, setFilterState] = useState({
     type: "ALL",
     item: [],
-    outstanding: "ALL",
     month: "CURRENT"
   });
+
+  // ── dynamic total volume calculation for share percentage ──
+  const totalVolume = useMemo(() => {
+    if (!rawData) return { cur: 1, prev: 1 };
+    
+    let totalCur = 0;
+    let totalPrev = 0;
+    const statesList = rawData.states || [];
+    
+    if (filterState.type === "ORDER") {
+      totalCur = statesList.reduce((sum, s) => sum + (s.orderCur || 0), 0);
+      totalPrev = statesList.reduce((sum, s) => sum + (s.orderPrev || 0), 0);
+    } else if (filterState.type === "DESPATCH") {
+      totalCur = statesList.reduce((sum, s) => sum + (s.cur || 0), 0);
+      totalPrev = statesList.reduce((sum, s) => sum + (s.prev || 0), 0);
+    } else {
+      totalCur = statesList.reduce((sum, s) => sum + (s.cur || 0) + (s.orderCur || 0), 0);
+      totalPrev = statesList.reduce((sum, s) => sum + (s.prev || 0) + (s.orderPrev || 0), 0);
+    }
+    
+    return {
+      cur: totalCur || 1,
+      prev: totalPrev || 1
+    };
+  }, [rawData, filterState.type]);
 
   // ── parse periods from metadata ──
   const periods = useMemo(() => {
@@ -405,11 +431,8 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
 
     const states = {};
     const districts = {};
-    const { curMonthName, prevMonthName } = periods;
 
-    // Filter Type
-    const isOrder = filterState.type === "ORDER";
-    
+
     // Filter Month
     const isPrevMonth = filterState.month === "PREVIOUS";
 
@@ -417,43 +440,52 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
     Object.entries(propSalesData.states || {}).forEach(([stateName, s]) => {
       const rawState = (rawData.states || []).find(rs => rs.state === stateName) || {};
       
-      let cur = isOrder ? (s.orderCur ?? 0) : s.cur;
-      let prev = isOrder ? (s.orderPrev ?? 0) : s.prev;
+      let cur = 0;
+      let prev = 0;
+      if (filterState.type === "ALL") {
+        cur = s.cur + (s.orderCur ?? 0);
+        prev = s.prev + (s.orderPrev ?? 0);
+      } else if (filterState.type === "ORDER") {
+        cur = s.orderCur ?? 0;
+        prev = s.orderPrev ?? 0;
+      } else {
+        cur = s.cur;
+        prev = s.prev;
+      }
 
       // Product Filter
       if (filterState.item.length > 0) {
         cur = 0; prev = 0;
         (rawState.products || []).forEach(p => {
           if (filterState.item.includes(p.product)) {
-            cur += isOrder ? (p.orderCur || 0) : (p.cur || 0);
-            prev += isOrder ? (p.orderPrev || 0) : (p.prev || 0);
+            if (filterState.type === "ALL") {
+              cur += (p.cur || 0) + (p.orderCur || 0);
+              prev += (p.prev || 0) + (p.orderPrev || 0);
+            } else if (filterState.type === "ORDER") {
+              cur += p.orderCur || 0;
+              prev += p.orderPrev || 0;
+            } else {
+              cur += p.cur || 0;
+              prev += p.prev || 0;
+            }
           }
         });
       }
-
-      // Compute product-filtered order volume for outstanding filter
-      let stateOrderCur = s.orderCur ?? 0;
-      if (filterState.item.length > 0) {
-        stateOrderCur = 0;
-        (rawState.products || []).forEach(p => {
-          if (filterState.item.includes(p.product)) {
-            stateOrderCur += p.orderCur || 0;
-          }
-        });
-      }
-
-      // Filter Outstanding
-      if (filterState.outstanding === "FLAGGED" && stateOrderCur === 0) return;
-      if (filterState.outstanding === "CLEAR" && stateOrderCur > 0) return;
 
       let displayVolume = isPrevMonth ? prev : cur;
       let trend = calculateMoM(cur, prev);
 
+      // Share % for risk scoring always uses cur (current dispatch/order position),
+      // regardless of which month is being *displayed*. This is because getBusinessImpact
+      // is a forward-looking risk indicator; "what share of total business is at risk?"
+      const sharePct = (cur / (totalVolume.cur || 1)) * 100;
+
       const { impactScore, severity, theme } = getBusinessImpact(
-        cur, 
-        prev, 
-        rawState.inactivityDays || 0, 
-        rawState.volatility || 0
+        cur,
+        prev,
+        sharePct,
+        'STATE',
+        stateName
       );
 
       states[stateName] = {
@@ -477,43 +509,51 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
       Object.entries(districtMap).forEach(([districtName, d]) => {
         const rawDist = (rawData.districts || []).find(rd => rd.lookupKey === d.lookupKey) || {};
         
-        let cur = isOrder ? (d.orderCur ?? 0) : d.cur;
-        let prev = isOrder ? (d.orderPrev ?? 0) : d.prev;
+        let cur = 0;
+        let prev = 0;
+        if (filterState.type === "ALL") {
+          cur = d.cur + (d.orderCur ?? 0);
+          prev = d.prev + (d.orderPrev ?? 0);
+        } else if (filterState.type === "ORDER") {
+          cur = d.orderCur ?? 0;
+          prev = d.orderPrev ?? 0;
+        } else {
+          cur = d.cur;
+          prev = d.prev;
+        }
 
         // Product Filter
         if (filterState.item.length > 0) {
           cur = 0; prev = 0;
           (rawDist.products || []).forEach(p => {
             if (filterState.item.includes(p.product)) {
-              cur += isOrder ? (p.orderCur || 0) : (p.cur || 0);
-              prev += isOrder ? (p.orderPrev || 0) : (p.prev || 0);
+              if (filterState.type === "ALL") {
+                cur += (p.cur || 0) + (p.orderCur || 0);
+                prev += (p.prev || 0) + (p.orderPrev || 0);
+              } else if (filterState.type === "ORDER") {
+                cur += p.orderCur || 0;
+                prev += p.orderPrev || 0;
+              } else {
+                cur += p.cur || 0;
+                prev += p.prev || 0;
+              }
             }
           });
         }
 
-        // Compute product-filtered order volume for outstanding filter
-        let distOrderCur = d.orderCur ?? 0;
-        if (filterState.item.length > 0) {
-          distOrderCur = 0;
-          (rawDist.products || []).forEach(p => {
-            if (filterState.item.includes(p.product)) {
-              distOrderCur += p.orderCur || 0;
-            }
-          });
-        }
+      let displayVolume = isPrevMonth ? prev : cur;
+      let trend = calculateMoM(cur, prev);
 
-        // Filter Outstanding
-        if (filterState.outstanding === "FLAGGED" && distOrderCur === 0) return;
-        if (filterState.outstanding === "CLEAR" && distOrderCur > 0) return;
-
-        let displayVolume = isPrevMonth ? prev : cur;
-        let trend = calculateMoM(cur, prev);
+        // Share % for risk scoring always uses cur (current dispatch/order position).
+        // displayVolume is only for what's shown in the UI, NOT for risk calculation.
+        const distShare = (cur / (totalVolume.cur || 1)) * 100;
 
         const { impactScore, severity, theme } = getBusinessImpact(
-          cur, 
-          prev, 
-          rawDist.inactivityDays || 0, 
-          rawDist.volatility || 0
+          cur,
+          prev,
+          distShare,
+          'DISTRICT',
+          stateName
         );
 
         districts[stateName][districtName] = {
@@ -533,7 +573,7 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
     });
 
     return { states, districts };
-  }, [propSalesData, rawData, periods, filterState]);
+  }, [propSalesData, rawData, periods, filterState, totalVolume]);
 
   const salesData = filteredSalesData;
   const availableProducts = useMemo(() => {
@@ -549,15 +589,26 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
   const [distLoading,   setDistLoading]     = useState(false);
   const [distError,     setDistError]       = useState(null);
 
-  // ── zoom/pan state ──
-  const [zoom,    setZoom]    = useState(1);
-  const [panX,    setPanX]    = useState(0);
-  const [panY,    setPanY]    = useState(0);
+  // ── zoom/pan refs ──
+  const zoomRef = useRef(1);
+  const panXRef = useRef(0);
+  const panYRef = useRef(0);
   const isDragging  = useRef(false);
   const dragStart   = useRef({ x: 0, y: 0, px: 0, py: 0 });
+  const zoomIndicatorRef = useRef(null);
 
-  // ── hover tooltip ──
-  const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, name: '', data: null });
+  // ── hover tooltip content state ──
+  const [tooltip, setTooltip] = useState({ visible: false, name: '', data: null });
+  const tooltipRef = useRef(null);
+
+  const applyTransform = useCallback(() => {
+    if (gRef.current) {
+      gRef.current.setAttribute("transform", `translate(${panXRef.current},${panYRef.current}) scale(${zoomRef.current})`);
+    }
+    if (zoomIndicatorRef.current) {
+      zoomIndicatorRef.current.textContent = `${Math.round(zoomRef.current * 100)}%`;
+    }
+  }, []);
 
   // ── salesData lookup maps ──
   const stateMap = useMemo(() => {
@@ -582,7 +633,10 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
         m[key].prev = (m[key].prev || 0) + (district.prev || 0);
         m[key].volume = (m[key].volume || 0) + (district.volume || 0);
         m[key].trend = calculateMoM(m[key].cur, m[key].prev);
-        const bi = getBusinessImpact(m[key].cur, m[key].prev, 0, 0);
+        
+        const share = (m[key].cur / (totalVolume.cur || 1)) * 100;
+
+        const bi = getBusinessImpact(m[key].cur, m[key].prev, share, 'DISTRICT', selectedState);
         m[key].impactScore = bi.impactScore;
         m[key].impact = bi.severity;
         m[key].impactTier = bi.severity;
@@ -603,7 +657,7 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
       }
     });
     return m;
-  }, [salesData, selectedState]);
+  }, [salesData, selectedState, totalVolume]);
 
   // ── load state GeoJSON on mount ──
   useEffect(() => {
@@ -649,7 +703,9 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
     setDistrictGeo(null);
     setDistError(null);
     setDistLoading(true);
-    setZoom(1); setPanX(0); setPanY(0);
+    zoomRef.current = 1;
+    panXRef.current = 0;
+    panYRef.current = 0;
 
     if (geoCache[canonicalName]) {
       setDistrictGeo(geoCache[canonicalName]);
@@ -672,35 +728,58 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
     }
   }, [stateMap]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     setSelectedState(null);
     setDistrictGeo(null);
     setDistError(null);
-    setZoom(1); setPanX(0); setPanY(0);
-  };
+    zoomRef.current = 1;
+    panXRef.current = 0;
+    panYRef.current = 0;
+  }, []);
 
   // ── zoom controls ──
-  const zoomIn  = () => setZoom(z => Math.min(z * 1.4, 10));
-  const zoomOut = () => setZoom(z => Math.max(z / 1.4, 0.5));
-  const resetView = () => { setZoom(1); setPanX(0); setPanY(0); };
+  const zoomIn  = useCallback(() => {
+    zoomRef.current = Math.min(zoomRef.current * 1.4, 10);
+    applyTransform();
+  }, [applyTransform]);
+
+  const zoomOut = useCallback(() => {
+    zoomRef.current = Math.max(zoomRef.current / 1.4, 0.5);
+    applyTransform();
+  }, [applyTransform]);
+
+  const resetView = useCallback(() => {
+    zoomRef.current = 1;
+    panXRef.current = 0;
+    panYRef.current = 0;
+    applyTransform();
+  }, [applyTransform]);
 
   // ── drag handlers ──
-  const onMouseDown = (e) => {
+  const onMouseDown = useCallback((e) => {
     isDragging.current = true;
-    dragStart.current  = { x: e.clientX, y: e.clientY, px: panX, py: panY };
-  };
-  const onMouseMove = (e) => {
-    if (!isDragging.current) return;
-    setPanX(dragStart.current.px + (e.clientX - dragStart.current.x));
-    setPanY(dragStart.current.py + (e.clientY - dragStart.current.y));
-  };
-  const onMouseUp = () => { isDragging.current = false; };
+    dragStart.current  = { x: e.clientX, y: e.clientY, px: panXRef.current, py: panYRef.current };
+  }, []);
+
+  const onMouseMove = useCallback((e) => {
+    if (isDragging.current) {
+      panXRef.current = dragStart.current.px + (e.clientX - dragStart.current.x);
+      panYRef.current = dragStart.current.py + (e.clientY - dragStart.current.y);
+      applyTransform();
+    }
+  }, [applyTransform]);
+
+  const onMouseUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
 
   // ── wheel zoom ──
-  const onWheel = (e) => {
+  const onWheel = useCallback((e) => {
     e.preventDefault();
-    setZoom(z => Math.min(Math.max(z * (e.deltaY < 0 ? 1.15 : 0.87), 0.5), 10));
-  };
+    const factor = e.deltaY < 0 ? 1.15 : 0.87;
+    zoomRef.current = Math.min(Math.max(zoomRef.current * factor, 0.5), 10);
+    applyTransform();
+  }, [applyTransform]);
 
   // ── Dynamic Map Size ──
   const W = selectedState ? DIST_W : STATE_W;
@@ -752,7 +831,10 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           map[key].prev = (map[key].prev || 0) + (data.prev || 0);
           map[key].volume = (map[key].volume || 0) + (data.volume || 0);
           map[key].trend = calculateMoM(map[key].cur, map[key].prev);
-          const bi = getBusinessImpact(map[key].cur, map[key].prev, 0, 0);
+          
+          const share = (map[key].cur / (totalVolume.cur || 1)) * 100;
+
+          const bi = getBusinessImpact(map[key].cur, map[key].prev, share, 'DISTRICT', selectedState);
           map[key].impactScore = bi.impactScore;
           map[key].impact = bi.severity;
           map[key].healthColor = bi.theme.color;
@@ -762,7 +844,7 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
       });
     });
     return map;
-  }, [salesData, selectedState]);
+  }, [salesData, selectedState, totalVolume]);
 
   // ── ranked lists ──
   const rankedStates = useMemo(() => {
@@ -803,13 +885,26 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
 
   // ── tooltip helpers ──
   const showTip = useCallback((e, name, entry) => {
-    setTooltip({ visible: true, x: e.clientX, y: e.clientY, name, data: entry ?? null });
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    setTooltip({ visible: true, name, data: entry ?? null });
+    requestAnimationFrame(() => {
+      if (tooltipRef.current) {
+        tooltipRef.current.style.left = `${clientX + 16}px`;
+        tooltipRef.current.style.top = `${clientY - 12}px`;
+      }
+    });
   }, []);
+
   const moveTip = useCallback((e) => {
-    setTooltip(t => t.visible ? { ...t, x: e.clientX, y: e.clientY } : t);
+    if (tooltipRef.current) {
+      tooltipRef.current.style.left = `${e.clientX + 16}px`;
+      tooltipRef.current.style.top = `${e.clientY - 12}px`;
+    }
   }, []);
+
   const hideTip = useCallback(() => {
-    setTooltip(t => ({ ...t, visible: false }));
+    setTooltip(t => t.visible ? { ...t, visible: false } : t);
   }, []);
 
   // ── render features ──
@@ -835,33 +930,28 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
       };
     });
 
-    // Extract geoScores array of the positive, finite geoHeatScore values for scale domain
-    const geoScores = Object.values(heatMap)
-      .map(item => item.geoHeatScore)
-      .filter(v => v != null && Number.isFinite(v) && v > 0);
-
-    // Replace fixed thresholds with adaptive quantile scaling based on geoScores
-    const colorScale = scaleQuantile()
-      .domain(geoScores.length > 0 ? geoScores : [0, 100])
-      .range(HEAT_COLORS);
+    // Replace fixed thresholds with absolute severity threshold scaling
+    const colorScale = (score) => {
+      if (score == null) return NO_DATA_COLOR;
+      if (score === 0) return HEAT_COLORS[0]; // Lowest Risk (strong green)
+      if (score < 40) return HEAT_COLORS[1];  // Low Risk (light green)
+      if (score < 50) return HEAT_COLORS[2];  // Moderate Risk (yellow)
+      if (score < 75) return HEAT_COLORS[3];  // High Risk (orange)
+      return HEAT_COLORS[4];                  // Critical Risk (red)
+    };
 
     return { heatColorScale: colorScale, geoHeatMap: heatMap };
   }, [activeMap]);
 
   const gRef = useRef(null);
 
-  // Update SVG transform attribute dynamically via requestAnimationFrame on pan/zoom change
   useEffect(() => {
-    let animId;
-    const updateTransform = () => {
-      if (gRef.current) {
-        d3.select(gRef.current)
-          .attr("transform", `translate(${panX},${panY}) scale(${zoom})`);
-      }
-    };
-    animId = requestAnimationFrame(updateTransform);
-    return () => cancelAnimationFrame(animId);
-  }, [panX, panY, zoom]);
+    // Reset zoom and pan on state switch
+    zoomRef.current = 1;
+    panXRef.current = 0;
+    panYRef.current = 0;
+    applyTransform();
+  }, [selectedState, applyTransform]);
 
   // Main map drawing logic inside requestAnimationFrame
   useEffect(() => {
@@ -1101,41 +1191,6 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
         {/* Divider 2 */}
         <div style={{ width: '0.5px', height: '28px', background: '#1e2a3a', alignSelf: 'center' }} />
 
-        {/* OUTSTANDING group */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#8899aa', whiteSpace: 'nowrap', marginRight: '2px' }}>
-            Outstanding
-          </span>
-          {[
-            { value: "ALL", label: "All" },
-            { value: "FLAGGED", label: "Flagged" },
-            { value: "CLEAR", label: "Clear" }
-          ].map(opt => {
-            const active = filterState.outstanding === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => setFilterState(s => ({ ...s, outstanding: opt.value }))}
-                className="cursor-pointer"
-                style={{
-                  fontSize: '11px',
-                  padding: '3px 10px',
-                  borderRadius: '99px',
-                  border: '0.5px solid ' + (active ? '#ef4444' : '#2d3f55'),
-                  color: active ? '#fca5a5' : '#94a3b8',
-                  background: active ? '#3a1a1a' : 'transparent',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Divider 3 */}
-        <div style={{ width: '0.5px', height: '28px', background: '#1e2a3a', alignSelf: 'center' }} />
-
         {/* PRODUCTS group */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap' }}>
           <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#8899aa', whiteSpace: 'nowrap', marginRight: '2px' }}>
@@ -1172,12 +1227,12 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           })}
         </div>
 
-        {/* Divider 4 */}
+        {/* Divider 3 */}
         <div style={{ width: '0.5px', height: '28px', background: '#1e2a3a', alignSelf: 'center' }} />
 
         {/* Reset button */}
         <button
-          onClick={() => setFilterState({ type: "ALL", item: [], outstanding: "ALL", month: "CURRENT" })}
+          onClick={() => setFilterState({ type: "ALL", item: [], month: "CURRENT" })}
           className="cursor-pointer"
           style={{
             fontSize: '11px',
@@ -1240,21 +1295,22 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           )}
 
           {/* SVG Map */}
-          {!geoLoading && !distLoading && !distError && (
-            <svg
-              width="100%"
-              height="100%"
-              viewBox={`0 0 ${W} ${H}`}
-              style={{ cursor: isDragging.current ? 'grabbing' : 'grab', display: 'block' }}
-              onMouseDown={onMouseDown}
-              onMouseMove={onMouseMove}
-              onMouseUp={onMouseUp}
-              onMouseLeave={onMouseUp}
-              onWheel={onWheel}
-            >
-              <g ref={gRef} style={{ transformOrigin: '50% 50%' }} />
-            </svg>
-          )}
+          <svg
+            width="100%"
+            height="100%"
+            viewBox={`0 0 ${W} ${H}`}
+            style={{ 
+              cursor: isDragging.current ? 'grabbing' : 'grab', 
+              display: (geoLoading || distLoading || distError) ? 'none' : 'block' 
+            }}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onWheel={onWheel}
+          >
+            <g ref={gRef} style={{ transformOrigin: '50% 50%' }} />
+          </svg>
 
           {/* Zoom controls */}
           <div className="absolute top-3 right-3 flex flex-col gap-1">
@@ -1283,8 +1339,12 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           </div>
 
           {/* Zoom indicator */}
-          <div className="absolute bottom-3 right-3 text-[10px] px-2 py-1 rounded" style={{ background: '#0d1526', color: '#475569' }}>
-            {Math.round(zoom * 100)}%
+          <div 
+            ref={zoomIndicatorRef} 
+            className="absolute bottom-3 right-3 text-[10px] px-2 py-1 rounded" 
+            style={{ background: '#0d1526', color: '#475569' }}
+          >
+            100%
           </div>
         </div>
 
@@ -1371,7 +1431,7 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
       </div>
 
       {/* Floating tooltip */}
-      <Tooltip {...tooltip} />
+      <Tooltip tooltipRef={tooltipRef} {...tooltip} />
     </div>
   );
 }

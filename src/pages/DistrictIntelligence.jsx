@@ -69,7 +69,7 @@ export default function DistrictIntelligence() {
         return (
           <div className="flex justify-end w-full">
             <div className="w-[100px] flex-shrink-0">
-              <ImpactBadge cur={row.cur} prev={row.prev} />
+              <ImpactBadge tier={row.impactTier} score={row.impactScore} />
             </div>
           </div>
         );
@@ -80,11 +80,13 @@ export default function DistrictIntelligence() {
   const topDealers = useMemo(() => {
     if (!data || !data.dealers) return [];
     
+    const totalCur = data.totalCur ?? 0;
     return data.dealers
       .map(d => {
         const cur = d.cur || 0;
         const prev = d.prev || 0;
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, d.inactivityDays || 0, d.volatility || 0);
+        const share = totalCur > 0 ? (cur / totalCur) * 100 : 0;
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, share, 'DEALER', d.state);
         const drop = Math.max(0, prev - cur);
         return {
           ...d,
@@ -167,7 +169,7 @@ export default function DistrictIntelligence() {
                       </div>
                       <div className="flex items-center gap-4 shrink-0 text-right">
                         <div className="flex items-center gap-2">
-                          <ImpactBadge cur={d.cur} prev={d.prev} />
+                          <ImpactBadge tier={d.severity} score={d.impactScore} />
                         </div>
                         <div>
                           <span className="font-semibold text-text-primary text-sm block">

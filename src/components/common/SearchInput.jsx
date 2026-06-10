@@ -1,8 +1,37 @@
 import { Search } from 'lucide-react';
 import { useData } from '../../context/DataContext';
+import { useState, useEffect, useRef } from 'react';
 
 export default function SearchInput({ placeholder = "Search dealers, districts..." }) {
   const { filters, dispatch } = useData();
+  const [localValue, setLocalValue] = useState(filters.searchQuery || '');
+  const timerRef = useRef(null);
+
+  // Keep local value in sync if filters are reset or updated externally
+  useEffect(() => {
+    setLocalValue(filters.searchQuery || '');
+  }, [filters.searchQuery]);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setLocalValue(val);
+
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+
+    timerRef.current = setTimeout(() => {
+      dispatch({ type: 'SET_SEARCH', payload: val });
+    }, 250);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="relative flex-1 max-w-md">
@@ -13,8 +42,8 @@ export default function SearchInput({ placeholder = "Search dealers, districts..
         type="text"
         className="search-input bg-bg-card"
         placeholder={placeholder}
-        value={filters.searchQuery || ''}
-        onChange={(e) => dispatch({ type: 'SET_SEARCH', payload: e.target.value })}
+        value={localValue}
+        onChange={handleChange}
       />
     </div>
   );

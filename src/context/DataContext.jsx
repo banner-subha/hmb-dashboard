@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useState, useMemo, useCallback } from 'react';
 import { dataService } from '../services/dataService';
-import { calculateMoM, formatTrend, getTrendColor } from '../utils/trendEngine';
+import { calculateMoM, formatTrend, getTrendColor, getBusinessImpact } from '../utils/trendEngine';
 
 const DataContext = createContext(null);
 
@@ -85,7 +85,10 @@ export function DataProvider({ children }) {
           prev: targetDist.prev,
           mom: targetDist.mom,
           drop: targetDist.drop,
-          products: targetDist.products
+          products: targetDist.products,
+          orderCur: targetDist.orderCur,
+          orderPrev: targetDist.orderPrev,
+          orderMoM: targetDist.orderMoM
         }));
       } else {
         states = [];
@@ -102,12 +105,17 @@ export function DataProvider({ children }) {
             const prodData = item.products.find(prod => prod.product === p);
             const pCur = prodData.cur || 0;
             const pPrev = prodData.prev || 0;
+            const pOrderCur = prodData.orderCur || 0;
+            const pOrderPrev = prodData.orderPrev || 0;
             return {
               ...item,
               cur: pCur,
               prev: pPrev,
               mom: calculateMoM(pCur, pPrev),
-              drop: pPrev - pCur
+              drop: pPrev - pCur,
+              orderCur: pOrderCur,
+              orderPrev: pOrderPrev,
+              orderMoM: calculateMoM(pOrderCur, pOrderPrev)
             };
           });
       };
@@ -175,18 +183,100 @@ export function DataProvider({ children }) {
     const dynamicTotalMoMDisplay = formatTrend(calculateMoM(dynamicTotalCur, dynamicTotalPrev));
     const dynamicTotalMoMColor = getTrendColor(calculateMoM(dynamicTotalCur, dynamicTotalPrev), dynamicTotalCur, dynamicTotalPrev);
 
+    let dynamicPendingTotal = rawData.pendingTotal;
+    if (filters.selectedDistrict) {
+      dynamicPendingTotal = districts.reduce((sum, d) => sum + (d.orderCur || 0), 0);
+    } else if (filters.selectedState) {
+      dynamicPendingTotal = states.reduce((sum, s) => sum + (s.orderCur || 0), 0);
+    } else if (filters.selectedProduct) {
+      dynamicPendingTotal = states.reduce((sum, s) => sum + (s.orderCur || 0), 0);
+    }
+
+    // Recompute intel object based on filtered arrays
+    const dynamicIntel = {
+      ...rawData.intel,
+      // 1. Filtered states, districts, and dealers sorted by impactScore
+      scoredStates: [...states].map(s => {
+        const { impactScore, severity, theme } = getBusinessImpact(s.cur, s.prev, s.share || 0, 'STATE', s.state);
+        return {
+          ...s,
+          impactScore,
+          impactTier: severity,
+          healthStatus: severity,
+          healthColor: theme.color,
+          displayColor: theme.color
+        };
+      }).sort((a, b) => b.impactScore - a.impactScore),
+
+      scoredDistricts: [...districts].map(dist => {
+        const distShare = dynamicTotalCur > 0 ? (dist.cur / dynamicTotalCur) * 100 : 0;
+        const { impactScore, severity, theme } = getBusinessImpact(dist.cur, dist.prev, distShare, 'DISTRICT', dist.state);
+        return {
+          ...dist,
+          impactScore,
+          impactTier: severity,
+          healthStatus: severity,
+          healthColor: theme.color,
+          displayColor: theme.color
+        };
+      }).sort((a, b) => b.impactScore - a.impactScore),
+
+      scoredDealers: [...dealers].map(dl => {
+        const dealerShare = dynamicTotalCur > 0 ? (dl.cur / dynamicTotalCur) * 100 : 0;
+        const { impactScore, severity, theme } = getBusinessImpact(dl.cur, dl.prev, dealerShare, 'DEALER', dl.state);
+        return {
+          ...dl,
+          impactScore,
+          impactTier: severity,
+          healthStatus: severity,
+          healthColor: theme.color,
+          displayColor: theme.color
+        };
+      }).sort((a, b) => b.impactScore - a.impactScore),
+
+      // 2. Filtered inactive dealers
+      inactiveDealers: [...dealers]
+        .filter(dl => dl.prev > 0 && dl.cur === 0)
+        .map(dl => ({
+          client: dl.client,
+          state: dl.state,
+          district: dl.district,
+          prevVolume: dl.prev,
+          products: (dl.products || []).filter(p => p.prev > 0).map(p => p.product).join(', ')
+        }))
+        .sort((a, b) => b.prevVolume - a.prevVolume),
+    };
+
+    dynamicIntel.inactiveDealerCount = dynamicIntel.inactiveDealers.length;
+
+    // 3. Recompute top 3 dealer share and concentration risk
+    const activeDealersSorted = [...dealers].filter(dl => dl.cur > 0).sort((a, b) => b.cur - a.cur);
+    const top3Volume = activeDealersSorted.slice(0, 3).reduce((sum, dl) => sum + dl.cur, 0);
+    const top3Share = dynamicTotalCur > 0 ? Math.round((top3Volume / dynamicTotalCur) * 100) : 0;
+    
+    dynamicIntel.top3DealerShare = top3Share;
+    dynamicIntel.top3DealerNames = activeDealersSorted.slice(0, 3).map(dl => dl.client);
+    dynamicIntel.concentrationRisk = top3Share >= 60 ? 'HIGH' : top3Share >= 40 ? 'MEDIUM' : 'LOW';
+
+    const finalStates = dynamicIntel.scoredStates;
+    const finalDistricts = dynamicIntel.scoredDistricts;
+    const finalDealers = dynamicIntel.scoredDealers;
+
     return { 
       ...rawData, 
-      states, 
-      districts, 
-      dealers, 
+      states: finalStates, 
+      districts: finalDistricts, 
+      dealers: finalDealers, 
       alerts,
       totalCur: dynamicTotalCur,
       totalPrev: dynamicTotalPrev,
       totalMoM: dynamicTotalMoM,
       totalMoMDisplay: dynamicTotalMoMDisplay,
       totalMoMColor: dynamicTotalMoMColor,
-      products: dynamicProducts
+      products: dynamicProducts,
+      pendingTotal: dynamicPendingTotal,
+      alertCount: alerts.length,
+      intel: dynamicIntel
     };
   }, [rawData, filters]);
 

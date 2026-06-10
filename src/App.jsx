@@ -31,7 +31,7 @@ function GeoIntelligenceWrapper() {
       const cur = s.cur ?? 0;
       const prev = s.prev ?? 0;
       const mom = calculateMoM(cur, prev);
-      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, s.inactivityDays, s.volatility);
+      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, s.share ?? 0, 'STATE', s.state);
 
       const orderCur = s.orderCur ?? 0;
       const orderPrev = s.orderPrev ?? 0;
@@ -64,13 +64,15 @@ function GeoIntelligenceWrapper() {
     // Build districts map: { "West Bengal": { "Kolkata": { volume, trend, impact, lookupKey } } }
     // ALL trend/severity derived from trendEngine — NEVER trust backend visual fields
     const districts = {};
+    const totalCur = rawData.totalCur ?? 0;
     (rawData.districts || []).forEach((d) => {
       if (!d.state || !d.district) return;
       if (!districts[d.state]) districts[d.state] = {};
       const cur = d.cur ?? 0;
       const prev = d.prev ?? 0;
       const mom = calculateMoM(cur, prev);
-      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, d.inactivityDays, d.volatility);
+      const share = totalCur > 0 ? (cur / totalCur) * 100 : 0;
+      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, share, 'DISTRICT', d.state);
 
       const orderCur = d.orderCur ?? 0;
       const orderPrev = d.orderPrev ?? 0;

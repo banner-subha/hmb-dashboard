@@ -26,7 +26,9 @@ export function getSeverityMeta(entity) {
     cur = 100 * (1 + entity.mom / 100);
   }
 
-  const { theme } = getBusinessImpact(cur, prev, entity.inactivityDays, entity.volatility);
+  const share = entity.share || 0;
+  const state = entity.state || '';
+  const { theme } = getBusinessImpact(cur, prev, share, '', state);
 
   return {
     severityTag: theme.severity,

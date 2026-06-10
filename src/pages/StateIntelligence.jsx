@@ -43,9 +43,9 @@ export default function StateIntelligence() {
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-[85px] flex-shrink-0">
               <ImpactBadge 
-                cur={row.cur}
-                prev={row.prev}
-              />
+              tier={row.impactTier}
+              score={row.impactScore}
+            />
             </div>
             <span className="font-medium truncate block">{info.getValue()}</span>
           </div>
@@ -87,12 +87,14 @@ export default function StateIntelligence() {
     const selectedStateData = data.states.find(s => s.state && filters.selectedState && s.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase());
     if (!selectedStateData) return [];
 
+    const totalCur = data.totalCur ?? 0;
     return data.districts
       .map(d => {
         const cur = d.cur || 0;
         const prev = d.prev || 0;
         const mom = calculateMoM(cur, prev);
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, d.inactivityDays || 0, d.volatility || 0);
+        const share = totalCur > 0 ? (cur / totalCur) * 100 : 0;
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, share, 'DISTRICT', d.state);
         const drop = Math.max(0, prev - cur);
         return {
           ...d,
@@ -124,7 +126,7 @@ export default function StateIntelligence() {
 
   // Compute accent color from frontend engine for selected state
   const selectedAccentColor = selectedStateData 
-    ? getBusinessImpact(selectedStateData.cur, selectedStateData.prev, selectedStateData.inactivityDays, selectedStateData.volatility).theme.color 
+    ? getBusinessImpact(selectedStateData.cur, selectedStateData.prev, selectedStateData.share ?? 0, 'STATE', selectedStateData.state).theme.color 
     : '#6b7280';
 
   return (
@@ -167,7 +169,7 @@ export default function StateIntelligence() {
                           <span className="font-bold text-text-primary text-sm sm:text-base truncate group-hover:text-accent-blue transition-colors">
                             {d.district}
                           </span>
-                          <ImpactBadge cur={d.cur} prev={d.prev} />
+                           <ImpactBadge tier={d.severity} score={d.impactScore} />
                         </div>
                         <div className="flex items-center gap-4 shrink-0 text-right">
                           <div>
@@ -242,8 +244,8 @@ export default function StateIntelligence() {
                   <div className="text-xs text-text-muted mb-2">Business Impact</div>
                   <div className="mt-1">
                     <ImpactBadge 
-                      cur={selectedStateData.cur}
-                      prev={selectedStateData.prev}
+                      tier={selectedStateData.impactTier}
+                      score={selectedStateData.impactScore}
                     />
                   </div>
                 </div>

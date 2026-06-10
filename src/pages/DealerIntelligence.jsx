@@ -9,7 +9,7 @@ import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
 import { formatMT } from '../utils/formatters';
-import { calculateMoM, getBusinessImpact } from '../utils/trendEngine';
+import { calculateMoM, getBusinessImpact, getSeverityTheme } from '../utils/trendEngine';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 
 export default function DealerIntelligence() {
@@ -45,9 +45,9 @@ export default function DealerIntelligence() {
           <div className="flex items-center gap-4">
             <div className="w-[100px] flex-shrink-0">
               <ImpactBadge 
-                cur={row.cur} 
-                prev={row.prev}
-              />
+              tier={row.impactTier} 
+              score={row.impactScore}
+            />
             </div>
             <span className="font-medium text-sm truncate" title={info.getValue()}>{info.getValue()}</span>
           </div>
@@ -81,9 +81,9 @@ export default function DealerIntelligence() {
       meta: { width: '15%' },
       cell: info => {
         const row = info.row.original;
-        // Derive status and theme from trendEngine
-        const { severity, theme } = getBusinessImpact(row.cur, row.prev);
-        const statusLabel = (row.isInactive || row.cur === 0) ? 'Inactive' : (severity === 'LOW' || severity === 'NONE') ? 'Growing' : 'Declining';
+        // Derive status and theme from precalculated severity
+        const statusLabel = (row.isInactive || row.cur === 0) ? 'Inactive' : (row.impactTier === 'LOW' || row.impactTier === 'NONE') ? 'Growing' : 'Declining';
+        const theme = getSeverityTheme(row.impactTier);
 
         return (
           <span 
@@ -112,9 +112,7 @@ export default function DealerIntelligence() {
   const aiRisk = data.intelligence?.dealer_risks?.find(r => r.dealer === selectedDealer?.client);
 
   // Compute accent color from frontend engine for selected dealer
-  const selectedAccentColor = selectedDealer 
-    ? getBusinessImpact(selectedDealer.cur, selectedDealer.prev, selectedDealer.inactivityDays, selectedDealer.volatility).theme.color 
-    : '#6b7280';
+  const selectedAccentColor = selectedDealer?.healthColor || '#6b7280';
 
   return (
     <div className="space-y-6">
@@ -168,8 +166,8 @@ export default function DealerIntelligence() {
                   <div className="text-xs text-text-muted mb-2">Business Impact</div>
                   <div className="mt-1">
                     <ImpactBadge 
-                      cur={selectedDealer.cur}
-                      prev={selectedDealer.prev}
+                      tier={selectedDealer.impactTier}
+                      score={selectedDealer.impactScore}
                     />
                   </div>
                 </div>
@@ -201,13 +199,10 @@ export default function DealerIntelligence() {
                   <h4 className="text-xs font-bold text-text-muted uppercase mb-3">Active Alerts</h4>
                   <div className="space-y-2">
                     {dealerAlerts.map((a, i) => {
-                      const aCur = a.data?.cur ?? a.cur ?? 0;
-                      const aPrev = a.data?.prev ?? a.prev ?? 0;
-                      const { severity: derivedSev } = getBusinessImpact(aCur, aPrev);
                       return (
                       <div key={i} className="p-3 bg-bg-secondary rounded-lg border-l-2 border-severity-high">
                         <div className="flex items-center gap-2 mb-1">
-                          <SeverityBadge severity={derivedSev} />
+                          <SeverityBadge severity={a.severity} />
                           <span className="text-xs font-bold truncate max-w-[200px]">{a.title}</span>
                         </div>
                         <p className="text-xs text-text-muted whitespace-pre-line">{a.detail}</p>

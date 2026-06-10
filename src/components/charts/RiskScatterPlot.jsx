@@ -1,5 +1,5 @@
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
-import { calculateMoM, getTrendColor, formatTrend, getBusinessImpact } from '../../utils/trendEngine';
+import { calculateMoM, getTrendColor, formatTrend, getSeverityTheme } from '../../utils/trendEngine';
 import { useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 
@@ -62,12 +62,12 @@ export default function RiskScatterPlot({ data, height = 300 }) {
     const mom = calculateMoM(item.cur, item.prev);
     const trendColor = getTrendColor(mom, item.cur, item.prev);
     const trendDisplay = formatTrend(mom);
-    const { impactScore, theme: severity } = getBusinessImpact(item.cur, item.prev, item.inactivityDays, item.volatility);
+    const severity = getSeverityTheme(item.impactTier);
 
     return {
       ...item,
       volume: item.cur,
-      impactScore,
+      impactScore: item.impactScore || 0,
       name: item.client || item.district || item.state,
       _mom: mom,
       _severity: severity,
