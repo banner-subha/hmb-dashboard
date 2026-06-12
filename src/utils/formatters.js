@@ -6,8 +6,10 @@
 export const formatMT = (n) => {
   if (n == null || isNaN(n)) return '—';
   const val = parseFloat(n);
-  if (Math.abs(val) >= 1000) return `${(val / 1000).toFixed(1)}K MT`;
-  return `${val.toFixed(1)} MT`;
+  const formatter = new Intl.NumberFormat('en-IN', {
+    maximumFractionDigits: 20
+  });
+  return `${formatter.format(val)} MT`;
 };
 
 /** Format number with commas */
