@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
@@ -8,6 +8,7 @@ import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
 import { backdropVariants } from '../utils/motionVariants';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import AnimatedPage from '../components/common/AnimatedPage';
+import { calculateMoM, formatTrend } from '../utils/trendEngine';
 
 export default function DashboardLayout() {
   const { logout, user } = useAuth();
@@ -15,49 +16,75 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [syncAgoText, setSyncAgoText] = useState('just now');
+  const prevDataRef = useRef(null);
   
   useBodyScrollLock(sidebarOpen);
+
+  // Track when data changes to update "last synced" timestamp
+  useEffect(() => {
+    if (rawData && rawData !== prevDataRef.current) {
+      prevDataRef.current = rawData;
+      setLastSyncedAt(new Date());
+    }
+  }, [rawData]);
+
+  // Update the "X min ago" text every 30 seconds
+  useEffect(() => {
+    if (!lastSyncedAt) return;
+    const update = () => {
+      const diffMs = Date.now() - lastSyncedAt.getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin < 1) setSyncAgoText('just now');
+      else if (diffMin === 1) setSyncAgoText('1 min ago');
+      else setSyncAgoText(`${diffMin} min ago`);
+    };
+    update();
+    const id = setInterval(update, 30000);
+    return () => clearInterval(id);
+  }, [lastSyncedAt]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const headerSubtitle = useMemo(() => {
+  // Date range string for the header meta row
+  const headerDateRange = useMemo(() => {
     if (!rawData) return "";
-    const getOrdinal = (day) => {
-      if (day > 3 && day < 21) return day + 'th';
-      switch (day % 10) {
-        case 1:  return day + 'st';
-        case 2:  return day + 'nd';
-        case 3:  return day + 'rd';
-        default: return day + 'th';
-      }
-    };
-    
     const baseDateStr = rawData?.meta?.generatedAt || rawData?.generatedAt || new Date().toISOString();
     let baseDate = new Date(baseDateStr);
-    if (isNaN(baseDate.getTime())) {
-      baseDate = new Date();
-    }
-    
+    if (isNaN(baseDate.getTime())) baseDate = new Date();
+
     const today = new Date();
-    const targetDate = (today.getFullYear() === baseDate.getFullYear() && today.getMonth() === baseDate.getMonth()) 
-      ? baseDate 
+    const targetDate = (today.getFullYear() === baseDate.getFullYear() && today.getMonth() === baseDate.getMonth())
+      ? baseDate
       : today;
-      
+
     const day = targetDate.getDate();
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const curMonthName = months[targetDate.getMonth()];
-    
+    const curYear = targetDate.getFullYear();
+
     const prevMonthDate = new Date(targetDate);
     prevMonthDate.setMonth(targetDate.getMonth() - 1);
     const prevMonthName = months[prevMonthDate.getMonth()];
     const prevDay = prevMonthDate.getDate();
     const prevYear = prevMonthDate.getFullYear();
 
-    return `${getOrdinal(day)} ${curMonthName} - ${getOrdinal(prevDay)} ${prevMonthName} ${prevYear}`;
+    return `${prevDay} ${prevMonthName}${prevYear !== curYear ? ' ' + prevYear : ''} – ${day} ${curMonthName} ${curYear}`;
   }, [rawData]);
+
+  // MoM dispatch growth
+  const dispatchGrowth = useMemo(() => {
+    if (!rawData) return null;
+    const mom = calculateMoM(rawData.totalCur, rawData.totalPrev);
+    if (mom === null || mom === undefined || isNaN(mom)) return null;
+    return mom;
+  }, [rawData]);
+
+  const alertCount = rawData?.alerts?.length || 0;
 
   return (
     <LazyMotion features={domAnimation}>
@@ -133,40 +160,182 @@ export default function DashboardLayout() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header */}
-        <header className="sticky top-0 h-16 flex items-center justify-between px-4 sm:px-6 bg-bg-secondary/95 backdrop-blur-sm border-b border-border shrink-0 z-10">
-          <div className="flex items-center gap-3">
-            <button 
-              className="lg:hidden p-2 -ml-2 text-text-muted hover:text-text-primary rounded-lg"
-              onClick={() => setSidebarOpen(true)}
+        {/* Top Header — Option C */}
+        <header className="sticky top-0 shrink-0 z-10 px-4 sm:px-6 pt-4 sm:pt-5 pb-0 bg-bg-primary">
+          {/* Mobile hamburger — sits above the card on small screens */}
+          <button 
+            className="lg:hidden p-2 -ml-2 mb-2 text-text-muted hover:text-text-primary rounded-lg"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Icons.Menu className="w-5 h-5" />
+          </button>
+
+          <div
+            id="header-option-c"
+            style={{
+              display: 'flex',
+              background: '#0a0e1a',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: '10px',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Left Blue Accent Bar */}
+            <div
+              style={{
+                width: '4px',
+                flexShrink: 0,
+                background: '#2255cc',
+                borderRadius: '10px 0 0 10px',
+              }}
+            />
+
+            {/* Inner content — two columns */}
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 20px 14px 16px',
+                gap: '16px',
+                flexWrap: 'wrap',
+              }}
             >
-              <Icons.Menu className="w-5 h-5" />
-            </button>
-            <div className="flex flex-col">
-              <h1 className="text-[16px] md:text-[18px] font-bold text-[#F8FAFC] hidden sm:block leading-none mb-1">
-                HMB Ispat Executive Dashboard
-              </h1>
-              <h1 className="text-sm font-bold text-[#F8FAFC] sm:hidden leading-none mb-1">
-                {NAV_ITEMS.find(n => n.path === (location.pathname === '' ? '/' : location.pathname))?.label || 'Dashboard'}
-              </h1>
-              {headerSubtitle && (
-                <span className="text-[12px] md:text-[13px] font-medium text-white/72">
-                  {headerSubtitle}
-                </span>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-             {rawData?.alerts && rawData.alerts.length > 0 && (
-                <div className="hidden sm:flex items-center gap-2 mr-2">
-                   <div className="flex h-2.5 w-2.5 relative">
-                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-severity-critical opacity-75 shadow-[0_0_12px_#ef4444]"></span>
-                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-severity-critical shadow-[0_0_12px_#ef4444]"></span>
-                   </div>
-                   <span className="text-[16px] md:text-[18px] font-bold text-severity-critical drop-shadow-sm">{rawData.alerts.length} Active Alerts</span>
+              {/* LEFT SIDE — Icon + Branding / Title / Meta */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+                {/* Icon Container */}
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '9px',
+                    background: '#101828',
+                    border: '1px solid #1e3560',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icons.Building2 style={{ width: '19px', height: '19px', color: '#4d88ff' }} />
                 </div>
-             )}
+
+                {/* Text stack */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+                  {/* Eyebrow */}
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                      color: '#3d4f62',
+                    }}
+                  >
+                    HMB Ispat · Intelligence Suite
+                  </span>
+
+                  {/* Title */}
+                  <h1
+                    style={{
+                      fontSize: '17px',
+                      fontWeight: 500,
+                      color: '#d0daea',
+                      margin: 0,
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    Executive Dashboard
+                  </h1>
+
+                  {/* Meta row */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0',
+                      fontSize: '12px',
+                      color: '#4a5a6a',
+                      flexWrap: 'wrap',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {headerDateRange && (
+                      <span>{headerDateRange}</span>
+                    )}
+                    <span style={{ margin: '0 8px', color: '#1e2832' }}>|</span>
+                    <span>Cycle MTD</span>
+                    {dispatchGrowth !== null && (
+                      <>
+                        <span style={{ margin: '0 8px', color: '#1e2832' }}>|</span>
+                        <span style={{ color: dispatchGrowth >= 0 ? '#3ddc84' : '#f87171', fontWeight: 600 }}>
+                          {dispatchGrowth >= 0 ? '↑' : '↓'} {Math.abs(dispatchGrowth).toFixed(1)}% vs last cycle
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT SIDE — Alert Pill + Sync */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
+                {/* Alert Pill */}
+                {alertCount > 0 && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'rgba(255,32,32,0.1)',
+                      border: '1px solid rgba(255,32,32,0.18)',
+                      color: '#ff6060',
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: '#ff4444',
+                        flexShrink: 0,
+                      }}
+                    />
+                    {alertCount} Active Alerts
+                  </div>
+                )}
+
+                {/* Live sync status */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '11px',
+                    color: 'rgba(255,255,255,0.38)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#22c55e',
+                      flexShrink: 0,
+                    }}
+                  />
+                  Live · Last synced {syncAgoText}
+                </div>
+              </div>
+            </div>
           </div>
         </header>
 

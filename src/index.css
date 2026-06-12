@@ -120,11 +120,12 @@
   }
 
   .chart-tooltip {
-    background: rgba(10, 16, 32, 0.92);
+    background: #080d1a;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
     border-radius: 12px;
-    transition: all 0.25s ease;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+    transition: opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+    will-change: transform, opacity;
   }
   .chart-tooltip:hover {
     filter: brightness(1.08);
