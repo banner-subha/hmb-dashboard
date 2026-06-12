@@ -304,7 +304,7 @@ export default function AlertIntelligence() {
         <div className="flex flex-wrap gap-3">
           {/* Active Alerts — neutral dark blue tint */}
           <div
-            className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all"
+            className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all"
             style={{
               background: 'rgba(59,130,246,0.07)',
               borderColor: 'rgba(59,130,246,0.2)',
@@ -322,7 +322,7 @@ export default function AlertIntelligence() {
           {/* Critical — soft red tint */}
           <button
             onClick={() => setSelectedSeverity(selectedSeverity === 'CRITICAL' ? 'ALL' : 'CRITICAL')}
-            className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
+            className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all hover:scale-[1.02]"
             style={{
               background: selectedSeverity === 'CRITICAL'
                 ? 'rgba(239,68,68,0.18)'
@@ -346,7 +346,7 @@ export default function AlertIntelligence() {
           {/* High — orange tint */}
           <button
             onClick={() => setSelectedSeverity(selectedSeverity === 'HIGH' ? 'ALL' : 'HIGH')}
-            className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
+            className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all hover:scale-[1.02]"
             style={{
               background: selectedSeverity === 'HIGH'
                 ? 'rgba(249,115,22,0.18)'
@@ -370,7 +370,7 @@ export default function AlertIntelligence() {
           {/* Medium — yellow tint */}
           <button
             onClick={() => setSelectedSeverity(selectedSeverity === 'MEDIUM' ? 'ALL' : 'MEDIUM')}
-            className="flex items-center gap-4 px-5 py-3 rounded-xl border transition-all hover:scale-[1.02]"
+            className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all hover:scale-[1.02]"
             style={{
               background: selectedSeverity === 'MEDIUM'
                 ? 'rgba(234,179,8,0.18)'

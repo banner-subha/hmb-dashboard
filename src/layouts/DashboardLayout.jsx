@@ -161,7 +161,7 @@ export default function DashboardLayout() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header — Option C */}
-        <header className="sticky top-0 shrink-0 z-10 px-4 sm:px-6 pt-4 sm:pt-5 pb-0 bg-bg-primary">
+        <header className="sticky top-0 shrink-0 z-10 px-4 sm:px-6 pt-3 sm:pt-3.5 pb-0 bg-bg-primary">
           {/* Mobile hamburger — sits above the card on small screens */}
           <button 
             className="lg:hidden p-2 -ml-2 mb-2 text-text-muted hover:text-text-primary rounded-lg"
@@ -197,7 +197,7 @@ export default function DashboardLayout() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '14px 20px 14px 16px',
+                padding: '9px 20px 9px 16px',
                 gap: '16px',
                 flexWrap: 'wrap',
               }}

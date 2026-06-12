@@ -16,12 +16,6 @@ const geoCache = {};
 const projectionCache = {};
 
 const districtTopoUrl = (stateName, slug) => {
-  if (stateName === 'West Bengal') {
-    return '/geo/westbengal.json';
-  }
-  if (stateName === 'Uttar Pradesh') {
-    return '/geo/uttarpradesh.json';
-  }
   let activeSlug = slug || stateName
     .toLowerCase()
     .replace(/\s+/g, '')
@@ -29,7 +23,11 @@ const districtTopoUrl = (stateName, slug) => {
   if (activeSlug === 'orissa' || activeSlug === 'orrisa') {
     activeSlug = 'odisha';
   }
-  return `https://raw.githubusercontent.com/guneetnarula/indian-district-boundaries/master/topojson/state-wise/${activeSlug}.json`;
+  // Local-first: try /geo/{slug}.json, caller handles fallback
+  return {
+    local: `/geo/${activeSlug}.json`,
+    remote: `https://raw.githubusercontent.com/guneetnarula/indian-district-boundaries/master/topojson/state-wise/${activeSlug}.json`,
+  };
 };
 
 // ─── Douglas-Peucker Simplification ──────────────────────────────────────────
@@ -116,6 +114,7 @@ function normalizeName(str) {
 }
 
 const districtAliases = {
+  // ── West Bengal ──
   'paschimmedinipur':  'medinipurwest',
   'purbamedinipur':    'medinipureast',
   'southtwentyfourparganas': 'south24parganas',
@@ -127,18 +126,31 @@ const districtAliases = {
   'paschimmidnapore': 'medinipurwest',
   'purbamidnapore': 'medinipureast',
   'purgamedinipur': 'medinipureast',
-  // Arunachal Pradesh — cities → parent district
+  // ── Arunachal Pradesh — cities → parent district ──
   'itanagar':   'papumpare',
   'hollongi':   'papumpare',
   'naharlagun': 'papumpare',
-  // Assam — cities → parent district
-  'guwahati':   'kamrup',
-  'dispur':     'kamrup',
-  // Jharkhand
-  'jamshedpur': 'eastsinghbhum',
-  'bokaro':     'bokarosteelcity',
-  // Bihar
-  'patna':      'patna',
+  // ── Assam ──
+  'guwahati':        'kamrup',
+  'dispur':          'kamrup',
+  'kamrupmetro':     'kamrupmetropolitan',
+  'silchar':         'cachar',
+  // ── Bihar ──
+  'patna':           'patna',
+  'purbichamparan':  'eastchamparan',
+  // ── Jharkhand ──
+  'jamshedpur':      'purbisinghbhum',
+  'eastsinghbhum':   'purbisinghbhum',
+  'koderma':         'kodarma',
+  'seraikelakharsawan': 'saraikelakharsawan',
+  // ── Odisha ──
+  'balasore':        'baleshwar',
+  'baleswar':        'baleshwar',
+  'berhampur':       'ganjam',
+  'bhubaneswar':     'khordha',
+  'jagatsinghpur':   'jagatsinghapur',
+  'jajpur':          'jajapur',
+  'keshpur':         'khordha',
 };
 
 function resolveDistrict(name) {
@@ -713,9 +725,19 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
       return;
     }
     try {
-      const res = await fetch(districtTopoUrl(canonicalName, slug));
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const topo = await res.json();
+      const urls = districtTopoUrl(canonicalName, slug);
+      let topo;
+      try {
+        // Try local file first
+        const localRes = await fetch(urls.local);
+        if (!localRes.ok) throw new Error(`Local ${localRes.status}`);
+        topo = await localRes.json();
+      } catch {
+        // Fallback to remote GitHub
+        const remoteRes = await fetch(urls.remote);
+        if (!remoteRes.ok) throw new Error(`HTTP ${remoteRes.status}`);
+        topo = await remoteRes.json();
+      }
       const key  = Object.keys(topo.objects)[0];
       const geo  = feature(topo, topo.objects[key]);
       const simplified = simplifyFeatureCollection(geo.features, 0.01);
@@ -1140,7 +1162,7 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
                 className="cursor-pointer"
                 style={{
                   fontSize: '11px',
-                  padding: '3px 10px',
+                  padding: '4px 16px',
                   borderRadius: '99px',
                   border: '0.5px solid ' + (active ? '#3b82f6' : '#2d3f55'),
                   color: active ? '#93c5fd' : '#94a3b8',
@@ -1174,7 +1196,7 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
                 className="cursor-pointer"
                 style={{
                   fontSize: '11px',
-                  padding: '3px 10px',
+                  padding: '4px 16px',
                   borderRadius: '99px',
                   border: '0.5px solid ' + (active ? '#8b5cf6' : '#2d3f55'),
                   color: active ? '#c4b5fd' : '#94a3b8',
@@ -1213,7 +1235,7 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
                 className="cursor-pointer"
                 style={{
                   fontSize: '11px',
-                  padding: '3px 7px',
+                  padding: '4px 12px',
                   borderRadius: '99px',
                   border: '0.5px solid ' + (active ? '#22c55e' : '#2d3f55'),
                   color: active ? '#86efac' : '#94a3b8',
