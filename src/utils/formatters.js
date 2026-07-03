@@ -7,7 +7,8 @@ export const formatMT = (n) => {
   if (n == null || isNaN(n)) return '—';
   const val = parseFloat(n);
   const formatter = new Intl.NumberFormat('en-IN', {
-    maximumFractionDigits: 20
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
   return `${formatter.format(val)} MT`;
 };
@@ -15,7 +16,7 @@ export const formatMT = (n) => {
 /** Format number with commas */
 export const formatNumber = (n) => {
   if (n == null || isNaN(n)) return '—';
-  return parseFloat(n).toLocaleString('en-IN', { maximumFractionDigits: 1 });
+  return parseFloat(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 /** Format MoM percentage (achievement ratio — no +/- prefix) */

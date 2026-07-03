@@ -22,7 +22,7 @@ import { calculateMoM, getBusinessImpact, getSeverityFromImpactScore, getSeverit
 import SkeletonLoader from '../components/common/SkeletonLoader';
 
 // Helper to format numbers safely
-const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toFixed(1) : fallback);
+const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : fallback);
 
 // Derive impact score color from the centralized trendEngine
 function getImpactScoreColor(score) {
@@ -169,21 +169,6 @@ export default function AlertIntelligence() {
   const [selectedProduct, setSelectedProduct] = useState('ALL');
   const [expandedRows, setExpandedRows] = useState(new Set());
 
-  if (loading) return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-4">
-        <SkeletonLoader variant="kpi" count={1} className="w-48 h-16" />
-        <div className="flex gap-3">
-          <SkeletonLoader variant="kpi" count={4} className="w-24 h-16 flex-row" />
-        </div>
-      </div>
-      <div className="glass-card shadow-lg">
-        <SkeletonLoader variant="table-row" count={6} />
-      </div>
-    </div>
-  );
-  if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
-
   // Use rawData.alerts to completely isolate this tab from Executive Overview filters
   const alerts = rawData?.alerts || [];
 
@@ -194,7 +179,18 @@ export default function AlertIntelligence() {
   }, [alerts]);
 
   const uniqueProducts = useMemo(() => {
-    const prods = new Set(alerts.map(a => a.product || a.products || (a.data?.product)).filter(Boolean));
+    const prods = new Set();
+    alerts.forEach(a => {
+      const val = a.product || a.products || a.data?.product || '';
+      if (Array.isArray(val)) {
+        val.forEach(p => prods.add(p));
+      } else if (typeof val === 'string') {
+        val.split(/[\s,]+/).forEach(p => {
+          const trimmed = p.trim();
+          if (trimmed) prods.add(trimmed);
+        });
+      }
+    });
     return Array.from(prods).sort();
   }, [alerts]);
 
@@ -247,8 +243,16 @@ export default function AlertIntelligence() {
       if (selectedState !== 'ALL' && alertState !== selectedState) return false;
 
       // product filter
-      const alertProd = alert.product || alert.products || alert.data?.product || '';
-      if (selectedProduct !== 'ALL' && !alertProd.includes(selectedProduct)) return false;
+      if (selectedProduct !== 'ALL') {
+        const alertProd = alert.product || alert.products || alert.data?.product || '';
+        if (Array.isArray(alertProd)) {
+          if (!alertProd.includes(selectedProduct)) return false;
+        } else if (typeof alertProd === 'string') {
+          if (!alertProd.includes(selectedProduct)) return false;
+        } else {
+          return false;
+        }
+      }
 
       return true;
     });
@@ -286,6 +290,21 @@ export default function AlertIntelligence() {
     if (lvl === 'DEALER') return 2;
     return 0;
   };
+
+  if (loading) return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-4">
+        <SkeletonLoader variant="kpi" count={1} className="w-48 h-16" />
+        <div className="flex gap-3">
+          <SkeletonLoader variant="kpi" count={4} className="w-24 h-16 flex-row" />
+        </div>
+      </div>
+      <div className="glass-card shadow-lg">
+        <SkeletonLoader variant="table-row" count={6} />
+      </div>
+    </div>
+  );
+  if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
 
   return (
     <div className="animate-fade-in max-w-6xl mx-auto space-y-6">

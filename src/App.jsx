@@ -49,6 +49,9 @@ function GeoIntelligenceWrapper() {
         healthStatus: severity,
         healthColor: theme.color,
         slug: s.slug || '',
+        pendingQty: s.pendingQty ?? 0,
+        pendingHistory: s.pendingHistory ?? {},
+        dailyAvgQty: s.dailyAvgQty ?? 0,
 
         // Order variables
         orderCur,
@@ -88,6 +91,9 @@ function GeoIntelligenceWrapper() {
         impactScore,
         impact: severity,
         slug: d.slug || '',
+        pendingQty: d.pendingQty ?? 0,
+        pendingHistory: d.pendingHistory ?? {},
+        dailyAvgQty: d.dailyAvgQty ?? 0,
         impactTier: severity,
         healthStatus: severity,
         healthColor: theme.color,
@@ -106,6 +112,8 @@ function GeoIntelligenceWrapper() {
     return { states, districts };
   }, [rawData]);
 
+  const pendingAvailableMonths = useMemo(() => getPendingAvailableMonths(rawData), [rawData]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24 text-text-muted">
@@ -121,7 +129,7 @@ function GeoIntelligenceWrapper() {
     );
   }
 
-  return <GeoIntelligence salesData={salesData} tooltip={(props) => (
+  return <GeoIntelligence salesData={salesData} pendingAvailableMonths={pendingAvailableMonths} tooltip={(props) => (
           <div className="p-2 text-xs font-bold space-y-1">
             <div className="text-text-primary uppercase tracking-wider border-b border-border pb-1 mb-1">{props.name}</div>
             <div className="flex justify-between gap-4">
@@ -134,6 +142,59 @@ function GeoIntelligenceWrapper() {
             </div>
           </div>
         )} />;
+}
+
+// Helper to construct pendingAvailableMonths
+function getPendingAvailableMonths(rawData) {
+  if (!rawData) return [];
+  if (rawData.pendingAvailableMonths) return rawData.pendingAvailableMonths;
+
+  // Extract all unique period keys from pendingHistory across states & districts
+  const keys = new Set();
+  (rawData.states || []).forEach(s => {
+    if (s.pendingHistory) Object.keys(s.pendingHistory).forEach(k => keys.add(k));
+  });
+  (rawData.districts || []).forEach(d => {
+    if (d.pendingHistory) Object.keys(d.pendingHistory).forEach(k => keys.add(k));
+  });
+
+  // Fall back to availableMonths at root if pendingHistory yields nothing
+  if (keys.size === 0 && rawData.availableMonths) {
+    return rawData.availableMonths;
+  }
+
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  return Array.from(keys).sort().reverse().map(pk => {
+    const [yearStr, monthStr] = pk.split('-');
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const label = `${months[month - 1]} ${year}`;
+    return { periodKey: pk, year, month, label };
+  });
+}
+
+// ── StateIntelligence wrapper — transforms rawData → passes pendingAvailableMonths prop ─────────────
+function StateIntelligenceWrapper() {
+  const { rawData, loading, error } = useData();
+
+  const pendingAvailableMonths = useMemo(() => getPendingAvailableMonths(rawData), [rawData]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center text-text-muted">
+        Loading state data…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center text-severity-critical">
+        Error: {error}
+      </div>
+    );
+  }
+
+  return <StateIntelligence pendingAvailableMonths={pendingAvailableMonths} />;
 }
 
 // RequireAuth Wrapper
@@ -161,7 +222,7 @@ function App() {
           
           <Route path="/" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
             <Route index element={<ExecutiveOverview />} />
-            <Route path="states" element={<StateIntelligence />} />
+            <Route path="states" element={<StateIntelligenceWrapper />} />
             <Route path="districts" element={<DistrictIntelligence />} />
             <Route path="dealers" element={<DealerIntelligence />} />
             <Route path="war-room" element={<AIWarRoom />} />

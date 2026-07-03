@@ -2,6 +2,7 @@ import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Cell } fro
 import { calculateMoM, getTrendColor, formatTrend, getSeverityTheme } from '../../utils/trendEngine';
 import { useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { formatMT } from '../../utils/formatters';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -20,7 +21,7 @@ const CustomTooltip = ({ active, payload }) => {
         <div className="space-y-2 text-xs">
           <div className="flex justify-between gap-6">
             <span className="text-text-muted">Volume:</span>
-            <span className="font-medium text-text-primary">{data.volume.toFixed(1)} MT</span>
+            <span className="font-medium text-text-primary">{formatMT(data.volume)}</span>
           </div>
           <div className="flex justify-between gap-6">
             <span className="text-text-muted">MoM:</span>
@@ -101,7 +102,7 @@ export default function RiskScatterPlot({ data, height = 300 }) {
             fontSize={11}
             domain={[0, 100]}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#475569' }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#475569' }} isAnimationActive={false} />
           <Scatter data={chartData} name="Impact">
             {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry._severity.color} />

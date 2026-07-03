@@ -2,6 +2,7 @@ import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { PRODUCT_COLORS } from '../../utils/constants';
 import { useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { formatMT } from '../../utils/formatters';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -14,7 +15,7 @@ const CustomTooltip = ({ active, payload }) => {
         <div className="text-xs">
           <div className="flex justify-between gap-4 mb-1">
             <span className="text-text-muted">Volume:</span>
-            <span className="font-medium text-text-primary">{data.value.toFixed(1)} MT</span>
+            <span className="font-medium text-text-primary">{formatMT(data.value)}</span>
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-text-muted">Share:</span>
@@ -66,7 +67,7 @@ export default function ShareDonutChart({ data, dataKey = "cur", nameKey = "prod
               return <Cell key={`cell-${index}`} fill={fillColor} />;
             })}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip />} isAnimationActive={false} />
           <Legend 
             verticalAlign="bottom" 
             height={40} 

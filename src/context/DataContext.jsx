@@ -107,6 +107,7 @@ export function DataProvider({ children }) {
             const pPrev = prodData.prev || 0;
             const pOrderCur = prodData.orderCur || 0;
             const pOrderPrev = prodData.orderPrev || 0;
+            const pPendingQty = prodData.pendingQty !== undefined ? prodData.pendingQty : 0;
             return {
               ...item,
               cur: pCur,
@@ -115,7 +116,8 @@ export function DataProvider({ children }) {
               drop: pPrev - pCur,
               orderCur: pOrderCur,
               orderPrev: pOrderPrev,
-              orderMoM: calculateMoM(pOrderCur, pOrderPrev)
+              orderMoM: calculateMoM(pOrderCur, pOrderPrev),
+              pendingQty: pPendingQty
             };
           });
       };
@@ -183,13 +185,13 @@ export function DataProvider({ children }) {
     const dynamicTotalMoMDisplay = formatTrend(calculateMoM(dynamicTotalCur, dynamicTotalPrev));
     const dynamicTotalMoMColor = getTrendColor(calculateMoM(dynamicTotalCur, dynamicTotalPrev), dynamicTotalCur, dynamicTotalPrev);
 
-    let dynamicPendingTotal = rawData.pendingTotal;
+    let dynamicPendingTotal = rawData.pendingTotal || 0;
     if (filters.selectedDistrict) {
-      dynamicPendingTotal = districts.reduce((sum, d) => sum + (d.orderCur || 0), 0);
+      dynamicPendingTotal = districts.reduce((sum, d) => sum + (d.pendingQty || 0), 0);
     } else if (filters.selectedState) {
-      dynamicPendingTotal = states.reduce((sum, s) => sum + (s.orderCur || 0), 0);
+      dynamicPendingTotal = states.reduce((sum, s) => sum + (s.pendingQty || 0), 0);
     } else if (filters.selectedProduct) {
-      dynamicPendingTotal = states.reduce((sum, s) => sum + (s.orderCur || 0), 0);
+      dynamicPendingTotal = states.reduce((sum, s) => sum + (s.pendingQty || 0), 0);
     }
 
     // Recompute intel object based on filtered arrays

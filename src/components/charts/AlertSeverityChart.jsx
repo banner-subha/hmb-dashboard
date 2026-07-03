@@ -71,7 +71,7 @@ export default function AlertSeverityChart({ alerts, height = 250 }) {
               />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip />} isAnimationActive={false} />
           <Legend 
             verticalAlign="bottom" 
             height={36} 

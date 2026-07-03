@@ -3,6 +3,7 @@ import { calculateMoM, getBusinessImpact, getTrendColor, formatTrend } from '../
 import { PRODUCT_COLORS } from '../../utils/constants';
 import { useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { formatMT } from '../../utils/formatters';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -23,11 +24,11 @@ const CustomTooltip = ({ active, payload }) => {
           <div className="pt-2 border-t border-border mt-2 space-y-1">
             <div className="flex justify-between gap-4">
               <span className="text-text-muted">Current:</span>
-              <span className="font-medium text-text-primary">{data.cur_mt?.toFixed(1)} MT</span>
+              <span className="font-medium text-text-primary">{formatMT(data.cur_mt)}</span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-text-muted">Previous:</span>
-              <span className="font-medium text-text-secondary">{data.prev_mt?.toFixed(1)} MT</span>
+              <span className="font-medium text-text-secondary">{formatMT(data.prev_mt)}</span>
             </div>
             <div className="flex justify-between gap-4 pt-1 border-t border-border/5 mt-1">
               <span className="text-text-muted">MoM:</span>
@@ -85,7 +86,7 @@ export default function ProductBarChart({ data, height = 300 }) {
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#1e293b" />
           <XAxis type="number" stroke="#475569" fontSize={12} tickFormatter={(val) => `${val} MT`} />
           <YAxis dataKey="product" type="category" stroke="#94a3b8" fontSize={12} width={50} />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} isAnimationActive={false} />
           <Bar dataKey="cur_mt" radius={[0, 6, 6, 0]} maxBarSize={32} opacity={0.92}>
             {chartData.map((entry, index) => {
               const fillColor = PRODUCT_COLORS[entry.product] || '#94a3b8';

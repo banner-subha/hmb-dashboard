@@ -1,0 +1,408 @@
+Created At: 2026-07-01T10:30:22Z
+Completed At: 2026-07-01T10:30:22Z
+File Path: `file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/pages/GeoIntelligence.jsx`
+Total Lines: 1875
+Total Bytes: 72650
+Showing lines 201 to 600
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+201: function makeProjection(center = INDIA_CENTER, scale = INDIA_SCALE, w = STATE_W, h = STATE_H) {
+202:   return geoMercator()
+203:     .center(center)
+204:     .scale(scale)
+205:     .translate([w / 2, h / 2]);
+206: }
+207: 
+208: // ─── Utility: normalise name for fuzzy matching ───────────────────────────────
+209: function norm(s = '') {
+210:   let key = s.toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
+211:   if (key === 'orissa' || key === 'orrisa') return 'odisha';
+212:   return key;
+213: }
+214: 
+215: const normKey = (value = "") => {
+216:   return String(value)
+217:     .toLowerCase()
+218:     .replace(/[^a-z0-9]/g, "")
+219:     .replace(/paraganas|paragans|pargans|paragnas|prgs/g, "parganas");
+220: };
+221: 
+222: import { calculateMoM, getTrendColor as _getTrendColor, formatTrend, getBusinessImpact } from '../utils/trendEngine';
+223: import { useData } from '../context/DataContext';
+224: import ImpactBadge from '../components/common/ImpactBadge';
+225: import SeverityBadge from '../components/common/SeverityBadge';
+226: import { getSeverityMeta } from '../utils/severity';
+227: import { formatMT, formatNumber } from '../utils/formatters';
+228: 
+229: // ─── Helpers ──────────────────────────────────────────────────────────────────
+230: function getTrendColor(t, cur, prev) {
+231:   if (t == null) return '#94a3b8';
+232:   return _getTrendColor(t, cur, prev);
+233: }
+234: 
+235: function trendStr(t) {
+236:   if (t == null) return 'N/A';
+237:   const val = Number(t);
+238:   if (val > 0) return `+${val.toFixed(1)}%`;
+239:   if (val < 0) return `↓ ${Math.abs(val).toFixed(1)}%`;
+240:   return `0.0%`;
+241: }
+242: 
+243: function getBacklogClearance(pendingQty = 0, dailyAvgQty = 0) {
+244:   const pending = Number(pendingQty) || 0;
+245:   const dailyAvg = Number(dailyAvgQty) || 0;
+246:   
+247:   if (pending <= 0) {
+248:     return { days: 0, status: 'LOW', text: 'Clear' };
+249:   }
+250:   if (dailyAvg <= 0) {
+251:     return { days: null, status: 'LOW', text: 'N/A' };
+252:   }
+253:   
+254:   const days = pending / dailyAvg;
+255:   
+256:   let status = 'LOW';
+257:   if (days > 10) status = 'CRITICAL';
+258:   else if (days >= 5) status = 'HIGH';
+259:   else if (days >= 2) status = 'MEDIUM';
+260:   
+261:   return {
+262:     days,
+263:     status,
+264:     text: `${days.toFixed(1)} ${days === 1 ? 'day' : 'days'}`
+265:   };
+266: }
+267: 
+268: // ─── Tooltip (fixed-positioned, follows mouse) ────────────────────────────────
+269: function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending }) {
+270:   if (!visible || !name) return null;
+271:   
+272:   const isPending = filterType === "PENDING";
+273:   const pendingQty = data ? (data.pendingQty ?? data.volume ?? 0) : 0;
+274:   const dailyAvg = data ? (data.dailyAvgQty ?? 0) : 0;
+275:   const clearance = getBacklogClearance(pendingQty, dailyAvg);
+276: 
+277:   return (
+278:     <div
+279:       ref={tooltipRef}
+280:       className="pointer-events-none fixed z-[9999] border transition-transform duration-75"
+281:       style={{
+282:         left: 0,
+283:         top:  0,
+284:         transform: 'translate3d(0, 0, 0)',
+285:         minWidth: 190,
+286:         background: '#1a2332',
+287:         borderColor: '#2d3f55',
+288:         borderRadius: '8px',
+289:         padding: '10px 14px',
+290:         fontSize: '12px',
+291:         boxShadow: 'none',
+292:       }}
+293:     >
+294:       <div className="font-bold text-white mb-2 text-sm truncate">{name}</div>
+295:       {data ? (
+296:         <div className="space-y-1.5">
+297:           <Row 
+298:             label={isPending ? "Pending" : "Volume"} 
+299:             value={formatMT(isPending ? pendingQty : data.volume)} 
+300:             valueColor="#f1f5f9" 
+301:           />
+302:           {isPending ? (
+303:             <>
+304:               <Row 
+305:                 label="Share" 
+306:                 value={totalPending > 0 ? `${((pendingQty / totalPending) * 100).toFixed(1)}%` : "0.0%"} 
+307:                 valueColor="#3b82f6" 
+308:               />
+309:               <div className="flex justify-between gap-6 items-center">
+310:                 <span className="text-slate-500">Clearance</span>
+311:                 <span className="font-semibold text-slate-300">
+312:                   {clearance.text}
+313:                 </span>
+314:                 <SeverityBadge severity={clearance.status} />
+315:               </div>
+316:             </>
+317:           ) : (
+318:             <>
+319:               <Row 
+320:                 label="Change" 
+321:                 value={trendStr(data.trend)} 
+322:                 valueColor={getTrendColor(data.trend, data.cur, data.prev)} 
+323:               />
+324:               <div className="flex justify-between gap-6 items-center">
+325:                 <span className="text-slate-500">Alert</span>
+326:                 <SeverityBadge severity={data.impactTier || 'LOW'} />
+327:               </div>
+328:             </>
+329:           )}
+330:         </div>
+331:       ) : (
+332:         <div className="text-slate-500 italic">No data</div>
+333:       )}
+334:     </div>
+335:   );
+336: }
+337: function Row({ label, value, valueColor }) {
+338:   return (
+339:     <div className="flex justify-between gap-6 items-center">
+340:       <span className="text-slate-500">{label}</span>
+341:       <span className="font-semibold" style={{ color: valueColor }}>{value}</span>
+342:     </div>
+343:   );
+344: }
+345: 
+346: // ─── Legend strip (adaptive business risk) ───────────────────────────────────
+347: function Legend({ colors = HEAT_COLORS, labels = HEAT_LABELS }) {
+348:   const items = [
+349:     { color: NO_DATA_COLOR, label: 'No Data' },
+350:     ...colors.map((c, i) => ({ color: c, label: labels[i] || '' })),
+351:   ];
+352:   return (
+353:     <div className="flex flex-wrap gap-2">
+354:       {items.map((it) => (
+355:         <div key={it.label} className="flex items-center gap-1 text-[10px] text-slate-400">
+356:           <div className="w-3 h-3 rounded-sm" style={{ background: it.color }} />
+357:           {it.label}
+358:         </div>
+359:       ))}
+360:     </div>
+361:   );
+362: }
+363: 
+364: // ─── Ranked entry row ─────────────────────────────────────────────────────────
+365: function RankRow({ rank, name, volume, trend, cur, prev, isTop }) {
+366:   return (
+367:     <div className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors"
+368:       style={{ background: '#0d1526', borderColor: '#1e293b' }}>
+369:       <span className="w-5 h-5 flex-shrink-0 rounded-full text-[10px] font-bold flex items-center justify-center"
+370:         style={{
+371:           background: isTop ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)',
+372:           color:       isTop ? '#34d399' : '#f87171',
+373:         }}>
+374:         {rank}
+375:       </span>
+376:       <span className="flex-1 text-xs text-slate-200 truncate">{name}</span>
+377:       <span className="text-xs font-semibold text-white flex-shrink-0">
+378:         {formatNumber(volume)}
+379:       </span>
+380:       {trend != null && (
+381:         <span className="text-[10px] flex-shrink-0 font-bold" style={{ color: getTrendColor(trend, cur, prev) }}>
+382:           {trendStr(trend)}
+383:         </span>
+384:       )}
+385:     </div>
+386:   );
+387: }
+388: 
+389: const capitalizeWord = (str) => {
+390:   if (!str) return "";
+391:   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+392: };
+393: 
+394: // ─── Main Component ───────────────────────────────────────────────────────────
+395: export default function GeoIntelligence({ salesData: propSalesData }) {
+396:   const { rawData } = useData();
+397: 
+398:   // ── filter state ──
+399:   const [filterState, setFilterState] = useState({
+400:     type: "DESPATCH",
+401:     item: [],
+402:   });
+403:   const [selectedMonth, setSelectedMonth] = useState("MTD");
+404: 
+405:   // ── parse periods from metadata & build dynamic months list ──
+406:   const monthButtons = useMemo(() => {
+407:     if (!rawData) return { buttons: [], curMonthLabel: "", prevMonthLabel: "", curMonthName: "", curYear: 2026, prevMonthName: "", prevYear: 2026 };
+408:     
+409:     const curPeriod = rawData?.meta?.curPeriod || "";
+410:     const prevPeriod = rawData?.meta?.prevPeriod || "";
+411:     
+412:     // Fallback parsing for ytdPeriod if missing from meta
+413:     let ytdPeriod = rawData?.meta?.ytdPeriod || rawData?.ytdPeriod || "";
+414:     if (!ytdPeriod && prevPeriod) {
+415:       // e.g. "1 May 2026 - 31 May 2026"
+416:       const match = prevPeriod.match(/(\d{1,2}\s+[a-zA-Z]+\s+(\d{4}))$/);
+417:       if (match) {
+418:         const endPart = match[1]; // "31 May 2026"
+419:         const year = match[2]; // "2026"
+420:         ytdPeriod = `1 Jan ${year} - ${endPart}`;
+421:       }
+422:     }
+423:     if (!ytdPeriod) {
+424:       ytdPeriod = "1 Jan 2026 - 31 May 2026"; // ultimate fallback
+425:     }
+426:     
+427:     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+428:     
+429:     // Derive defaults from generatedAt — zero hardcoded month names
+430:     const genAt = rawData?.meta?.generatedAt || rawData?.generatedAt || "";
+431:     const genDate = genAt ? new Date(genAt) : new Date();
+432:     let curMonthName = months[genDate.getUTCMonth()] || "Jun";
+433:     let curYear = genDate.getUTCFullYear() || 2026;
+434:     // Previous month = one month before generatedAt
+435:     const prevMonthIdx = genDate.getUTCMonth() === 0 ? 11 : genDate.getUTCMonth() - 1;
+436:     let prevMonthName = months[prevMonthIdx] || "May";
+437:     let prevYear = genDate.getUTCMonth() === 0 ? curYear - 1 : curYear;
+438:     
+439:     // Override from curPeriod if available (e.g. "1 Jun 2026 - 23 Jun 2026")
+440:     if (curPeriod) {
+441:       const curStartPart = curPeriod.split(/\s*(?:[-\u2013\u2014]|to)\s*/)[0] || "";
+442:       for (let i = 0; i < months.length; i++) {
+443:         if (curStartPart.toUpperCase().includes(months[i].toUpperCase())) {
+444:           curMonthName = months[i];
+445:           break;
+446:         }
+447:       }
+448:       const curYearMatch = curPeriod.match(/\d{4}/);
+449:       if (curYearMatch) curYear = parseInt(curYearMatch[0], 10);
+450:     }
+451:     
+452:     // Parse previous month from prevPeriod
+453:     const prevParts = prevPeriod.split(/\s*(?:[-–—]|to)\s*/);
+454:     const prevEndPart = prevParts[prevParts.length - 1] || "";
+455:     let prevMonthFound = false;
+456:     for (let i = 0; i < months.length; i++) {
+457:       if (prevEndPart.toUpperCase().includes(months[i].toUpperCase())) {
+458:         prevMonthName = months[i];
+459:         prevMonthFound = true;
+460:         break;
+461:       }
+462:     }
+463:     const prevYearMatch = prevPeriod.match(/\d{4}/);
+464:     if (prevYearMatch) prevYear = parseInt(prevYearMatch[0], 10);
+465:     
+466:     // Parse YTD Period to generate individual month buttons
+467:     // e.g. "1 Jan 2026 - 31 May 2026"
+468:     const parseDateString = (str) => {
+469:       const matches = str.match(/([a-zA-Z]+)\s+(\d{4})/);
+470:       if (matches) {
+471:         const monthStr = matches[1];
+472:         const year = parseInt(matches[2], 10);
+473:         const monthIdx = months.findIndex(m => monthStr.toLowerCase().startsWith(m.toLowerCase()));
+474:         if (monthIdx !== -1) {
+475:           return { monthIdx, year, monthName: months[monthIdx] };
+476:         }
+477:       }
+478:       return null;
+479:     };
+480:     
+481:     const ytdParts = ytdPeriod.split(/\s*(?:[-–—]|to)\s*/).map(s => s.trim());
+482:     let startInfo = null;
+483:     let endInfo = null;
+484:     if (ytdParts.length === 2) {
+485:       startInfo = parseDateString(ytdParts[0]);
+486:       endInfo = parseDateString(ytdParts[1]);
+487:     }
+488:     
+489:     const list = [];
+490:     if (startInfo && endInfo) {
+491:       let currYear = startInfo.year;
+492:       let currMonth = startInfo.monthIdx;
+493:       const endYear = endInfo.year;
+494:       const endMonth = endInfo.monthIdx;
+495:       
+496:       while (currYear < endYear || (currYear === endYear && currMonth <= endMonth)) {
+497:         const name = months[currMonth];
+498:         list.push({
+499:           value: `${name} ${currYear}`,
+500:           label: `${name}`,
+501:           fullName: `${name} ${currYear}`,
+502:           isMtd: false,
+503:           isPrev: name === prevMonthName && currYear === prevYear
+504:         });
+505:         currMonth++;
+506:         if (currMonth > 11) {
+507:           currMonth = 0;
+508:           currYear++;
+509:         }
+510:       }
+511:     } else {
+512:       // Fallback if ytdPeriod is not parseable
+513:       list.push({
+514:         value: `${prevMonthName} ${prevYear}`,
+515:         label: `${prevMonthName}`,
+516:         fullName: `${prevMonthName} ${prevYear}`,
+517:         isMtd: false,
+518:         isPrev: true
+519:       });
+520:     }
+521:     
+522:     // Add MTD button at the end
+523:     list.push({
+524:       value: "MTD",
+525:       label: `${curMonthName} ${curYear} (MTD)`,
+526:       fullName: `${curMonthName} ${curYear} (MTD)`,
+527:       isMtd: true,
+528:       isPrev: false
+529:     });
+530:     
+531:     return {
+532:       buttons: list,
+533:       curMonthLabel: `${curMonthName} ${curYear} (MTD)`,
+534:       prevMonthLabel: `${prevMonthName} ${prevYear}`,
+535:       curMonthName,
+536:       curYear,
+537:       prevMonthName,
+538:       prevYear
+539:     };
+540:   }, [rawData]);
+541: 
+542:   // ── dynamic total volume calculation for share percentage ──
+543:   const totalVolume = useMemo(() => {
+544:     if (!rawData) return { cur: 1, prev: 1 };
+545:     
+546:     const isMtd = selectedMonth === "MTD";
+547:     const isPrevMonth = selectedMonth === monthButtons.prevMonthLabel;
+548:     
+549:     let totalCur = 0;
+550:     let totalPrev = 0;
+551:     
+552:     if (!isMtd && !isPrevMonth) {
+553:       const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+554:       const parts = selectedMonth.split(' ');
+555:       let periodKey = null;
+556:       if (parts.length === 2) {
+557:         const monthIdx = monthsShort.indexOf(parts[0]);
+558:         if (monthIdx !== -1) {
+559:           periodKey = `${parts[1]}-${String(monthIdx + 1).padStart(2, '0')}`;
+560:         }
+561:       }
+562:       const historyData = rawData.monthlyHistory?.[periodKey];
+563:       if (historyData) {
+564:         const hStates = (historyData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
+565:         totalCur = filterState.type === "PENDING" ? 0 : hStates.reduce((sum, s) => sum + (s.qty || 0), 0);
+566:         
+567:         let prevPeriodKey = null;
+568:         if (periodKey) {
+569:           const [year, month] = periodKey.split('-').map(Number);
+570:           const prevMonth = month === 1 ? 12 : month - 1;
+571:           const prevYear = month === 1 ? year - 1 : year;
+572:           prevPeriodKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+573:         }
+574:         const prevHistoryData = prevPeriodKey ? rawData.monthlyHistory?.[prevPeriodKey] : null;
+575:         if (prevHistoryData) {
+576:           const prevHStates = (prevHistoryData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
+577:           totalPrev = prevHStates.reduce((sum, s) => sum + (s.qty || 0), 0);
+578:         }
+579:       }
+580:     } else {
+581:       const statesList = (rawData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
+582:       if (filterState.type === "PENDING") {
+583:         totalCur = statesList.reduce((sum, s) => sum + (s.pendingQty || 0), 0);
+584:         totalPrev = statesList.reduce((sum, s) => sum + (s.orderPrev || 0), 0);
+585:       } else {
+586:         totalCur = statesList.reduce((sum, s) => sum + (s.cur || 0), 0);
+587:         totalPrev = statesList.reduce((sum, s) => sum + (s.prev || 0), 0);
+588:       }
+589:     }
+590:     
+591:     return {
+592:       cur: totalCur || 1,
+593:       prev: totalPrev || 1
+594:     };
+595:   }, [rawData, filterState.type, selectedMonth, monthButtons]);
+596: 
+597:   // ── aggregate filtered salesData ──
+598:   const filteredSalesData = useMemo(() => {
+599:     if (!propSalesData || !rawData) return { states: {}, districts: {} };
+600: 
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

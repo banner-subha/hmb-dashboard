@@ -70,7 +70,7 @@ export default function ExecutiveOverview() {
         <KPICard 
           label="Pending Orders" 
           value={formatMT(data.pendingTotal)} 
-          subtitle="open order book"
+          subtitle={data.pendingTotal > 0 ? "open order book" : "No open orders this cycle"}
           accentColor="#f97316"
         />
         <KPICard 
@@ -81,7 +81,7 @@ export default function ExecutiveOverview() {
         />
         <KPICard 
           label="Active Dealers" 
-          value={data.dealers?.length || 0} 
+          value={data.dealers?.filter(d => d.cur > 0).length || 0} 
           subtitle="currently transacting"
           accentColor="#8b5cf6"
         />
@@ -110,7 +110,9 @@ export default function ExecutiveOverview() {
                           score={s.impactScore}
                         />
                       </div>
-                      <span className="text-sm font-medium">{s.state}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{s.state}</span>
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-bold text-text-primary">{formatMT(s.cur)}</div>
@@ -188,7 +190,7 @@ export default function ExecutiveOverview() {
                     <div className="text-xs font-bold text-accent-blue mb-1">{rc.finding}</div>
                     {rc.impact_mt > 0 && (
                       <div className="text-[10px] text-text-muted">
-                        Impact: <span className="text-severity-high font-bold">-{rc.impact_mt} MT</span>
+                        Impact: <span className="text-severity-high font-bold">-{formatMT(rc.impact_mt)}</span>
                       </div>
                     )}
                   </div>

@@ -1,0 +1,208 @@
+Created At: 2026-07-01T10:30:19Z
+Completed At: 2026-07-01T10:30:20Z
+File Path: `file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/pages/GeoIntelligence.jsx`
+Total Lines: 1875
+Total Bytes: 72650
+Showing lines 1 to 200
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+2: import * as d3 from 'd3';
+3: import { geoMercator, geoPath } from 'd3-geo';
+4: import { scaleQuantile } from 'd3-scale';
+5: import { feature } from 'topojson-client';
+6: import {
+7:   ArrowLeft, TrendingUp, TrendingDown, Minus,
+8:   AlertTriangle, MapPin, BarChart2, Loader2, ZoomIn, ZoomOut, RotateCcw,
+9: } from 'lucide-react';
+10: 
+11: // ─── GeoJSON / TopoJSON URLs ──────────────────────────────────────────────────
+12: const STATE_GEO_URL =
+13:   'https://raw.githubusercontent.com/geohacker/india/master/state/india_state.geojson';
+14: 
+15: const geoCache = {};
+16: const projectionCache = {};
+17: 
+18: const districtTopoUrl = (stateName, slug) => {
+19:   let activeSlug = slug || stateName
+20:     .toLowerCase()
+21:     .replace(/\s+/g, '')
+22:     .replace(/[^a-z]/g, '');
+23:   if (activeSlug === 'orissa' || activeSlug === 'orrisa') {
+24:     activeSlug = 'odisha';
+25:   }
+26:   // Local-first: try /geo/{slug}.json, caller handles fallback
+27:   return {
+28:     local: `/geo/${activeSlug}.json`,
+29:     remote: `https://raw.githubusercontent.com/guneetnarula/indian-district-boundaries/master/topojson/state-wise/${activeSlug}.json`,
+30:   };
+31: };
+32: 
+33: // ─── Douglas-Peucker Simplification ──────────────────────────────────────────
+34: function simplifyPath(points, tolerance) {
+35:   if (points.length <= 2) return points;
+36:   let maxSqDist = 0;
+37:   let index = 0;
+38:   const end = points.length - 1;
+39:   for (let i = 1; i < end; i++) {
+40:     const sqDist = getSqSegDist(points[i], points[0], points[end]);
+41:     if (sqDist > maxSqDist) {
+42:       index = i;
+43:       maxSqDist = sqDist;
+44:     }
+45:   }
+46:   if (maxSqDist > tolerance * tolerance) {
+47:     const results1 = simplifyPath(points.slice(0, index + 1), tolerance);
+48:     const results2 = simplifyPath(points.slice(index), tolerance);
+49:     return results1.slice(0, results1.length - 1).concat(results2);
+50:   }
+51:   return [points[0], points[end]];
+52: }
+53: 
+54: function getSqSegDist(p, p1, p2) {
+55:   let x = p1[0], y = p1[1];
+56:   let dx = p2[0] - x, dy = p2[1] - y;
+57:   if (dx !== 0 || dy !== 0) {
+58:     let t = ((p[0] - x) * dx + (p[1] - y) * dy) / (dx * dx + dy * dy);
+59:     if (t > 1) {
+60:       x = p2[0];
+61:       y = p2[1];
+62:     } else if (t > 0) {
+63:       x += dx * t;
+64:       y += dy * t;
+65:     }
+66:   }
+67:   dx = p[0] - x;
+68:   dy = p[1] - y;
+69:   return dx * dx + dy * dy;
+70: }
+71: 
+72: function simplifyGeometry(geom, tolerance = 0.01) {
+73:   if (!geom) return null;
+74:   if (geom.type === 'Polygon') {
+75:     return {
+76:       ...geom,
+77:       coordinates: geom.coordinates.map(ring => simplifyPath(ring, tolerance))
+78:     };
+79:   }
+80:   if (geom.type === 'MultiPolygon') {
+81:     return {
+82:       ...geom,
+83:       coordinates: geom.coordinates.map(polygon => 
+84:         polygon.map(ring => simplifyPath(ring, tolerance))
+85:       )
+86:     };
+87:   }
+88:   return geom;
+89: }
+90: 
+91: function simplifyFeatureCollection(features, tolerance = 0.01) {
+92:   return features.map(f => ({
+93:     ...f,
+94:     geometry: simplifyGeometry(f.geometry, tolerance)
+95:   }));
+96: }
+97: 
+98: // ─── Key Normalization Helper ────────────────────────────────────────────────
+99: const normalizeKey = (str) => {
+100:   if (!str) return '';
+101:   return String(str)
+102:     .toLowerCase()
+103:     .trim()
+104:     .replace(/[^a-z0-9]/g, '');
+105: };
+106: 
+107: function normalizeName(str) {
+108:   if (!str) return '';
+109:   return String(str)
+110:     .toLowerCase()
+111:     .trim()
+112:     .replace(/\s+/g, '')
+113:     .replace(/[^a-z0-9]/g, '');
+114: }
+115: 
+116: const districtAliases = {
+117:   // ── West Bengal ──
+118:   'paschimmedinipur':  'medinipurwest',
+119:   'purbamedinipur':    'medinipureast',
+120:   'southtwentyfourparganas': 'south24parganas',
+121:   'northtwentyfourparganas': 'north24parganas',
+122:   'westmidnapore': 'medinipurwest',
+123:   'eastmidnapore': 'medinipureast',
+124:   'westmidnapur': 'medinipurwest',
+125:   'eastmidnapur': 'medinipureast',
+126:   'paschimmidnapore': 'medinipurwest',
+127:   'purbamidnapore': 'medinipureast',
+128:   'purgamedinipur': 'medinipureast',
+129:   // ── Arunachal Pradesh — cities → parent district ──
+130:   'itanagar':   'papumpare',
+131:   'hollongi':   'papumpare',
+132:   'naharlagun': 'papumpare',
+133:   // ── Assam ──
+134:   'guwahati':        'kamrup',
+135:   'dispur':          'kamrup',
+136:   'kamrupmetro':     'kamrupmetropolitan',
+137:   'silchar':         'cachar',
+138:   // ── Bihar ──
+139:   'patna':           'patna',
+140:   'purbichamparan':  'eastchamparan',
+141:   // ── Jharkhand ──
+142:   'jamshedpur':      'purbisinghbhum',
+143:   'eastsinghbhum':   'purbisinghbhum',
+144:   'koderma':         'kodarma',
+145:   'seraikelakharsawan': 'saraikelakharsawan',
+146:   // ── Odisha ──
+147:   'balasore':        'baleshwar',
+148:   'baleswar':        'baleshwar',
+149:   'berhampur':       'ganjam',
+150:   'bhubaneswar':     'khordha',
+151:   'jagatsinghpur':   'jagatsinghapur',
+152:   'jajpur':          'jajapur',
+153:   'keshpur':         'khordha',
+154:   // ── Rajasthan ──
+155:   'junjhunu':        'jhunjhunu',
+156:   // Fix: raw CSV stores "CHURU DISTRICT" → lookupKey "churudistrict" but TopoJSON polygon is "Churu"
+157:   // These backward-compat aliases handle existing Supabase data until the KPI node is re-run
+158:   'churudistrict':   'churu',
+159:   'jaipurdistrict':  'jaipur',
+160:   'jodhpurdistrict': 'jodhpur',
+161:   'udaipurdistrict': 'udaipur',
+162:   'bikanerdistrict': 'bikaner',
+163:   'kotadistrict':    'kota',
+164:   'alwardistrict':   'alwar',
+165:   'ajmerdistrict':   'ajmer',
+166:   'sikardistrict':   'sikar',
+167:   'nagaurdistrict':  'nagaur',
+168: };
+169: 
+170: function resolveDistrict(name) {
+171:   const n = normalizeName(name).replace(/district$/, '');
+172:   return districtAliases[n] ?? n;
+173: }
+174: 
+175: // ─── Geo Visualization Layer (isolated — never mutates global state) ──────────
+176: const NO_DATA_COLOR = '#1e2535';
+177: const HEAT_COLORS = [
+178:   '#1e3a8a', // Dark blue — lowest risk / growing
+179:   '#1d4ed8', // Strong blue — low risk
+180:   '#2563eb', // Rich royal blue — moderate risk
+181:   '#3b82f6', // Medium blue — high risk
+182:   '#60a5fa', // Sky blue — critical risk (vibrant, not white)
+183: ];
+184: const HEAT_LABELS = [
+185:   'Lowest Risk',
+186:   'Low Risk',
+187:   'Moderate Risk',
+188:   'High Risk',
+189:   'Critical Risk',
+190: ];
+191: 
+192: // ─── Map dimensions ───────────────────────────────────────────────────────────
+193: const STATE_W = 900;
+194: const STATE_H = 700;
+195: const DIST_W = 950;
+196: const DIST_H = 750;
+197: const INDIA_CENTER = [82.8, 22.5];
+198: const INDIA_SCALE  = 1050;
+199: 
+200: // Build a Mercator projection fitted to the SVG viewport
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

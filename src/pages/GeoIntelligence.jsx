@@ -151,21 +151,35 @@ const districtAliases = {
   'jagatsinghpur':   'jagatsinghapur',
   'jajpur':          'jajapur',
   'keshpur':         'khordha',
+  // ── Rajasthan ──
+  'junjhunu':        'jhunjhunu',
+  // Fix: raw CSV stores "CHURU DISTRICT" → lookupKey "churudistrict" but TopoJSON polygon is "Churu"
+  // These backward-compat aliases handle existing Supabase data until the KPI node is re-run
+  'churudistrict':   'churu',
+  'jaipurdistrict':  'jaipur',
+  'jodhpurdistrict': 'jodhpur',
+  'udaipurdistrict': 'udaipur',
+  'bikanerdistrict': 'bikaner',
+  'kotadistrict':    'kota',
+  'alwardistrict':   'alwar',
+  'ajmerdistrict':   'ajmer',
+  'sikardistrict':   'sikar',
+  'nagaurdistrict':  'nagaur',
 };
 
 function resolveDistrict(name) {
-  const n = normalizeName(name);
+  const n = normalizeName(name).replace(/district$/, '');
   return districtAliases[n] ?? n;
 }
 
 // ─── Geo Visualization Layer (isolated — never mutates global state) ──────────
 const NO_DATA_COLOR = '#1e2535';
 const HEAT_COLORS = [
-  '#166534', // strong green — lowest risk
-  '#65a30d', // green-yellow — low risk
-  '#facc15', // yellow — moderate risk
-  '#f97316', // orange — high risk
-  '#dc2626', // red — critical risk
+  '#1e3a8a', // Dark blue — lowest risk / growing
+  '#1d4ed8', // Strong blue — low risk
+  '#2563eb', // Rich royal blue — moderate risk
+  '#3b82f6', // Medium blue — high risk
+  '#60a5fa', // Sky blue — critical risk (vibrant, not white)
 ];
 const HEAT_LABELS = [
   'Lowest Risk',
@@ -210,6 +224,8 @@ import { useData } from '../context/DataContext';
 import ImpactBadge from '../components/common/ImpactBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import { getSeverityMeta } from '../utils/severity';
+import { formatMT, formatNumber } from '../utils/formatters';
+import { getPendingForPeriod, getTotalPendingForPeriod, getSharePctForPeriod, getBacklogClearance, isAgingPeriod } from '../utils/pending';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getTrendColor(t, cur, prev) {
@@ -225,9 +241,19 @@ function trendStr(t) {
   return `0.0%`;
 }
 
+// getBacklogClearance is imported from utils/pending.js
+
+
 // ─── Tooltip (fixed-positioned, follows mouse) ────────────────────────────────
-function Tooltip({ tooltipRef, visible, name, data }) {
+function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, selectedPendingMonth }) {
   if (!visible || !name) return null;
+  
+  const isPending = filterType === "PENDING";
+  const pendingQty = isPending ? getPendingForPeriod(data, selectedPendingMonth) : (data ? (data.volume ?? 0) : 0);
+  const dailyAvg = data ? (data.dailyAvgQty ?? 0) : 0;
+  const clearance = getBacklogClearance(pendingQty, dailyAvg);
+  const sharePct = isPending ? getSharePctForPeriod(data, selectedPendingMonth, totalPending) : 0;
+
   return (
     <div
       ref={tooltipRef}
@@ -248,12 +274,46 @@ function Tooltip({ tooltipRef, visible, name, data }) {
       <div className="font-bold text-white mb-2 text-sm truncate">{name}</div>
       {data ? (
         <div className="space-y-1.5">
-          <Row label="Volume" value={`${data.volume?.toLocaleString() ?? '—'} MT`} valueColor="#f1f5f9" />
-          <Row label="Change" value={trendStr(data.trend)} valueColor={getTrendColor(data.trend, data.cur, data.prev)} />
-          <div className="flex justify-between gap-6 items-center">
-            <span className="text-slate-500">Alert</span>
-            <SeverityBadge severity={data.impactTier || 'LOW'} />
-          </div>
+          <Row 
+            label={isPending ? "Pending" : "Volume"} 
+            value={formatMT(isPending ? pendingQty : data.volume)} 
+            valueColor="#f1f5f9" 
+          />
+          {isPending ? (
+            <>
+              {selectedPendingMonth !== 'ALL' && (
+                <Row 
+                  label="All-Time Total" 
+                  value={formatMT(getPendingForPeriod(data, 'ALL'))} 
+                  valueColor="#94a3b8" 
+                />
+              )}
+              <Row 
+                label="Share" 
+                value={`${sharePct.toFixed(1)}%`} 
+                valueColor="#3b82f6" 
+              />
+              <div className="flex justify-between gap-6 items-center">
+                <span className="text-slate-500">Clearance</span>
+                <span className="font-semibold text-slate-300">
+                  {clearance.text}
+                </span>
+                <SeverityBadge severity={clearance.status} />
+              </div>
+            </>
+          ) : (
+            <>
+              <Row 
+                label="Change" 
+                value={trendStr(data.trend)} 
+                valueColor={getTrendColor(data.trend, data.cur, data.prev)} 
+              />
+              <div className="flex justify-between gap-6 items-center">
+                <span className="text-slate-500">Alert</span>
+                <SeverityBadge severity={data.impactTier || 'LOW'} />
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="text-slate-500 italic">No data</div>
@@ -302,7 +362,7 @@ function RankRow({ rank, name, volume, trend, cur, prev, isTop }) {
       </span>
       <span className="flex-1 text-xs text-slate-200 truncate">{name}</span>
       <span className="text-xs font-semibold text-white flex-shrink-0">
-        {volume?.toLocaleString() ?? '—'}
+        {formatNumber(volume)}
       </span>
       {trend != null && (
         <span className="text-[10px] flex-shrink-0 font-bold" style={{ color: getTrendColor(trend, cur, prev) }}>
@@ -319,123 +379,250 @@ const capitalizeWord = (str) => {
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function GeoIntelligence({ salesData: propSalesData }) {
+export default function GeoIntelligence({ salesData: propSalesData, pendingAvailableMonths = [] }) {
   const { rawData } = useData();
 
   // ── filter state ──
   const [filterState, setFilterState] = useState({
-    type: "ALL",
+    type: "DESPATCH",
     item: [],
-    month: "CURRENT"
   });
+  const [selectedMonth, setSelectedMonth] = useState("MTD");
+  const [selectedPendingMonth, setSelectedPendingMonth] = useState(() => pendingAvailableMonths[0]?.periodKey || '');
+
+  useEffect(() => {
+    if (pendingAvailableMonths && pendingAvailableMonths.length > 0 && !selectedPendingMonth) {
+      setSelectedPendingMonth(pendingAvailableMonths[0].periodKey);
+    }
+  }, [pendingAvailableMonths, selectedPendingMonth]);
+
+  const sortedPendingMonths = useMemo(() => {
+    return [...pendingAvailableMonths].sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.month - b.month;
+    });
+  }, [pendingAvailableMonths]);
+
+  // ── parse periods from metadata & build dynamic months list ──
+  const monthButtons = useMemo(() => {
+    if (!rawData) return { buttons: [], curMonthLabel: "", prevMonthLabel: "", curMonthName: "", curYear: 2026, prevMonthName: "", prevYear: 2026 };
+    
+    const curPeriod = rawData?.meta?.curPeriod || "";
+    const prevPeriod = rawData?.meta?.prevPeriod || "";
+    
+    // Fallback parsing for ytdPeriod if missing from meta
+    let ytdPeriod = rawData?.meta?.ytdPeriod || rawData?.ytdPeriod || "";
+    if (!ytdPeriod && prevPeriod) {
+      // e.g. "1 May 2026 - 31 May 2026"
+      const match = prevPeriod.match(/(\d{1,2}\s+[a-zA-Z]+\s+(\d{4}))$/);
+      if (match) {
+        const endPart = match[1]; // "31 May 2026"
+        const year = match[2]; // "2026"
+        ytdPeriod = `1 Jan ${year} - ${endPart}`;
+      }
+    }
+    if (!ytdPeriod) {
+      ytdPeriod = "1 Jan 2026 - 31 May 2026"; // ultimate fallback
+    }
+    
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    
+    // Derive defaults from generatedAt — zero hardcoded month names
+    const genAt = rawData?.meta?.generatedAt || rawData?.generatedAt || "";
+    const genDate = genAt ? new Date(genAt) : new Date();
+    let curMonthName = months[genDate.getUTCMonth()] || "Jun";
+    let curYear = genDate.getUTCFullYear() || 2026;
+    // Previous month = one month before generatedAt
+    const prevMonthIdx = genDate.getUTCMonth() === 0 ? 11 : genDate.getUTCMonth() - 1;
+    let prevMonthName = months[prevMonthIdx] || "May";
+    let prevYear = genDate.getUTCMonth() === 0 ? curYear - 1 : curYear;
+    
+    // Override from curPeriod if available (e.g. "1 Jun 2026 - 23 Jun 2026")
+    if (curPeriod) {
+      const curStartPart = curPeriod.split(/\s*(?:[-\u2013\u2014]|to)\s*/)[0] || "";
+      for (let i = 0; i < months.length; i++) {
+        if (curStartPart.toUpperCase().includes(months[i].toUpperCase())) {
+          curMonthName = months[i];
+          break;
+        }
+      }
+      const curYearMatch = curPeriod.match(/\d{4}/);
+      if (curYearMatch) curYear = parseInt(curYearMatch[0], 10);
+    }
+    
+    // Parse previous month from prevPeriod
+    const prevParts = prevPeriod.split(/\s*(?:[-–—]|to)\s*/);
+    const prevEndPart = prevParts[prevParts.length - 1] || "";
+    let prevMonthFound = false;
+    for (let i = 0; i < months.length; i++) {
+      if (prevEndPart.toUpperCase().includes(months[i].toUpperCase())) {
+        prevMonthName = months[i];
+        prevMonthFound = true;
+        break;
+      }
+    }
+    const prevYearMatch = prevPeriod.match(/\d{4}/);
+    if (prevYearMatch) prevYear = parseInt(prevYearMatch[0], 10);
+
+    // Set curMonthName to be the month after prevMonthName since curPeriod is missing
+    if (!curPeriod && prevMonthName) {
+      const prevIdx = months.indexOf(prevMonthName);
+      curMonthName = prevIdx !== -1 ? months[(prevIdx + 1) % 12] : "Jun";
+      curYear = (prevIdx === 11) ? prevYear + 1 : prevYear;
+    }
+    
+    // Parse YTD Period to generate individual month buttons
+    // e.g. "1 Jan 2026 - 31 May 2026"
+    const parseDateString = (str) => {
+      const matches = str.match(/([a-zA-Z]+)\s+(\d{4})/);
+      if (matches) {
+        const monthStr = matches[1];
+        const year = parseInt(matches[2], 10);
+        const monthIdx = months.findIndex(m => monthStr.toLowerCase().startsWith(m.toLowerCase()));
+        if (monthIdx !== -1) {
+          return { monthIdx, year, monthName: months[monthIdx] };
+        }
+      }
+      return null;
+    };
+    
+    const ytdParts = ytdPeriod.split(/\s*(?:[-–—]|to)\s*/).map(s => s.trim());
+    let startInfo = null;
+    let endInfo = null;
+    if (ytdParts.length === 2) {
+      startInfo = parseDateString(ytdParts[0]);
+      endInfo = parseDateString(ytdParts[1]);
+    }
+    
+    const list = [];
+    if (startInfo && endInfo) {
+      let currYear = startInfo.year;
+      let currMonth = startInfo.monthIdx;
+      const endYear = endInfo.year;
+      const endMonth = endInfo.monthIdx;
+      
+      while (currYear < endYear || (currYear === endYear && currMonth <= endMonth)) {
+        const name = months[currMonth];
+        list.push({
+          value: `${name} ${currYear}`,
+          label: `${name}`,
+          fullName: `${name} ${currYear}`,
+          isMtd: false,
+          isPrev: name === prevMonthName && currYear === prevYear
+        });
+        currMonth++;
+        if (currMonth > 11) {
+          currMonth = 0;
+          currYear++;
+        }
+      }
+    } else {
+      // Fallback if ytdPeriod is not parseable
+      list.push({
+        value: `${prevMonthName} ${prevYear}`,
+        label: `${prevMonthName}`,
+        fullName: `${prevMonthName} ${prevYear}`,
+        isMtd: false,
+        isPrev: true
+      });
+    }
+    
+    // Add MTD button at the end
+    list.push({
+      value: "MTD",
+      label: `${curMonthName} ${curYear} (MTD)`,
+      fullName: `${curMonthName} ${curYear} (MTD)`,
+      isMtd: true,
+      isPrev: false
+    });
+    
+    return {
+      buttons: list,
+      curMonthLabel: `${curMonthName} ${curYear} (MTD)`,
+      prevMonthLabel: `${prevMonthName} ${prevYear}`,
+      curMonthName,
+      curYear,
+      prevMonthName,
+      prevYear
+    };
+  }, [rawData]);
 
   // ── dynamic total volume calculation for share percentage ──
   const totalVolume = useMemo(() => {
     if (!rawData) return { cur: 1, prev: 1 };
     
+    if (filterState.type === "PENDING") {
+      const statesList = (rawData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
+      let totalCur = 0;
+      statesList.forEach(rawState => {
+        let cur = getPendingForPeriod(rawState, selectedPendingMonth);
+        if (filterState.item.length > 0) {
+          const productCurTotal = (rawState.products || [])
+            .filter(p => filterState.item.includes(p.product))
+            .reduce((sum, p) => sum + (p.cur || 0), 0);
+          const stateCurTotal = (rawState.products || [])
+            .reduce((sum, p) => sum + (p.cur || 0), 0);
+          const ratio = stateCurTotal > 0 ? (productCurTotal / stateCurTotal) : 0;
+          cur = cur * ratio;
+        }
+        totalCur += cur;
+      });
+      return {
+        cur: totalCur || 1,
+        prev: 1
+      };
+    }
+    
+    const isMtd = selectedMonth === "MTD";
+    const isPrevMonth = selectedMonth === monthButtons.prevMonthLabel;
+    
     let totalCur = 0;
     let totalPrev = 0;
-    const statesList = rawData.states || [];
     
-    if (filterState.type === "ORDER") {
-      totalCur = statesList.reduce((sum, s) => sum + (s.orderCur || 0), 0);
-      totalPrev = statesList.reduce((sum, s) => sum + (s.orderPrev || 0), 0);
-    } else if (filterState.type === "DESPATCH") {
-      totalCur = statesList.reduce((sum, s) => sum + (s.cur || 0), 0);
-      totalPrev = statesList.reduce((sum, s) => sum + (s.prev || 0), 0);
+    if (!isMtd && !isPrevMonth) {
+      const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const parts = selectedMonth.split(' ');
+      let periodKey = null;
+      if (parts.length === 2) {
+        const monthIdx = monthsShort.indexOf(parts[0]);
+        if (monthIdx !== -1) {
+          periodKey = `${parts[1]}-${String(monthIdx + 1).padStart(2, '0')}`;
+        }
+      }
+      const historyData = rawData.monthlyHistory?.[periodKey];
+      if (historyData) {
+        const hStates = (historyData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
+        totalCur = filterState.type === "PENDING" ? 0 : hStates.reduce((sum, s) => sum + (s.qty || 0), 0);
+        
+        let prevPeriodKey = null;
+        if (periodKey) {
+          const [year, month] = periodKey.split('-').map(Number);
+          const prevMonth = month === 1 ? 12 : month - 1;
+          const prevYear = month === 1 ? year - 1 : year;
+          prevPeriodKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+        }
+        const prevHistoryData = prevPeriodKey ? rawData.monthlyHistory?.[prevPeriodKey] : null;
+        if (prevHistoryData) {
+          const prevHStates = (prevHistoryData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
+          totalPrev = prevHStates.reduce((sum, s) => sum + (s.qty || 0), 0);
+        }
+      }
     } else {
-      totalCur = statesList.reduce((sum, s) => sum + (s.cur || 0) + (s.orderCur || 0), 0);
-      totalPrev = statesList.reduce((sum, s) => sum + (s.prev || 0) + (s.orderPrev || 0), 0);
+      const statesList = (rawData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
+      if (filterState.type === "PENDING") {
+        totalCur = statesList.reduce((sum, s) => sum + (s.pendingQty || 0), 0);
+        totalPrev = statesList.reduce((sum, s) => sum + (s.orderPrev || 0), 0);
+      } else {
+        totalCur = statesList.reduce((sum, s) => sum + (s.cur || 0), 0);
+        totalPrev = statesList.reduce((sum, s) => sum + (s.prev || 0), 0);
+      }
     }
     
     return {
       cur: totalCur || 1,
       prev: totalPrev || 1
     };
-  }, [rawData, filterState.type]);
-
-  // ── parse periods from metadata ──
-  const periods = useMemo(() => {
-    const curPeriod = rawData?.meta?.curPeriod || "";
-    const prevPeriod = rawData?.meta?.prevPeriod || "";
-    const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-    
-    let curMonthName = "MAY";
-    let curMonthNum = 5;
-    let prevMonthName = "APR";
-    let prevMonthNum = 4;
-    
-    const baseDateStr = rawData?.meta?.generatedAt || rawData?.generatedAt || "2026-05-18T00:00:00.000Z";
-    let baseDate = new Date(baseDateStr);
-    if (isNaN(baseDate.getTime())) {
-      baseDate = new Date("2026-05-18T00:00:00.000Z");
-    }
-    let curYear = baseDate.getFullYear();
-    let prevYear = curYear;
-    
-    const curParts = curPeriod.split(/\s*(?:[–-]|â€“|—)\s*/);
-    const curEndPart = curParts[curParts.length - 1] || "";
-    let curMonthFound = false;
-    for (let i = 0; i < months.length; i++) {
-      if (curEndPart.toUpperCase().includes(months[i])) {
-        curMonthName = months[i];
-        curMonthNum = i + 1;
-        curMonthFound = true;
-        break;
-      }
-    }
-    
-    if (!curMonthFound) {
-      curMonthNum = baseDate.getMonth() + 1;
-      curMonthName = months[curMonthNum - 1];
-    }
-    
-    const curYearMatch = curPeriod.match(/\d{4}/);
-    if (curYearMatch) {
-      curYear = parseInt(curYearMatch[0], 10);
-    } else {
-      const baseYearMatch = baseDateStr.match(/\d{4}/);
-      if (baseYearMatch) {
-        curYear = parseInt(baseYearMatch[0], 10);
-      }
-    }
-    
-    const prevParts = prevPeriod.split(/\s*(?:[–-]|â€“|—)\s*/);
-    const prevEndPart = prevParts[prevParts.length - 1] || "";
-    let prevMonthFound = false;
-    for (let i = 0; i < months.length; i++) {
-      if (prevEndPart.toUpperCase().includes(months[i])) {
-        prevMonthName = months[i];
-        prevMonthNum = i + 1;
-        prevMonthFound = true;
-        break;
-      }
-    }
-    
-    if (!prevMonthFound) {
-      if (curMonthNum === 1) {
-        prevMonthNum = 12;
-        prevYear = curYear - 1;
-      } else {
-        prevMonthNum = curMonthNum - 1;
-        prevYear = curYear;
-      }
-      prevMonthName = months[prevMonthNum - 1];
-    } else {
-      const prevYearMatch = prevPeriod.match(/\d{4}/);
-      if (prevYearMatch) {
-        prevYear = parseInt(prevYearMatch[0], 10);
-      } else {
-        if (prevMonthNum > curMonthNum) {
-          prevYear = curYear - 1;
-        } else {
-          prevYear = curYear;
-        }
-      }
-    }
-    
-    return { curMonthName, curMonthNum, curYear, prevMonthName, prevMonthNum, prevYear };
-  }, [rawData]);
+  }, [rawData, filterState.type, filterState.item, selectedMonth, monthButtons, selectedPendingMonth]);
 
   // ── aggregate filtered salesData ──
   const filteredSalesData = useMemo(() => {
@@ -444,129 +631,255 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
     const states = {};
     const districts = {};
 
+    if (filterState.type === "PENDING") {
+      const statesList = (rawData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
+      
+      statesList.forEach(rawState => {
+        const stateName = rawState.state;
+        const s = propSalesData.states[stateName] || {};
+        
+        let cur = getPendingForPeriod(rawState, selectedPendingMonth);
+        
+        if (filterState.item.length > 0) {
+          const productCurTotal = (rawState.products || [])
+            .filter(p => filterState.item.includes(p.product))
+            .reduce((sum, p) => sum + (p.cur || 0), 0);
+          const stateCurTotal = (rawState.products || [])
+            .reduce((sum, p) => sum + (p.cur || 0), 0);
+          const ratio = stateCurTotal > 0 ? (productCurTotal / stateCurTotal) : 0;
+          cur = cur * ratio;
+        }
+
+        const sharePct = (cur / (totalVolume.cur || 1)) * 100;
+        const { impactScore, severity, theme } = getBusinessImpact(cur, 0, sharePct, 'STATE', stateName);
+
+        states[stateName] = {
+          ...s,
+          name: stateName,
+          cur,
+          prev: 0,
+          volume: cur,
+          pendingQty: rawState.pendingQty ?? 0,
+          pendingHistory: rawState.pendingHistory ?? {},
+          trend: null,
+          impactScore,
+          impact: severity,
+          impactTier: severity,
+          healthStatus: severity,
+          healthColor: theme.color,
+        };
+      });
+
+      Object.entries(propSalesData.districts || {}).forEach(([stateName, districtMap]) => {
+        if (!stateName || stateName.toLowerCase() === 'unknown') return;
+        districts[stateName] = {};
+
+        Object.entries(districtMap).forEach(([districtName, d]) => {
+          if (!districtName || districtName.toLowerCase() === 'unknown') return;
+          const rawDist = (rawData.districts || []).find(rd => rd.lookupKey === d.lookupKey) || {};
+
+          let cur = getPendingForPeriod(rawDist, selectedPendingMonth);
+          
+          if (filterState.item.length > 0) {
+            const productCurTotal = (rawDist.products || [])
+              .filter(p => filterState.item.includes(p.product))
+              .reduce((sum, p) => sum + (p.cur || 0), 0);
+            const distCurTotal = (rawDist.products || [])
+              .reduce((sum, p) => sum + (p.cur || 0), 0);
+            const ratio = distCurTotal > 0 ? (productCurTotal / distCurTotal) : 0;
+            cur = cur * ratio;
+          }
+
+          const distShare = (cur / (totalVolume.cur || 1)) * 100;
+          const { impactScore, severity, theme } = getBusinessImpact(cur, 0, distShare, 'DISTRICT', stateName);
+
+          districts[stateName][districtName] = {
+            ...d,
+            name: districtName,
+            cur,
+            prev: 0,
+            volume: cur,
+            pendingQty: rawDist.pendingQty ?? 0,
+            pendingHistory: rawDist.pendingHistory ?? {},
+            trend: null,
+            impactScore,
+            impact: severity,
+            impactTier: severity,
+            healthStatus: severity,
+            healthColor: theme.color,
+          };
+        });
+      });
+
+      return { states, districts };
+    }
 
     // Filter Month
-    const isPrevMonth = filterState.month === "PREVIOUS";
+    const isMtd = selectedMonth === "MTD";
+    const isPrevMonth = selectedMonth === monthButtons.prevMonthLabel;
 
-    // Process States
-    Object.entries(propSalesData.states || {}).forEach(([stateName, s]) => {
-      const rawState = (rawData.states || []).find(rs => rs.state === stateName) || {};
-      
-      let cur = 0;
-      let prev = 0;
-      if (filterState.type === "ALL") {
-        cur = s.cur + (s.orderCur ?? 0);
-        prev = s.prev + (s.orderPrev ?? 0);
-      } else if (filterState.type === "ORDER") {
-        cur = s.orderCur ?? 0;
-        prev = s.orderPrev ?? 0;
-      } else {
-        cur = s.cur;
-        prev = s.prev;
+    // Check if earlier month
+    let periodKey = null;
+    if (!isMtd && !isPrevMonth) {
+      const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const parts = selectedMonth.split(' ');
+      if (parts.length === 2) {
+        const monthIdx = monthsShort.indexOf(parts[0]);
+        if (monthIdx !== -1) {
+          periodKey = `${parts[1]}-${String(monthIdx + 1).padStart(2, '0')}`;
+        }
+      }
+    }
+
+    const historyData = periodKey ? rawData.monthlyHistory?.[periodKey] : null;
+
+    if (historyData) {
+      // Get the previous month's history data to calculate MoM trend
+      let prevHistoryData = null;
+      if (periodKey) {
+        const [year, month] = periodKey.split('-').map(Number);
+        const prevMonth = month === 1 ? 12 : month - 1;
+        const prevYear = month === 1 ? year - 1 : year;
+        const prevPeriodKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+        prevHistoryData = rawData.monthlyHistory?.[prevPeriodKey] || null;
       }
 
-      // Product Filter
-      if (filterState.item.length > 0) {
-        cur = 0; prev = 0;
-        (rawState.products || []).forEach(p => {
-          if (filterState.item.includes(p.product)) {
-            if (filterState.type === "ALL") {
-              cur += (p.cur || 0) + (p.orderCur || 0);
-              prev += (p.prev || 0) + (p.orderPrev || 0);
-            } else if (filterState.type === "ORDER") {
-              cur += p.orderCur || 0;
-              prev += p.orderPrev || 0;
-            } else {
-              cur += p.cur || 0;
-              prev += p.prev || 0;
-            }
-          }
-        });
-      }
+      // Process States from monthlyHistory
+      (historyData.states || []).forEach(s => {
+        if (!s.state || s.state.toLowerCase() === 'unknown') return;
 
-      let displayVolume = isPrevMonth ? prev : cur;
-      let trend = calculateMoM(cur, prev);
-
-      // Share % for risk scoring always uses cur (current dispatch/order position),
-      // regardless of which month is being *displayed*. This is because getBusinessImpact
-      // is a forward-looking risk indicator; "what share of total business is at risk?"
-      const sharePct = (cur / (totalVolume.cur || 1)) * 100;
-
-      const { impactScore, severity, theme } = getBusinessImpact(
-        cur,
-        prev,
-        sharePct,
-        'STATE',
-        stateName
-      );
-
-      states[stateName] = {
-        ...s,
-        name: stateName,
-        cur,
-        prev,
-        volume: displayVolume,
-        trend,
-        impactScore,
-        impact: severity,
-        impactTier: severity,
-        healthStatus: severity,
-        healthColor: theme.color,
-      };
-    });
-
-    // Process Districts
-    Object.entries(propSalesData.districts || {}).forEach(([stateName, districtMap]) => {
-      districts[stateName] = {};
-      Object.entries(districtMap).forEach(([districtName, d]) => {
-        const rawDist = (rawData.districts || []).find(rd => rd.lookupKey === d.lookupKey) || {};
-        
-        let cur = 0;
+        let cur = s.qty || 0;
         let prev = 0;
-        if (filterState.type === "ALL") {
-          cur = d.cur + (d.orderCur ?? 0);
-          prev = d.prev + (d.orderPrev ?? 0);
-        } else if (filterState.type === "ORDER") {
-          cur = d.orderCur ?? 0;
-          prev = d.orderPrev ?? 0;
-        } else {
-          cur = d.cur;
-          prev = d.prev;
+        
+        // Find previous month's state qty
+        if (prevHistoryData) {
+          const prevState = (prevHistoryData.states || []).find(ps => ps.state === s.state);
+          if (prevState) {
+            prev = prevState.qty || 0;
+          }
         }
 
         // Product Filter
         if (filterState.item.length > 0) {
-          cur = 0; prev = 0;
-          (rawDist.products || []).forEach(p => {
+          cur = 0;
+          (s.products || []).forEach(p => {
             if (filterState.item.includes(p.product)) {
-              if (filterState.type === "ALL") {
-                cur += (p.cur || 0) + (p.orderCur || 0);
-                prev += (p.prev || 0) + (p.orderPrev || 0);
-              } else if (filterState.type === "ORDER") {
-                cur += p.orderCur || 0;
-                prev += p.orderPrev || 0;
-              } else {
-                cur += p.cur || 0;
-                prev += p.prev || 0;
-              }
+              cur += p.qty || 0;
             }
           });
+          
+          if (prevHistoryData) {
+            const prevState = (prevHistoryData.states || []).find(ps => ps.state === s.state);
+            if (prevState) {
+              prev = 0;
+              (prevState.products || []).forEach(p => {
+                if (filterState.item.includes(p.product)) {
+                  prev += p.qty || 0;
+                }
+              });
+            }
+          }
         }
 
-      let displayVolume = isPrevMonth ? prev : cur;
-      let trend = calculateMoM(cur, prev);
+        let displayVolume = filterState.type === "PENDING" ? 0 : cur;
+        let trend = calculateMoM(cur, prev);
+        const sharePct = (cur / (totalVolume.cur || 1)) * 100;
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', s.state);
 
-        // Share % for risk scoring always uses cur (current dispatch/order position).
-        // displayVolume is only for what's shown in the UI, NOT for risk calculation.
-        const distShare = (cur / (totalVolume.cur || 1)) * 100;
-
-        const { impactScore, severity, theme } = getBusinessImpact(
+        states[s.state] = {
+          ...s,
+          name: s.state,
           cur,
           prev,
-          distShare,
-          'DISTRICT',
-          stateName
-        );
+          volume: displayVolume,
+          trend,
+          impactScore,
+          impact: severity,
+          impactTier: severity,
+          healthStatus: severity,
+          healthColor: theme.color,
+        };
+      });
+
+      // Process Districts from monthlyHistory
+      // Initialize with all districts from propSalesData, set to 0/null
+      Object.entries(propSalesData.districts || {}).forEach(([stateName, districtMap]) => {
+        if (!stateName || stateName.toLowerCase() === 'unknown') return;
+        districts[stateName] = {};
+        Object.entries(districtMap).forEach(([districtName, d]) => {
+          if (!districtName || districtName.toLowerCase() === 'unknown') return;
+          districts[stateName][districtName] = {
+            ...d,
+            name: districtName,
+            cur: 0,
+            prev: 0,
+            volume: 0,
+            trend: null,
+            impactScore: 0,
+            impact: "NONE",
+            impactTier: "NONE",
+            healthStatus: "NONE",
+            healthColor: "#3b82f6",
+          };
+        });
+      });
+
+      // Overlay/add districts from historyData
+      (historyData.districts || []).forEach(hd => {
+        const stateName = hd.state;
+        if (!stateName || stateName.toLowerCase() === 'unknown') return;
+        
+        if (!districts[stateName]) {
+          districts[stateName] = {};
+        }
+        
+        const districtName = hd.district;
+        if (!districtName || districtName.toLowerCase() === 'unknown') return;
+
+        const d = districts[stateName][districtName] || {
+          district: districtName,
+          state: stateName,
+          lookupKey: resolveDistrict(districtName),
+          slug: ((rawData.states || []).find(rs => rs.state === stateName)?.slug || ''),
+        };
+
+        let cur = hd.qty || 0;
+        let prev = 0;
+
+        // Find previous month's district qty
+        if (prevHistoryData) {
+          const prevHDist = (prevHistoryData.districts || []).find(phd => phd.state === stateName && phd.district === districtName);
+          if (prevHDist) {
+            prev = prevHDist.qty || 0;
+          }
+        }
+
+        // Product Filter
+        if (filterState.item.length > 0) {
+          cur = 0;
+          (hd.products || []).forEach(p => {
+            if (filterState.item.includes(p.product)) {
+              cur += p.qty || 0;
+            }
+          });
+
+          if (prevHistoryData) {
+            const prevHDist = (prevHistoryData.districts || []).find(phd => phd.state === stateName && phd.district === districtName);
+            if (prevHDist) {
+              prev = 0;
+              (prevHDist.products || []).forEach(p => {
+                if (filterState.item.includes(p.product)) {
+                  prev += p.qty || 0;
+                }
+              });
+            }
+          }
+        }
+
+        let displayVolume = filterState.type === "PENDING" ? 0 : cur;
+        let trend = calculateMoM(cur, prev);
+        const distShare = (cur / (totalVolume.cur || 1)) * 100;
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName);
 
         districts[stateName][districtName] = {
           ...d,
@@ -582,10 +895,133 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           healthColor: theme.color,
         };
       });
-    });
+    } else {
+      // Process States (original MTD / Prev Month logic)
+      Object.entries(propSalesData.states || {}).forEach(([stateName, s]) => {
+        if (!stateName || stateName.toLowerCase() === 'unknown') return;
+
+        const rawState = (rawData.states || []).find(rs => rs.state === stateName) || {};
+        
+        let cur = 0;
+        let prev = 0;
+        if (filterState.type === "PENDING") {
+          cur = s.pendingQty || 0;
+          prev = s.orderPrev ?? 0;
+        } else {
+          cur = s.cur;
+          prev = s.prev;
+        }
+
+        // Product Filter
+        if (filterState.item.length > 0) {
+          cur = 0; prev = 0;
+          (rawState.products || []).forEach(p => {
+            if (filterState.item.includes(p.product)) {
+              if (filterState.type === "PENDING") {
+                cur += p.pendingQty || 0;
+                prev += p.orderPrev || 0;
+              } else {
+                cur += p.cur || 0;
+                prev += p.prev || 0;
+              }
+            }
+          });
+        }
+
+        let displayVolume = 0;
+        if (isMtd) displayVolume = cur;
+        else if (isPrevMonth) displayVolume = prev;
+        else displayVolume = 0;
+
+        let trend = (isMtd || isPrevMonth) ? calculateMoM(cur, prev) : null;
+        const sharePct = (cur / (totalVolume.cur || 1)) * 100;
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName);
+
+        states[stateName] = {
+          ...s,
+          name: stateName,
+          cur,
+          prev,
+          volume: displayVolume,
+          trend,
+          impactScore,
+          impact: severity,
+          impactTier: severity,
+          healthStatus: severity,
+          healthColor: theme.color,
+        };
+      });
+
+      // Process Districts (original MTD / Prev Month logic)
+      Object.entries(propSalesData.districts || {}).forEach(([stateName, districtMap]) => {
+        if (!stateName || stateName.toLowerCase() === 'unknown') return;
+
+        districts[stateName] = {};
+        Object.entries(districtMap).forEach(([districtName, d]) => {
+          if (!districtName || districtName.toLowerCase() === 'unknown') return;
+
+          const rawDist = (rawData.districts || []).find(rd => rd.lookupKey === d.lookupKey) || {};
+          
+          let cur = 0;
+          let prev = 0;
+          if (filterState.type === "PENDING") {
+            cur = d.pendingQty || 0;
+            prev = d.orderPrev ?? 0;
+          } else {
+            cur = d.cur;
+            prev = d.prev;
+          }
+
+          // Product Filter
+          if (filterState.item.length > 0) {
+            cur = 0; prev = 0;
+            (rawDist.products || []).forEach(p => {
+              if (filterState.item.includes(p.product)) {
+                if (filterState.type === "PENDING") {
+                  cur += p.pendingQty || 0;
+                  prev += p.orderPrev || 0;
+                } else {
+                  cur += p.cur || 0;
+                  prev += p.prev || 0;
+                }
+              }
+            });
+          }
+
+          let displayVolume = 0;
+          if (isMtd) displayVolume = cur;
+          else if (isPrevMonth) displayVolume = prev;
+          else displayVolume = 0;
+
+          let trend = (isMtd || isPrevMonth) ? calculateMoM(cur, prev) : null;
+          const distShare = (cur / (totalVolume.cur || 1)) * 100;
+          const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName);
+
+          districts[stateName][districtName] = {
+            ...d,
+            name: districtName,
+            cur,
+            prev,
+            volume: displayVolume,
+            trend,
+            impactScore,
+            impact: severity,
+            impactTier: severity,
+            healthStatus: severity,
+            healthColor: theme.color,
+          };
+        });
+      });
+    }
 
     return { states, districts };
-  }, [propSalesData, rawData, periods, filterState, totalVolume]);
+  }, [propSalesData, rawData, monthButtons, filterState, totalVolume, selectedMonth, selectedPendingMonth]);
+
+  const isEarlierMonth = useMemo(() => {
+    if (selectedMonth === "MTD") return false;
+    if (selectedMonth === monthButtons.prevMonthLabel) return false;
+    return true;
+  }, [selectedMonth, monthButtons]);
 
   const salesData = filteredSalesData;
   const availableProducts = useMemo(() => {
@@ -646,6 +1082,14 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
         m[key].volume = (m[key].volume || 0) + (district.volume || 0);
         m[key].trend = calculateMoM(m[key].cur, m[key].prev);
         
+        m[key].pendingQty = (m[key].pendingQty || 0) + (district.pendingQty || 0);
+        if (district.pendingHistory) {
+          if (!m[key].pendingHistory) m[key].pendingHistory = {};
+          Object.entries(district.pendingHistory).forEach(([pk, val]) => {
+            m[key].pendingHistory[pk] = (m[key].pendingHistory[pk] || 0) + val;
+          });
+        }
+        
         const share = (m[key].cur / (totalVolume.cur || 1)) * 100;
 
         const bi = getBusinessImpact(m[key].cur, m[key].prev, share, 'DISTRICT', selectedState);
@@ -660,6 +1104,9 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
         m[key].name = m[key].name; // keep first name as primary
       } else {
         m[key] = { ...district, name };
+        if (district.pendingHistory) {
+          m[key].pendingHistory = { ...district.pendingHistory };
+        }
       }
       
       const nameKey = resolveDistrict(name);
@@ -854,6 +1301,14 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           map[key].volume = (map[key].volume || 0) + (data.volume || 0);
           map[key].trend = calculateMoM(map[key].cur, map[key].prev);
           
+          map[key].pendingQty = (map[key].pendingQty || 0) + (data.pendingQty || 0);
+          if (data.pendingHistory) {
+            if (!map[key].pendingHistory) map[key].pendingHistory = {};
+            Object.entries(data.pendingHistory).forEach(([pk, val]) => {
+              map[key].pendingHistory[pk] = (map[key].pendingHistory[pk] || 0) + val;
+            });
+          }
+          
           const share = (map[key].cur / (totalVolume.cur || 1)) * 100;
 
           const bi = getBusinessImpact(map[key].cur, map[key].prev, share, 'DISTRICT', selectedState);
@@ -862,6 +1317,9 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           map[key].healthColor = bi.theme.color;
         } else {
           map[key] = { name, ...data };
+          if (data.pendingHistory) {
+            map[key].pendingHistory = { ...data.pendingHistory };
+          }
         }
       });
     });
@@ -871,7 +1329,7 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
   // ── ranked lists ──
   const rankedStates = useMemo(() => {
     const list = Object.values(stateMap)
-      .filter(e => e.volume != null)
+      .filter(e => e.volume != null && (filterState.type !== "PENDING" || e.volume > 0))
       .sort((a, b) => b.volume - a.volume);
     
     const seen = new Set();
@@ -883,13 +1341,13 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
       }
     }
     return deduped;
-  }, [stateMap]);
+  }, [stateMap, filterState.type]);
 
   const rankedDistricts = useMemo(() => {
     if (!selectedState) return [];
     const src = districtMap;
     const list = Object.values(src)
-      .filter(e => e.volume != null)
+      .filter(e => e.volume != null && (filterState.type !== "PENDING" || e.volume > 0))
       .sort((a, b) => b.volume - a.volume);
       
     const seen = new Set();
@@ -901,9 +1359,14 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
       }
     }
     return deduped;
-  }, [selectedState, districtMap]);
+  }, [selectedState, districtMap, filterState.type]);
 
   const rankedList = selectedState ? rankedDistricts : rankedStates;
+
+  const totalPendingVolume = useMemo(() => {
+    if (filterState.type !== "PENDING") return 0;
+    return getTotalPendingForPeriod(rankedList, selectedPendingMonth);
+  }, [rankedList, filterState.type, selectedPendingMonth]);
 
   // ── tooltip helpers ──
   const showTip = useCallback((e, name, entry) => {
@@ -936,7 +1399,64 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
   // ── Adaptive Geo Heat Scoring (local visualization layer — NEVER mutates global state) ──
   const { heatColorScale, geoHeatMap } = useMemo(() => {
     const entries = Object.entries(activeMap);
+    const heatMap = {};
     
+    const isMtd = selectedMonth === "MTD";
+    const isPrevMonth = selectedMonth === monthButtons.prevMonthLabel;
+    const isHistorical = !isMtd && !isPrevMonth;
+
+    if (isHistorical && filterState.type !== "PENDING") {
+      // Detect whether we have REAL historical data: if ANY entry has volume > 0,
+      // real monthlyHistory was loaded. If all volume=0, it's a fallback to MTD cur
+      // values — in that case the linear scale makes small states like Rajasthan (35 MT)
+      // invisible against large states like West Bengal (9000+ MT) at <0.4% of the scale.
+      const hasRealHistoricalData = entries.some(([_, e]) => (e.volume || 0) > 0);
+
+      if (hasRealHistoricalData) {
+        // Real monthly data: use volume-based linear scale
+        const volumes = entries.map(([_, e]) => e.volume || 0);
+        const maxVol = Math.max(...volumes, 1);
+        entries.forEach(([key, e]) => {
+          heatMap[key] = { geoHeatScore: e.volume || 0 };
+        });
+        const baseScale = d3.scaleLinear()
+          .domain([0, maxVol * 0.3, maxVol])
+          .range(['#1d4ed8', '#3b82f6', '#60a5fa']) // Starts at strong blue instead of dark background color
+          .interpolate(d3.interpolateHcl)
+          .clamp(true);
+        const colorScale = (vol) => {
+          if (!vol) return '#1e2535'; // Return grey only for true 0/no data
+          return baseScale(vol);
+        };
+        return { heatColorScale: colorScale, geoHeatMap: heatMap };
+      }
+      // No real historical data — fall through to impactScore path below
+      // so states with cur>0 (e.g. Rajasthan) still appear visibly colored.
+    }
+    
+    if (filterState.type === "PENDING") {
+      entries.forEach(([key, e]) => {
+        const pendingQty = e.volume || e.cur || 0;
+        heatMap[key] = {
+          geoHeatScore: pendingQty,
+          pendingQty
+        };
+      });
+
+      const baseScale = d3.scaleLinear()
+        .domain([0, 100, 300])
+        .range(['#fee2e2', '#f97316', '#ef4444'])
+        .interpolate(d3.interpolateHcl)
+        .clamp(true);
+
+      const colorScale = (val) => {
+        if (!val || val <= 0) return '#1e2535';
+        return baseScale(val);
+      };
+
+      return { heatColorScale: colorScale, geoHeatMap: heatMap };
+    }
+
     // Step 1: Gather impactScore per district/state (e.impactScore) using getBusinessImpact logic
     const scored = entries
       .map(([key, e]) => {
@@ -944,10 +1464,15 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
         return { key, impactScore };
       });
 
-    const heatMap = {};
     scored.forEach(({ key, impactScore }) => {
+      const e = activeMap[key];
+      const hasCurVolume = e && ((e.cur || 0) > 0 || (e.volume || 0) > 0);
+      // States/districts with actual volume but impactScore=0 are new/growing regions
+      // (prev=0 means no risk of decline). Give them a minimum visible score so they
+      // appear colored instead of blending into the no-data dark background.
+      const effectiveScore = (impactScore === 0 && hasCurVolume) ? 15 : impactScore;
       heatMap[key] = {
-        geoHeatScore: impactScore,
+        geoHeatScore: effectiveScore,
         impactScore
       };
     });
@@ -955,15 +1480,16 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
     // Replace fixed thresholds with absolute severity threshold scaling
     const colorScale = (score) => {
       if (score == null) return NO_DATA_COLOR;
-      if (score === 0) return HEAT_COLORS[0]; // Lowest Risk (strong green)
-      if (score < 40) return HEAT_COLORS[1];  // Low Risk (light green)
-      if (score < 50) return HEAT_COLORS[2];  // Moderate Risk (yellow)
-      if (score < 75) return HEAT_COLORS[3];  // High Risk (orange)
-      return HEAT_COLORS[4];                  // Critical Risk (red)
+      if (score === 0) return NO_DATA_COLOR;   // True no-data (cur=0 AND prev=0)
+      if (score <= 15) return HEAT_COLORS[0];  // New/growing — lowest visible shade
+      if (score < 40) return HEAT_COLORS[1];   // Low Risk
+      if (score < 50) return HEAT_COLORS[2];   // Moderate Risk
+      if (score < 75) return HEAT_COLORS[3];   // High Risk
+      return HEAT_COLORS[4];                   // Critical Risk
     };
 
     return { heatColorScale: colorScale, geoHeatMap: heatMap };
-  }, [activeMap]);
+  }, [activeMap, filterState.type, selectedMonth, monthButtons, selectedPendingMonth]);
 
   const gRef = useRef(null);
 
@@ -1003,16 +1529,16 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
         .style("transition", "fill 450ms ease") // Native smooth transition style
         .on("click", (event, d) => {
           if (!selectedState) {
-            const topoName = d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || "";
+            const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || "";
             handleStateClick(topoName);
           }
         })
         .on("mouseover", (event, d) => {
-          const topoName = d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || "";
+          const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || "";
           const normTopo = selectedState ? resolveDistrict(topoName) : normalizeKey(topoName);
           const entry = selectedState 
             ? normalizedDistrictDataMap[normTopo] 
-            : normalizedStateDataMap[normTopo];
+            : (normalizedStateDataMap[normTopo] || Object.values(normalizedStateDataMap).find(s => normalizeKey(s.geoKey) === normTopo));
             
           const selection = d3.select(event.currentTarget);
           
@@ -1055,19 +1581,22 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           hideTip();
         });
  
-      // 2. Re-apply choropleth fills with native smooth CSS transitions
       allPaths.attr("fill", d => {
-        const topoName = d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || "";
+        const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || "";
         const normTopo = selectedState ? resolveDistrict(topoName) : normalizeKey(topoName);
         const entry = selectedState 
           ? normalizedDistrictDataMap[normTopo] 
-          : normalizedStateDataMap[normTopo];
+          : (normalizedStateDataMap[normTopo] || Object.values(normalizedStateDataMap).find(s => normalizeKey(s.geoKey) === normTopo));
           
-        // Color regions that have ANY data in the comparison window (handles 0.0 MT / 100% drops)
-        if (entry && (entry.cur > 0 || entry.prev > 0)) {
-          const heatKey = selectedState ? normTopo : norm(topoName);
-          if (geoHeatMap[heatKey] != null && geoHeatMap[heatKey].geoHeatScore != null) {
-            return heatColorScale(geoHeatMap[heatKey].geoHeatScore);
+        if (entry) {
+          if (filterState.type === "PENDING") {
+            const pendingQty = entry.volume || entry.cur || 0;
+            return heatColorScale(pendingQty);
+          } else if (entry.cur > 0 || entry.prev > 0) {
+            const heatKey = selectedState ? normTopo : norm(topoName);
+            if (geoHeatMap[heatKey] != null && geoHeatMap[heatKey].geoHeatScore != null) {
+              return heatColorScale(geoHeatMap[heatKey].geoHeatScore);
+            }
           }
         }
         return '#1e2535';
@@ -1084,7 +1613,9 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
     normalizedStateDataMap, 
     normalizedDistrictDataMap, 
     geoHeatMap, 
-    heatColorScale
+    heatColorScale,
+    filterState.type,
+    selectedPendingMonth
   ]);
 
   // ─── JSX ──────────────────────────────────────────────────────────────────
@@ -1111,9 +1642,13 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           </h2>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8' }}>
-              {filterState.month === "PREVIOUS" 
-                ? `${capitalizeWord(periods.prevMonthName)} ${periods.prevYear} vs Previous` 
-                : `${capitalizeWord(periods.curMonthName)} ${periods.curYear} vs ${capitalizeWord(periods.prevMonthName)} ${periods.prevYear}`}
+              {filterState.type === "PENDING"
+                ? `Viewing: ${pendingAvailableMonths.find(m => m.periodKey === selectedPendingMonth)?.label || selectedPendingMonth}`
+                : (selectedMonth === "MTD"
+                  ? `${capitalizeWord(monthButtons.curMonthName)} ${monthButtons.curYear} vs ${capitalizeWord(monthButtons.prevMonthName)} ${monthButtons.prevYear}`
+                  : selectedMonth === monthButtons.prevMonthLabel
+                    ? `${capitalizeWord(monthButtons.prevMonthName)} ${monthButtons.prevYear} vs Previous`
+                    : `Viewing: ${selectedMonth}`)}
             </span>
             <span className="text-xs" style={{ color: '#475569' }}>
               {selectedState
@@ -1150,9 +1685,8 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
             Type
           </span>
           {[
-            { value: "ALL", label: "All" },
             { value: "DESPATCH", label: "Despatch" },
-            { value: "ORDER", label: "Order" }
+            { value: "PENDING", label: "Pending" }
           ].map(opt => {
             const active = filterState.type === opt.value;
             return (
@@ -1179,35 +1713,53 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
         {/* Divider 1 */}
         <div style={{ width: '0.5px', height: '28px', background: '#1e2a3a', alignSelf: 'center' }} />
 
-        {/* MONTH group */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#8899aa', whiteSpace: 'nowrap', marginRight: '2px' }}>
-            Month
+        {/* VIEWING LABEL & MONTH dropdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#4a5568', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+            Viewing:
           </span>
-          {[
-            { value: "CURRENT", label: `Curr (${capitalizeWord(periods.curMonthName)} ${periods.curYear})` },
-            { value: "PREVIOUS", label: `Prev (${capitalizeWord(periods.prevMonthName)} ${periods.prevYear})` }
-          ].map(opt => {
-            const active = filterState.month === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => setFilterState(s => ({ ...s, month: opt.value }))}
-                className="cursor-pointer"
-                style={{
-                  fontSize: '11px',
-                  padding: '4px 16px',
-                  borderRadius: '99px',
-                  border: '0.5px solid ' + (active ? '#8b5cf6' : '#2d3f55'),
-                  color: active ? '#c4b5fd' : '#94a3b8',
-                  background: active ? '#2a1f3a' : 'transparent',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
+          <select
+            value={filterState.type === "PENDING" ? selectedPendingMonth : selectedMonth}
+            onChange={(e) => {
+              if (filterState.type === "PENDING") {
+                setSelectedPendingMonth(e.target.value);
+              } else {
+                setSelectedMonth(e.target.value);
+              }
+            }}
+            style={{
+              fontSize: '11px',
+              padding: '6px 32px 6px 12px',
+              borderRadius: '99px',
+              border: '0.5px solid #2d3f55',
+              color: '#c4b5fd',
+              background: '#2a1f3a',
+              cursor: 'pointer',
+              outline: 'none',
+              appearance: 'none',
+              backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23c4b5fd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 8px center',
+              backgroundSize: '14px'
+            }}
+          >
+            {filterState.type === "PENDING" ? (
+              <>
+                <option value="ALL" style={{ background: '#1a1f2c', color: '#f1f5f9' }}>All-Time Pending</option>
+                {sortedPendingMonths.map(opt => (
+                  <option key={opt.periodKey} value={opt.periodKey} style={{ background: '#1a1f2c', color: '#f1f5f9' }}>
+                    {opt.label}
+                  </option>
+                ))}
+              </>
+            ) : (
+              monthButtons.buttons?.map(opt => (
+                <option key={opt.value} value={opt.value} style={{ background: '#1a1f2c', color: '#f1f5f9' }}>
+                  {opt.fullName}
+                </option>
+              ))
+            )}
+          </select>
         </div>
 
         {/* Divider 2 */}
@@ -1254,7 +1806,7 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
 
         {/* Reset button */}
         <button
-          onClick={() => setFilterState({ type: "ALL", item: [], month: "CURRENT" })}
+          onClick={() => setFilterState({ type: "DESPATCH", item: [], month: "CURRENT" })}
           className="cursor-pointer"
           style={{
             fontSize: '11px',
@@ -1294,6 +1846,8 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
               </span>
             </div>
           )}
+
+
 
           {/* District error */}
           {distError && !distLoading && (
@@ -1355,9 +1909,16 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           <div className="absolute bottom-3 left-3 rounded-lg px-3 py-2 border"
             style={{ background: 'rgba(13,21,38,0.92)', borderColor: '#1e293b' }}>
             <div className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#475569' }}>
-              Business Risk
+              {filterState.type === "PENDING" ? "Pending Orders (MT)" : "Business Risk"}
             </div>
-            <Legend colors={HEAT_COLORS} labels={HEAT_LABELS} />
+            {filterState.type === "PENDING" ? (
+              <Legend 
+                colors={['#1e2535', '#fdba74', '#f97316', '#ef4444']} 
+                labels={['0 MT', 'Low (<100)', 'Moderate (100-300)', 'High (>300)']} 
+              />
+            ) : (
+              <Legend colors={HEAT_COLORS} labels={HEAT_LABELS} />
+            )}
           </div>
 
           {/* Zoom indicator */}
@@ -1384,15 +1945,25 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
             <div className="grid grid-cols-2 gap-2">
               <StatCard 
                 label={selectedState ? "Active Districts" : "Active States"} 
-                value={selectedState ? rankedDistricts.length : rankedStates.length} 
+                value={
+                  filterState.type === "PENDING"
+                    ? (selectedState ? rankedDistricts : rankedStates).filter(e => getPendingForPeriod(e, selectedPendingMonth) > 0).length
+                    : (selectedState ? rankedDistricts.length : rankedStates.length)
+                } 
                 sub={selectedState ? "districts" : "states"} 
               />
               <StatCard
-                label="Total Volume"
-                value={(selectedState ? rankedDistricts : rankedStates)
-                  .reduce((s, e) => s + (e.volume ?? 0), 0)
-                  .toLocaleString()}
-                sub="MT"
+                label={filterState.type === "PENDING" ? "Total Pending" : "Total Volume"}
+                value={formatNumber(
+                  filterState.type === "PENDING"
+                    ? getTotalPendingForPeriod(selectedState ? rankedDistricts : rankedStates, selectedPendingMonth)
+                    : (selectedState ? rankedDistricts : rankedStates).reduce((s, e) => s + (e.volume ?? 0), 0)
+                )}
+                sub={
+                  filterState.type === "PENDING" && selectedPendingMonth !== 'ALL'
+                    ? `MT (all-time: ${formatNumber(getTotalPendingForPeriod(selectedState ? rankedDistricts : rankedStates, 'ALL'))})`
+                    : "MT"
+                }
               />
             </div>
           </div>
@@ -1418,8 +1989,11 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
             
             <div className="flex-1 overflow-y-auto pr-1">
               {rankedList.map((item, idx) => {
-                const trendColor = getTrendColor(item.trend, item.cur, item.prev);
-                const trendVal = trendStr(item.trend);
+                const isPending = filterState.type === "PENDING";
+                const trendColor = isPending ? '#3b82f6' : getTrendColor(item.trend, item.cur, item.prev);
+                const trendVal = isPending
+                  ? `${getSharePctForPeriod(item, selectedPendingMonth, totalPendingVolume)}%`
+                  : trendStr(item.trend);
                 
                 return (
                   <div
@@ -1436,7 +2010,16 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
                       <span className="font-semibold text-white">{item.name}</span>
                     </div>
                     <div className="flex items-center gap-4 text-right">
-                      <span className="text-slate-300">{item.volume?.toLocaleString() ?? '—'} MT</span>
+                      <div className="flex flex-col text-right">
+                        <span className="text-slate-300">
+                          {formatMT(isPending ? getPendingForPeriod(item, selectedPendingMonth) : item.volume)}
+                        </span>
+                        {isPending && selectedPendingMonth !== 'ALL' && (
+                          <span className="text-[10px] text-slate-500">
+                            all-time: {formatMT(getPendingForPeriod(item, 'ALL'))}
+                          </span>
+                        )}
+                      </div>
                       <span className="font-bold" style={{ color: trendColor, minWidth: '55px' }}>
                         {trendVal}
                       </span>
@@ -1451,9 +2034,9 @@ export default function GeoIntelligence({ salesData: propSalesData }) {
           </div>
         </div>
       </div>
-
+ 
       {/* Floating tooltip */}
-      <Tooltip tooltipRef={tooltipRef} {...tooltip} />
+      <Tooltip tooltipRef={tooltipRef} {...tooltip} filterType={filterState.type} totalPending={totalPendingVolume} selectedPendingMonth={selectedPendingMonth} />
     </div>
   );
 }

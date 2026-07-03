@@ -148,7 +148,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 676.3,
-      "orderPrev": 770.6
+      "orderPrev": 770.6,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "state": "BIHAR",
@@ -193,7 +205,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 485,
-      "orderPrev": 530.9
+      "orderPrev": 530.9,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "state": "ODISHA",
@@ -230,7 +254,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 338.8,
-      "orderPrev": 343.8
+      "orderPrev": 343.8,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "state": "JHARKHAND",
@@ -267,7 +303,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 241.3,
-      "orderPrev": 238.6
+      "orderPrev": 238.6,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "state": "ASSAM",
@@ -296,7 +344,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 183.8,
-      "orderPrev": 175.8
+      "orderPrev": 175.8,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "state": "UTTAR PRADESH",
@@ -333,7 +393,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 525,
-      "orderPrev": 425.6
+      "orderPrev": 425.6,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "state": "CHHATTISGARH",
@@ -362,7 +434,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 387.5,
-      "orderPrev": 330.4
+      "orderPrev": 330.4,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "state": "MADHYA PRADESH",
@@ -391,7 +475,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 225,
-      "orderPrev": 212.8
+      "orderPrev": 212.8,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     }
   ],
   "districts": [
@@ -427,7 +523,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 225,
-      "orderPrev": 280
+      "orderPrev": 280,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "district": "HOWRAH",
@@ -453,7 +561,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 150,
-      "orderPrev": 179.2
+      "orderPrev": 179.2,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "district": "PATNA",
@@ -487,7 +607,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 175,
-      "orderPrev": 212.8
+      "orderPrev": 212.8,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "district": "MUZAFFARPUR",
@@ -513,7 +645,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 112.5,
-      "orderPrev": 123.2
+      "orderPrev": 123.2,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "district": "CUTTACK",
@@ -539,7 +683,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 106.3,
-      "orderPrev": 112
+      "orderPrev": 112,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "district": "RANCHI",
@@ -565,7 +721,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 87.5,
-      "orderPrev": 100.8
+      "orderPrev": 100.8,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "district": "GUWAHATI",
@@ -591,7 +759,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 75,
-      "orderPrev": 72.8
+      "orderPrev": 72.8,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "district": "LUCKNOW",
@@ -617,7 +797,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 187.5,
-      "orderPrev": 145.6
+      "orderPrev": 145.6,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "district": "RAIPUR",
@@ -643,7 +835,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 175,
-      "orderPrev": 145.6
+      "orderPrev": 145.6,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     },
     {
       "district": "BHOPAL",
@@ -669,7 +873,19 @@ export const sampleData = {
         }
       ],
       "orderCur": 100,
-      "orderPrev": 100.8
+      "orderPrev": 100.8,
+      "dailyAvgQty": 48.95,
+      "currentDailyRate": 55.2,
+      "expectedMtd": 489.5,
+      "lossDelta": 6.25,
+      "lossDeltaPct": 12.8,
+      "lossFlag": "AHEAD",
+      "pendingQty": 320.8,
+      "pendingHistory": {
+        "2026-05": 320.8,
+        "2026-04": 415.2,
+        "2026-03": 280.0
+      }
     }
   ],
   "dealers": [
@@ -1460,5 +1676,21 @@ export const sampleData = {
         "pctOfTotal": 28
       }
     ]
+  }
+,
+  "availableMonths": [
+    {"periodKey": "2026-05", "year": 2026, "month": 5, "label": "May 2026"},
+    {"periodKey": "2026-04", "year": 2026, "month": 4, "label": "April 2026"},
+    {"periodKey": "2026-03", "year": 2026, "month": 3, "label": "March 2026"}
+  ],
+  "monthlyHistory": {
+    "2026-05": {
+      "periodKey": "2026-05", "year": 2026, "month": 5, "label": "May 2026",
+      "total": 2847.5,
+      "products": [{"product": "IG", "label": "IG (Iron Gate)", "qty": 633, "share": 22}],
+      "states": [{"state": "West Bengal", "slug": "westbengal", "qty": 541, "share": 19, "products": [{"product": "IG", "qty": 180}]}],
+      "districts": [],
+      "dealers": []
+    }
   }
 };

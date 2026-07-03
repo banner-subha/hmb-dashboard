@@ -2,6 +2,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'rec
 import { calculateMoM } from '../../utils/trendEngine';
 import { useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { formatNumber } from '../../utils/formatters';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -12,7 +13,7 @@ const CustomTooltip = ({ active, payload, label }) => {
           {payload.map((entry, index) => (
             <div key={index} className="flex justify-between gap-4">
               <span className="text-text-muted">{entry.name}:</span>
-              <span className="font-medium" style={{ color: entry.color }}>{entry.value.toFixed(1)} MT</span>
+              <span className="font-medium" style={{ color: entry.color }}>{formatNumber(entry.value)} MT</span>
             </div>
           ))}
           {payload.length === 2 && (() => {
@@ -54,7 +55,7 @@ export default function MoMTrendChart({ data, nameKey = "name", height = 300 }) 
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
           <XAxis dataKey={nameKey} stroke="#475569" fontSize={11} tickMargin={10} />
           <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `${val}`} />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} isAnimationActive={false} />
           <Legend wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '10px' }} />
           <Bar dataKey="prev" name="Previous" fill="#475569" radius={[2, 2, 0, 0]} maxBarSize={40} />
           <Bar dataKey="cur" name="Current" fill="#3b82f6" radius={[2, 2, 0, 0]} maxBarSize={40} />

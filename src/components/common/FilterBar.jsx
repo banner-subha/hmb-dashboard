@@ -1,6 +1,6 @@
 import { useData } from '../../context/DataContext';
 
-export default function FilterBar() {
+export default function FilterBar({ children }) {
   const { filters, dispatch, filterOptions } = useData();
 
   return (
@@ -42,6 +42,8 @@ export default function FilterBar() {
           <option key={p} value={p}>{p}</option>
         ))}
       </select>
+
+      {children}
 
       <div className="w-full md:flex-1 md:min-w-[200px] flex justify-end">
         {(filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.searchQuery) && (

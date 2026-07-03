@@ -62,12 +62,50 @@ export default function DistrictIntelligence() {
       },
     },
     {
+      id: 'pace',
+      header: 'Pace vs Avg',
+      meta: { width: '170px' },
+      cell: info => {
+        const row = info.row.original;
+        const { lossFlag, lossDeltaPct, currentDailyRate, dailyAvgQty } = row;
+        
+        const curRate = currentDailyRate != null ? Number(currentDailyRate) : 0;
+        const avgQty = dailyAvgQty != null ? Number(dailyAvgQty) : 0;
+        const rawDeltaPct = lossDeltaPct != null ? Number(lossDeltaPct) : 0;
+        const deltaPct = Math.min(300, rawDeltaPct);
+        
+        if (lossFlag === 'AHEAD' || lossFlag === 'BEHIND') {
+          const isAhead = lossFlag === 'AHEAD';
+          const sign = isAhead ? '+' : '';
+          const showPct = lossDeltaPct !== undefined ? `${isAhead ? '▲' : '▼'} ${sign}${deltaPct}%` : (isAhead ? '▲' : '▼');
+          const colorClass = isAhead ? 'text-[#22c55e]' : 'text-[#ef4444]';
+          
+          const fullTooltip = `${curRate.toFixed(2)} MT/day vs avg ${avgQty.toFixed(2)} MT/day (${isAhead ? 'above' : 'below'} historical daily avg by ${Math.abs(deltaPct)}%)`;
+          const shortRateText = `${curRate.toFixed(1)} vs ${avgQty.toFixed(1)} MT/d`;
+          
+          return (
+            <div className="flex flex-col select-none cursor-help" title={fullTooltip} style={{ minWidth: '160px', maxWidth: '180px' }}>
+              <span className={`text-sm font-bold ${colorClass}`}>
+                {showPct}
+              </span>
+              <span className="text-[10px] text-text-muted mt-0.5 truncate block">
+                {shortRateText}
+              </span>
+            </div>
+          );
+        }
+        
+        return <span style={{ color: '#6b7280' }}>—</span>;
+      }
+    },
+    {
       id: 'severity',
       header: <div className="text-right">Severity</div>,
+      meta: { width: '110px' },
       cell: info => {
         const row = info.row.original;
         return (
-          <div className="flex justify-end w-full">
+          <div className="flex justify-end w-full" style={{ minWidth: '100px', flexShrink: 0 }}>
             <div className="w-[100px] flex-shrink-0">
               <ImpactBadge tier={row.impactTier} score={row.impactScore} />
             </div>
