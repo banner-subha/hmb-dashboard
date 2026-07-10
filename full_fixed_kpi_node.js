@@ -219,6 +219,7 @@ function parseElapsedDays(periodStr, dataMonth, dataYear) {
 }
 
 const curElapsedDays = parseElapsedDays(curLabel, curMonth, currentYear);
+const prevElapsedDays = parseElapsedDays(prevLabel, prevMonth, currentYear);
 
 // YTD: Jan 1 to end of prev month
 const ytdStartDate = new Date(currentYear, 0, 1);
@@ -630,7 +631,7 @@ const output = {
   meta: {
     generatedAt: now.toISOString(),
     curPeriod: curLabel, prevPeriod: prevLabel, ytdPeriod: ytdLabel,
-    ytdTotalDays, curElapsedDays,
+    ytdTotalDays, curElapsedDays, prevElapsedDays,
     rowsProcessed: momRows.length,
     pendingRowsProcessed: pendingRows.length,
     blankClientRows,

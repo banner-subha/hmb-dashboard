@@ -53,38 +53,22 @@ export default function DashboardLayout() {
   // Date range string for the header meta row
   const headerDateRange = useMemo(() => {
     if (!rawData) return "";
-    const baseDateStr = rawData?.meta?.generatedAt || rawData?.generatedAt || new Date().toISOString();
-    let baseDate = new Date(baseDateStr);
-    if (isNaN(baseDate.getTime())) baseDate = new Date();
-
-    const today = new Date();
-    const targetDate = (today.getFullYear() === baseDate.getFullYear() && today.getMonth() === baseDate.getMonth())
-      ? baseDate
-      : today;
-
-    const day = targetDate.getDate();
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const curMonthName = months[targetDate.getMonth()];
-    const curYear = targetDate.getFullYear();
-
-    const prevMonthDate = new Date(targetDate);
-    prevMonthDate.setMonth(targetDate.getMonth() - 1);
-    const prevMonthName = months[prevMonthDate.getMonth()];
-    const prevDay = prevMonthDate.getDate();
-    const prevYear = prevMonthDate.getFullYear();
-
-    return `${prevDay} ${prevMonthName}${prevYear !== curYear ? ' ' + prevYear : ''} – ${day} ${curMonthName} ${curYear}`;
+    const period = rawData.meta?.curPeriod || rawData.curPeriod || "";
+    return period.replace(/\s*-\s*/g, ' – ');
   }, [rawData]);
 
-  // MoM dispatch growth
+  // Run-rate based MoM dispatch growth
   const dispatchGrowth = useMemo(() => {
     if (!rawData) return null;
-    const mom = calculateMoM(rawData.totalCur, rawData.totalPrev);
+    const curElapsed = rawData.meta?.curElapsedDays || 30;
+    const prevElapsed = rawData.meta?.prevElapsedDays || 30;
+    const curDailyRate = rawData.totalCur / curElapsed;
+    const prevDailyRate = rawData.totalPrev / prevElapsed;
+    if (!prevDailyRate) return 0;
+    const mom = ((curDailyRate - prevDailyRate) / prevDailyRate) * 100;
     if (mom === null || mom === undefined || isNaN(mom)) return null;
     return mom;
   }, [rawData]);
-
-  const alertCount = rawData?.alerts?.length || 0;
 
   return (
     <LazyMotion features={domAnimation}>
@@ -278,39 +262,8 @@ export default function DashboardLayout() {
                 </div>
               </div>
 
-              {/* RIGHT SIDE — Alert Pill + Sync */}
+              {/* RIGHT SIDE — Sync status only */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
-                {/* Alert Pill */}
-                {alertCount > 0 && (
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      background: 'rgba(255,32,32,0.1)',
-                      border: '1px solid rgba(255,32,32,0.18)',
-                      color: '#ff6060',
-                      padding: '6px 14px',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        width: '7px',
-                        height: '7px',
-                        borderRadius: '50%',
-                        background: '#ff4444',
-                        flexShrink: 0,
-                      }}
-                    />
-                    {alertCount} Active Alerts
-                  </div>
-                )}
-
                 {/* Live sync status */}
                 <div
                   style={{

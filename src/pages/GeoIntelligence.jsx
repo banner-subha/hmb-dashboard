@@ -8,9 +8,7 @@ import {
   AlertTriangle, MapPin, BarChart2, Loader2, ZoomIn, ZoomOut, RotateCcw,
 } from 'lucide-react';
 
-// ─── GeoJSON / TopoJSON URLs ──────────────────────────────────────────────────
-const STATE_GEO_URL =
-  'https://raw.githubusercontent.com/geohacker/india/master/state/india_state.geojson';
+const STATE_GEO_URL = '/geo/india_state.geojson';
 
 const geoCache = {};
 const projectionCache = {};
@@ -283,9 +281,9 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, se
             <>
               {selectedPendingMonth !== 'ALL' && (
                 <Row 
-                  label="All-Time Total" 
+                  label="Total Backlog" 
                   value={formatMT(getPendingForPeriod(data, 'ALL'))} 
-                  valueColor="#94a3b8" 
+                  valueColor="#cbd5e1" 
                 />
               )}
               <Row 
@@ -339,7 +337,7 @@ function Legend({ colors = HEAT_COLORS, labels = HEAT_LABELS }) {
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((it) => (
-        <div key={it.label} className="flex items-center gap-1 text-[10px] text-slate-400">
+        <div key={it.label} className="flex items-center gap-1 text-xs text-slate-200 font-medium">
           <div className="w-3 h-3 rounded-sm" style={{ background: it.color }} />
           {it.label}
         </div>
@@ -379,6 +377,41 @@ const capitalizeWord = (str) => {
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+function parseMonthKey(periodStr) {
+  if (!periodStr) return "";
+  const parts = periodStr.split(/\s*(?:[-–—]|to)\s*/);
+  if (parts.length < 2) return "";
+  const endPart = parts[parts.length - 1];
+  const match = endPart.match(/([a-zA-Z]{3,9})\s+(\d{4})/);
+  if (match) {
+    const month = match[1];
+    const year = match[2];
+    return `${month} ${year}`;
+  }
+  return "";
+}
+
+function findAvailableMonth(selMonth, availMonths) {
+  if (!selMonth || !availMonths?.length) return null;
+  const match = selMonth.match(/([a-zA-Z]+)\s+(\d{4})/);
+  if (!match) return null;
+
+  const selMonthStr = match[1].toLowerCase();
+  const selYear = parseInt(match[2], 10);
+
+  const shortMonths = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const longMonths = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+  let selMonthIdx = shortMonths.findIndex(m => selMonthStr.startsWith(m));
+  if (selMonthIdx === -1) {
+    selMonthIdx = longMonths.findIndex(m => selMonthStr.startsWith(m));
+  }
+  if (selMonthIdx === -1) return null;
+
+  const targetMonthNum = selMonthIdx + 1; // 1-indexed
+  return availMonths.find(m => m.year === selYear && m.month === targetMonthNum);
+}
+
 export default function GeoIntelligence({ salesData: propSalesData, pendingAvailableMonths = [] }) {
   const { rawData } = useData();
 
@@ -387,7 +420,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     type: "DESPATCH",
     item: [],
   });
-  const [selectedMonth, setSelectedMonth] = useState("MTD");
+  const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedPendingMonth, setSelectedPendingMonth] = useState(() => pendingAvailableMonths[0]?.periodKey || '');
 
   useEffect(() => {
@@ -405,74 +438,18 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
   // ── parse periods from metadata & build dynamic months list ──
   const monthButtons = useMemo(() => {
-    if (!rawData) return { buttons: [], curMonthLabel: "", prevMonthLabel: "", curMonthName: "", curYear: 2026, prevMonthName: "", prevYear: 2026 };
+    if (!rawData) return { buttons: [], curMonthLabel: "", prevMonthLabel: "", curMonthKey: "", prevMonthKey: "" };
     
-    const curPeriod = rawData?.meta?.curPeriod || "";
-    const prevPeriod = rawData?.meta?.prevPeriod || "";
-    
-    // Fallback parsing for ytdPeriod if missing from meta
-    let ytdPeriod = rawData?.meta?.ytdPeriod || rawData?.ytdPeriod || "";
-    if (!ytdPeriod && prevPeriod) {
-      // e.g. "1 May 2026 - 31 May 2026"
-      const match = prevPeriod.match(/(\d{1,2}\s+[a-zA-Z]+\s+(\d{4}))$/);
-      if (match) {
-        const endPart = match[1]; // "31 May 2026"
-        const year = match[2]; // "2026"
-        ytdPeriod = `1 Jan ${year} - ${endPart}`;
-      }
-    }
-    if (!ytdPeriod) {
-      ytdPeriod = "1 Jan 2026 - 31 May 2026"; // ultimate fallback
-    }
-    
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    
-    // Derive defaults from generatedAt — zero hardcoded month names
-    const genAt = rawData?.meta?.generatedAt || rawData?.generatedAt || "";
-    const genDate = genAt ? new Date(genAt) : new Date();
-    let curMonthName = months[genDate.getUTCMonth()] || "Jun";
-    let curYear = genDate.getUTCFullYear() || 2026;
-    // Previous month = one month before generatedAt
-    const prevMonthIdx = genDate.getUTCMonth() === 0 ? 11 : genDate.getUTCMonth() - 1;
-    let prevMonthName = months[prevMonthIdx] || "May";
-    let prevYear = genDate.getUTCMonth() === 0 ? curYear - 1 : curYear;
-    
-    // Override from curPeriod if available (e.g. "1 Jun 2026 - 23 Jun 2026")
-    if (curPeriod) {
-      const curStartPart = curPeriod.split(/\s*(?:[-\u2013\u2014]|to)\s*/)[0] || "";
-      for (let i = 0; i < months.length; i++) {
-        if (curStartPart.toUpperCase().includes(months[i].toUpperCase())) {
-          curMonthName = months[i];
-          break;
-        }
-      }
-      const curYearMatch = curPeriod.match(/\d{4}/);
-      if (curYearMatch) curYear = parseInt(curYearMatch[0], 10);
-    }
-    
-    // Parse previous month from prevPeriod
-    const prevParts = prevPeriod.split(/\s*(?:[-–—]|to)\s*/);
-    const prevEndPart = prevParts[prevParts.length - 1] || "";
-    let prevMonthFound = false;
-    for (let i = 0; i < months.length; i++) {
-      if (prevEndPart.toUpperCase().includes(months[i].toUpperCase())) {
-        prevMonthName = months[i];
-        prevMonthFound = true;
-        break;
-      }
-    }
-    const prevYearMatch = prevPeriod.match(/\d{4}/);
-    if (prevYearMatch) prevYear = parseInt(prevYearMatch[0], 10);
+    const curPeriod = rawData.meta?.curPeriod || rawData.curPeriod || "";
+    const prevPeriod = rawData.meta?.prevPeriod || rawData.prevPeriod || "";
+    const ytdPeriod = rawData.meta?.ytdPeriod || rawData.ytdPeriod || "1 Jan 2026 - 31 May 2026";
 
-    // Set curMonthName to be the month after prevMonthName since curPeriod is missing
-    if (!curPeriod && prevMonthName) {
-      const prevIdx = months.indexOf(prevMonthName);
-      curMonthName = prevIdx !== -1 ? months[(prevIdx + 1) % 12] : "Jun";
-      curYear = (prevIdx === 11) ? prevYear + 1 : prevYear;
-    }
-    
-    // Parse YTD Period to generate individual month buttons
-    // e.g. "1 Jan 2026 - 31 May 2026"
+    const curMonthKey = parseMonthKey(curPeriod);
+    const prevMonthKey = parseMonthKey(prevPeriod);
+
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const list = [];
+
     const parseDateString = (str) => {
       const matches = str.match(/([a-zA-Z]+)\s+(\d{4})/);
       if (matches) {
@@ -485,7 +462,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       }
       return null;
     };
-    
+
     const ytdParts = ytdPeriod.split(/\s*(?:[-–—]|to)\s*/).map(s => s.trim());
     let startInfo = null;
     let endInfo = null;
@@ -493,22 +470,20 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       startInfo = parseDateString(ytdParts[0]);
       endInfo = parseDateString(ytdParts[1]);
     }
-    
-    const list = [];
+
     if (startInfo && endInfo) {
       let currYear = startInfo.year;
       let currMonth = startInfo.monthIdx;
       const endYear = endInfo.year;
       const endMonth = endInfo.monthIdx;
-      
+
       while (currYear < endYear || (currYear === endYear && currMonth <= endMonth)) {
         const name = months[currMonth];
+        const key = `${name} ${currYear}`;
         list.push({
-          value: `${name} ${currYear}`,
-          label: `${name}`,
-          fullName: `${name} ${currYear}`,
-          isMtd: false,
-          isPrev: name === prevMonthName && currYear === prevYear
+          value: key,
+          label: key,
+          fullName: key,
         });
         currMonth++;
         if (currMonth > 11) {
@@ -516,36 +491,30 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           currYear++;
         }
       }
-    } else {
-      // Fallback if ytdPeriod is not parseable
+    }
+
+    if (curMonthKey && !list.some(item => item.value === curMonthKey)) {
       list.push({
-        value: `${prevMonthName} ${prevYear}`,
-        label: `${prevMonthName}`,
-        fullName: `${prevMonthName} ${prevYear}`,
-        isMtd: false,
-        isPrev: true
+        value: curMonthKey,
+        label: `${curMonthKey} (MTD)`,
+        fullName: `${curMonthKey} (MTD)`,
       });
     }
-    
-    // Add MTD button at the end
-    list.push({
-      value: "MTD",
-      label: `${curMonthName} ${curYear} (MTD)`,
-      fullName: `${curMonthName} ${curYear} (MTD)`,
-      isMtd: true,
-      isPrev: false
-    });
-    
+
     return {
       buttons: list,
-      curMonthLabel: `${curMonthName} ${curYear} (MTD)`,
-      prevMonthLabel: `${prevMonthName} ${prevYear}`,
-      curMonthName,
-      curYear,
-      prevMonthName,
-      prevYear
+      curMonthLabel: curMonthKey ? `${curMonthKey} (MTD)` : "Current (MTD)",
+      prevMonthLabel: prevMonthKey || "Previous Month",
+      curMonthKey,
+      prevMonthKey,
     };
   }, [rawData]);
+
+  useEffect(() => {
+    if (monthButtons.curMonthKey && !selectedMonth) {
+      setSelectedMonth(monthButtons.curMonthKey);
+    }
+  }, [monthButtons.curMonthKey, selectedMonth]);
 
   // ── dynamic total volume calculation for share percentage ──
   const totalVolume = useMemo(() => {
@@ -573,50 +542,32 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       };
     }
     
-    const isMtd = selectedMonth === "MTD";
-    const isPrevMonth = selectedMonth === monthButtons.prevMonthLabel;
-    
+    const isCur = selectedMonth === monthButtons.curMonthKey;
+    const isPrev = selectedMonth === monthButtons.prevMonthKey;
+    if (!isCur && !isPrev && rawData.availableMonths && rawData.monthlyHistory) {
+      const avail = findAvailableMonth(selectedMonth, rawData.availableMonths);
+      const periodKey = avail ? avail.periodKey : null;
+      const slice = periodKey ? rawData.monthlyHistory[periodKey] : null;
+      if (slice) {
+        let totalCur = slice.total || 0;
+        if (filterState.item.length > 0) {
+          totalCur = (slice.products || [])
+            .filter(p => filterState.item.includes(p.product?.toUpperCase()))
+            .reduce((sum, p) => sum + (p.qty || 0), 0);
+        }
+        return {
+          cur: totalCur || 1,
+          prev: 1
+        };
+      }
+    }
+
     let totalCur = 0;
     let totalPrev = 0;
     
-    if (!isMtd && !isPrevMonth) {
-      const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const parts = selectedMonth.split(' ');
-      let periodKey = null;
-      if (parts.length === 2) {
-        const monthIdx = monthsShort.indexOf(parts[0]);
-        if (monthIdx !== -1) {
-          periodKey = `${parts[1]}-${String(monthIdx + 1).padStart(2, '0')}`;
-        }
-      }
-      const historyData = rawData.monthlyHistory?.[periodKey];
-      if (historyData) {
-        const hStates = (historyData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
-        totalCur = filterState.type === "PENDING" ? 0 : hStates.reduce((sum, s) => sum + (s.qty || 0), 0);
-        
-        let prevPeriodKey = null;
-        if (periodKey) {
-          const [year, month] = periodKey.split('-').map(Number);
-          const prevMonth = month === 1 ? 12 : month - 1;
-          const prevYear = month === 1 ? year - 1 : year;
-          prevPeriodKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-        }
-        const prevHistoryData = prevPeriodKey ? rawData.monthlyHistory?.[prevPeriodKey] : null;
-        if (prevHistoryData) {
-          const prevHStates = (prevHistoryData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
-          totalPrev = prevHStates.reduce((sum, s) => sum + (s.qty || 0), 0);
-        }
-      }
-    } else {
-      const statesList = (rawData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
-      if (filterState.type === "PENDING") {
-        totalCur = statesList.reduce((sum, s) => sum + (s.pendingQty || 0), 0);
-        totalPrev = statesList.reduce((sum, s) => sum + (s.orderPrev || 0), 0);
-      } else {
-        totalCur = statesList.reduce((sum, s) => sum + (s.cur || 0), 0);
-        totalPrev = statesList.reduce((sum, s) => sum + (s.prev || 0), 0);
-      }
-    }
+    const statesList = (rawData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
+    totalCur = statesList.reduce((sum, s) => sum + (s.cur || 0), 0);
+    totalPrev = statesList.reduce((sum, s) => sum + (s.prev || 0), 0);
     
     return {
       cur: totalCur || 1,
@@ -714,81 +665,50 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       return { states, districts };
     }
 
-    // Filter Month
-    const isMtd = selectedMonth === "MTD";
-    const isPrevMonth = selectedMonth === monthButtons.prevMonthLabel;
+    // Despatch / All filter Month
+    const isCur = selectedMonth === monthButtons.curMonthKey;
+    const isPrev = selectedMonth === monthButtons.prevMonthKey;
 
-    // Check if earlier month
-    let periodKey = null;
-    if (!isMtd && !isPrevMonth) {
-      const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const parts = selectedMonth.split(' ');
-      if (parts.length === 2) {
-        const monthIdx = monthsShort.indexOf(parts[0]);
-        if (monthIdx !== -1) {
-          periodKey = `${parts[1]}-${String(monthIdx + 1).padStart(2, '0')}`;
-        }
-      }
-    }
+    const getPrevPeriodKey = (pKey) => {
+      if (!pKey) return null;
+      const [year, month] = pKey.split('-').map(Number);
+      if (month === 1) return `${year - 1}-12`;
+      return `${year}-${String(month - 1).padStart(2, '0')}`;
+    };
 
-    const historyData = periodKey ? rawData.monthlyHistory?.[periodKey] : null;
+    if (!isCur && !isPrev && rawData.availableMonths && rawData.monthlyHistory) {
+      const avail = findAvailableMonth(selectedMonth, rawData.availableMonths);
+      const periodKey = avail ? avail.periodKey : null;
+      const historySlice = periodKey ? rawData.monthlyHistory[periodKey] : null;
+      const prevPeriodKey = getPrevPeriodKey(periodKey);
+      const prevHistorySlice = prevPeriodKey ? rawData.monthlyHistory[prevPeriodKey] : null;
 
-    if (historyData) {
-      // Get the previous month's history data to calculate MoM trend
-      let prevHistoryData = null;
-      if (periodKey) {
-        const [year, month] = periodKey.split('-').map(Number);
-        const prevMonth = month === 1 ? 12 : month - 1;
-        const prevYear = month === 1 ? year - 1 : year;
-        const prevPeriodKey = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-        prevHistoryData = rawData.monthlyHistory?.[prevPeriodKey] || null;
-      }
+      // Compile states from the selected month's historical snapshot
+      (historySlice?.states || []).forEach(hs => {
+        const stateName = hs.state;
+        if (!stateName || stateName.toLowerCase() === 'unknown') return;
 
-      // Process States from monthlyHistory
-      (historyData.states || []).forEach(s => {
-        if (!s.state || s.state.toLowerCase() === 'unknown') return;
+        const prevHistState = (prevHistorySlice?.states || []).find(phs => phs.state?.toLowerCase() === stateName.toLowerCase());
 
-        let cur = s.qty || 0;
-        let prev = 0;
-        
-        // Find previous month's state qty
-        if (prevHistoryData) {
-          const prevState = (prevHistoryData.states || []).find(ps => ps.state === s.state);
-          if (prevState) {
-            prev = prevState.qty || 0;
-          }
-        }
+        let cur = hs.qty || 0;
+        let prev = prevHistState ? prevHistState.qty : 0;
 
-        // Product Filter
         if (filterState.item.length > 0) {
-          cur = 0;
-          (s.products || []).forEach(p => {
-            if (filterState.item.includes(p.product)) {
-              cur += p.qty || 0;
-            }
+          cur = 0; prev = 0;
+          (hs.products || []).forEach(p => {
+            if (filterState.item.includes(p.product?.toUpperCase())) cur += p.qty || 0;
           });
-          
-          if (prevHistoryData) {
-            const prevState = (prevHistoryData.states || []).find(ps => ps.state === s.state);
-            if (prevState) {
-              prev = 0;
-              (prevState.products || []).forEach(p => {
-                if (filterState.item.includes(p.product)) {
-                  prev += p.qty || 0;
-                }
-              });
-            }
-          }
+          (prevHistState?.products || []).forEach(p => {
+            if (filterState.item.includes(p.product?.toUpperCase())) prev += p.qty || 0;
+          });
         }
 
-        let displayVolume = filterState.type === "PENDING" ? 0 : cur;
-        let trend = calculateMoM(cur, prev);
+        const displayVolume = cur;
+        const trend = calculateMoM(cur, prev);
         const sharePct = (cur / (totalVolume.cur || 1)) * 100;
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', s.state);
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName);
 
-        states[s.state] = {
-          ...s,
-          name: s.state,
+        states[stateName] = {
           cur,
           prev,
           volume: displayVolume,
@@ -798,88 +718,129 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           impactTier: severity,
           healthStatus: severity,
           healthColor: theme.color,
+          slug: hs.slug || '',
         };
       });
 
-      // Process Districts from monthlyHistory
-      // Initialize with all districts from propSalesData, set to 0/null
-      Object.entries(propSalesData.districts || {}).forEach(([stateName, districtMap]) => {
-        if (!stateName || stateName.toLowerCase() === 'unknown') return;
-        districts[stateName] = {};
-        Object.entries(districtMap).forEach(([districtName, d]) => {
-          if (!districtName || districtName.toLowerCase() === 'unknown') return;
-          districts[stateName][districtName] = {
-            ...d,
-            name: districtName,
-            cur: 0,
-            prev: 0,
-            volume: 0,
-            trend: null,
-            impactScore: 0,
-            impact: "NONE",
-            impactTier: "NONE",
-            healthStatus: "NONE",
-            healthColor: "#3b82f6",
-          };
-        });
-      });
-
-      // Overlay/add districts from historyData
-      (historyData.districts || []).forEach(hd => {
+      // Compile districts from the selected month's historical snapshot
+      (historySlice?.districts || []).forEach(hd => {
         const stateName = hd.state;
-        if (!stateName || stateName.toLowerCase() === 'unknown') return;
-        
-        if (!districts[stateName]) {
-          districts[stateName] = {};
-        }
-        
         const districtName = hd.district;
+        if (!stateName || stateName.toLowerCase() === 'unknown') return;
         if (!districtName || districtName.toLowerCase() === 'unknown') return;
 
-        const d = districts[stateName][districtName] || {
-          district: districtName,
-          state: stateName,
-          lookupKey: resolveDistrict(districtName),
-          slug: ((rawData.states || []).find(rs => rs.state === stateName)?.slug || ''),
-        };
+        if (!districts[stateName]) districts[stateName] = {};
+
+        const prevHistDist = (prevHistorySlice?.districts || []).find(phd => phd.state?.toLowerCase() === stateName.toLowerCase() && phd.district?.toLowerCase() === districtName.toLowerCase());
 
         let cur = hd.qty || 0;
-        let prev = 0;
+        let prev = prevHistDist ? prevHistDist.qty : 0;
 
-        // Find previous month's district qty
-        if (prevHistoryData) {
-          const prevHDist = (prevHistoryData.districts || []).find(phd => phd.state === stateName && phd.district === districtName);
-          if (prevHDist) {
-            prev = prevHDist.qty || 0;
-          }
+        if (filterState.item.length > 0) {
+          cur = 0; prev = 0;
+          (hd.products || []).forEach(p => {
+            if (filterState.item.includes(p.product?.toUpperCase())) cur += p.qty || 0;
+          });
+          (prevHistDist?.products || []).forEach(p => {
+            if (filterState.item.includes(p.product?.toUpperCase())) prev += p.qty || 0;
+          });
         }
+
+        const displayVolume = cur;
+        const trend = calculateMoM(cur, prev);
+        const distShare = (cur / (totalVolume.cur || 1)) * 100;
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName);
+
+        districts[stateName][districtName] = {
+          lookupKey: hd.lookupKey,
+          cur,
+          prev,
+          volume: displayVolume,
+          trend,
+          impactScore,
+          impact: severity,
+          impactTier: severity,
+          healthStatus: severity,
+          healthColor: theme.color,
+          slug: hd.slug || '',
+        };
+      });
+
+      return { states, districts };
+    }
+
+    Object.entries(propSalesData.states || {}).forEach(([stateName, s]) => {
+      if (!stateName || stateName.toLowerCase() === 'unknown') return;
+
+      const rawState = (rawData.states || []).find(rs => rs.state === stateName) || {};
+      
+      let cur = s.cur;
+      let prev = s.prev;
+
+      // Product Filter
+      if (filterState.item.length > 0) {
+        cur = 0; prev = 0;
+        (rawState.products || []).forEach(p => {
+          if (filterState.item.includes(p.product)) {
+            cur += p.cur || 0;
+            prev += p.prev || 0;
+          }
+        });
+      }
+
+      let displayVolume = 0;
+      if (isCur) displayVolume = cur;
+      else if (isPrev) displayVolume = prev;
+
+      let trend = (isCur || isPrev) ? calculateMoM(cur, prev) : null;
+      const sharePct = (cur / (totalVolume.cur || 1)) * 100;
+      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName, rawState.expectedMtd || s.expectedMtd);
+
+      states[stateName] = {
+        ...s,
+        name: stateName,
+        cur,
+        prev,
+        volume: displayVolume,
+        trend,
+        impactScore,
+        impact: severity,
+        impactTier: severity,
+        healthStatus: severity,
+        healthColor: theme.color,
+      };
+    });
+
+    Object.entries(propSalesData.districts || {}).forEach(([stateName, districtMap]) => {
+      if (!stateName || stateName.toLowerCase() === 'unknown') return;
+
+      districts[stateName] = {};
+      Object.entries(districtMap).forEach(([districtName, d]) => {
+        if (!districtName || districtName.toLowerCase() === 'unknown') return;
+
+        const rawDist = (rawData.districts || []).find(rd => rd.lookupKey === d.lookupKey) || {};
+        
+        let cur = d.cur;
+        let prev = d.prev;
 
         // Product Filter
         if (filterState.item.length > 0) {
-          cur = 0;
-          (hd.products || []).forEach(p => {
+          cur = 0; prev = 0;
+          (rawDist.products || []).forEach(p => {
             if (filterState.item.includes(p.product)) {
-              cur += p.qty || 0;
+              cur += p.cur || 0;
+              prev += p.prev || 0;
             }
           });
-
-          if (prevHistoryData) {
-            const prevHDist = (prevHistoryData.districts || []).find(phd => phd.state === stateName && phd.district === districtName);
-            if (prevHDist) {
-              prev = 0;
-              (prevHDist.products || []).forEach(p => {
-                if (filterState.item.includes(p.product)) {
-                  prev += p.qty || 0;
-                }
-              });
-            }
-          }
         }
 
-        let displayVolume = filterState.type === "PENDING" ? 0 : cur;
-        let trend = calculateMoM(cur, prev);
+        let displayVolume = 0;
+        if (isCur) displayVolume = cur;
+        else if (isPrev) displayVolume = prev;
+
+        let trend = (isCur || isPrev) ? calculateMoM(cur, prev) : null;
         const distShare = (cur / (totalVolume.cur || 1)) * 100;
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName);
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName, rawDist.expectedMtd || d.expectedMtd);
 
         districts[stateName][districtName] = {
           ...d,
@@ -895,133 +856,20 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           healthColor: theme.color,
         };
       });
-    } else {
-      // Process States (original MTD / Prev Month logic)
-      Object.entries(propSalesData.states || {}).forEach(([stateName, s]) => {
-        if (!stateName || stateName.toLowerCase() === 'unknown') return;
-
-        const rawState = (rawData.states || []).find(rs => rs.state === stateName) || {};
-        
-        let cur = 0;
-        let prev = 0;
-        if (filterState.type === "PENDING") {
-          cur = s.pendingQty || 0;
-          prev = s.orderPrev ?? 0;
-        } else {
-          cur = s.cur;
-          prev = s.prev;
-        }
-
-        // Product Filter
-        if (filterState.item.length > 0) {
-          cur = 0; prev = 0;
-          (rawState.products || []).forEach(p => {
-            if (filterState.item.includes(p.product)) {
-              if (filterState.type === "PENDING") {
-                cur += p.pendingQty || 0;
-                prev += p.orderPrev || 0;
-              } else {
-                cur += p.cur || 0;
-                prev += p.prev || 0;
-              }
-            }
-          });
-        }
-
-        let displayVolume = 0;
-        if (isMtd) displayVolume = cur;
-        else if (isPrevMonth) displayVolume = prev;
-        else displayVolume = 0;
-
-        let trend = (isMtd || isPrevMonth) ? calculateMoM(cur, prev) : null;
-        const sharePct = (cur / (totalVolume.cur || 1)) * 100;
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName);
-
-        states[stateName] = {
-          ...s,
-          name: stateName,
-          cur,
-          prev,
-          volume: displayVolume,
-          trend,
-          impactScore,
-          impact: severity,
-          impactTier: severity,
-          healthStatus: severity,
-          healthColor: theme.color,
-        };
-      });
-
-      // Process Districts (original MTD / Prev Month logic)
-      Object.entries(propSalesData.districts || {}).forEach(([stateName, districtMap]) => {
-        if (!stateName || stateName.toLowerCase() === 'unknown') return;
-
-        districts[stateName] = {};
-        Object.entries(districtMap).forEach(([districtName, d]) => {
-          if (!districtName || districtName.toLowerCase() === 'unknown') return;
-
-          const rawDist = (rawData.districts || []).find(rd => rd.lookupKey === d.lookupKey) || {};
-          
-          let cur = 0;
-          let prev = 0;
-          if (filterState.type === "PENDING") {
-            cur = d.pendingQty || 0;
-            prev = d.orderPrev ?? 0;
-          } else {
-            cur = d.cur;
-            prev = d.prev;
-          }
-
-          // Product Filter
-          if (filterState.item.length > 0) {
-            cur = 0; prev = 0;
-            (rawDist.products || []).forEach(p => {
-              if (filterState.item.includes(p.product)) {
-                if (filterState.type === "PENDING") {
-                  cur += p.pendingQty || 0;
-                  prev += p.orderPrev || 0;
-                } else {
-                  cur += p.cur || 0;
-                  prev += p.prev || 0;
-                }
-              }
-            });
-          }
-
-          let displayVolume = 0;
-          if (isMtd) displayVolume = cur;
-          else if (isPrevMonth) displayVolume = prev;
-          else displayVolume = 0;
-
-          let trend = (isMtd || isPrevMonth) ? calculateMoM(cur, prev) : null;
-          const distShare = (cur / (totalVolume.cur || 1)) * 100;
-          const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName);
-
-          districts[stateName][districtName] = {
-            ...d,
-            name: districtName,
-            cur,
-            prev,
-            volume: displayVolume,
-            trend,
-            impactScore,
-            impact: severity,
-            impactTier: severity,
-            healthStatus: severity,
-            healthColor: theme.color,
-          };
-        });
-      });
-    }
+    });
 
     return { states, districts };
   }, [propSalesData, rawData, monthButtons, filterState, totalVolume, selectedMonth, selectedPendingMonth]);
 
-  const isEarlierMonth = useMemo(() => {
-    if (selectedMonth === "MTD") return false;
-    if (selectedMonth === monthButtons.prevMonthLabel) return false;
-    return true;
-  }, [selectedMonth, monthButtons]);
+  const isMonthAvailable = useMemo(() => {
+    if (filterState.type === "PENDING") return true;
+    if (selectedMonth === monthButtons.curMonthKey) return true;
+    if (selectedMonth === monthButtons.prevMonthKey) return true;
+    if (rawData && rawData.availableMonths) {
+      return !!findAvailableMonth(selectedMonth, rawData.availableMonths);
+    }
+    return false;
+  }, [selectedMonth, monthButtons, filterState.type, rawData]);
 
   const salesData = filteredSalesData;
   const availableProducts = useMemo(() => {
@@ -1092,7 +940,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         
         const share = (m[key].cur / (totalVolume.cur || 1)) * 100;
 
-        const bi = getBusinessImpact(m[key].cur, m[key].prev, share, 'DISTRICT', selectedState);
+        const bi = getBusinessImpact(m[key].cur, m[key].prev, share, 'DISTRICT', selectedState, m[key].expectedMtd);
         m[key].impactScore = bi.impactScore;
         m[key].impact = bi.severity;
         m[key].impactTier = bi.severity;
@@ -1311,7 +1159,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           
           const share = (map[key].cur / (totalVolume.cur || 1)) * 100;
 
-          const bi = getBusinessImpact(map[key].cur, map[key].prev, share, 'DISTRICT', selectedState);
+          const bi = getBusinessImpact(map[key].cur, map[key].prev, share, 'DISTRICT', selectedState, map[key].expectedMtd);
           map[key].impactScore = bi.impactScore;
           map[key].impact = bi.severity;
           map[key].healthColor = bi.theme.color;
@@ -1401,8 +1249,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     const entries = Object.entries(activeMap);
     const heatMap = {};
     
-    const isMtd = selectedMonth === "MTD";
-    const isPrevMonth = selectedMonth === monthButtons.prevMonthLabel;
+    const isMtd = selectedMonth === monthButtons.curMonthKey || selectedMonth === "MTD";
+    const isPrevMonth = selectedMonth === monthButtons.prevMonthKey || selectedMonth === monthButtons.prevMonthLabel;
     const isHistorical = !isMtd && !isPrevMonth;
 
     if (isHistorical && filterState.type !== "PENDING") {
@@ -1644,13 +1492,9 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8' }}>
               {filterState.type === "PENDING"
                 ? `Viewing: ${pendingAvailableMonths.find(m => m.periodKey === selectedPendingMonth)?.label || selectedPendingMonth}`
-                : (selectedMonth === "MTD"
-                  ? `${capitalizeWord(monthButtons.curMonthName)} ${monthButtons.curYear} vs ${capitalizeWord(monthButtons.prevMonthName)} ${monthButtons.prevYear}`
-                  : selectedMonth === monthButtons.prevMonthLabel
-                    ? `${capitalizeWord(monthButtons.prevMonthName)} ${monthButtons.prevYear} vs Previous`
-                    : `Viewing: ${selectedMonth}`)}
+                : `${monthButtons.curMonthKey} vs ${monthButtons.prevMonthKey}`}
             </span>
-            <span className="text-xs" style={{ color: '#475569' }}>
+            <span className="text-sm font-medium" style={{ color: '#94a3b8' }}>
               {selectedState
                 ? 'Hover districts for details · Scroll/drag to zoom and pan'
                 : 'Click a state to drill into districts · Hover for tooltip · Scroll to zoom'}
@@ -1675,13 +1519,13 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           marginBottom: '16px'
         }}
       >
-        <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#4a5568', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', color: '#cbd5e1', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
           Filters
         </span>
 
         {/* TYPE group */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#8899aa', whiteSpace: 'nowrap', marginRight: '2px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#94a3b8', whiteSpace: 'nowrap', marginRight: '2px' }}>
             Type
           </span>
           {[
@@ -1715,7 +1559,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
         {/* VIEWING LABEL & MONTH dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#4a5568', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', color: '#cbd5e1', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
             Viewing:
           </span>
           <select
@@ -1745,7 +1589,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           >
             {filterState.type === "PENDING" ? (
               <>
-                <option value="ALL" style={{ background: '#1a1f2c', color: '#f1f5f9' }}>All-Time Pending</option>
+                <option value="ALL" style={{ background: '#1a1f2c', color: '#f1f5f9' }}>Total Backlog</option>
                 {sortedPendingMonths.map(opt => (
                   <option key={opt.periodKey} value={opt.periodKey} style={{ background: '#1a1f2c', color: '#f1f5f9' }}>
                     {opt.label}
@@ -1767,7 +1611,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
         {/* PRODUCTS group */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap' }}>
-          <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#8899aa', whiteSpace: 'nowrap', marginRight: '2px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#94a3b8', whiteSpace: 'nowrap', marginRight: '2px' }}>
             Products
           </span>
           {availableProducts.map(prod => {
@@ -1806,7 +1650,12 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
         {/* Reset button */}
         <button
-          onClick={() => setFilterState({ type: "DESPATCH", item: [], month: "CURRENT" })}
+          onClick={() => {
+            setFilterState({ type: "DESPATCH", item: [] });
+            if (monthButtons.curMonthKey) {
+              setSelectedMonth(monthButtons.curMonthKey);
+            }
+          }}
           className="cursor-pointer"
           style={{
             fontSize: '11px',
@@ -1843,6 +1692,18 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
               <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#3b82f6' }} />
               <span className="text-sm" style={{ color: '#64748b' }}>
                 {distLoading ? `Loading ${selectedState} districts…` : 'Loading India map…'}
+              </span>
+            </div>
+          )}
+
+          {/* Coming Soon overlay */}
+          {!isMonthAvailable && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3"
+              style={{ background: 'rgba(22,27,34,0.92)', backdropFilter: 'blur(6px)' }}>
+              <AlertTriangle className="w-8 h-8 text-amber-500" />
+              <span className="text-sm font-semibold text-white">Historical Data Coming Soon</span>
+              <span className="text-xs text-slate-500 text-center max-w-[250px]">
+                Detailed geographic charts for {selectedMonth} will be available in the next cycle.
               </span>
             </div>
           )}
@@ -1938,7 +1799,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           <div className="rounded-xl border p-4 flex-shrink-0" style={{ background: '#161b22', borderColor: '#1e293b' }}>
             <div className="flex items-center gap-2 mb-3">
               <BarChart2 className="w-4 h-4" style={{ color: '#3b82f6' }} />
-              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#475569' }}>
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#cbd5e1' }}>
                 Summary
               </span>
             </div>
@@ -1961,7 +1822,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                 )}
                 sub={
                   filterState.type === "PENDING" && selectedPendingMonth !== 'ALL'
-                    ? `MT (all-time: ${formatNumber(getTotalPendingForPeriod(selectedState ? rankedDistricts : rankedStates, 'ALL'))})`
+                    ? `MT (Total Backlog: ${formatNumber(getTotalPendingForPeriod(selectedState ? rankedDistricts : rankedStates, 'ALL'))})`
                     : "MT"
                 }
               />
@@ -2001,26 +1862,26 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                     className="flex items-center justify-between"
                     style={{
                       fontSize: '13px',
-                      padding: '8px 0',
+                      padding: '12px 0',
                       borderBottom: '0.5px solid #1e2a3a',
                     }}
                   >
-                    <div className="flex items-center gap-3">
-                      <span style={{ color: '#475569', minWidth: '20px' }}>#{idx + 1}</span>
-                      <span className="font-semibold text-white">{item.name}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span style={{ color: '#94a3b8', minWidth: '20px' }}>#{idx + 1}</span>
+                      <span className="font-semibold text-white truncate" title={item.name}>{item.name}</span>
                     </div>
-                    <div className="flex items-center gap-4 text-right">
+                    <div className="flex items-center gap-4 text-right flex-shrink-0">
                       <div className="flex flex-col text-right">
-                        <span className="text-slate-300">
+                        <span className="text-slate-300 font-semibold whitespace-nowrap">
                           {formatMT(isPending ? getPendingForPeriod(item, selectedPendingMonth) : item.volume)}
                         </span>
                         {isPending && selectedPendingMonth !== 'ALL' && (
-                          <span className="text-[10px] text-slate-500">
-                            all-time: {formatMT(getPendingForPeriod(item, 'ALL'))}
+                          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
+                            Total Backlog: {formatMT(getPendingForPeriod(item, 'ALL'))}
                           </span>
                         )}
                       </div>
-                      <span className="font-bold" style={{ color: trendColor, minWidth: '55px' }}>
+                      <span className="font-bold whitespace-nowrap text-right" style={{ color: trendColor, minWidth: '45px' }}>
                         {trendVal}
                       </span>
                     </div>
@@ -2044,10 +1905,10 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 // ── Small card helper ──
 function StatCard({ label, value, sub }) {
   return (
-    <div className="rounded-lg p-3 border" style={{ background: '#0d1526', borderColor: '#1e293b' }}>
-      <div className="text-[10px] mb-1" style={{ color: '#475569' }}>{label}</div>
-      <div className="text-xl font-bold text-white">{value}</div>
-      <div className="text-[10px]" style={{ color: '#475569' }}>{sub}</div>
+    <div className="rounded-lg p-4 border flex flex-col justify-between" style={{ background: '#0d1526', borderColor: '#1e293b', minHeight: '100px' }}>
+      <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#94a3b8' }}>{label}</div>
+      <div className="text-2xl font-bold text-white my-1">{value}</div>
+      <div className="text-[11px] font-medium leading-normal" style={{ color: '#94a3b8' }}>{sub}</div>
     </div>
   );
 }

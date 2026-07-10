@@ -68,9 +68,9 @@ export default function ExecutiveOverview() {
           accentColor="#3b82f6"
         />
         <KPICard 
-          label="Pending Orders" 
+          label="Total Pending Orders" 
           value={formatMT(data.pendingTotal)} 
-          subtitle={data.pendingTotal > 0 ? "open order book" : "No open orders this cycle"}
+          subtitle={data.pendingTotal > 0 ? "Active Order Backlog" : "No active backlog"}
           accentColor="#f97316"
         />
         <KPICard 

@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
-export default function DataTable({ data, columns, onRowClick, pageSize = 15 }) {
+export default function DataTable({ data, columns, onRowClick, pageSize = 15, renderHeader }) {
   const [sorting, setSorting] = useState([]);
   const isMobile = useMediaQuery('(max-width: 767px)');
 
@@ -27,6 +27,61 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15 }) 
       },
     },
   });
+
+  const paginationControls = table.getPageCount() > 1 ? (
+    <div className="flex items-center gap-1 text-xs text-text-muted select-none">
+      <button
+        onClick={() => table.previousPage()}
+        disabled={!table.getCanPreviousPage()}
+        className="px-3 py-1.5 rounded border border-border bg-bg-card hover:bg-bg-card-hover disabled:opacity-50 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium animate-transition"
+      >
+        Previous
+      </button>
+      
+      {/* Page Numbers */}
+      {Array.from({ length: table.getPageCount() }, (_, i) => {
+        const currentPage = table.getState().pagination.pageIndex;
+        const totalPages = table.getPageCount();
+        
+        if (
+          i === 0 || 
+          i === totalPages - 1 || 
+          (i >= currentPage - 1 && i <= currentPage + 1)
+        ) {
+          return (
+            <button
+              key={i}
+              onClick={() => table.setPageIndex(i)}
+              className={`px-3 py-1.5 rounded font-bold border transition-colors cursor-pointer ${
+                currentPage === i
+                  ? 'bg-accent-blue border-accent-blue text-white font-extrabold'
+                  : 'border-border bg-bg-card hover:bg-bg-card-hover text-text-muted'
+              }`}
+            >
+              {i + 1}
+            </button>
+          );
+        }
+        
+        if (
+          (i === 1 && currentPage > 2) ||
+          (i === totalPages - 2 && currentPage < totalPages - 3)
+        ) {
+          return <span key={i} className="px-1 text-text-muted">...</span>;
+        }
+        
+        return null;
+      })}
+
+      <button
+        onClick={() => table.nextPage()}
+        disabled={!table.getCanNextPage()}
+        className="px-3 py-1.5 rounded border border-border bg-bg-card hover:bg-bg-card-hover disabled:opacity-50 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium animate-transition"
+      >
+        Next
+      </button>
+    </div>
+  ) : null;
 
   if (isMobile) {
     return (
@@ -96,8 +151,10 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15 }) 
 
   return (
     <div className="space-y-4">
+      {renderHeader && renderHeader(paginationControls)}
+
       <div className="w-full overflow-x-auto rounded-lg border border-border bg-bg-card">
-        <table className="w-full text-sm text-left table-fixed">
+        <table className="w-full text-sm text-left">
           <thead className="text-xs text-text-muted uppercase bg-bg-secondary border-b border-border">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
@@ -107,7 +164,11 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15 }) 
                       key={header.id} 
                       className={`px-4 py-3 font-semibold tracking-wider whitespace-nowrap cursor-pointer select-none hover:bg-bg-card-hover transition-colors ${index === 0 ? 'sticky left-0 z-20 bg-bg-secondary shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]' : ''}`}
                       onClick={header.column.getToggleSortingHandler()}
-                      style={{ width: header.column.columnDef.meta?.width }}
+                      style={{ 
+                        width: header.column.columnDef.meta?.width,
+                        minWidth: header.column.columnDef.meta?.minWidth,
+                        maxWidth: header.column.columnDef.meta?.maxWidth,
+                      }}
                     >
                       <div className="flex items-center gap-2">
                         {flexRender(
@@ -143,7 +204,11 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15 }) 
                     <td 
                       key={cell.id} 
                       className={`px-4 py-3 ${index === 0 ? 'sticky left-0 z-10 bg-inherit shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] font-medium' : ''}`}
-                      style={{ width: cell.column.columnDef.meta?.width }}
+                      style={{ 
+                        width: cell.column.columnDef.meta?.width,
+                        minWidth: cell.column.columnDef.meta?.minWidth,
+                        maxWidth: cell.column.columnDef.meta?.maxWidth,
+                      }}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
@@ -162,7 +227,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15 }) 
       </div>
 
       {/* Desktop Pagination Controls */}
-      {table.getPageCount() > 1 && (
+      {table.getFilteredRowModel().rows?.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 rounded-lg border border-border bg-bg-card text-xs text-text-muted select-none">
           <div>
             Showing{' '}
@@ -182,58 +247,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15 }) 
             </span>{' '}
             entries
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              className="px-3 py-1.5 rounded border border-border bg-bg-card hover:bg-bg-card-hover disabled:opacity-50 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium animate-transition"
-            >
-              Previous
-            </button>
-            
-            {/* Page Numbers */}
-            {Array.from({ length: table.getPageCount() }, (_, i) => {
-              const currentPage = table.getState().pagination.pageIndex;
-              const totalPages = table.getPageCount();
-              
-              if (
-                i === 0 || 
-                i === totalPages - 1 || 
-                (i >= currentPage - 1 && i <= currentPage + 1)
-              ) {
-                return (
-                  <button
-                    key={i}
-                    onClick={() => table.setPageIndex(i)}
-                    className={`px-3 py-1.5 rounded font-bold border transition-colors cursor-pointer ${
-                      currentPage === i
-                        ? 'bg-accent-blue border-accent-blue text-white font-extrabold'
-                        : 'border-border bg-bg-card hover:bg-bg-card-hover text-text-muted'
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                );
-              }
-              
-              if (
-                (i === 1 && currentPage > 2) ||
-                (i === totalPages - 2 && currentPage < totalPages - 3)
-              ) {
-                return <span key={i} className="px-1 text-text-muted">...</span>;
-              }
-              
-              return null;
-            })}
-
-            <button
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              className="px-3 py-1.5 rounded border border-border bg-bg-card hover:bg-bg-card-hover disabled:opacity-50 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium animate-transition"
-            >
-              Next
-            </button>
-          </div>
+          {!renderHeader && paginationControls}
         </div>
       )}
     </div>

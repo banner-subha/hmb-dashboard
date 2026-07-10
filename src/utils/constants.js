@@ -53,6 +53,6 @@ export const NAV_ITEMS = [
   { path: '/districts', label: 'District Performance', icon: 'MapPin' },
   { path: '/dealers',   label: 'Dealer Performance', icon: 'Store' },
   { path: '/war-room',  label: 'Smart Insights', icon: 'Brain' },
-  { path: '/alerts',    label: 'Active Alerts', icon: 'Activity' },
+  { path: '/alerts',    label: 'Alert Intelligence', icon: 'Activity' },
   { path: '/geo',       label: 'Regional Map', icon: 'Globe' },
 ];

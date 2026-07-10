@@ -82,9 +82,10 @@ export function getSeverityTheme(level) {
   return themes[lvl] || themes['LOW'];
 }
 
-export function getBusinessImpact(cur = 0, prev = 0, sharePct = 0, level = '', stateName = '') {
-  const mom = calculateMoM(cur, prev);
-  const drop = Math.max(0, prev - cur);
+export function getBusinessImpact(cur = 0, prev = 0, sharePct = 0, level = '', stateName = '', expectedMtd = null) {
+  const referenceValue = (expectedMtd !== null && expectedMtd !== undefined && expectedMtd > 0) ? expectedMtd : prev;
+  const mom = calculateMoM(cur, referenceValue);
+  const drop = Math.max(0, referenceValue - cur);
 
   // Decline-Only Guard: If there is no decline in sales, immediately return LOW severity
   if (drop <= 0) {
@@ -128,7 +129,7 @@ export function getBusinessImpact(cur = 0, prev = 0, sharePct = 0, level = '', s
     if (rawRisk >= 55) impactScore += 8;
 
     // 7. Hard CRITICAL floor — complete market collapse
-    if (cur === 0 && prev >= 100) {
+    if (cur === 0 && referenceValue >= 100) {
       impactScore = Math.max(impactScore, 75);
     }
 
@@ -156,7 +157,7 @@ export function getBusinessImpact(cur = 0, prev = 0, sharePct = 0, level = '', s
     else if (mom <= -30) momWeight = 50;
     else if (mom <= -15) momWeight = 20;
     
-    const volumeWeight = Math.min((prev / volumeDenom) * 100, 100);
+    const volumeWeight = Math.min((referenceValue / volumeDenom) * 100, 100);
     
     // 2. Weighted score
     let impactScore = (shareWeight * 0.35) + (dropWeight * 0.30) + (momWeight * 0.20) + (volumeWeight * 0.15);
@@ -176,25 +177,25 @@ export function getBusinessImpact(cur = 0, prev = 0, sharePct = 0, level = '', s
     }
     
     // 5. Zero-collapse tiered inactivity floor (cur === 0 and prev > 0)
-    if (cur === 0 && prev > 0) {
+    if (cur === 0 && referenceValue > 0) {
       if (isDistrictOrProduct) {
-        if (prev >= 50) {
+        if (referenceValue >= 50) {
           impactScore = Math.max(impactScore, 75); // CRITICAL
-        } else if (prev >= 25) {
+        } else if (referenceValue >= 25) {
           impactScore = Math.max(impactScore, 55); // HIGH
-        } else if (prev >= 10) {
+        } else if (referenceValue >= 10) {
           impactScore = Math.max(impactScore, 42); // MEDIUM
-        } else if (prev >= 2) {
+        } else if (referenceValue >= 2) {
           impactScore = Math.max(impactScore, 32); // visible LOW
         }
       } else {
-        if (prev >= 100) {
+        if (referenceValue >= 100) {
           impactScore = Math.max(impactScore, 75); // CRITICAL
-        } else if (prev >= 50) {
+        } else if (referenceValue >= 50) {
           impactScore = Math.max(impactScore, 55); // HIGH
-        } else if (prev >= 25) {
+        } else if (referenceValue >= 25) {
           impactScore = Math.max(impactScore, 42); // MEDIUM
-        } else if (prev >= 5) {
+        } else if (referenceValue >= 5) {
           impactScore = Math.max(impactScore, 32); // visible LOW
         }
       }

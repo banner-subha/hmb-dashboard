@@ -117,6 +117,11 @@ export default function AIWarRoom() {
                   )}
                 </div>
               ))}
+              {(!intelligence.root_cause_analysis || intelligence.root_cause_analysis.length === 0) && (
+                <div className="text-sm text-text-muted text-center py-6">
+                  No root cause analysis items generated for this cycle.
+                </div>
+              )}
             </div>
           </CollapsibleCard>
 

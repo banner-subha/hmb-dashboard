@@ -16,6 +16,7 @@ export default function DealerIntelligence() {
   const { data, loading, error, filters, dispatch } = useData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDealer, setSelectedDealer] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
 
   // Sync URL params to Context filters
   useEffect(() => {
@@ -34,25 +35,28 @@ export default function DealerIntelligence() {
     setSearchParams(params);
   }, [filters.selectedState, filters.selectedDistrict, setSearchParams]);
 
+  const dealers = useMemo(() => data?.dealers || [], [data]);
+
+  const filteredDealers = useMemo(() => {
+    if (statusFilter === 'ACTIVE') {
+      return dealers.filter(d => d.cur > 0);
+    }
+    if (statusFilter === 'INACTIVE') {
+      return dealers.filter(d => d.cur === 0);
+    }
+    return dealers;
+  }, [dealers, statusFilter]);
+
   const columns = useMemo(() => [
     {
       accessorKey: 'client',
       header: 'Dealer Name',
-      meta: { width: '30%' },
-      cell: info => {
-        const row = info.row.original;
-        return (
-          <div className="flex items-center gap-4">
-            <div className="w-[100px] flex-shrink-0">
-              <ImpactBadge 
-              tier={row.impactTier} 
-              score={row.impactScore}
-            />
-            </div>
-            <span className="font-medium text-sm truncate" title={info.getValue()}>{info.getValue()}</span>
-          </div>
-        );
-      },
+      meta: { width: '35%' },
+      cell: info => (
+        <span className="font-medium text-sm text-text-primary whitespace-normal break-words" title={info.getValue()}>
+          {info.getValue()}
+        </span>
+      ),
     },
     {
       accessorKey: 'district',
@@ -144,19 +148,6 @@ export default function DealerIntelligence() {
   if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
   if (!data) return null;
 
-  const dealers = data.dealers || [];
-  const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
-
-  const filteredDealers = useMemo(() => {
-    if (statusFilter === 'ACTIVE') {
-      return dealers.filter(d => d.cur > 0);
-    }
-    if (statusFilter === 'INACTIVE') {
-      return dealers.filter(d => d.cur === 0);
-    }
-    return dealers;
-  }, [dealers, statusFilter]);
-
   const dealerAlerts = data.alerts?.filter(a => a.category === 'DEALER' && a.data?.client === selectedDealer?.client) || [];
   const aiRisk = data.intelligence?.dealer_risks?.find(r => r.dealer === selectedDealer?.client);
 
@@ -176,32 +167,37 @@ export default function DealerIntelligence() {
         {/* Left Col: Dealer Directory */}
         <div className={`${selectedDealer ? 'xl:col-span-8' : 'xl:col-span-12'} space-y-6 transition-all duration-300 min-w-0`}>
           <CollapsibleCard title="Dealer Directory" badge={<span className="badge bg-bg-secondary text-text-muted">{filteredDealers.length}</span>}>
-            {/* Status Filter Tabs */}
-            <div className="flex border-b border-border mb-4">
-              <button 
-                onClick={() => setStatusFilter('ALL')}
-                className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${statusFilter === 'ALL' ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-muted hover:text-text-primary'}`}
-              >
-                All ({dealers.length})
-              </button>
-              <button 
-                onClick={() => setStatusFilter('ACTIVE')}
-                className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${statusFilter === 'ACTIVE' ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-muted hover:text-text-primary'}`}
-              >
-                Active ({dealers.filter(d => d.cur > 0).length})
-              </button>
-              <button 
-                onClick={() => setStatusFilter('INACTIVE')}
-                className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${statusFilter === 'INACTIVE' ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-muted hover:text-text-primary'}`}
-              >
-                Inactive ({dealers.filter(d => d.cur === 0).length})
-              </button>
-            </div>
-
             <DataTable 
               data={filteredDealers} 
               columns={columns} 
               onRowClick={setSelectedDealer}
+              renderHeader={(paginationControls) => (
+                <div className="flex justify-between items-center border-b border-border mb-4">
+                  {/* Status Filter Tabs */}
+                  <div className="flex">
+                    <button 
+                      onClick={() => setStatusFilter('ALL')}
+                      className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${statusFilter === 'ALL' ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-muted hover:text-text-primary'}`}
+                    >
+                      All ({dealers.length})
+                    </button>
+                    <button 
+                      onClick={() => setStatusFilter('ACTIVE')}
+                      className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${statusFilter === 'ACTIVE' ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-muted hover:text-text-primary'}`}
+                    >
+                      Active ({dealers.filter(d => d.cur > 0).length})
+                    </button>
+                    <button 
+                      onClick={() => setStatusFilter('INACTIVE')}
+                      className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${statusFilter === 'INACTIVE' ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-muted hover:text-text-primary'}`}
+                    >
+                      Inactive ({dealers.filter(d => d.cur === 0).length})
+                    </button>
+                  </div>
+                  {/* Pagination Controls */}
+                  {paginationControls}
+                </div>
+              )}
             />
           </CollapsibleCard>
         </div>

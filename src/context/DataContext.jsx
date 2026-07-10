@@ -199,7 +199,7 @@ export function DataProvider({ children }) {
       ...rawData.intel,
       // 1. Filtered states, districts, and dealers sorted by impactScore
       scoredStates: [...states].map(s => {
-        const { impactScore, severity, theme } = getBusinessImpact(s.cur, s.prev, s.share || 0, 'STATE', s.state);
+        const { impactScore, severity, theme } = getBusinessImpact(s.cur, s.prev, s.share || 0, 'STATE', s.state, s.expectedMtd);
         return {
           ...s,
           impactScore,
@@ -212,7 +212,7 @@ export function DataProvider({ children }) {
 
       scoredDistricts: [...districts].map(dist => {
         const distShare = dynamicTotalCur > 0 ? (dist.cur / dynamicTotalCur) * 100 : 0;
-        const { impactScore, severity, theme } = getBusinessImpact(dist.cur, dist.prev, distShare, 'DISTRICT', dist.state);
+        const { impactScore, severity, theme } = getBusinessImpact(dist.cur, dist.prev, distShare, 'DISTRICT', dist.state, dist.expectedMtd);
         return {
           ...dist,
           impactScore,
@@ -225,7 +225,7 @@ export function DataProvider({ children }) {
 
       scoredDealers: [...dealers].map(dl => {
         const dealerShare = dynamicTotalCur > 0 ? (dl.cur / dynamicTotalCur) * 100 : 0;
-        const { impactScore, severity, theme } = getBusinessImpact(dl.cur, dl.prev, dealerShare, 'DEALER', dl.state);
+        const { impactScore, severity, theme } = getBusinessImpact(dl.cur, dl.prev, dealerShare, 'DEALER', dl.state, dl.expectedMtd);
         return {
           ...dl,
           impactScore,

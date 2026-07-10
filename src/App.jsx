@@ -31,7 +31,7 @@ function GeoIntelligenceWrapper() {
       const cur = s.cur ?? 0;
       const prev = s.prev ?? 0;
       const mom = calculateMoM(cur, prev);
-      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, s.share ?? 0, 'STATE', s.state);
+      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, s.share ?? 0, 'STATE', s.state, s.expectedMtd);
 
       const orderCur = s.orderCur ?? 0;
       const orderPrev = s.orderPrev ?? 0;
@@ -52,6 +52,7 @@ function GeoIntelligenceWrapper() {
         pendingQty: s.pendingQty ?? 0,
         pendingHistory: s.pendingHistory ?? {},
         dailyAvgQty: s.dailyAvgQty ?? 0,
+        expectedMtd: s.expectedMtd ?? 0,
 
         // Order variables
         orderCur,
@@ -75,7 +76,7 @@ function GeoIntelligenceWrapper() {
       const prev = d.prev ?? 0;
       const mom = calculateMoM(cur, prev);
       const share = totalCur > 0 ? (cur / totalCur) * 100 : 0;
-      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, share, 'DISTRICT', d.state);
+      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, share, 'DISTRICT', d.state, d.expectedMtd);
 
       const orderCur = d.orderCur ?? 0;
       const orderPrev = d.orderPrev ?? 0;
@@ -213,6 +214,8 @@ function RequireAuth({ children }) {
   return <DataProvider>{children}</DataProvider>;
 }
 
+
+
 function App() {
   return (
     <AuthProvider>
@@ -225,6 +228,7 @@ function App() {
             <Route path="states" element={<StateIntelligenceWrapper />} />
             <Route path="districts" element={<DistrictIntelligence />} />
             <Route path="dealers" element={<DealerIntelligence />} />
+            <Route path="risk" element={<Navigate to="/alerts" replace />} />
             <Route path="war-room" element={<AIWarRoom />} />
             <Route path="alerts" element={<AlertIntelligence />} />
             <Route path="geo" element={<GeoIntelligenceWrapper />} />

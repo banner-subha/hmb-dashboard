@@ -72,7 +72,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         {
           accessorKey: 'state',
           header: 'State',
-          meta: { width: '35%', minWidth: '200px' },
+          meta: { width: '35%', minWidth: '180px' },
           cell: info => {
             const row = info.row.original;
             const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
@@ -95,7 +95,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         {
           id: 'pendingQty',
           header: 'Pending Orders',
-          meta: { width: '15%' },
+          meta: { width: '20%', minWidth: '110px' },
           cell: info => {
             const row = info.row.original;
             const val = getPendingForPeriod(row, selectedPendingMonth);
@@ -115,7 +115,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         {
           id: 'sharePct',
           header: 'Share %',
-          meta: { width: '15%' },
+          meta: { width: '15%', minWidth: '80px' },
           cell: info => {
             const row = info.row.original;
             const sharePct = getSharePctForPeriod(row, selectedPendingMonth, totalPending);
@@ -125,7 +125,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         {
           id: 'clearance',
           header: 'Backlog Clearance',
-          meta: { width: '25%' },
+          meta: { width: '30%', minWidth: '160px' },
           cell: info => {
             const row = info.row.original;
             const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
@@ -155,7 +155,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       {
         accessorKey: 'state',
         header: 'State',
-        meta: { width: '35%', minWidth: '200px' },
+        meta: { width: '28%', minWidth: '220px' },
         cell: info => {
           const row = info.row.original;
           return (
@@ -174,19 +174,19 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       {
         accessorKey: 'cur',
         header: 'Current Vol',
-        meta: { width: '12%' },
+        meta: { width: '15%', minWidth: '110px' },
         cell: info => <span className="font-medium">{formatMT(info.getValue())}</span>,
       },
       {
         accessorKey: 'prev',
         header: 'Prev Vol',
-        meta: { width: '12%' },
+        meta: { width: '15%', minWidth: '110px' },
         cell: info => <span className="text-text-muted">{formatMT(info.getValue())}</span>,
       },
       {
         header: 'Trend',
         accessorKey: 'mom',
-        meta: { width: '12%' },
+        meta: { width: '12%', minWidth: '95px' },
         cell: info => {
           const row = info.row.original;
           return <MoMIndicator cur={row.cur} prev={row.prev} />;
@@ -195,13 +195,13 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       {
         accessorKey: 'share',
         header: 'Share %',
-        meta: { width: '8%' },
+        meta: { width: '10%', minWidth: '80px' },
         cell: info => <span className="text-text-muted">{info.getValue()}%</span>,
       },
       {
         id: 'pace',
         header: 'Pace vs Avg',
-        meta: { width: '170px' },
+        meta: { width: '20%', minWidth: '165px' },
         cell: info => {
           const row = info.row.original;
           const { lossFlag, lossDeltaPct, currentDailyRate, dailyAvgQty } = row;
@@ -221,7 +221,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
             const shortRateText = `${curRate.toFixed(1)} vs ${avgQty.toFixed(1)} MT/d`;
             
             return (
-              <div className="flex flex-col select-none cursor-help" title={fullTooltip} style={{ minWidth: '160px', maxWidth: '180px' }}>
+              <div className="flex flex-col select-none cursor-help" title={fullTooltip} style={{ minWidth: '145px', maxWidth: '170px' }}>
                 <span className={`text-sm font-bold ${colorClass}`}>
                   {showPct}
                 </span>
@@ -237,59 +237,6 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       }
     ];
   }, [metricMode, selectedPendingMonth, states]);
-
-  const topImpactedDistricts = useMemo(() => {
-    if (!data || !data.states || !data.districts || !filters.selectedState) return [];
-
-    const selectedStateName = filters.selectedState.replace(/\s+/g, '').toUpperCase();
-    const stateDistricts = data.districts.filter(d => d.state && d.state.replace(/\s+/g, '').toUpperCase() === selectedStateName);
-
-    if (metricMode === 'PENDING') {
-      const totalPending = getTotalPendingForPeriod(stateDistricts, selectedPendingMonth);
-      return stateDistricts
-        .map(d => {
-          const cur = getPendingForPeriod(d, selectedPendingMonth);
-          const sharePct = getSharePctForPeriod(d, selectedPendingMonth, totalPending);
-          const { severity, impactScore, theme } = getBusinessImpact(cur, 0, sharePct, 'DISTRICT', d.state);
-          return {
-            ...d,
-            cur,
-            prev: 0,
-            mom: null,
-            impactScore,
-            severity,
-            theme,
-            drop: cur
-          };
-        })
-        .filter(d => d.cur > 0)
-        .sort((a, b) => b.cur - a.cur)
-        .slice(0, 5);
-    }
-
-    const totalCur = data.totalCur ?? 0;
-    return stateDistricts
-      .map(d => {
-        const cur = d.cur || 0;
-        const prev = d.prev || 0;
-        const mom = calculateMoM(cur, prev);
-        const share = totalCur > 0 ? (cur / totalCur) * 100 : 0;
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, share, 'DISTRICT', d.state);
-        const drop = Math.max(0, prev - cur);
-        return {
-          ...d,
-          cur,
-          prev,
-          mom,
-          impactScore,
-          severity,
-          theme,
-          drop
-        };
-      })
-      .sort((a, b) => b.impactScore - a.impactScore || b.drop - a.drop || b.cur - a.cur)
-      .slice(0, 5);
-  }, [data, filters.selectedState, metricMode, selectedPendingMonth]);
 
   if (loading) return (
     <div className="space-y-6">
@@ -394,7 +341,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Col: State List/Table */}
-        <div className={`${selectedStateData ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-6 transition-all duration-300`}>
+        <div className={`${selectedStateData ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-6 transition-all duration-300`}>
           <CollapsibleCard title={metricMode === 'PENDING' ? 'State Pending Order Rankings' : 'State Performance Rankings'}>
             <DataTable 
               data={states} 
@@ -403,103 +350,54 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
             />
           </CollapsibleCard>
 
-          {/* Top 5 Impacted Districts */}
           {selectedStateData && (
-            <CollapsibleCard title={metricMode === 'PENDING' ? `Top 5 Districts by Pending (${selectedStateData.state})` : `Top 5 Impacted Districts (${selectedStateData.state})`}>
-              {topImpactedDistricts.length === 0 ? (
+            <CollapsibleCard 
+              title={`Inactive Dealers in ${selectedStateData.state}`} 
+              badge={<span className="badge bg-severity-critical/20 text-severity-critical">{data.intel?.inactiveDealers?.length || 0}</span>}
+            >
+              {(!data.intel?.inactiveDealers || data.intel.inactiveDealers.length === 0) ? (
                 <div className="text-center text-text-muted py-6 text-sm">
-                  No district pending orders available for this state.
+                  No inactive dealers in this state.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {topImpactedDistricts.map(d => (
+                  {data.intel.inactiveDealers.slice(0, 5).map((d, i) => (
                     <div 
-                      key={d.district}
-                      onClick={() => {
-                        dispatch({ type: 'SET_STATE', payload: d.state });
-                        dispatch({ type: 'SET_DISTRICT', payload: d.district });
-                        navigate(`/districts?state=${d.state}&district=${d.district}`);
-                      }}
-                      className="p-3 bg-bg-secondary/40 hover:bg-bg-card-hover border border-border/20 hover:border-border/60 rounded-xl transition-all duration-200 cursor-pointer flex flex-col gap-2 relative overflow-hidden group shadow-sm"
+                      key={i} 
+                      onClick={() => navigate(`/dealers?state=${d.state}&district=${d.district}&search=${d.client}`)}
+                      className="p-3 bg-bg-secondary/40 hover:bg-bg-card-hover border border-border/20 hover:border-border/60 rounded-xl transition-all duration-200 cursor-pointer flex justify-between items-center gap-3 relative overflow-hidden group shadow-sm"
                     >
-                      {/* Top Row: Name and badge, Volume and trend */}
-                      <div className="flex justify-between items-center gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="font-bold text-text-primary text-sm sm:text-base truncate group-hover:text-accent-blue transition-colors">
-                            {d.district}
-                          </span>
-                           <ImpactBadge tier={d.severity} score={d.impactScore} />
-                        </div>
-                        <div className="flex items-center gap-4 shrink-0 text-right">
-                          <div>
-                            <span className="font-semibold text-text-primary text-sm block">
-                              {formatMT(d.cur)}
-                            </span>
-                            <span className="text-[10px] text-text-muted">
-                              {metricMode === 'PENDING' ? 'Pending MT' : 'Current Vol'}
-                            </span>
-                          </div>
-                          <div className="w-[70px] flex justify-end">
-                            {metricMode === 'PENDING' ? (
-                              <span className="text-xs font-bold text-accent-blue">
-                                {(() => {
-                                  const totalPending = getTotalPendingForPeriod(data.districts.filter(td => td.state === d.state), selectedPendingMonth);
-                                  return getSharePctForPeriod(d, selectedPendingMonth, totalPending);
-                                })()}% share
-                              </span>
-                            ) : (
-                              <MoMIndicator cur={d.cur} prev={d.prev} className="text-xs font-bold" />
-                            )}
-                          </div>
-                        </div>
+                      <div className="min-w-0">
+                        <span className="font-bold text-text-primary text-sm block truncate group-hover:text-accent-blue transition-colors">
+                          {d.client}
+                        </span>
+                        <span className="text-[10px] text-text-muted uppercase mt-0.5 block truncate">
+                          {d.district} • Products: {d.products || 'None'}
+                        </span>
                       </div>
-
-                      {/* Bottom Row: Progress bar and description */}
-                      <div className="space-y-1.5 mt-1">
-                        <div className="w-full h-1.5 bg-bg-primary rounded-full overflow-hidden relative border border-border/10">
-                          <div 
-                            className="h-full rounded-full transition-all duration-500 ease-out" 
-                            style={{ 
-                              width: `${d.impactScore}%`, 
-                              backgroundColor: d.theme.color,
-                              boxShadow: `0 0 8px ${d.theme.color}40`
-                            }} 
-                          />
-                        </div>
-                        <div className="flex justify-between items-center text-[11px]">
-                          <span className="text-text-muted">
-                            {metricMode === 'PENDING' ? (
-                              <>
-                                Backlog clearance: <strong style={{ color: d.theme.color }} className="font-bold">
-                                  {getBacklogClearance(d.cur, d.dailyAvgQty).text}
-                                </strong>
-                              </>
-                            ) : (
-                              d.drop > 0 ? (
-                                <>
-                                  Loss of <strong style={{ color: d.theme.color }} className="font-bold">{formatMT(d.drop)}</strong>
-                                </>
-                              ) : (
-                                <span className="text-severity-low font-medium">No volume loss</span>
-                              )
-                            )}
-                          </span>
-                          <span className="text-[10px] text-text-muted bg-bg-primary/50 px-2 py-0.5 rounded font-mono border border-border/10">
-                            {metricMode === 'PENDING' ? `Score: ${d.impactScore}` : `Impact: ${d.impactScore}`}
-                          </span>
-                        </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-sm font-semibold text-severity-critical block">
+                          -{formatMT(d.prevVolume)}
+                        </span>
+                        <span className="text-[10px] text-text-muted">Lost Vol</span>
                       </div>
                     </div>
                   ))}
+                  {data.intel.inactiveDealers.length > 5 && (
+                    <div className="text-center text-xs text-text-muted pt-1">
+                      + {data.intel.inactiveDealers.length - 5} more inactive dealers
+                    </div>
+                  )}
                 </div>
               )}
             </CollapsibleCard>
           )}
+
         </div>
 
         {/* Right Col: Detail Panel (only shows if state selected) */}
         {selectedStateData && (
-          <div className="lg:col-span-5 space-y-6">
+          <div className="lg:col-span-4 space-y-6">
             <CollapsibleCard 
               title={`${selectedStateData.state} ${metricMode === 'PENDING' ? 'Pending Analysis' : 'Intelligence'}`} 
               accentColor={selectedAccentColor}

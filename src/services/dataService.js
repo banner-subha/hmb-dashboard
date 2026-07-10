@@ -1,10 +1,4 @@
-/**
- * Data Service — Abstraction Layer
- * 
- * All data access goes through this service.
- * Currently reads from static JSON files.
- * Future migration to Supabase/Firebase requires ONLY changing this file.
- */
+import { getBusinessImpact } from '../utils/trendEngine.js';
 
 let DATA_URL = 'https://hubydueitefxxxrbpnjk.supabase.co/storage/v1/object/public/dashboard-data/latest.json';
 
@@ -86,6 +80,33 @@ function cleanData(data) {
         { periodKey: `${prevYear}-${String(prevMonth).padStart(2, '0')}`, year: prevYear, month: prevMonth, label: `${months[prevMonth - 1]} ${prevYear}` },
       ];
     }
+  }
+
+  if (data.alerts && Array.isArray(data.alerts)) {
+    // Recalculate root counts directly from the backend-provided alert severities
+    let criticalCount = 0;
+    let highCount = 0;
+    let mediumCount = 0;
+    let realAlertsCount = 0;
+
+    data.alerts.forEach(alert => {
+      if (alert.severity === 'CRITICAL') {
+        criticalCount++;
+        realAlertsCount++;
+      } else if (alert.severity === 'HIGH') {
+        highCount++;
+        realAlertsCount++;
+      } else if (alert.severity === 'MEDIUM') {
+        mediumCount++;
+        realAlertsCount++;
+      }
+    });
+
+    data.alertCount = realAlertsCount;
+    data.criticalCount = criticalCount;
+    data.highCount = highCount;
+    data.mediumCount = mediumCount;
+    data.hasAlert = realAlertsCount > 0;
   }
 
   return data;
