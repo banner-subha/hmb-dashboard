@@ -1,4 +1,5 @@
 import express from 'express';
+import { randomUUID } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
@@ -131,12 +132,49 @@ async function main() {
     process.exit(1);
   }
 
-  const transport = new StreamableHTTPServerTransport();
+  // Stateless transport: no sessionIdGenerator needed since each request
+  // gets fresh data from the in-memory store and there's no per-session state.
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID()
+  });
   await server.connect(transport);
 
   const app = express();
-  app.post('/mcp', (req, res) => {
-    transport.handleRequest(req, res);
+  app.use(express.json());
+
+  app.post('/mcp', async (req, res) => {
+    try {
+      await transport.handleRequest(req, res, req.body);
+    } catch (err) {
+      console.error('HMB MCP Server: Request error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message });
+      }
+    }
+  });
+
+  // Streamable HTTP transport also expects GET (server->client stream)
+  // and DELETE (session teardown) on the same route.
+  app.get('/mcp', async (req, res) => {
+    try {
+      await transport.handleRequest(req, res);
+    } catch (err) {
+      console.error('HMB MCP Server: GET /mcp error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message });
+      }
+    }
+  });
+
+  app.delete('/mcp', async (req, res) => {
+    try {
+      await transport.handleRequest(req, res);
+    } catch (err) {
+      console.error('HMB MCP Server: DELETE /mcp error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message });
+      }
+    }
   });
 
   const PORT = process.env.PORT || 3001;
