@@ -1486,20 +1486,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <MapPin className="w-5 h-5" style={{ color: '#3b82f6' }} />
-            {selectedState ? `${selectedState} — District View` : 'India Geographic Intelligence'}
+            {selectedState ? selectedState : 'Regional Sales Distribution'}
           </h2>
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ background: '#1e293b', border: '1px solid #334155', color: '#94a3b8' }}>
-              {filterState.type === "PENDING"
-                ? `Viewing: ${pendingAvailableMonths.find(m => m.periodKey === selectedPendingMonth)?.label || selectedPendingMonth}`
-                : `${monthButtons.curMonthKey} vs ${monthButtons.prevMonthKey}`}
-            </span>
-            <span className="text-sm font-medium" style={{ color: '#94a3b8' }}>
-              {selectedState
-                ? 'Hover districts for details · Scroll/drag to zoom and pan'
-                : 'Click a state to drill into districts · Hover for tooltip · Scroll to zoom'}
-            </span>
-          </div>
         </div>
       </div>
 
