@@ -1225,38 +1225,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
   const hideTip = useCallback(() => {
     setTooltip(t => t.visible ? { ...t, visible: false } : t);
-    // Restore highlighted map paths (especially for mobile taps)
-    d3.selectAll(".map-path").each(function() {
-      const selection = d3.select(this);
-      const origFill = selection.property("__origFill");
-      if (origFill) {
-        const origStroke = selection.property("__origStroke") || "#0f1117";
-        const origStrokeWidth = selection.property("__origStrokeWidth") || (selectedState ? 0.4 : 0.7);
-        selection
-          .attr("fill", origFill)
-          .attr("stroke", origStroke)
-          .attr("stroke-width", origStrokeWidth)
-          .style("opacity", "1");
-      }
-    });
-  }, [selectedState]);
-
-  // Global click/touch listener to dismiss tooltips when tapping outside map shapes on mobile devices
-  useEffect(() => {
-    const handleOutsideInteraction = (e) => {
-      if (!e.target.closest('.map-path')) {
-        hideTip();
-      }
-    };
-    
-    window.addEventListener('click', handleOutsideInteraction, { passive: true });
-    window.addEventListener('touchstart', handleOutsideInteraction, { passive: true });
-    
-    return () => {
-      window.removeEventListener('click', handleOutsideInteraction);
-      window.removeEventListener('touchstart', handleOutsideInteraction);
-    };
-  }, [hideTip]);
+  }, []);
 
   // ── render features ──
   const activeFeatures = selectedState ? districtGeo : stateGeo;
