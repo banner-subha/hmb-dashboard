@@ -12,6 +12,8 @@ import { formatMT } from '../utils/formatters';
 import { calculateMoM, formatTrend, getTrendColor, getSeverityTheme, getBusinessImpact } from '../utils/trendEngine';
 import { useNavigate } from 'react-router-dom';
 import SkeletonLoader from '../components/common/SkeletonLoader';
+import { m } from 'framer-motion';
+import { staggerContainer, kpiCard } from '../utils/motionVariants';
 
 
 export default function ExecutiveOverview() {
@@ -58,34 +60,47 @@ export default function ExecutiveOverview() {
       <FilterBar />
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard 
-          label="Total Dispatch" 
-          value={formatMT(data.totalCur)} 
-          momDisplay={totalTrendDisplay}
-          momColor={totalTrendColor}
-          subtitle="vs Previous Period"
-          accentColor="#3b82f6"
-        />
-        <KPICard 
-          label="Total Pending Orders" 
-          value={formatMT(data.pendingTotal)} 
-          subtitle={data.pendingTotal > 0 ? "Active Order Backlog" : "No active backlog"}
-          accentColor="#f97316"
-        />
-        <KPICard 
-          label="Active Alerts" 
-          value={alertCount || 0} 
-          subtitle="requires attention"
-          accentColor={alertCount > 0 ? "#ef4444" : "#22c55e"}
-        />
-        <KPICard 
-          label="Active Dealers" 
-          value={data.dealers?.filter(d => d.cur > 0).length || 0} 
-          subtitle="currently transacting"
-          accentColor="#8b5cf6"
-        />
-      </div>
+      <m.div 
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        <m.div variants={kpiCard}>
+          <KPICard 
+            label="Total Dispatch" 
+            value={formatMT(data.totalCur)} 
+            momDisplay={totalTrendDisplay}
+            momColor={totalTrendColor}
+            subtitle="vs Previous Period"
+            accentColor="#3b82f6"
+          />
+        </m.div>
+        <m.div variants={kpiCard}>
+          <KPICard 
+            label="Total Pending Orders" 
+            value={formatMT(data.pendingTotal)} 
+            subtitle={data.pendingTotal > 0 ? "Active Order Backlog" : "No active backlog"}
+            accentColor="#f97316"
+          />
+        </m.div>
+        <m.div variants={kpiCard}>
+          <KPICard 
+            label="Active Alerts" 
+            value={alertCount || 0} 
+            subtitle="requires attention"
+            accentColor={alertCount > 0 ? "#ef4444" : "#22c55e"}
+          />
+        </m.div>
+        <m.div variants={kpiCard}>
+          <KPICard 
+            label="Active Dealers" 
+            value={data.dealers?.filter(d => d.cur > 0).length || 0} 
+            subtitle="currently transacting"
+            accentColor="#8b5cf6"
+          />
+        </m.div>
+      </m.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
@@ -154,13 +169,13 @@ export default function ExecutiveOverview() {
         </div>
 
         {/* Right Column - Intelligence (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-8">
           
           {/* AI Exec Summary */}
           {intelligence?.executive_summary && (
             <div>
               <CollapsibleCard title="AI Executive Summary" accentColor="#06b6d4">
-                <p className="text-sm text-text-secondary leading-relaxed">
+                <p className="text-[15px] text-text-secondary leading-relaxed md:leading-loose py-2">
                   {intelligence.executive_summary}
                 </p>
               </CollapsibleCard>
@@ -171,9 +186,9 @@ export default function ExecutiveOverview() {
           {intelligence?.escalation_flags?.length > 0 && (
             <div>
               <CollapsibleCard title="Escalation Flags" badge={<SeverityBadge severity="CRITICAL" />} accentColor="#ef4444">
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {intelligence.escalation_flags.map((flag, idx) => (
-                    <div key={idx} className="p-3 bg-severity-critical/10 border-l-4 border-severity-critical rounded-r-lg text-sm text-text-primary">
+                    <div key={idx} className="p-4 bg-severity-critical/10 border-l-4 border-severity-critical rounded-r-lg text-[15px] text-text-primary leading-relaxed">
                       {flag}
                     </div>
                   ))}
@@ -184,12 +199,12 @@ export default function ExecutiveOverview() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <CollapsibleCard title="Root Cause Analysis">
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {intelligence?.root_cause_analysis?.map((rc, idx) => (
-                  <div key={idx} className="p-3 bg-bg-secondary rounded-lg border-l-2 border-accent-blue">
-                    <div className="text-xs font-bold text-accent-blue mb-1">{rc.finding}</div>
+                  <div key={idx} className="p-4 bg-bg-secondary rounded-lg border-l-2 border-accent-blue space-y-1.5">
+                    <div className="text-sm font-bold text-accent-blue leading-relaxed">{rc.finding}</div>
                     {rc.impact_mt > 0 && (
-                      <div className="text-[10px] text-text-muted">
+                      <div className="text-[11px] text-text-muted mt-1">
                         Impact: <span className="text-severity-high font-bold">-{formatMT(rc.impact_mt)}</span>
                       </div>
                     )}
@@ -199,14 +214,14 @@ export default function ExecutiveOverview() {
             </CollapsibleCard>
 
             <CollapsibleCard title="Recommended Actions">
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {intelligence?.recommended_actions?.slice(0, 4).map((act, idx) => (
-                  <div key={idx} className="flex flex-col gap-3 p-3 border-b border-border last:border-0">
+                  <div key={idx} className="flex flex-col gap-3 py-4 border-b border-border last:border-0">
                     <div className="flex items-center justify-between">
                       <PriorityBadge priority={act.priority} />
-                      <div className="text-[10px] text-text-muted">{act.owner} • {act.deadline_hint}</div>
+                      <div className="text-[11px] text-text-muted">{act.owner} • {act.deadline_hint}</div>
                     </div>
-                    <div className="text-xs text-text-primary leading-relaxed">{act.action}</div>
+                    <div className="text-sm text-text-primary leading-relaxed">{act.action}</div>
                   </div>
                 ))}
               </div>

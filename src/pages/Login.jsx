@@ -38,7 +38,7 @@ export default function Login() {
             <Activity className="w-8 h-8 text-accent-blue" />
           </div>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-text-primary">
+        <h2 className="mt-6 text-center text-5xl font-extrabold text-text-primary">
           HMB Ispat
         </h2>
         <p className="mt-2 text-center text-sm text-text-muted">

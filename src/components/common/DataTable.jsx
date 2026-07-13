@@ -29,16 +29,15 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
   });
 
   const paginationControls = table.getPageCount() > 1 ? (
-    <div className="flex items-center gap-1 text-xs text-text-muted select-none">
+    <div className="flex items-center gap-1.5 text-sm text-text-muted select-none">
       <button
         onClick={() => table.previousPage()}
         disabled={!table.getCanPreviousPage()}
-        className="px-3 py-1.5 rounded border border-border bg-bg-card hover:bg-bg-card-hover disabled:opacity-50 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium animate-transition"
+        className="px-4 py-2 rounded-lg border border-border bg-bg-card hover:bg-bg-card-hover disabled:opacity-40 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium"
       >
         Previous
       </button>
       
-      {/* Page Numbers */}
       {Array.from({ length: table.getPageCount() }, (_, i) => {
         const currentPage = table.getState().pagination.pageIndex;
         const totalPages = table.getPageCount();
@@ -52,9 +51,9 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
             <button
               key={i}
               onClick={() => table.setPageIndex(i)}
-              className={`px-3 py-1.5 rounded font-bold border transition-colors cursor-pointer ${
+              className={`px-3.5 py-2 rounded-lg font-bold border transition-colors cursor-pointer text-sm ${
                 currentPage === i
-                  ? 'bg-accent-blue border-accent-blue text-white font-extrabold'
+                  ? 'bg-accent-blue border-accent-blue text-white'
                   : 'border-border bg-bg-card hover:bg-bg-card-hover text-text-muted'
               }`}
             >
@@ -67,7 +66,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
           (i === 1 && currentPage > 2) ||
           (i === totalPages - 2 && currentPage < totalPages - 3)
         ) {
-          return <span key={i} className="px-1 text-text-muted">...</span>;
+          return <span key={i} className="px-1 text-text-muted text-sm">...</span>;
         }
         
         return null;
@@ -76,7 +75,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
       <button
         onClick={() => table.nextPage()}
         disabled={!table.getCanNextPage()}
-        className="px-3 py-1.5 rounded border border-border bg-bg-card hover:bg-bg-card-hover disabled:opacity-50 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium animate-transition"
+        className="px-4 py-2 rounded-lg border border-border bg-bg-card hover:bg-bg-card-hover disabled:opacity-40 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium"
       >
         Next
       </button>
@@ -90,7 +89,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
           table.getRowModel().rows.map((row) => (
             <div 
               key={row.id}
-              className={`glass-card p-4 flex flex-col gap-3 ${onRowClick ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
+              className={`glass-card p-5 flex flex-col gap-3 ${onRowClick ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
               onClick={() => onRowClick && onRowClick(row.original)}
             >
               {row.getVisibleCells().map((cell, idx) => {
@@ -107,7 +106,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
                 }
                 
                 return (
-                  <div key={cell.id} className="flex justify-between items-center gap-4 text-sm">
+                  <div key={cell.id} className="flex justify-between items-center gap-4 text-[15px]">
                     <span className="text-text-muted text-xs uppercase tracking-wider font-semibold">{headerText}</span>
                     <div className="text-right font-medium">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -123,13 +122,12 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
           </div>
         )}
 
-        {/* Mobile Pagination Controls */}
         {table.getPageCount() > 1 && (
-          <div className="flex items-center justify-between px-2 py-3 text-xs text-text-muted select-none">
+          <div className="flex items-center justify-between px-2 py-3 text-sm text-text-muted select-none">
             <button
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              className="px-3 py-1.5 rounded border border-border bg-bg-card disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed font-medium"
+              className="px-4 py-2 rounded-lg border border-border bg-bg-card disabled:opacity-40 transition-colors cursor-pointer disabled:cursor-not-allowed font-medium"
             >
               Prev
             </button>
@@ -139,7 +137,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
             <button
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              className="px-3 py-1.5 rounded border border-border bg-bg-card disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed font-medium"
+              className="px-4 py-2 rounded-lg border border-border bg-bg-card disabled:opacity-40 transition-colors cursor-pointer disabled:cursor-not-allowed font-medium"
             >
               Next
             </button>
@@ -153,16 +151,16 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
     <div className="space-y-4">
       {renderHeader && renderHeader(paginationControls)}
 
-      <div className="w-full overflow-x-auto rounded-lg border border-border bg-bg-card">
-        <table className="w-full text-sm text-left">
-          <thead className="text-xs text-text-muted uppercase bg-bg-secondary border-b border-border">
+      <div className="w-full overflow-x-auto rounded-xl border border-border bg-bg-card shadow-sm">
+        <table className="w-full text-[15px] text-left">
+          <thead className="text-sm text-text-muted uppercase bg-bg-secondary border-b border-border">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header, index) => {
                   return (
                     <th 
                       key={header.id} 
-                      className={`px-4 py-3 font-semibold tracking-wider whitespace-nowrap cursor-pointer select-none hover:bg-bg-card-hover transition-colors ${index === 0 ? 'sticky left-0 z-20 bg-bg-secondary shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]' : ''}`}
+                      className={`px-5 py-4 font-bold tracking-wider whitespace-nowrap cursor-pointer select-none hover:bg-bg-card-hover transition-colors ${index === 0 ? 'sticky left-0 z-20 bg-bg-secondary shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]' : ''}`}
                       onClick={header.column.getToggleSortingHandler()}
                       style={{ 
                         width: header.column.columnDef.meta?.width,
@@ -178,10 +176,10 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
                         {header.column.getCanSort() && (
                           <span className="text-text-muted">
                             {{
-                              asc: <ArrowUp className="w-3 h-3" />,
-                              desc: <ArrowDown className="w-3 h-3" />,
+                              asc: <ArrowUp className="w-3.5 h-3.5" />,
+                              desc: <ArrowDown className="w-3.5 h-3.5" />,
                             }[header.column.getIsSorted()] ?? (
-                              <ArrowUpDown className="w-3 h-3 opacity-50" />
+                              <ArrowUpDown className="w-3.5 h-3.5 opacity-50" />
                             )}
                           </span>
                         )}
@@ -192,7 +190,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y divide-border/80">
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <tr 
@@ -203,7 +201,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
                   {row.getVisibleCells().map((cell, index) => (
                     <td 
                       key={cell.id} 
-                      className={`px-4 py-3 ${index === 0 ? 'sticky left-0 z-10 bg-inherit shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] font-medium' : ''}`}
+                      className={`px-5 py-4 ${index === 0 ? 'sticky left-0 z-10 bg-inherit shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] font-semibold' : ''}`}
                       style={{ 
                         width: cell.column.columnDef.meta?.width,
                         minWidth: cell.column.columnDef.meta?.minWidth,
@@ -217,7 +215,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
               ))
             ) : (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-text-muted">
+                <td colSpan={columns.length} className="px-5 py-8 text-center text-text-muted">
                   No results found.
                 </td>
               </tr>
@@ -226,9 +224,8 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
         </table>
       </div>
 
-      {/* Desktop Pagination Controls */}
       {table.getFilteredRowModel().rows?.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 rounded-lg border border-border bg-bg-card text-xs text-text-muted select-none">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-4 rounded-xl border border-border bg-bg-card text-sm text-text-muted select-none shadow-sm">
           <div>
             Showing{' '}
             <span className="font-bold text-text-primary">

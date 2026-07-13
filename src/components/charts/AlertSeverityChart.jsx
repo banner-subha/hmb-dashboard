@@ -74,9 +74,9 @@ export default function AlertSeverityChart({ alerts, height = 250 }) {
           <Tooltip content={<CustomTooltip />} isAnimationActive={false} />
           <Legend 
             verticalAlign="bottom" 
-            height={36} 
+            height={40} 
             iconType="circle"
-            wrapperStyle={{ fontSize: '10px', color: '#94a3b8' }}
+            wrapperStyle={{ fontSize: '12px', color: 'var(--color-text-muted)' }}
           />
         </PieChart>
       )}

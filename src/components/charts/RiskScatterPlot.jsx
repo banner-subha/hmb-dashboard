@@ -85,21 +85,21 @@ export default function RiskScatterPlot({ data, height = 300 }) {
           height={height} 
           margin={{ top: 10, right: 10, bottom: 10, left: -20 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
           <XAxis 
             type="number" 
             dataKey="volume" 
             name="Volume" 
-            stroke="#475569" 
-            fontSize={11}
+            stroke="var(--color-text-dim)" 
+            fontSize={12}
             tickFormatter={(val) => `${val} MT`}
           />
           <YAxis 
             type="number" 
             dataKey="impactScore" 
             name="Impact Score" 
-            stroke="#475569" 
-            fontSize={11}
+            stroke="var(--color-text-dim)" 
+            fontSize={12}
             domain={[0, 100]}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#475569' }} isAnimationActive={false} />

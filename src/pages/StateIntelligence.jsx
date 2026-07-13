@@ -11,9 +11,10 @@ import { formatMT } from '../utils/formatters';
 import { calculateMoM, getBusinessImpact } from '../utils/trendEngine';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 import { getPendingForPeriod, getTotalPendingForPeriod, getSharePctForPeriod, getBacklogClearance } from '../utils/pending';
+import { Map } from 'lucide-react';
 
 export default function StateIntelligence({ pendingAvailableMonths = [] }) {
-  const { data, loading, error, filters, dispatch } = useData();
+  const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -32,6 +33,12 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       return a.month - b.month;
     });
   }, [pendingAvailableMonths]);
+
+  // Compute national pending total to calculate true share of backlog (strategically correct)
+  const nationalPendingTotal = useMemo(() => {
+    const baseStates = rawData?.states || data?.states || [];
+    return getTotalPendingForPeriod(baseStates, selectedPendingMonth);
+  }, [rawData, data, selectedPendingMonth]);
 
   // Sync URL params to Context filters
   useEffect(() => {
@@ -67,7 +74,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
   const columns = useMemo(() => {
     if (metricMode === 'PENDING') {
-      const totalPending = getTotalPendingForPeriod(states, selectedPendingMonth);
+      const totalPending = nationalPendingTotal;
       return [
         {
           accessorKey: 'state',
@@ -264,12 +271,29 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
     });
   }, [selectedStateData, selectedPendingMonth]);
 
+  // Compute top pending dealers for the selected state (highest → lowest)
+  const topPendingDealers = useMemo(() => {
+    if (!selectedStateData || !data?.dealers) return [];
+    const stateNorm = selectedStateData.state?.replace(/\s+/g, '').toUpperCase();
+    return (data.dealers || [])
+      .filter(dl => dl.state?.replace(/\s+/g, '').toUpperCase() === stateNorm)
+      .map(dl => ({
+        client: dl.client,
+        state: dl.state,
+        district: dl.district,
+        pendingQty: getPendingForPeriod(dl, selectedPendingMonth),
+        products: (dl.products || []).map(p => p.product).join(', ')
+      }))
+      .filter(dl => dl.pendingQty > 0)
+      .sort((a, b) => b.pendingQty - a.pendingQty);
+  }, [selectedStateData, data?.dealers, selectedPendingMonth]);
+
   // Compute accent color from frontend engine for selected state
   const selectedAccentColor = selectedStateData 
     ? (metricMode === 'PENDING'
       ? (() => {
           const pendingQty = getPendingForPeriod(selectedStateData, selectedPendingMonth);
-          const totalPending = getTotalPendingForPeriod(states, selectedPendingMonth);
+          const totalPending = nationalPendingTotal;
           const sharePct = getSharePctForPeriod(selectedStateData, selectedPendingMonth, totalPending);
           return getBusinessImpact(pendingQty, 0, sharePct, 'STATE', selectedStateData.state).theme.color;
         })()
@@ -278,79 +302,183 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
   return (
     <div className="space-y-6">
-      <FilterBar>
-        {/* Divider */}
-        <div className="w-[0.5px] h-6 bg-border/60 self-center hidden md:block" />
-
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-text-muted uppercase tracking-wider mr-2">Metric View</span>
-          {[
-            { value: "DESPATCH", label: "Despatch" },
-            { value: "PENDING", label: "Pending" }
-          ].map(opt => {
-            const active = metricMode === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => setMetricMode(opt.value)}
-                className={`text-[11px] px-4 py-1.5 rounded-full border transition-all cursor-pointer ${active ? 'bg-blue-900/40 border-blue-500 text-blue-300' : 'border-border/60 text-text-muted hover:text-text-primary bg-transparent'}`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {metricMode === "PENDING" && (
-          <>
-            <div className="w-[0.5px] h-6 bg-border/60 self-center hidden md:block" />
-            
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="text-xs font-bold text-text-muted uppercase tracking-wider mr-2">Month</span>
-              <select
-                value={selectedPendingMonth}
-                onChange={(e) => setSelectedPendingMonth(e.target.value)}
-                className="filter-select select-field"
-                style={{
-                  fontSize: '12px',
-                  padding: '4px 28px 4px 10px',
-                  borderRadius: '99px',
-                  border: '0.5px solid #2d3f55',
-                  color: '#c4b5fd',
-                  background: '#2a1f3a',
-                  cursor: 'pointer',
-                  outline: 'none',
-                  appearance: 'none',
-                  backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23c4b5fd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 8px center',
-                  backgroundSize: '12px'
-                }}
-              >
-                <option value="ALL">All-Time Pending</option>
-                {sortedPendingMonths.map(opt => (
-                  <option key={opt.periodKey} value={opt.periodKey}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
-      </FilterBar>
+      {/* PAGE TITLE AT THE TOP */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4 mb-4">
+        <h2 className="text-3xl font-extrabold text-text-primary flex items-center gap-3">
+          <Map className="w-7 h-7 text-accent-blue" />
+          {metricMode === 'PENDING' ? 'State Pending Order Rankings' : 'State Performance Rankings'}
+        </h2>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Col: State List/Table */}
         <div className={`${selectedStateData ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-6 transition-all duration-300`}>
-          <CollapsibleCard title={metricMode === 'PENDING' ? 'State Pending Order Rankings' : 'State Performance Rankings'}>
+          <div className="glass-card p-6 space-y-6">
+            
+            {/* Integrated Filters Row */}
+            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between pb-4 border-b border-border/40 w-full">
+              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                <span className="text-xs font-bold text-text-muted uppercase tracking-wider mr-1">Filters:</span>
+                
+                {/* State Select */}
+                <select
+                  className="filter-select text-xs min-w-[110px] py-2 px-3"
+                  value={filters.selectedState || ''}
+                  onChange={(e) => dispatch({ type: 'SET_STATE', payload: e.target.value || null })}
+                >
+                  <option value="">All States</option>
+                  {filterOptions.states.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+
+                {/* District Select */}
+                <select
+                  className="filter-select text-xs min-w-[110px] py-2 px-3"
+                  value={filters.selectedDistrict || ''}
+                  onChange={(e) => dispatch({ type: 'SET_DISTRICT', payload: e.target.value || null })}
+                  disabled={!filters.selectedState}
+                >
+                  <option value="">All Districts</option>
+                  {filterOptions.districts.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+
+                {/* Product Select */}
+                <select
+                  className="filter-select text-xs min-w-[110px] py-2 px-3"
+                  value={filters.selectedProduct || ''}
+                  onChange={(e) => dispatch({ type: 'SET_PRODUCT', payload: e.target.value || null })}
+                >
+                  <option value="">All Products</option>
+                  {filterOptions.products.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+
+                {/* Reset Filters button */}
+                {(filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.searchQuery) && (
+                  <button
+                    onClick={() => dispatch({ type: 'RESET' })}
+                    className="text-xs text-text-muted hover:text-text-primary underline underline-offset-2 transition-colors ml-1 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Metric View Segmented Toggle & Month Dropdown */}
+              <div className="flex items-center gap-3 flex-wrap flex-shrink-0">
+                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-bg-card/40 border border-border/10 backdrop-blur-sm">
+                  {[
+                    { value: "DESPATCH", label: "Despatch" },
+                    { value: "PENDING", label: "Pending" }
+                  ].map(opt => {
+                    const active = metricMode === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setMetricMode(opt.value)}
+                        className={`text-[11px] px-3.5 py-1.5 rounded-lg border transition-all cursor-pointer font-bold uppercase tracking-wider ${
+                          active 
+                            ? 'bg-blue-900/40 border-blue-500 text-blue-300' 
+                            : 'border-transparent text-text-muted hover:text-text-primary bg-transparent'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {metricMode === "PENDING" && (
+                  <select
+                    value={selectedPendingMonth}
+                    onChange={(e) => setSelectedPendingMonth(e.target.value)}
+                    className="text-xs px-3.5 py-1.5 rounded-xl border border-border/70 text-purple-300 bg-[#0d1526] cursor-pointer outline-none appearance-none"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23c4b5fd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 8px center',
+                      backgroundSize: '12px',
+                      paddingRight: '28px'
+                    }}
+                  >
+                    {sortedPendingMonths.map(opt => (
+                      <option 
+                        key={opt.periodKey} 
+                        value={opt.periodKey}
+                        className="bg-[#0d1526] text-text-primary"
+                        style={{ backgroundColor: '#0d1526', color: '#F8FAFC' }}
+                      >
+                        {opt.label}
+                      </option>
+                    ))}
+                    <option 
+                      value="ALL"
+                      className="bg-[#0d1526] text-text-primary"
+                      style={{ backgroundColor: '#0d1526', color: '#F8FAFC' }}
+                    >
+                      Total Backlog
+                    </option>
+                  </select>
+                )}
+              </div>
+            </div>
+
             <DataTable 
               data={states} 
               columns={columns} 
               onRowClick={(row) => dispatch({ type: 'SET_STATE', payload: row.state })}
             />
-          </CollapsibleCard>
+          </div>
 
-          {selectedStateData && (
+          {/* Conditional: Top Pending Dealers (Pending mode) OR Inactive Dealers (Despatch mode) */}
+          {selectedStateData && metricMode === 'PENDING' && (
+            <CollapsibleCard 
+              title={`Top Pending Dealers in ${selectedStateData.state}`} 
+              badge={<span className="badge bg-amber-500/20 text-amber-400">{topPendingDealers.length}</span>}
+            >
+              {topPendingDealers.length === 0 ? (
+                <div className="text-center text-text-muted py-6 text-sm">
+                  No dealers with pending orders in this state.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {topPendingDealers.slice(0, 5).map((d, i) => (
+                    <div 
+                      key={i} 
+                      onClick={() => navigate(`/dealers?state=${d.state}&district=${d.district}&search=${d.client}`)}
+                      className="p-3 bg-bg-secondary/40 hover:bg-bg-card-hover border border-border/20 hover:border-border/60 rounded-xl transition-all duration-200 cursor-pointer flex justify-between items-center gap-3 relative overflow-hidden group shadow-sm"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-bold text-text-primary text-sm block truncate group-hover:text-accent-blue transition-colors">
+                          {d.client}
+                        </span>
+                        <span className="text-[10px] text-text-muted uppercase mt-0.5 block truncate">
+                          {d.district} • Products: {d.products || 'None'}
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-sm font-semibold text-amber-400 block">
+                          {formatMT(d.pendingQty)}
+                        </span>
+                        <span className="text-[10px] text-text-muted">Pending</span>
+                      </div>
+                    </div>
+                  ))}
+                  {topPendingDealers.length > 5 && (
+                    <div className="text-center text-xs text-text-muted pt-1">
+                      + {topPendingDealers.length - 5} more dealers with pending
+                    </div>
+                  )}
+                </div>
+              )}
+            </CollapsibleCard>
+          )}
+
+          {selectedStateData && metricMode === 'DESPATCH' && (
             <CollapsibleCard 
               title={`Inactive Dealers in ${selectedStateData.state}`} 
               badge={<span className="badge bg-severity-critical/20 text-severity-critical">{data.intel?.inactiveDealers?.length || 0}</span>}
@@ -399,7 +527,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         {selectedStateData && (
           <div className="lg:col-span-4 space-y-6">
             <CollapsibleCard 
-              title={`${selectedStateData.state} ${metricMode === 'PENDING' ? 'Pending Analysis' : 'Intelligence'}`} 
+              title={`${selectedStateData.state} ${metricMode === 'PENDING' ? 'Pending' : 'Despatch'}`} 
               accentColor={selectedAccentColor}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SET_STATE', payload: null }); }}
@@ -417,9 +545,9 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                         <span className="font-extrabold text-sm text-text-primary">
                           {formatMT(getPendingForPeriod(selectedStateData, selectedPendingMonth))}
                         </span>
-                        <span className="text-xs font-bold text-accent-blue bg-accent-blue/10 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] sm:text-xs font-bold text-accent-blue bg-accent-blue/10 px-2.5 py-1 rounded-full whitespace-nowrap border border-accent-blue/20">
                           {(() => {
-                            const totalPending = getTotalPendingForPeriod(states, selectedPendingMonth);
+                            const totalPending = nationalPendingTotal;
                             return getSharePctForPeriod(selectedStateData, selectedPendingMonth, totalPending);
                           })()}% Share
                         </span>
@@ -442,7 +570,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                     {metricMode === 'PENDING' ? (
                       (() => {
                         const pendingQty = getPendingForPeriod(selectedStateData, selectedPendingMonth);
-                        const totalPending = getTotalPendingForPeriod(states, selectedPendingMonth);
+                        const totalPending = nationalPendingTotal;
                         const sharePct = getSharePctForPeriod(selectedStateData, selectedPendingMonth, totalPending);
                         const { severity, impactScore } = getBusinessImpact(pendingQty, 0, sharePct, 'STATE', selectedStateData.state);
                         return <ImpactBadge tier={severity} score={impactScore} />;

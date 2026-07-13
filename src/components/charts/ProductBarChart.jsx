@@ -83,11 +83,11 @@ export default function ProductBarChart({ data, height = 300 }) {
           layout="vertical"
           margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#1e293b" />
-          <XAxis type="number" stroke="#475569" fontSize={12} tickFormatter={(val) => `${val} MT`} />
-          <YAxis dataKey="product" type="category" stroke="#94a3b8" fontSize={12} width={50} />
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--color-border)" />
+          <XAxis type="number" stroke="var(--color-text-dim)" fontSize={13} tickFormatter={(val) => `${val} MT`} />
+          <YAxis dataKey="product" type="category" stroke="var(--color-text-muted)" fontSize={13} width={60} />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} isAnimationActive={false} />
-          <Bar dataKey="cur_mt" radius={[0, 6, 6, 0]} maxBarSize={32} opacity={0.92}>
+          <Bar dataKey="cur_mt" radius={[0, 8, 8, 0]} maxBarSize={36} opacity={0.92}>
             {chartData.map((entry, index) => {
               const fillColor = PRODUCT_COLORS[entry.product] || '#94a3b8';
               return <Cell key={`cell-${index}`} fill={fillColor} />;

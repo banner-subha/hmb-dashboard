@@ -743,48 +743,17 @@ export default function AlertIntelligence() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-4">
         <div>
-          <h2 className="text-2xl font-extrabold text-text-primary flex items-center gap-3 mb-2">
-            <Activity className="w-6 h-6 text-accent-blue" />
+          <h2 className="text-4xl font-extrabold text-text-primary flex items-center gap-3 mb-2">
+            <Activity className="w-7 h-7 text-accent-blue" />
             Alert Intelligence
           </h2>
-          <p className="text-sm text-text-secondary">Enterprise operational explorer and root-cause investigation workspace</p>
         </div>
       </div>
 
-      {/* SEGMENTED TOGGLE */}
-      <div className="flex items-center gap-1 p-1 rounded-xl w-fit"
-        style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          backdropFilter: 'blur(12px)',
-        }}
-      >
-        {[
-          { key: 'DISPATCH', label: 'Dispatch', icon: TrendingDown },
-          { key: 'RISK', label: 'Risk', icon: ShieldAlert },
-        ].map(({ key, label, icon: Icon }) => {
-          const isActive = viewMode === key;
-          return (
-            <button
-              key={key}
-              onClick={() => setViewMode(key)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer"
-              style={{
-                background: isActive ? 'rgba(59,130,246,0.18)' : 'transparent',
-                color: isActive ? '#60a5fa' : 'rgba(148,163,184,0.7)',
-                border: isActive ? '1px solid rgba(59,130,246,0.35)' : '1px solid transparent',
-                boxShadow: isActive ? '0 0 16px rgba(59,130,246,0.08)' : 'none',
-              }}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* KPI CHIPS — ADAPTIVE */}
-      <div className="flex flex-wrap gap-3">
+      {/* ROW CONTAINING KPI CHIPS (LEFT) AND SEGMENTED TOGGLE (RIGHT) */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
+        {/* KPI CHIPS — ADAPTIVE */}
+        <div className="flex flex-wrap gap-3 items-center">
         {/* Active Count */}
         <div
           className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all"
@@ -898,6 +867,31 @@ export default function AlertIntelligence() {
             ))}
           </>
         )}
+        </div>
+
+        {/* SEGMENTED TOGGLE */}
+        <div className="flex items-center gap-1 p-1 rounded-xl w-fit bg-bg-card/40 border border-border/10 backdrop-blur-sm shrink-0">
+          {[
+            { key: 'DISPATCH', label: 'Dispatch', icon: TrendingDown },
+            { key: 'RISK', label: 'Risk', icon: ShieldAlert },
+          ].map(({ key, label, icon: Icon }) => {
+            const isActive = viewMode === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setViewMode(key)}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                  isActive 
+                    ? 'bg-accent-blue/20 text-accent-blue border border-accent-blue/35 shadow-[0_0_16px_rgba(59,130,246,0.08)]' 
+                    : 'bg-transparent text-text-muted/70 border border-transparent'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* COMBINED FILTER BAR & TABLE MODULE */}

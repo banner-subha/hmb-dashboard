@@ -255,27 +255,20 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, se
   return (
     <div
       ref={tooltipRef}
-      className="pointer-events-none fixed z-[9999] border transition-transform duration-75"
+      className="pointer-events-none fixed z-[9999] border transition-transform duration-75 bg-bg-elevated border-border-accent rounded-lg px-3.5 py-2.5 text-xs shadow-none"
       style={{
         left: 0,
         top:  0,
         transform: 'translate3d(0, 0, 0)',
         minWidth: 190,
-        background: '#1a2332',
-        borderColor: '#2d3f55',
-        borderRadius: '8px',
-        padding: '10px 14px',
-        fontSize: '12px',
-        boxShadow: 'none',
       }}
     >
-      <div className="font-bold text-white mb-2 text-sm truncate">{name}</div>
+      <div className="font-bold text-text-primary mb-2 text-sm truncate">{name}</div>
       {data ? (
         <div className="space-y-1.5">
           <Row 
             label={isPending ? "Pending" : "Volume"} 
             value={formatMT(isPending ? pendingQty : data.volume)} 
-            valueColor="#f1f5f9" 
           />
           {isPending ? (
             <>
@@ -283,17 +276,15 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, se
                 <Row 
                   label="Total Backlog" 
                   value={formatMT(getPendingForPeriod(data, 'ALL'))} 
-                  valueColor="#cbd5e1" 
                 />
               )}
               <Row 
                 label="Share" 
                 value={`${sharePct.toFixed(1)}%`} 
-                valueColor="#3b82f6" 
               />
               <div className="flex justify-between gap-6 items-center">
-                <span className="text-slate-500">Clearance</span>
-                <span className="font-semibold text-slate-300">
+                <span className="text-text-muted">Clearance</span>
+                <span className="font-semibold text-text-secondary">
                   {clearance.text}
                 </span>
                 <SeverityBadge severity={clearance.status} />
@@ -304,17 +295,16 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, se
               <Row 
                 label="Change" 
                 value={trendStr(data.trend)} 
-                valueColor={getTrendColor(data.trend, data.cur, data.prev)} 
               />
               <div className="flex justify-between gap-6 items-center">
-                <span className="text-slate-500">Alert</span>
+                <span className="text-text-muted">Alert</span>
                 <SeverityBadge severity={data.impactTier || 'LOW'} />
               </div>
             </>
           )}
         </div>
       ) : (
-        <div className="text-slate-500 italic">No data</div>
+        <div className="text-text-muted italic">No data</div>
       )}
     </div>
   );
@@ -322,8 +312,8 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, se
 function Row({ label, value, valueColor }) {
   return (
     <div className="flex justify-between gap-6 items-center">
-      <span className="text-slate-500">{label}</span>
-      <span className="font-semibold" style={{ color: valueColor }}>{value}</span>
+      <span className="text-text-muted">{label}</span>
+      <span className="font-semibold text-text-primary" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
     </div>
   );
 }
@@ -337,7 +327,7 @@ function Legend({ colors = HEAT_COLORS, labels = HEAT_LABELS }) {
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((it) => (
-        <div key={it.label} className="flex items-center gap-1 text-xs text-slate-200 font-medium">
+        <div key={it.label} className="flex items-center gap-1 text-xs text-text-secondary font-medium">
           <div className="w-3 h-3 rounded-sm" style={{ background: it.color }} />
           {it.label}
         </div>
@@ -349,21 +339,18 @@ function Legend({ colors = HEAT_COLORS, labels = HEAT_LABELS }) {
 // ─── Ranked entry row ─────────────────────────────────────────────────────────
 function RankRow({ rank, name, volume, trend, cur, prev, isTop }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors"
-      style={{ background: '#0d1526', borderColor: '#1e293b' }}>
-      <span className="w-5 h-5 flex-shrink-0 rounded-full text-[10px] font-bold flex items-center justify-center"
-        style={{
-          background: isTop ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)',
-          color:       isTop ? '#34d399' : '#f87171',
-        }}>
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-bg-card transition-colors">
+      <span className={`w-5 h-5 shrink-0 rounded-full text-[10px] font-bold flex items-center justify-center ${
+        isTop ? 'bg-severity-none/15 text-severity-none' : 'bg-severity-critical/15 text-severity-critical'
+      }`}>
         {rank}
       </span>
-      <span className="flex-1 text-xs text-slate-200 truncate">{name}</span>
-      <span className="text-xs font-semibold text-white flex-shrink-0">
+      <span className="flex-1 text-xs text-text-secondary truncate">{name}</span>
+      <span className="text-xs font-semibold text-text-primary shrink-0">
         {formatNumber(volume)}
       </span>
       {trend != null && (
-        <span className="text-[10px] flex-shrink-0 font-bold" style={{ color: getTrendColor(trend, cur, prev) }}>
+        <span className="text-[10px] shrink-0 font-bold" style={{ color: getTrendColor(trend, cur, prev) }}>
           {trendStr(trend)}
         </span>
       )}
@@ -1238,7 +1225,38 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
   const hideTip = useCallback(() => {
     setTooltip(t => t.visible ? { ...t, visible: false } : t);
-  }, []);
+    // Restore highlighted map paths (especially for mobile taps)
+    d3.selectAll(".map-path").each(function() {
+      const selection = d3.select(this);
+      const origFill = selection.property("__origFill");
+      if (origFill) {
+        const origStroke = selection.property("__origStroke") || "#0f1117";
+        const origStrokeWidth = selection.property("__origStrokeWidth") || (selectedState ? 0.4 : 0.7);
+        selection
+          .attr("fill", origFill)
+          .attr("stroke", origStroke)
+          .attr("stroke-width", origStrokeWidth)
+          .style("opacity", "1");
+      }
+    });
+  }, [selectedState]);
+
+  // Global click/touch listener to dismiss tooltips when tapping outside map shapes on mobile devices
+  useEffect(() => {
+    const handleOutsideInteraction = (e) => {
+      if (!e.target.closest('.map-path')) {
+        hideTip();
+      }
+    };
+    
+    window.addEventListener('click', handleOutsideInteraction, { passive: true });
+    window.addEventListener('touchstart', handleOutsideInteraction, { passive: true });
+    
+    return () => {
+      window.removeEventListener('click', handleOutsideInteraction);
+      window.removeEventListener('touchstart', handleOutsideInteraction);
+    };
+  }, [hideTip]);
 
   // ── render features ──
   const activeFeatures = selectedState ? districtGeo : stateGeo;
@@ -1474,46 +1492,29 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         {selectedState && (
           <button
             onClick={handleBack}
-            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-            style={{ background: '#161b22', border: '1px solid #1e293b', color: '#94a3b8' }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = '#3b82f6'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = '#1e293b'}
+            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-border text-text-muted hover:border-accent-blue transition-colors cursor-pointer bg-bg-card"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to India
           </button>
         )}
         <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <MapPin className="w-5 h-5" style={{ color: '#3b82f6' }} />
+          <h2 className="text-3xl font-extrabold text-text-primary flex items-center gap-2">
+            <MapPin className="w-7 h-7 text-accent-blue" />
             {selectedState ? selectedState : 'Regional Sales Distribution'}
           </h2>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div 
-        style={{
-          background: '#0d1117',
-          border: '0.5px solid #1e2a3a',
-          borderRadius: '10px',
-          padding: '12px 18px',
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: '10px',
-          flexWrap: 'wrap',
-          width: '100%',
-          marginBottom: '16px'
-        }}
-      >
-        <span style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', color: '#cbd5e1', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+      <div className="flex flex-row items-center gap-3 flex-wrap w-full mb-4 p-4 rounded-xl bg-bg-card/60 border border-border/50">
+        <span className="text-xs font-bold uppercase text-text-secondary tracking-wider whitespace-nowrap">
           Filters
         </span>
 
         {/* TYPE group */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#94a3b8', whiteSpace: 'nowrap', marginRight: '2px' }}>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-bold uppercase text-text-muted whitespace-nowrap">
             Type
           </span>
           {[
@@ -1525,16 +1526,11 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
               <button
                 key={opt.value}
                 onClick={() => setFilterState(s => ({ ...s, type: opt.value }))}
-                className="cursor-pointer"
-                style={{
-                  fontSize: '11px',
-                  padding: '4px 16px',
-                  borderRadius: '99px',
-                  border: '0.5px solid ' + (active ? '#3b82f6' : '#2d3f55'),
-                  color: active ? '#93c5fd' : '#94a3b8',
-                  background: active ? '#1e3a5f' : 'transparent',
-                  transition: 'all 0.2s'
-                }}
+                className={`text-xs px-4 py-1.5 rounded-full border transition-all cursor-pointer ${
+                  active 
+                    ? 'bg-accent-blue-soft text-blue-300 border-accent-blue/60' 
+                    : 'bg-transparent text-text-muted border-border/60 hover:text-text-primary'
+                }`}
               >
                 {opt.label}
               </button>
@@ -1542,12 +1538,12 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           })}
         </div>
 
-        {/* Divider 1 */}
-        <div style={{ width: '0.5px', height: '28px', background: '#1e2a3a', alignSelf: 'center' }} />
+        {/* Divider */}
+        <div className="w-px h-7 bg-border/50 self-center" />
 
         {/* VIEWING LABEL & MONTH dropdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', color: '#cbd5e1', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase text-text-secondary tracking-wider whitespace-nowrap">
             Viewing:
           </span>
           <select
@@ -1559,20 +1555,13 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                 setSelectedMonth(e.target.value);
               }
             }}
+            className="text-xs px-3 py-1.5 rounded-full border border-border/70 text-purple-300 bg-purple-950/30 cursor-pointer outline-none appearance-none"
             style={{
-              fontSize: '11px',
-              padding: '6px 32px 6px 12px',
-              borderRadius: '99px',
-              border: '0.5px solid #2d3f55',
-              color: '#c4b5fd',
-              background: '#2a1f3a',
-              cursor: 'pointer',
-              outline: 'none',
-              appearance: 'none',
               backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23c4b5fd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'right 8px center',
-              backgroundSize: '14px'
+              backgroundSize: '14px',
+              paddingRight: '32px'
             }}
           >
             {filterState.type === "PENDING" ? (
@@ -1594,12 +1583,12 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           </select>
         </div>
 
-        {/* Divider 2 */}
-        <div style={{ width: '0.5px', height: '28px', background: '#1e2a3a', alignSelf: 'center' }} />
+          {/* Divider */}
+        <div className="w-px h-7 bg-border/50 self-center" />
 
         {/* PRODUCTS group */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'nowrap' }}>
-          <span style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#94a3b8', whiteSpace: 'nowrap', marginRight: '2px' }}>
+        <div className="flex items-center gap-1.5 flex-nowrap">
+          <span className="text-xs font-bold uppercase text-text-muted whitespace-nowrap">
             Products
           </span>
           {availableProducts.map(prod => {
@@ -1616,16 +1605,11 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                     return { ...s, item: newItem };
                   });
                 }}
-                className="cursor-pointer"
-                style={{
-                  fontSize: '11px',
-                  padding: '4px 12px',
-                  borderRadius: '99px',
-                  border: '0.5px solid ' + (active ? '#22c55e' : '#2d3f55'),
-                  color: active ? '#86efac' : '#94a3b8',
-                  background: active ? '#1a3a2a' : 'transparent',
-                  transition: 'all 0.2s'
-                }}
+                className={`text-xs px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
+                  active 
+                    ? 'bg-green-950/30 text-green-300 border-severity-none/60' 
+                    : 'bg-transparent text-text-muted border-border/60 hover:text-text-primary'
+                }`}
               >
                 {prod}
               </button>
@@ -1633,8 +1617,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           })}
         </div>
 
-        {/* Divider 3 */}
-        <div style={{ width: '0.5px', height: '28px', background: '#1e2a3a', alignSelf: 'center' }} />
+        {/* Divider */}
+        <div className="w-px h-7 bg-border/50 self-center" />
 
         {/* Reset button */}
         <button
@@ -1644,17 +1628,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
               setSelectedMonth(monthButtons.curMonthKey);
             }
           }}
-          className="cursor-pointer"
-          style={{
-            fontSize: '11px',
-            color: '#4a5568',
-            border: 'none',
-            background: 'transparent',
-            padding: '3px 6px',
-            transition: 'color 0.2s'
-          }}
-          onMouseEnter={e => e.currentTarget.style.color = '#94a3b8'}
-          onMouseLeave={e => e.currentTarget.style.color = '#4a5568'}
+          className="text-xs text-text-dim hover:text-text-muted transition-colors border-none bg-transparent cursor-pointer px-1.5"
         >
           Reset
         </button>
@@ -1665,10 +1639,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
         {/* ── MAP ── */}
         <div
-          className="rounded-xl border overflow-hidden relative flex-shrink-0"
+          className="rounded-xl border border-border overflow-hidden relative flex-shrink-0 bg-bg-secondary"
           style={{ 
-            background: '#161b22', 
-            borderColor: '#1e293b',
             width: `${W}px`,
             height: `${H}px`
           }}

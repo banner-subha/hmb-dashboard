@@ -103,8 +103,8 @@ export default function DashboardLayout() {
           </button>
         </div>
 
-        <div className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-8rem)]">
-          <div className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 px-2 mt-4">
+        <div className="p-4 space-y-0.5 overflow-y-auto h-[calc(100vh-8rem)]">
+          <div className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3 px-2 mt-4">
             Intelligence
           </div>
           {NAV_ITEMS.map((item) => {
@@ -125,10 +125,10 @@ export default function DashboardLayout() {
           })}
         </div>
 
-        <div className="absolute bottom-0 w-full p-4 border-t border-border bg-bg-secondary">
+        <div className="absolute bottom-0 w-full px-4 py-3.5 border-t border-border bg-bg-secondary">
           <div className="flex items-center justify-between px-2">
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">{user?.username}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold text-text-primary">{user?.username}</span>
               <span className="text-xs text-text-muted">{user?.role}</span>
             </div>
             <button 
@@ -136,7 +136,7 @@ export default function DashboardLayout() {
               className="p-2 text-text-muted hover:text-severity-critical transition-colors rounded-lg hover:bg-severity-critical/10"
               title="Logout"
             >
-              <Icons.LogOut className="w-4 h-4" />
+              <Icons.LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -154,106 +154,42 @@ export default function DashboardLayout() {
             <Icons.Menu className="w-5 h-5" />
           </button>
 
-          <div
-            id="header-option-c"
-            style={{
-              display: 'flex',
-              background: '#0a0e1a',
-              border: '1px solid rgba(255,255,255,0.07)',
-              borderRadius: '10px',
-              overflow: 'hidden',
-            }}
-          >
+          <div className="flex bg-bg-secondary/80 border border-border/10 rounded-xl overflow-hidden shadow-sm">
             {/* Left Blue Accent Bar */}
-            <div
-              style={{
-                width: '4px',
-                flexShrink: 0,
-                background: '#2255cc',
-                borderRadius: '10px 0 0 10px',
-              }}
-            />
+            <div className="w-[4px] shrink-0 bg-accent-blue-strong rounded-l-xl" />
 
             {/* Inner content — two columns */}
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '9px 20px 9px 16px',
-                gap: '16px',
-                flexWrap: 'wrap',
-              }}
-            >
+            <div className="flex items-center justify-between gap-4 px-5 py-3.5 flex-wrap flex-1">
               {/* LEFT SIDE — Icon + Branding / Title / Meta */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+              <div className="flex items-center gap-4 min-w-0">
                 {/* Icon Container */}
-                <div
-                  style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '9px',
-                    background: '#101828',
-                    border: '1px solid #1e3560',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Icons.Building2 style={{ width: '19px', height: '19px', color: '#4d88ff' }} />
+                <div className="w-10 h-10 rounded-[10px] bg-bg-card border border-border shrink-0 flex items-center justify-center">
+                  <Icons.Building2 className="w-5 h-5 text-accent-blue-strong" />
                 </div>
 
                 {/* Text stack */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+                <div className="flex flex-col gap-0.5 min-w-0">
                   {/* Eyebrow */}
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.06em',
-                      color: '#3d4f62',
-                    }}
-                  >
+                  <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">
                     HMB Ispat · Intelligence Suite
                   </span>
 
                   {/* Title */}
-                  <h1
-                    style={{
-                      fontSize: '17px',
-                      fontWeight: 500,
-                      color: '#d0daea',
-                      margin: 0,
-                      lineHeight: 1.3,
-                    }}
-                  >
+                  <h1 className="text-2xl font-semibold text-text-primary leading-tight m-0">
                     Executive Dashboard
                   </h1>
 
                   {/* Meta row */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0',
-                      fontSize: '12px',
-                      color: '#4a5a6a',
-                      flexWrap: 'wrap',
-                      lineHeight: 1.4,
-                    }}
-                  >
+                  <div className="flex items-center gap-0 text-xs text-text-muted flex-wrap leading-relaxed">
                     {headerDateRange && (
                       <span>{headerDateRange}</span>
                     )}
-                    <span style={{ margin: '0 8px', color: '#1e2832' }}>|</span>
+                    <span className="mx-2 text-text-dim/40">|</span>
                     <span>Cycle MTD</span>
                     {dispatchGrowth !== null && (
                       <>
-                        <span style={{ margin: '0 8px', color: '#1e2832' }}>|</span>
-                        <span style={{ color: dispatchGrowth >= 0 ? '#3ddc84' : '#f87171', fontWeight: 600 }}>
+                        <span className="mx-2 text-text-dim/40">|</span>
+                        <span className={`font-semibold ${dispatchGrowth >= 0 ? 'text-severity-none' : 'text-severity-critical'}`}>
                           {dispatchGrowth >= 0 ? '↑' : '↓'} {Math.abs(dispatchGrowth).toFixed(1)}% vs last cycle
                         </span>
                       </>
@@ -263,28 +199,9 @@ export default function DashboardLayout() {
               </div>
 
               {/* RIGHT SIDE — Sync status only */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
-                {/* Live sync status */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontSize: '11px',
-                    color: 'rgba(255,255,255,0.38)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: '#22c55e',
-                      flexShrink: 0,
-                    }}
-                  />
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <div className="flex items-center gap-2 text-xs text-text-muted whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-severity-none shrink-0" />
                   Live · Last synced {syncAgoText}
                 </div>
               </div>
@@ -295,7 +212,11 @@ export default function DashboardLayout() {
         {/* Page Content */}
         <div className="flex-1 overflow-auto p-4 sm:p-6 bg-bg-primary">
           <div className="max-w-7xl mx-auto space-y-6 min-h-full relative">
-            <Outlet />
+            <AnimatePresence mode="wait">
+              <AnimatedPage key={location.pathname}>
+                <Outlet />
+              </AnimatedPage>
+            </AnimatePresence>
           </div>
         </div>
       </main>

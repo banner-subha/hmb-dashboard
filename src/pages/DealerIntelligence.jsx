@@ -11,9 +11,10 @@ import SeverityBadge from '../components/common/SeverityBadge';
 import { formatMT } from '../utils/formatters';
 import { calculateMoM, getBusinessImpact, getSeverityTheme } from '../utils/trendEngine';
 import SkeletonLoader from '../components/common/SkeletonLoader';
+import { Store } from 'lucide-react';
 
 export default function DealerIntelligence() {
-  const { data, loading, error, filters, dispatch } = useData();
+  const { data, loading, error, filters, dispatch, filterOptions } = useData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDealer, setSelectedDealer] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
@@ -153,53 +154,115 @@ export default function DealerIntelligence() {
 
   // Compute accent color from frontend engine for selected dealer
   const selectedAccentColor = selectedDealer?.healthColor || '#6b7280';
-
+ 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
-        <FilterBar />
-        <div className="w-full sm:w-auto -mt-6 sm:mt-0">
-          <SearchInput placeholder="Search dealer name..." />
-        </div>
+      {/* PAGE TITLE AT THE TOP */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4 mb-4">
+        <h2 className="text-3xl font-extrabold text-text-primary flex items-center gap-3">
+          <Store className="w-7 h-7 text-accent-blue" />
+          Dealer Performance
+        </h2>
       </div>
-
+ 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Col: Dealer Directory */}
         <div className={`${selectedDealer ? 'xl:col-span-8' : 'xl:col-span-12'} space-y-6 transition-all duration-300 min-w-0`}>
-          <CollapsibleCard title="Dealer Directory" badge={<span className="badge bg-bg-secondary text-text-muted">{filteredDealers.length}</span>}>
+          <div className="glass-card p-6 space-y-6">
+            
+            {/* Unified Controls Row: Toggles, Dropdowns, Search */}
+            <div className="flex flex-col xl:flex-row gap-4 items-center justify-between pb-4 border-b border-border/40 w-full">
+              
+              {/* Left Group: Active/Inactive Toggles & Filters */}
+              <div className="flex flex-wrap md:flex-nowrap items-center gap-4 w-full xl:w-auto">
+                {/* Status Filter Segmented Toggle */}
+                <div className="flex items-center gap-1 p-1 rounded-xl w-fit bg-bg-card/40 border border-border/10 backdrop-blur-sm">
+                  {[
+                    { key: 'ALL', label: `All (${dealers.length})` },
+                    { key: 'ACTIVE', label: `Active (${dealers.filter(d => d.cur > 0).length})` },
+                    { key: 'INACTIVE', label: `Inactive (${dealers.filter(d => d.cur === 0).length})` }
+                  ].map(({ key, label }) => {
+                    const isActive = statusFilter === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setStatusFilter(key)}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer border ${
+                          isActive 
+                            ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/35 shadow-[0_0_16px_rgba(59,130,246,0.08)]' 
+                            : 'bg-transparent text-text-muted/70 border-transparent'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="w-[0.5px] h-6 bg-border/60 self-center hidden md:block" />
+
+                <span className="text-xs font-bold text-text-muted uppercase tracking-wider mr-1">Filters:</span>
+                
+                {/* State Select */}
+                <select
+                  className="filter-select text-xs min-w-[120px]"
+                  value={filters.selectedState || ''}
+                  onChange={(e) => dispatch({ type: 'SET_STATE', payload: e.target.value || null })}
+                >
+                  <option value="">All States</option>
+                  {filterOptions.states.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+
+                {/* District Select */}
+                <select
+                  className="filter-select text-xs min-w-[120px]"
+                  value={filters.selectedDistrict || ''}
+                  onChange={(e) => dispatch({ type: 'SET_DISTRICT', payload: e.target.value || null })}
+                  disabled={!filters.selectedState}
+                >
+                  <option value="">All Districts</option>
+                  {filterOptions.districts.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+
+                {/* Product Select */}
+                <select
+                  className="filter-select text-xs min-w-[120px]"
+                  value={filters.selectedProduct || ''}
+                  onChange={(e) => dispatch({ type: 'SET_PRODUCT', payload: e.target.value || null })}
+                >
+                  <option value="">All Products</option>
+                  {filterOptions.products.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+
+                {/* Reset Filters button */}
+                {(filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.searchQuery) && (
+                  <button
+                    onClick={() => dispatch({ type: 'RESET' })}
+                    className="text-xs text-text-muted hover:text-text-primary underline underline-offset-2 transition-colors ml-1 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Right Group: Search Box */}
+              <div className="w-full xl:w-auto xl:flex-shrink-0">
+                <SearchInput placeholder="Search dealer name..." />
+              </div>
+            </div>
+
             <DataTable 
               data={filteredDealers} 
               columns={columns} 
               onRowClick={setSelectedDealer}
-              renderHeader={(paginationControls) => (
-                <div className="flex justify-between items-center border-b border-border mb-4">
-                  {/* Status Filter Tabs */}
-                  <div className="flex">
-                    <button 
-                      onClick={() => setStatusFilter('ALL')}
-                      className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${statusFilter === 'ALL' ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-muted hover:text-text-primary'}`}
-                    >
-                      All ({dealers.length})
-                    </button>
-                    <button 
-                      onClick={() => setStatusFilter('ACTIVE')}
-                      className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${statusFilter === 'ACTIVE' ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-muted hover:text-text-primary'}`}
-                    >
-                      Active ({dealers.filter(d => d.cur > 0).length})
-                    </button>
-                    <button 
-                      onClick={() => setStatusFilter('INACTIVE')}
-                      className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${statusFilter === 'INACTIVE' ? 'border-accent-blue text-accent-blue' : 'border-transparent text-text-muted hover:text-text-primary'}`}
-                    >
-                      Inactive ({dealers.filter(d => d.cur === 0).length})
-                    </button>
-                  </div>
-                  {/* Pagination Controls */}
-                  {paginationControls}
-                </div>
-              )}
             />
-          </CollapsibleCard>
+          </div>
         </div>
 
         {/* Right Col: Detail Panel */}

@@ -52,13 +52,13 @@ export default function MoMTrendChart({ data, nameKey = "name", height = 300 }) 
           data={data}
           margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-          <XAxis dataKey={nameKey} stroke="#475569" fontSize={11} tickMargin={10} />
-          <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `${val}`} />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+          <XAxis dataKey={nameKey} stroke="var(--color-text-dim)" fontSize={12} tickMargin={12} />
+          <YAxis stroke="var(--color-text-dim)" fontSize={12} tickFormatter={(val) => `${val}`} />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} isAnimationActive={false} />
-          <Legend wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '10px' }} />
-          <Bar dataKey="prev" name="Previous" fill="#475569" radius={[2, 2, 0, 0]} maxBarSize={40} />
-          <Bar dataKey="cur" name="Current" fill="#3b82f6" radius={[2, 2, 0, 0]} maxBarSize={40} />
+          <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--color-text-muted)', paddingTop: '12px' }} />
+          <Bar dataKey="prev" name="Previous" fill="var(--color-text-dim)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+          <Bar dataKey="cur" name="Current" fill="var(--color-accent-blue)" radius={[4, 4, 0, 0]} maxBarSize={40} />
         </BarChart>
       )}
     </div>

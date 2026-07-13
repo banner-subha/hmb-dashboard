@@ -41,3 +41,27 @@ export const collapseVariants = {
   open:   { opacity: 1, maxHeight: 2000, transition: { duration: 0.35, ease: 'easeInOut' } },
   closed: { opacity: 0, maxHeight: 0,    transition: { duration: 0.25, ease: 'easeInOut' } },
 };
+
+// KPI card stagger child — scale + fade for premium feel
+export const kpiCard = {
+  initial: { opacity: 0, scale: 0.96, y: 8 },
+  animate: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] } },
+};
+
+// List item — fade + slide
+export const listItem = {
+  initial: { opacity: 0, x: -6 },
+  animate: { opacity: 1, x: 0, transition: { duration: 0.25, ease: 'easeOut' } },
+};
+
+// Scale-in burst (for badges, chips)
+export const scaleIn = {
+  initial: { opacity: 0, scale: 0.9 },
+  animate: { opacity: 1, scale: 1, transition: { duration: 0.2, ease: 'easeOut' } },
+};
+
+// Generic fade-up
+export const fadeInUp = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+};

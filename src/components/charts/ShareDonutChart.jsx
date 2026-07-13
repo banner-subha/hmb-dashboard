@@ -70,9 +70,9 @@ export default function ShareDonutChart({ data, dataKey = "cur", nameKey = "prod
           <Tooltip content={<CustomTooltip />} isAnimationActive={false} />
           <Legend 
             verticalAlign="bottom" 
-            height={40} 
+            height={44} 
             iconType="circle"
-            wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '15px' }}
+            wrapperStyle={{ fontSize: '12px', color: 'var(--color-text-muted)', paddingTop: '16px' }}
           />
         </PieChart>
       )}

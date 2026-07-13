@@ -1,27 +1,27 @@
 export default function KPICard({ label, value, subtitle, momDisplay, momColor, accentColor = '#3b82f6' }) {
-  // Graceful fallback: if momColor is missing, use neutral grey
   const displayColor = momColor || '#94a3b8';
 
   return (
     <div
-      className="glass-card-hover p-4 sm:p-5 flex flex-col justify-between hover:border-accent-blue/30 hover:shadow-[0_4px_24px_rgba(59,130,246,0.08)] transition-all duration-200 hover:-translate-y-0.5"
-      style={{ borderTopWidth: '3px', borderTopColor: accentColor }}
+      className="glass-card-hover p-5 sm:p-6 flex flex-col justify-between"
+      style={{ borderTopWidth: '3px', borderTopColor: accentColor,
+        background: `linear-gradient(135deg, rgba(13,21,38,0.95), rgba(13,21,38,0.88))` }}
     >
-      <div className="text-[10px] sm:text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
+      <div className="stat-label mb-2.5">
         {label}
       </div>
 
-      <div className="kpi-value text-xl sm:text-3xl mb-1 truncate">
+      <div className="kpi-value truncate mb-1.5">
         {value}
       </div>
 
-      <div className="text-[10px] sm:text-xs text-text-secondary mt-1 flex items-center gap-1.5 truncate">
+      <div className="text-xs sm:text-sm text-text-secondary mt-1 flex items-center gap-2 truncate">
         {momDisplay && (
           <span style={{ color: displayColor }} className="font-bold whitespace-nowrap">
             {momDisplay}
           </span>
         )}
-        <span className="truncate">{subtitle}</span>
+        <span className="truncate text-text-muted">{subtitle}</span>
       </div>
     </div>
   );
