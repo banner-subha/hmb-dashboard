@@ -34,7 +34,9 @@ export default function SeverityBadge({ severity, color, className = '' }) {
           background: 'currentColor'
         }}
       />
-      <span>{severity || 'LOW'}</span>
+      <span>
+        {theme.severity}
+      </span>
     </div>
   );
 }

@@ -1,5 +1,6 @@
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import FilterBar from '../components/common/FilterBar';
 import SearchInput from '../components/common/SearchInput';
@@ -8,136 +9,358 @@ import CollapsibleCard from '../components/common/CollapsibleCard';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
-import { formatMT } from '../utils/formatters';
+import { formatMT, formatDays } from '../utils/formatters';
 import { calculateMoM, getBusinessImpact, getSeverityTheme } from '../utils/trendEngine';
-import SkeletonLoader from '../components/common/SkeletonLoader';
+import { getPendingForPeriod, getBacklogClearance } from '../utils/pending';
+import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalDealers } from '../utils/despatch';
+import { isWestBengalUser } from '../utils/constants';
 import { Store } from 'lucide-react';
 
-export default function DealerIntelligence() {
-  const { data, loading, error, filters, dispatch, filterOptions } = useData();
+export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
+  const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
+  const { user } = useAuth();
+  const showNorthBengal = isWestBengalUser(user, filterOptions);
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDealer, setSelectedDealer] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
+  const [metricMode, setMetricMode] = useState("DESPATCH");
+  const [selectedPendingMonth, setSelectedPendingMonth] = useState("");
+  const lastSyncedParamsRef = useRef(null);
 
-  // Sync URL params to Context filters
+  // Sync URL params → Context: runs only when the URL itself changes.
   useEffect(() => {
-    const stateParam = searchParams.get('state');
-    const districtParam = searchParams.get('district');
-    
-    dispatch({ type: 'SET_STATE', payload: stateParam || null });
-    dispatch({ type: 'SET_DISTRICT', payload: districtParam || null });
-  }, [searchParams, dispatch]);
+    const state = searchParams.get('state') || null;
+    const district = searchParams.get('district') || null;
+    const product = searchParams.get('product') || null;
+    const search = searchParams.get('search') || '';
+
+    const currentUrlParamString = searchParams.toString();
+
+    if (state || district || product || search) {
+      if (lastSyncedParamsRef.current !== currentUrlParamString) {
+        lastSyncedParamsRef.current = currentUrlParamString;
+        dispatch({ type: 'SYNC_FILTERS', payload: { state, district, product, search } });
+      }
+    } else {
+      lastSyncedParamsRef.current = currentUrlParamString;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Sync Context filters to URL params
   useEffect(() => {
-    const params = {};
-    if (filters.selectedState) params.state = filters.selectedState;
-    if (filters.selectedDistrict) params.district = filters.selectedDistrict;
-    setSearchParams(params);
-  }, [filters.selectedState, filters.selectedDistrict, setSearchParams]);
+    const currentState = searchParams.get('state') || null;
+    const currentDistrict = searchParams.get('district') || null;
+    const currentProduct = searchParams.get('product') || null;
+    const currentSearch = searchParams.get('search') || '';
+
+    const nextState = filters.selectedState || null;
+    const nextDistrict = filters.selectedDistrict || null;
+    const nextProduct = filters.selectedProduct || null;
+    const nextSearch = filters.searchQuery || '';
+
+    const urlHasParams = !!(currentState || currentDistrict || currentProduct || currentSearch);
+    const isContextPendingHydration = urlHasParams && (
+      (currentState && nextState !== currentState) ||
+      (currentDistrict && nextDistrict !== currentDistrict) ||
+      (currentProduct && nextProduct !== currentProduct) ||
+      (currentSearch && nextSearch !== currentSearch)
+    );
+
+    if (isContextPendingHydration) {
+      return;
+    }
+
+    if (
+      currentState !== nextState ||
+      currentDistrict !== nextDistrict ||
+      currentProduct !== nextProduct ||
+      currentSearch !== nextSearch
+    ) {
+      const params = {};
+      if (nextState) params.state = nextState;
+      if (nextDistrict) params.district = nextDistrict;
+      if (nextProduct) params.product = nextProduct;
+      if (nextSearch) params.search = nextSearch;
+
+      const newParamString = new URLSearchParams(params).toString();
+      lastSyncedParamsRef.current = newParamString;
+      setSearchParams(params, { replace: true });
+    }
+  }, [filters.selectedState, filters.selectedDistrict, filters.selectedProduct, filters.searchQuery, searchParams, setSearchParams]);
 
   const dealers = useMemo(() => data?.dealers || [], [data]);
 
-  const filteredDealers = useMemo(() => {
-    if (statusFilter === 'ACTIVE') {
-      return dealers.filter(d => d.cur > 0);
-    }
-    if (statusFilter === 'INACTIVE') {
-      return dealers.filter(d => d.cur === 0);
-    }
-    return dealers;
-  }, [dealers, statusFilter]);
+  const sortedPendingMonths = useMemo(() => {
+    return [...pendingAvailableMonths].sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.month - b.month;
+    });
+  }, [pendingAvailableMonths]);
 
-  const columns = useMemo(() => [
-    {
-      accessorKey: 'client',
-      header: 'Dealer Name',
-      meta: { width: '35%' },
-      cell: info => (
-        <span className="font-medium text-sm text-text-primary whitespace-normal break-words" title={info.getValue()}>
-          {info.getValue()}
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'district',
-      header: 'Location',
-      meta: { width: '20%' },
-      cell: info => <span className="text-text-muted text-xs truncate inline-block w-full" title={`${info.getValue()}, ${info.row.original.state}`}>{info.getValue()}, {info.row.original.state}</span>,
-    },
-    {
-      accessorKey: 'cur',
-      header: 'Vol (MT)',
-      meta: { width: '10%' },
-      cell: info => <span className="font-medium whitespace-nowrap">{formatMT(info.getValue())}</span>,
-    },
-    {
-      header: 'Trend',
-      accessorKey: 'mom',
-      meta: { width: '10%' },
-      cell: info => {
-        const row = info.row.original;
-        return <MoMIndicator cur={row.cur} prev={row.prev} className="whitespace-nowrap" />;
+  const despatchAvailableMonths = useMemo(() => getDespatchAvailableMonths(rawData), [rawData]);
+
+  // Default pending filter date to "Total Backlog" ('ALL') when switching to PENDING mode
+  useEffect(() => {
+    if (metricMode === 'PENDING') {
+      setSelectedPendingMonth('ALL');
+    } else {
+      setSelectedPendingMonth(getCurMonthKey(rawData));
+    }
+  }, [metricMode, rawData]);
+
+  const filteredDealers = useMemo(() => {
+    if (metricMode === 'PENDING') {
+      return (data?.dealers || [])
+        .map(d => ({
+          ...d,
+          activePendingVal: getPendingForPeriod(d, selectedPendingMonth)
+        }))
+        .filter(d => selectedPendingMonth === 'ALL' || d.activePendingVal > 0)
+        .sort((a, b) => b.activePendingVal - a.activePendingVal);
+    } else {
+      // DESPATCH MODE
+      const curMonthKey = getCurMonthKey(rawData);
+      let rawDealers = data?.dealers || [];
+      if (selectedPendingMonth && selectedPendingMonth !== curMonthKey) {
+        rawDealers = getHistoricalDealers(rawData, filters, selectedPendingMonth);
+      }
+      
+      if (statusFilter === 'ACTIVE') {
+        return rawDealers.filter(d => d.cur > 0);
+      } else if (statusFilter === 'INACTIVE') {
+        return rawDealers.filter(d => d.cur === 0);
+      }
+      return rawDealers;
+    }
+  }, [data?.dealers, rawData, statusFilter, metricMode, selectedPendingMonth, filters]);
+
+  // Auto-select dealer if search query isolates a single dealer
+  useEffect(() => {
+    if (filters.searchQuery && filteredDealers.length === 1 && !selectedDealer) {
+      setSelectedDealer(filteredDealers[0]);
+    }
+  }, [filters.searchQuery, filteredDealers, selectedDealer]);
+
+  const columns = useMemo(() => {
+    if (metricMode === 'PENDING') {
+      return [
+        {
+          accessorKey: 'client',
+          header: 'Dealer Name',
+          meta: { width: '30%', minWidth: '130px' },
+          cell: info => (
+            <span className="font-bold text-sm sm:text-[15px] text-text-primary whitespace-normal break-words leading-tight" title={info.getValue()}>
+              {info.getValue()}
+            </span>
+          ),
+        },
+        {
+          accessorKey: 'district',
+          header: 'Location',
+          meta: { width: '20%', minWidth: '100px' },
+          cell: info => <span className="text-text-muted text-xs sm:text-[13px] font-medium truncate inline-block w-full" title={`${info.getValue()}, ${info.row.original.state}`}>{info.getValue()}, {info.row.original.state}</span>,
+        },
+        {
+          id: 'pendingQty',
+          header: 'Pending (MT)',
+          meta: { width: '15%', minWidth: '90px' },
+          cell: info => {
+            const row = info.row.original;
+            const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
+            return <span className="font-medium text-[13px]">{formatMT(pendingQty)}</span>;
+          }
+        },
+        {
+          id: 'backlog',
+          header: 'Backlog Clearance',
+          meta: { width: '20%', minWidth: '140px' },
+          cell: info => {
+            const row = info.row.original;
+            const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
+            let dailyAvg = row.dailyAvgQty || row.currentDailyRate || 0;
+            if (dailyAvg === 0 && pendingQty > 0) {
+              const stateData = data?.states?.find(s => s.state === row.state);
+              dailyAvg = stateData?.dailyAvgQty || 0;
+            }
+            const clearance = getBacklogClearance(pendingQty, dailyAvg);
+            const theme = getSeverityTheme(clearance.status);
+            return (
+              <div className="flex flex-col select-none cursor-pointer">
+                <span className="font-bold text-[13px]" style={{ color: theme.color }}>
+                  {clearance.text}
+                </span>
+                {pendingQty > 0 && dailyAvg > 0 && (
+                  <span className="text-[10px] text-text-muted mt-0.5">
+                    vs avg {formatMT(dailyAvg)}/d
+                  </span>
+                )}
+              </div>
+            );
+          }
+        },
+        {
+          header: 'Status',
+          id: 'severity',
+          meta: { width: '15%', minWidth: '90px' },
+          cell: info => {
+            const row = info.row.original;
+            const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
+            let dailyAvg = row.dailyAvgQty || row.currentDailyRate || 0;
+            if (dailyAvg === 0 && pendingQty > 0) {
+              const stateData = data?.states?.find(s => s.state === row.state);
+              dailyAvg = stateData?.dailyAvgQty || 0;
+            }
+            const clearance = getBacklogClearance(pendingQty, dailyAvg);
+            const theme = getSeverityTheme(clearance.status);
+
+            return (
+              <div 
+                className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[12px] font-bold tracking-wide whitespace-nowrap border shrink-0 select-none" 
+                style={{ backgroundColor: theme.bg, color: theme.color, borderColor: theme.border }}
+              >
+                <span className="w-2 h-2 rounded-full bg-current shrink-0" />
+                <span>{theme.severity}</span>
+              </div>
+            );
+          },
+        }
+      ];
+    }
+
+    return [
+      {
+        accessorKey: 'client',
+        header: 'Dealer',
+        meta: { width: '28%', minWidth: '120px' },
+        cell: info => (
+          <span className="font-bold text-sm sm:text-[15px] text-text-primary whitespace-normal break-words leading-tight" title={info.getValue()}>
+            {info.getValue()}
+          </span>
+        ),
       },
-    },
-    {
-      id: 'pace',
-      header: 'Pace vs Avg',
-      meta: { width: '170px' },
-      cell: info => {
-        const row = info.row.original;
-        const { lossFlag, lossDeltaPct, currentDailyRate, dailyAvgQty } = row;
-        
-        const curRate = currentDailyRate != null ? Number(currentDailyRate) : 0;
-        const avgQty = dailyAvgQty != null ? Number(dailyAvgQty) : 0;
-        const rawDeltaPct = lossDeltaPct != null ? Number(lossDeltaPct) : 0;
-        const deltaPct = Math.min(300, rawDeltaPct);
-        
-        if (lossFlag === 'AHEAD' || lossFlag === 'BEHIND') {
-          const isAhead = lossFlag === 'AHEAD';
-          const sign = isAhead ? '+' : '';
-          const showPct = lossDeltaPct !== undefined ? `${isAhead ? '▲' : '▼'} ${sign}${deltaPct}%` : (isAhead ? '▲' : '▼');
-          const colorClass = isAhead ? 'text-[#22c55e]' : 'text-[#ef4444]';
+      {
+        accessorKey: 'district',
+        header: 'Location',
+        meta: { width: '18%', minWidth: '90px' },
+        cell: info => <span className="text-text-muted text-xs sm:text-[13px] font-medium truncate inline-block w-full" title={`${info.getValue()}, ${info.row.original.state}`}>{info.getValue()}, {info.row.original.state}</span>,
+      },
+      {
+        accessorKey: 'cur',
+        header: 'Vol (MT)',
+        meta: { width: '11%', minWidth: '80px' },
+        cell: info => <span className="font-medium whitespace-nowrap">{formatMT(info.getValue())}</span>,
+      },
+      {
+        header: 'MoM',
+        accessorKey: 'mom',
+        meta: { width: '10%', minWidth: '75px' },
+        cell: info => {
+          const row = info.row.original;
+          return <MoMIndicator cur={row.cur} prev={row.prev} className="whitespace-nowrap" />;
+        },
+      },
+      {
+        accessorKey: 'avgPeriod',
+        header: 'Avg Period',
+        meta: { width: '11%', minWidth: '80px' },
+        cell: info => <span className="font-semibold text-text-primary whitespace-nowrap">{formatDays(info.getValue())}</span>,
+      },
+      {
+        id: 'pace',
+        accessorFn: row => {
+          const { lossFlag, lossDeltaPct } = row;
+          if (lossFlag === 'AHEAD') return Math.abs(Number(lossDeltaPct) || 0);
+          if (lossFlag === 'BEHIND') return -Math.abs(Number(lossDeltaPct) || 0);
+          return 0;
+        },
+        header: 'Pace vs Avg',
+        meta: { width: '130px', minWidth: '120px' },
+        cell: info => {
+          const row = info.row.original;
+          const { lossFlag, lossDeltaPct, currentDailyRate, dailyAvgQty } = row;
           
-          const fullTooltip = `${curRate.toFixed(2)} MT/day vs avg ${avgQty.toFixed(2)} MT/day (${isAhead ? 'above' : 'below'} historical daily avg by ${Math.abs(deltaPct)}%)`;
-          const shortRateText = `${curRate.toFixed(1)} vs ${avgQty.toFixed(1)} MT/d`;
+          const curRate = currentDailyRate != null ? Number(currentDailyRate) : 0;
+          const avgQty = dailyAvgQty != null ? Number(dailyAvgQty) : 0;
+          const rawDeltaPct = lossDeltaPct != null ? Number(lossDeltaPct) : 0;
+          const deltaPct = Math.min(300, rawDeltaPct);
           
+          if (lossFlag === 'AHEAD' || lossFlag === 'BEHIND') {
+            const isAhead = lossFlag === 'AHEAD';
+            const sign = isAhead ? '+' : '';
+            const showPct = lossDeltaPct !== undefined ? `${isAhead ? '▲' : '▼'} ${sign}${deltaPct}%` : (isAhead ? '▲' : '▼');
+            const colorClass = isAhead ? 'text-[#22c55e]' : 'text-[#ef4444]';
+            
+            const fullTooltip = `${curRate.toFixed(2)} MT/day vs avg ${avgQty.toFixed(2)} MT/day (${isAhead ? 'above' : 'below'} historical daily avg by ${Math.abs(deltaPct)}%)`;
+            const shortRateText = `${curRate.toFixed(1)} vs ${avgQty.toFixed(1)} MT/d`;
+            
+            return (
+              <div className="flex flex-col select-none cursor-help" title={fullTooltip}>
+                <span className={`text-sm font-bold ${colorClass}`}>
+                  {showPct}
+                </span>
+                <span className="text-[10px] text-text-muted mt-0.5 truncate block">
+                  {shortRateText}
+                </span>
+              </div>
+            );
+          }
+          
+          return <span style={{ color: '#6b7280' }}>—</span>;
+        }
+      },
+      {
+        header: 'Status',
+        accessorKey: 'operationalStatus',
+        meta: { width: '11%', minWidth: '80px' },
+        cell: info => {
+          const row = info.row.original;
+          const isInactive = row.isInactive || row.cur === 0;
+          const statusLabel = isInactive ? 'Inactive' : (row.impactTier === 'LOW' || row.impactTier === 'NONE') ? 'Growing' : 'Declining';
+          const theme = isInactive ? getSeverityTheme('CRITICAL') : getSeverityTheme(row.impactTier);
+
           return (
-            <div className="flex flex-col select-none cursor-help" title={fullTooltip} style={{ minWidth: '160px', maxWidth: '180px' }}>
-              <span className={`text-sm font-bold ${colorClass}`}>
-                {showPct}
-              </span>
-              <span className="text-[10px] text-text-muted mt-0.5 truncate block">
-                {shortRateText}
-              </span>
+            <div 
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-bold tracking-wide whitespace-nowrap border shrink-0 select-none" 
+              style={{ backgroundColor: theme.bg, color: theme.color, borderColor: theme.border }}
+            >
+              <span className="w-2 h-2 rounded-full bg-current shrink-0" />
+              <span>{statusLabel}</span>
             </div>
           );
-        }
-        
-        return <span style={{ color: '#6b7280' }}>—</span>;
-      }
-    },
-    {
-      header: 'Status',
-      accessorKey: 'operationalStatus',
-      meta: { width: '15%' },
-      cell: info => {
-        const row = info.row.original;
-        // Derive status and theme from precalculated severity
-        const statusLabel = (row.isInactive || row.cur === 0) ? 'Inactive' : (row.impactTier === 'LOW' || row.impactTier === 'NONE') ? 'Growing' : 'Declining';
-        const theme = getSeverityTheme(row.impactTier);
-
-        return (
-          <span 
-            className="badge whitespace-nowrap" 
-            style={{ backgroundColor: theme.bg, color: theme.color, borderColor: theme.border }}
-          >
-            {statusLabel}
-          </span>
-        );
+        },
       },
-    },
-  ], []);
+    ];
+  }, [metricMode, selectedPendingMonth, data, rawData]);
+
+  // NOTE: Must be declared before any early returns to satisfy Rules of Hooks.
+  const dealerAlerts = data?.alerts?.filter(a => a.category === 'DEALER' && a.data?.client === selectedDealer?.client) || [];
+  const aiRisk = data?.intelligence?.dealer_risks?.find(r => r.dealer === selectedDealer?.client);
+
+  const selectedDealerProducts = useMemo(() => {
+    if (!selectedDealer || !selectedDealer.products) return [];
+    if (metricMode === 'DESPATCH') {
+      return selectedDealer.products.map(p => ({
+        product: p.product,
+        val: p.cur,
+        displayVal: formatMT(p.cur),
+        pct: selectedDealer.cur > 0 ? (p.cur / selectedDealer.cur) * 100 : 0
+      })).sort((a, b) => b.val - a.val);
+    } else {
+      const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
+      const totalDispatch = selectedDealer.cur || selectedDealer.products.reduce((sum, p) => sum + p.cur, 0);
+      return selectedDealer.products.map(p => {
+        const share = totalDispatch > 0 ? (p.cur / totalDispatch) : (1 / selectedDealer.products.length);
+        const productPending = pendingQty * share;
+        return {
+          product: p.product,
+          val: productPending,
+          displayVal: formatMT(productPending),
+          pct: share * 100
+        };
+      }).sort((a, b) => b.val - a.val);
+    }
+  }, [selectedDealer, metricMode, selectedPendingMonth]);
 
   if (loading) return (
     <div className="space-y-6">
@@ -149,14 +372,21 @@ export default function DealerIntelligence() {
   if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
   if (!data) return null;
 
-  const dealerAlerts = data.alerts?.filter(a => a.category === 'DEALER' && a.data?.client === selectedDealer?.client) || [];
-  const aiRisk = data.intelligence?.dealer_risks?.find(r => r.dealer === selectedDealer?.client);
-
   // Compute accent color from frontend engine for selected dealer
-  const selectedAccentColor = selectedDealer?.healthColor || '#6b7280';
+  const selectedAccentColor = selectedDealer 
+    ? (metricMode === 'PENDING'
+      ? (() => {
+          const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
+          const stateData = data?.states?.find(s => s.state === selectedDealer.state);
+          let dailyAvg = selectedDealer.dailyAvgQty || selectedDealer.currentDailyRate || stateData?.dailyAvgQty || 0;
+          const clearance = getBacklogClearance(pendingQty, dailyAvg);
+          return getSeverityTheme(clearance.status).color;
+        })()
+      : (selectedDealer.healthColor || '#6b7280'))
+    : '#6b7280';
  
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in space-y-6">
       {/* PAGE TITLE AT THE TOP */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4 mb-4">
         <h2 className="text-3xl font-extrabold text-text-primary flex items-center gap-3">
@@ -168,96 +398,169 @@ export default function DealerIntelligence() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Col: Dealer Directory */}
         <div className={`${selectedDealer ? 'xl:col-span-8' : 'xl:col-span-12'} space-y-6 transition-all duration-300 min-w-0`}>
-          <div className="glass-card p-6 space-y-6">
+          <div className="glass-card p-4 sm:p-5 lg:p-6 space-y-6">
             
-            {/* Unified Controls Row: Toggles, Dropdowns, Search */}
-            <div className="flex flex-col xl:flex-row gap-4 items-center justify-between pb-4 border-b border-border/40 w-full">
-              
-              {/* Left Group: Active/Inactive Toggles & Filters */}
-              <div className="flex flex-wrap md:flex-nowrap items-center gap-4 w-full xl:w-auto">
-                {/* Status Filter Segmented Toggle */}
-                <div className="flex items-center gap-1 p-1 rounded-xl w-fit bg-bg-card/40 border border-border/10 backdrop-blur-sm">
-                  {[
-                    { key: 'ALL', label: `All (${dealers.length})` },
-                    { key: 'ACTIVE', label: `Active (${dealers.filter(d => d.cur > 0).length})` },
-                    { key: 'INACTIVE', label: `Inactive (${dealers.filter(d => d.cur === 0).length})` }
-                  ].map(({ key, label }) => {
-                    const isActive = statusFilter === key;
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => setStatusFilter(key)}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer border ${
-                          isActive 
-                            ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/35 shadow-[0_0_16px_rgba(59,130,246,0.08)]' 
-                            : 'bg-transparent text-text-muted/70 border-transparent'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+            {/* Unified Controls Row */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pb-4 border-b border-border/40 w-full">
+              {/* Status Filter Segmented Toggle */}
+              <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-bg-card/40 border border-border/10 shrink-0">
+                {[
+                  { key: 'ALL', label: `All (${dealers.length})` },
+                  { key: 'ACTIVE', label: `Active (${dealers.filter(d => d.cur > 0).length})` },
+                  { key: 'INACTIVE', label: `Inactive (${dealers.filter(d => d.cur === 0).length})` }
+                ].map(({ key, label }) => {
+                  const isActive = statusFilter === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setStatusFilter(key)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer border ${
+                        isActive 
+                          ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/35 shadow-sm' 
+                          : 'bg-transparent text-text-muted/70 border-transparent hover:text-text-primary'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
 
-                <div className="w-[0.5px] h-6 bg-border/60 self-center hidden md:block" />
+              <div className="hidden sm:block w-px h-5 bg-border/40 mx-0.5 shrink-0" />
 
-                <span className="text-xs font-bold text-text-muted uppercase tracking-wider mr-1">Filters:</span>
-                
-                {/* State Select */}
+              {/* State Select */}
+              <select
+                className="filter-select text-xs py-1.5 px-3 w-[115px] sm:w-[130px] shrink-0"
+                value={filters.selectedState || (filterOptions.states.length === 1 ? filterOptions.states[0] : '')}
+                onChange={(e) => dispatch({ type: 'SET_STATE', payload: e.target.value || null })}
+              >
+                {filterOptions.states.length !== 1 && <option value="">All States</option>}
+                {filterOptions.states.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+
+              {/* District Select */}
+              {(filters.selectedState || filterOptions.districts.length > 0) && (
                 <select
-                  className="filter-select text-xs min-w-[120px]"
-                  value={filters.selectedState || ''}
-                  onChange={(e) => dispatch({ type: 'SET_STATE', payload: e.target.value || null })}
-                >
-                  <option value="">All States</option>
-                  {filterOptions.states.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-
-                {/* District Select */}
-                <select
-                  className="filter-select text-xs min-w-[120px]"
+                  className="filter-select text-xs py-1.5 px-3 w-[115px] sm:w-[130px] shrink-0"
                   value={filters.selectedDistrict || ''}
                   onChange={(e) => dispatch({ type: 'SET_DISTRICT', payload: e.target.value || null })}
-                  disabled={!filters.selectedState}
                 >
                   <option value="">All Districts</option>
                   {filterOptions.districts.map(d => (
                     <option key={d} value={d}>{d}</option>
                   ))}
                 </select>
+              )}
 
-                {/* Product Select */}
-                <select
-                  className="filter-select text-xs min-w-[120px]"
-                  value={filters.selectedProduct || ''}
-                  onChange={(e) => dispatch({ type: 'SET_PRODUCT', payload: e.target.value || null })}
+              {/* Product Select */}
+              <select
+                className="filter-select text-xs py-1.5 px-3 w-[115px] sm:w-[130px] shrink-0"
+                value={filters.selectedProduct || ''}
+                onChange={(e) => dispatch({ type: 'SET_PRODUCT', payload: e.target.value || null })}
+              >
+                <option value="">All Products</option>
+                {filterOptions.products.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+
+              {/* North Bengal Filter Toggle */}
+              {showNorthBengal && (
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'TOGGLE_NORTH_BENGAL' })}
+                  className={`shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 border ${
+                    filters.isNorthBengal
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
+                      : 'bg-bg-tertiary/60 text-white border-border/40 hover:border-border'
+                  }`}
+                  title="Filter North Bengal Districts (Darjeeling, Jalpaiguri, Cooch Behar, etc.)"
                 >
-                  <option value="">All Products</option>
-                  {filterOptions.products.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
+                  <span className={`w-2 h-2 rounded-full ${filters.isNorthBengal ? 'bg-emerald-400 animate-pulse' : 'bg-white/50'}`} />
+                  North Bengal
+                </button>
+              )}
 
-                {/* Reset Filters button */}
-                {(filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.searchQuery) && (
-                  <button
-                    onClick={() => dispatch({ type: 'RESET' })}
-                    className="text-xs text-text-muted hover:text-text-primary underline underline-offset-2 transition-colors ml-1 cursor-pointer"
-                  >
-                    Clear
-                  </button>
-                )}
+              {/* Reset Filters button */}
+              {(filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.searchQuery || filters.isNorthBengal) && (
+                <button
+                  onClick={() => dispatch({ type: 'RESET' })}
+                  className="shrink-0 text-xs text-text-muted hover:text-text-primary underline underline-offset-2 transition-colors px-1 cursor-pointer whitespace-nowrap"
+                >
+                  Clear
+                </button>
+              )}
+
+              <div className="hidden sm:block w-px h-5 bg-border/40 mx-0.5 shrink-0" />
+
+              {/* Despatch/Pending Toggle */}
+              <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-bg-card/40 border border-border/10 shrink-0">
+                {[
+                  { value: "DESPATCH", label: "Despatch" },
+                  { value: "PENDING", label: "Pending" }
+                ].map(opt => {
+                  const active = metricMode === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setMetricMode(opt.value)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
+                        active 
+                          ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/35 shadow-sm' 
+                          : 'bg-transparent text-text-muted/60 border-transparent hover:text-text-primary'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Right Group: Search Box */}
-              <div className="w-full xl:w-auto xl:flex-shrink-0">
+              {/* Month Select */}
+              <select
+                value={selectedPendingMonth}
+                onChange={(e) => setSelectedPendingMonth(e.target.value)}
+                className="filter-select text-xs py-1.5 px-3 w-[110px] sm:w-[125px] shrink-0"
+              >
+                <option value="" disabled className="bg-[#0b1329] text-text-muted">Select month</option>
+                {metricMode === 'PENDING' ? (
+                  <>
+                    <option value="ALL" className="bg-[#0b1329] text-text-primary">Total Backlog</option>
+                    {sortedPendingMonths.map(opt => (
+                      <option 
+                        key={opt.key || opt.periodKey} 
+                        value={opt.key || opt.periodKey}
+                        className="bg-[#0b1329] text-text-primary"
+                      >
+                        {opt.label}
+                      </option>
+                    ))}
+                  </>
+                ) : (
+                  despatchAvailableMonths.map(opt => (
+                    <option 
+                      key={opt.key || opt.periodKey} 
+                      value={opt.key || opt.periodKey}
+                      className="bg-[#0b1329] text-text-primary"
+                    >
+                      {opt.label}
+                    </option>
+                  ))
+                )}
+              </select>
+
+              {/* Dealer Search Input directly inline */}
+              <div className="shrink-0 w-[170px] sm:w-[190px]">
                 <SearchInput placeholder="Search dealer name..." />
               </div>
             </div>
 
             <DataTable 
+              key={metricMode + '-' + selectedPendingMonth + '-' + statusFilter}
               data={filteredDealers} 
               columns={columns} 
               onRowClick={setSelectedDealer}
@@ -265,7 +568,7 @@ export default function DealerIntelligence() {
           </div>
         </div>
 
-        {/* Right Col: Detail Panel */}
+        {/* Right Col: Dealer Intelligence Panel */}
         {selectedDealer && (
           <div className="xl:col-span-4 space-y-6 min-w-0">
             <CollapsibleCard 
@@ -288,26 +591,59 @@ export default function DealerIntelligence() {
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-3 bg-bg-secondary rounded-lg">
-                  <div className="text-xs text-text-muted mb-1">Current Vol</div>
-                  <div className="text-base font-bold text-text-primary">{formatMT(selectedDealer.cur)}</div>
+                  <div className="text-xs text-text-muted mb-1">
+                    {metricMode === 'PENDING' ? 'Pending Orders' : 'Current Vol'}
+                  </div>
+                  <div className="text-base font-bold text-text-primary">
+                    {formatMT(metricMode === 'PENDING' ? getPendingForPeriod(selectedDealer, selectedPendingMonth) : selectedDealer.cur)}
+                  </div>
                 </div>
 
                 <div className="p-3 bg-bg-secondary rounded-lg">
-                  <div className="text-xs text-text-muted mb-2">Business Impact</div>
+                  <div className="text-xs text-text-muted mb-2">
+                    {metricMode === 'PENDING' ? 'Backlog Clearance' : 'Business Impact'}
+                  </div>
                   <div className="mt-1">
-                    <ImpactBadge 
-                      tier={selectedDealer.impactTier}
-                      score={selectedDealer.impactScore}
-                    />
+                    {metricMode === 'PENDING' ? (
+                      (() => {
+                        const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
+                        const stateData = data?.states?.find(s => s.state === selectedDealer.state);
+                        let dailyAvg = selectedDealer.dailyAvgQty || selectedDealer.currentDailyRate || stateData?.dailyAvgQty || 0;
+                        const clearance = getBacklogClearance(pendingQty, dailyAvg);
+                        return <ImpactBadge tier={clearance.status} />;
+                      })()
+                    ) : (
+                      <ImpactBadge 
+                        tier={selectedDealer.impactTier}
+                        score={selectedDealer.impactScore}
+                      />
+                    )}
                   </div>
                 </div>
                 <div className="p-3 bg-bg-secondary rounded-lg col-span-2 flex justify-between items-center">
-                  <div className="text-xs text-text-muted">MoM Trend</div>
-                  <MoMIndicator 
-                    cur={selectedDealer.cur}
-                    prev={selectedDealer.prev}
-                    className="text-base" 
-                  />
+                  <div className="text-xs text-text-muted">
+                    {metricMode === 'PENDING' ? 'Backlog Days' : 'MoM Trend'}
+                  </div>
+                  {metricMode === 'PENDING' ? (
+                    (() => {
+                      const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
+                      const stateData = data?.states?.find(s => s.state === selectedDealer.state);
+                      let dailyAvg = selectedDealer.dailyAvgQty || selectedDealer.currentDailyRate || stateData?.dailyAvgQty || 0;
+                      const clearance = getBacklogClearance(pendingQty, dailyAvg);
+                      const theme = getSeverityTheme(clearance.status);
+                      return (
+                        <span className="font-bold text-sm" style={{ color: theme.color }}>
+                          {clearance.text}
+                        </span>
+                      );
+                    })()
+                  ) : (
+                    <MoMIndicator 
+                      cur={selectedDealer.cur}
+                      prev={selectedDealer.prev}
+                      className="text-base" 
+                    />
+                  )}
                 </div>
               </div>
 
@@ -383,22 +719,24 @@ export default function DealerIntelligence() {
               )}
 
               {/* Product Mix */}
-              {selectedDealer.products?.length > 0 && (
+              {selectedDealerProducts.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-bold text-text-muted uppercase mb-3">Product Contribution</h4>
+                  <h4 className="text-xs font-bold text-text-muted uppercase mb-3">
+                    {metricMode === 'PENDING' ? 'Proportional Pending Contribution' : 'Product Contribution'}
+                  </h4>
                   <div className="space-y-2">
-                    {selectedDealer.products.sort((a,b)=>b.cur-a.cur).map(p => (
+                    {selectedDealerProducts.map(p => (
                       <div key={p.product} className="flex justify-between items-center text-sm p-2 bg-bg-secondary rounded border border-border">
                         <span className="font-bold w-12">{p.product}</span>
                         <div className="flex-1 px-4">
                           <div className="w-full bg-bg-primary h-2 rounded-full overflow-hidden">
                             <div 
                               className="h-full bg-accent-blue" 
-                              style={{ width: `${Math.min(100, Math.max(0, (p.cur / selectedDealer.cur) * 100))}%` }}
+                              style={{ width: `${p.pct}%` }}
                             ></div>
                           </div>
                         </div>
-                        <span className="text-text-muted w-16 text-right">{formatMT(p.cur)}</span>
+                        <span className="text-text-muted w-16 text-right">{p.displayVal}</span>
                       </div>
                     ))}
                   </div>

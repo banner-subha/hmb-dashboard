@@ -43,12 +43,25 @@ import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { calculateMoM, getBusinessImpact, getSeverityFromImpactScore, getSeverityTheme } from '../utils/trendEngine';
 import SkeletonLoader from '../components/common/SkeletonLoader';
+import { PRODUCT_LABELS } from '../utils/constants';
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : fallback);
 
 function getImpactScoreColor(score) {
   return getSeverityTheme(getSeverityFromImpactScore(score)).color;
+}
+
+// ── Business Priority helpers ────────────────────────────────────────────────
+const BUSINESS_PRIORITY = {
+  CRITICAL: { label: 'Urgent Action', icon: '🔴', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)', color: '#fca5a5' },
+  HIGH:     { label: 'Needs Attention', icon: '🟠', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.3)', color: '#fdba74' },
+  MEDIUM:   { label: 'Monitor', icon: '🟡', bg: 'rgba(234,179,8,0.10)', border: 'rgba(234,179,8,0.25)', color: '#fde68a' },
+  LOW:      { label: 'On Track', icon: '🟢', bg: 'rgba(34,197,94,0.10)', border: 'rgba(34,197,94,0.25)', color: '#86efac' },
+};
+
+function getBusinessPriority(severity) {
+  return BUSINESS_PRIORITY[severity] || BUSINESS_PRIORITY.LOW;
 }
 
 // ── Severity propagation helpers ─────────────────────────────────────────────
@@ -76,49 +89,189 @@ function getWorstImpactScore(children = []) {
   return best;
 }
 
+const cleanName = (name) => name ? String(name).split('—')[0].trim() : '';
+
 // ── Dynamic Hierarchy Generator (dispatch alerts) ────────────────────────────
 const buildHierarchy = (alert, fullData) => {
   if (!fullData || !alert) return null;
   const level = (alert.level || alert.category || '').toUpperCase();
   const entityName = (alert.dealer || alert.district || alert.state || (alert.title ? alert.title.split(':')[0].trim() : '')).toUpperCase();
-  const cleanName = (name) => name ? name.split('—')[0].trim() : '';
 
   if (level === 'STATE') {
-    const districts = (fullData.districts || []).filter(d => d.state?.toUpperCase() === entityName);
-    const stateObj = (fullData.states || []).find(s => s.state?.toUpperCase() === entityName);
-    const products = stateObj?.products || [];
-    if (districts.length === 0 && products.length === 0) return null;
-    const children = [
-      ...districts.map(d => {
+    // Get all active declining dealers in this state (carrying top state volume, cur > 0)
+    const stateActiveDealers = (fullData.dealers || [])
+      .filter(d => d.state?.toUpperCase() === entityName && (d.cur ?? 0) > 0 && (d.cur ?? 0) < (d.prev ?? 0))
+      .sort((a, b) => (b.prev ?? 0) - (a.prev ?? 0))
+      .slice(0, 5)
+      .map(d => {
         const impactScore = d.impactScore ?? 0;
         const severity = getSeverityFromImpactScore(impactScore);
-        return { type: 'DISTRICT', name: cleanName(d.district), severity, impactScore };
-      }),
-      ...products.map(p => {
+        const drop = (d.prev ?? 0) - (d.cur ?? 0);
+        const dealerProducts = (d.products || [])
+          .map(p => ({
+            type: 'PRODUCT',
+            name: cleanName(p.product),
+            severity: getSeverityFromImpactScore(p.impactScore ?? 0),
+            impactScore: p.impactScore ?? 0,
+            drop: (p.prev ?? 0) - (p.cur ?? 0),
+            cur: p.cur ?? 0,
+            prev: p.prev ?? 0,
+            mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0)
+          }))
+          .filter(p => p.cur !== 0 || p.prev !== 0)
+          .sort((a, b) => b.drop - a.drop);
+
+        return {
+          type: 'DEALER',
+          name: `${cleanName(d.client)} (Active)`,
+          severity,
+          impactScore,
+          drop,
+          cur: d.cur ?? 0,
+          prev: d.prev ?? 0,
+          mom: d.mom,
+          children: dealerProducts
+        };
+      });
+
+    // Get all districts for this state, then build district→dealer→product hierarchy
+    const allDistricts = (fullData.districts || [])
+      .filter(d => d.state?.toUpperCase() === entityName);
+
+    const districtChildren = allDistricts
+      .map(d => {
+        const impactScore = d.impactScore ?? 0;
+        const severity = getSeverityFromImpactScore(impactScore);
+        const drop = Math.max(0, (d.prev ?? 0) - (d.cur ?? 0));
+
+        // Find active declining dealers in this district (cur > 0 & cur < prev)
+        const distDealers = (fullData.dealers || [])
+          .filter(dl => dl.district?.toUpperCase() === d.district?.toUpperCase() && (dl.cur ?? 0) > 0 && (dl.cur ?? 0) < (dl.prev ?? 0))
+          .sort((a, b) => (b.prev ?? 0) - (a.prev ?? 0))
+          .map(dl => {
+            const dealerDrop = (dl.prev ?? 0) - (dl.cur ?? 0);
+            const dealerProducts = (dl.products || [])
+              .map(p => ({
+                type: 'PRODUCT',
+                name: cleanName(p.product),
+                severity: getSeverityFromImpactScore(p.impactScore ?? 0),
+                impactScore: p.impactScore ?? 0,
+                drop: (p.prev ?? 0) - (p.cur ?? 0),
+                cur: p.cur ?? 0,
+                prev: p.prev ?? 0,
+                mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0)
+              }))
+              .filter(p => p.cur !== 0 || p.prev !== 0)
+              .sort((a, b) => b.drop - a.drop);
+
+            return {
+              type: 'DEALER',
+              name: `${cleanName(dl.client)} (Active)`,
+              severity: getSeverityFromImpactScore(dl.impactScore ?? 0),
+              impactScore: dl.impactScore ?? 0,
+              drop: dealerDrop,
+              cur: dl.cur ?? 0,
+              prev: dl.prev ?? 0,
+              mom: dl.mom,
+              children: dealerProducts
+            };
+          });
+
+        // Get active products for this district
+        const distProducts = (d.products || [])
+          .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
+          .map(p => {
+            const cur = p.cur ?? 0;
+            const prev = p.prev ?? 0;
+            const drop = prev - cur;
+            return {
+              type: 'PRODUCT',
+              name: cleanName(p.product),
+              severity: getSeverityFromImpactScore(p.impactScore ?? 0),
+              impactScore: p.impactScore ?? 0,
+              drop,
+              cur,
+              prev,
+              mom: p.mom ?? calculateMoM(cur, prev)
+            };
+          })
+          .sort((a, b) => b.drop - a.drop);
+
+        const children = [...distDealers, ...distProducts];
+        if (drop === 0 && children.length === 0) return null;
+        return { type: 'DISTRICT', name: cleanName(d.district), severity, impactScore, drop, mom: d.mom, children };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.drop - a.drop);
+
+    // State-level active products (aggregate)
+    const stateObj = (fullData.states || []).find(s => s.state?.toUpperCase() === entityName);
+    const stateProducts = (stateObj?.products || [])
+      .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
+      .map(p => {
+        const cur = p.cur ?? 0;
+        const prev = p.prev ?? 0;
+        const drop = prev - cur;
         const impactScore = p.impactScore ?? 0;
         const severity = getSeverityFromImpactScore(impactScore);
-        return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore };
-      }),
-    ];
+        return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore, drop, cur, prev, mom: p.mom ?? calculateMoM(cur, prev) };
+      })
+      .sort((a, b) => b.drop - a.drop);
+
+    const children = [...stateActiveDealers, ...districtChildren, ...stateProducts];
+    if (children.length === 0) return null;
     return { type: 'STATE', name: cleanName(alert.state || entityName), children, severity: getWorstSeverity(children), impactScore: getWorstImpactScore(children) };
   }
 
   if (level === 'DISTRICT') {
     const matchName = entityName.split(',')[0].trim();
-    const dealers = (fullData.dealers || []).filter(d => d.district?.toUpperCase() === matchName);
+    // Show only active dealers decline (cur > 0 && cur < prev) carrying top volume
+    const dealers = (fullData.dealers || [])
+      .filter(d => d.district?.toUpperCase() === matchName && (d.cur ?? 0) > 0 && (d.cur ?? 0) < (d.prev ?? 0))
+      .sort((a, b) => (b.prev ?? 0) - (a.prev ?? 0));
     const distObj = (fullData.districts || []).find(d => d.district?.toUpperCase() === matchName);
-    const products = distObj?.products || [];
+    const products = (distObj?.products || [])
+      .filter(p => (p.cur ?? 0) < (p.prev ?? 0))
+      .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)));
     if (dealers.length === 0 && products.length === 0) return null;
     const children = [
       ...dealers.map(d => {
         const impactScore = d.impactScore ?? 0;
         const severity = getSeverityFromImpactScore(impactScore);
-        return { type: 'DEALER', name: cleanName(d.client), severity, impactScore };
+        const drop = (d.prev ?? 0) - (d.cur ?? 0);
+        const dealerProducts = (d.products || [])
+          .map(p => {
+            const cur = p.cur ?? 0;
+            const prev = p.prev ?? 0;
+            const drop = prev - cur;
+            return {
+              type: 'PRODUCT',
+              name: cleanName(p.product),
+              severity: getSeverityFromImpactScore(p.impactScore ?? 0),
+              impactScore: p.impactScore ?? 0,
+              drop,
+              cur,
+              prev,
+              mom: p.mom ?? calculateMoM(cur, prev)
+            };
+          })
+          .filter(p => p.cur !== 0 || p.prev !== 0)
+          .sort((a, b) => b.drop - a.drop);
+
+        return { 
+          type: 'DEALER', 
+          name: `${cleanName(d.client)} (Active)`, 
+          severity, 
+          impactScore, 
+          drop, 
+          mom: d.mom,
+          children: dealerProducts
+        };
       }),
       ...products.map(p => {
         const impactScore = p.impactScore ?? 0;
         const severity = getSeverityFromImpactScore(impactScore);
-        return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore };
+        return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore, drop: (p.prev ?? 0) - (p.cur ?? 0), mom: p.mom };
       }),
     ];
     return { type: 'DISTRICT', name: cleanName(alert.district || matchName), children, severity: getWorstSeverity(children), impactScore: getWorstImpactScore(children) };
@@ -126,13 +279,15 @@ const buildHierarchy = (alert, fullData) => {
 
   if (level === 'DEALER') {
     const dealerObj = (fullData.dealers || []).find(d => d.client?.toUpperCase() === entityName);
-    const products = dealerObj?.products || [];
+    const products = (dealerObj?.products || []).filter(p => (p.cur ?? 0) < (p.prev ?? 0));
     if (products.length === 0) return null;
-    const children = products.map(p => {
-      const impactScore = p.impactScore ?? 0;
-      const severity = getSeverityFromImpactScore(impactScore);
-      return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore };
-    });
+    const children = products
+      .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)))
+      .map(p => {
+        const impactScore = p.impactScore ?? 0;
+        const severity = getSeverityFromImpactScore(impactScore);
+        return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore, drop: (p.prev ?? 0) - (p.cur ?? 0), mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0) };
+      });
     return { type: 'DEALER', name: cleanName(alert.dealer || entityName), children, severity: getWorstSeverity(children), impactScore: getWorstImpactScore(children) };
   }
 
@@ -203,7 +358,7 @@ function computePendingRiskScore(dealer) {
   const historyMonths = Object.keys(pendingHistory).sort();
   const pendingMonths = historyMonths.length;
 
-  // 1. BACKLOG AGE (35% weight) — days since oldest pending order month
+  // 1. BACKLOG AGE (30% weight) — days since oldest pending order month
   let backlogAgeDays = 0;
   let oldestMonth = null;
   if (historyMonths.length > 0) {
@@ -213,56 +368,44 @@ function computePendingRiskScore(dealer) {
   } else {
     backlogAgeDays = 30; // assume ~1 month if no history
   }
-  // Score: 0-30d = 0-25, 31-60d = 25-50, 61-90d = 50-75, 91-120d = 75-90, 120d+ = 90-100
+  // Score: 0-30d = 0-40, 31-60d = 40-75, 61-90d = 75-100, 90d+ = 100
   let ageScore = 0;
-  if (backlogAgeDays >= 120) ageScore = 100;
-  else if (backlogAgeDays >= 90) ageScore = 75 + ((backlogAgeDays - 90) / 30) * 25;
-  else if (backlogAgeDays >= 60) ageScore = 50 + ((backlogAgeDays - 60) / 30) * 25;
-  else if (backlogAgeDays >= 30) ageScore = 25 + ((backlogAgeDays - 30) / 30) * 25;
-  else ageScore = (backlogAgeDays / 30) * 25;
+  if (backlogAgeDays >= 90) ageScore = 100;
+  else if (backlogAgeDays >= 60) ageScore = 75 + ((backlogAgeDays - 60) / 30) * 25;
+  else if (backlogAgeDays >= 30) ageScore = 40 + ((backlogAgeDays - 30) / 30) * 35;
+  else ageScore = (backlogAgeDays / 30) * 40;
 
-  // 2. FULFILLMENT RATIO (25% weight) — pending / monthly capacity
-  const monthlyCapacity = dealer.dailyAvgQty > 0 ? dealer.dailyAvgQty * 30 : (dealer.prev > 0 ? dealer.prev : 1);
-  const fulfillmentRatio = pendingQty / monthlyCapacity;
-  // Score: 0-1x = 0-30, 1-2x = 30-60, 2-5x = 60-85, 5x+ = 85-100
-  let fulfillmentScore = 0;
-  if (fulfillmentRatio >= 5) fulfillmentScore = 100;
-  else if (fulfillmentRatio >= 2) fulfillmentScore = 60 + ((fulfillmentRatio - 2) / 3) * 40;
-  else if (fulfillmentRatio >= 1) fulfillmentScore = 30 + ((fulfillmentRatio - 1) / 1) * 30;
-  else fulfillmentScore = fulfillmentRatio * 30;
+  // 2. CLEARANCE RUNWAY (40% weight) — days to clear backlog at current dispatch rate
+  const dailyRate = dealer.currentDailyRate ?? dealer.dailyAvgQty ?? 0;
+  let clearanceDays = 999;
+  let runwayScore = 0;
+  
+  if (dailyRate <= 0) {
+    clearanceDays = 999;
+    runwayScore = pendingQty > 0 ? 100 : 0;
+  } else {
+    clearanceDays = Math.round(pendingQty / dailyRate);
+    // Score: 0-7 days = 0-30, 8-15 days = 30-70, 16-30 days = 70-90, 30+ days = 90-100
+    if (clearanceDays >= 30) runwayScore = 90 + Math.min(10, ((clearanceDays - 30) / 30) * 10);
+    else if (clearanceDays >= 15) runwayScore = 70 + ((clearanceDays - 15) / 15) * 20;
+    else if (clearanceDays >= 7) runwayScore = 30 + ((clearanceDays - 7) / 8) * 40;
+    else runwayScore = (clearanceDays / 7) * 30;
+  }
 
-  // 3. DISPATCH INACTIVITY (20% weight) — is the dealer dispatching at all?
-  const cur = dealer.cur ?? 0;
-  const prev = dealer.prev ?? 0;
-  let inactivityScore = 0;
-  if (cur === 0 && prev > 0) inactivityScore = 100; // Complete shutdown with history
-  else if (cur === 0 && prev === 0) inactivityScore = 80; // No activity at all
-  else if (cur > 0 && cur < prev * 0.3) inactivityScore = 60; // Severe slowdown (<30% of prev)
-  else if (cur > 0 && cur < prev * 0.5) inactivityScore = 35; // Moderate slowdown
-  else if (cur > 0 && cur < prev) inactivityScore = 15; // Minor slowdown
-  else inactivityScore = 0; // Dispatching normally or growing
-
-  // 4. PENDING VOLUME ABSOLUTE (10% weight) — raw business impact
-  // Score: 0-20MT = 0-20, 20-50 = 20-40, 50-100 = 40-60, 100-300 = 60-80, 300+ = 80-100
-  let volumeScore = 0;
-  if (pendingQty >= 300) volumeScore = 80 + Math.min(20, (pendingQty - 300) / 200 * 20);
-  else if (pendingQty >= 100) volumeScore = 60 + ((pendingQty - 100) / 200) * 20;
-  else if (pendingQty >= 50) volumeScore = 40 + ((pendingQty - 50) / 50) * 20;
-  else if (pendingQty >= 20) volumeScore = 20 + ((pendingQty - 20) / 30) * 20;
-  else volumeScore = (pendingQty / 20) * 20;
-
-  // 5. MULTI-MONTH ACCUMULATION (10% weight) — systemic fulfillment failure
-  // Score: 1 month = 0, 2 months = 40, 3 months = 70, 4+ months = 100
-  let accumulationScore = 0;
-  if (pendingMonths >= 4) accumulationScore = 100;
-  else if (pendingMonths >= 3) accumulationScore = 70;
-  else if (pendingMonths >= 2) accumulationScore = 40;
-  else accumulationScore = 0;
+  // 3. STRATEGIC CLIENT VOLUME WEIGHT (30% weight) — size/importance of the dealer
+  const dailyAvg = dealer.dailyAvgQty ?? 0;
+  let clientVolumeWeightScore = 0;
+  // Score: 0-5 MT/d = 0-30, 5-20 MT/d = 30-70, 20-50 MT/d = 70-100, 50+ MT/d = 100
+  if (dailyAvg >= 50) clientVolumeWeightScore = 100;
+  else if (dailyAvg >= 20) clientVolumeWeightScore = 70 + ((dailyAvg - 20) / 30) * 30;
+  else if (dailyAvg >= 5) clientVolumeWeightScore = 30 + ((dailyAvg - 5) / 15) * 40;
+  else clientVolumeWeightScore = (dailyAvg / 5) * 30;
 
   // WEIGHTED COMPOSITE
-  let riskScore = (ageScore * 0.35) + (fulfillmentScore * 0.25) + (inactivityScore * 0.20) + (volumeScore * 0.10) + (accumulationScore * 0.10);
+  let riskScore = (runwayScore * 0.40) + (ageScore * 0.30) + (clientVolumeWeightScore * 0.30);
 
   // CRITICAL FLOOR: zero dispatch + significant pending + aged = guaranteed critical
+  const cur = dealer.cur ?? 0;
   if (cur === 0 && pendingQty >= 50 && backlogAgeDays >= 60) {
     riskScore = Math.max(riskScore, 75);
   }
@@ -274,9 +417,8 @@ function computePendingRiskScore(dealer) {
   riskScore = Math.min(100, Math.round(riskScore));
   const severity = getPendingSeverity(riskScore);
 
-  // Clearance estimate
-  const dailyRate = dealer.currentDailyRate ?? dealer.dailyAvgQty ?? 0;
-  const clearanceDays = dailyRate > 0 ? Math.round(pendingQty / dailyRate) : 999;
+  const monthlyCapacity = dailyAvg > 0 ? dailyAvg * 30 : (dealer.prev > 0 ? dealer.prev : 1);
+  const fulfillmentRatio = pendingQty / monthlyCapacity;
 
   return { riskScore, severity, backlogAgeDays, fulfillmentRatio: Math.round(fulfillmentRatio * 100) / 100, clearanceDays, pendingMonths, oldestMonth };
 }
@@ -288,12 +430,12 @@ function getPendingImpactSummary(dealer) {
 
   if (pendingRisk.severity === 'CRITICAL') {
     if (cur === 0) {
-      return `⚠️ STUCK ORDERS: ${pendingStr} MT pending with ZERO dispatch activity. Oldest order is ${ageStr} days old. At current rate, clearance is impossible — immediate intervention required.`;
+      return `⚠️ Stuck Orders: ${pendingStr} MT pending with ZERO dispatch activity. Oldest order is ${ageStr} days old. At current rate, clearance is impossible — immediate intervention required.`;
     }
-    return `⚠️ SEVERE BACKLOG: ${pendingStr} MT pending, aging ${ageStr} days. Current dispatch rate can only clear ${formatNum(dealer.dailyAvgQty)} MT/day — estimated ${pendingRisk.clearanceDays} days to clear at this pace.`;
+    return `⚠️ Severe Backlog: ${pendingStr} MT pending, aging ${ageStr} days. Current dispatch rate can only clear ${formatNum(dealer.dailyAvgQty)} MT/day — estimated ${pendingRisk.clearanceDays} days to clear at this pace.`;
   }
   if (pendingRisk.severity === 'HIGH') {
-    return `${pendingStr} MT pending orders aging ${ageStr} days. Fulfillment ratio is ${pendingRisk.fulfillmentRatio}x monthly capacity. ${cur === 0 ? 'No dispatch activity this month.' : `Current dispatch: ${formatNum(cur)} MT this month.`}`;
+    return `${pendingStr} MT pending orders aging ${ageStr} days. Fulfillment ratio is ${pendingRisk.fulfillmentRatio}x monthly capacity. ${cur === 0 ? 'No volume shipped this period.' : `Current volume: ${formatNum(cur)} MT this period.`}`;
   }
   if (pendingRisk.severity === 'MEDIUM') {
     return `${pendingStr} MT pending with ${ageStr}-day backlog. ${pendingRisk.fulfillmentRatio <= 1 ? 'Volume is within monthly capacity but needs monitoring.' : `Volume exceeds monthly capacity by ${pendingRisk.fulfillmentRatio}x.`}`;
@@ -310,15 +452,15 @@ function generatePendingRecommendation(dealer) {
       return 'URGENT: Escalate to operations leadership. Dealer has zero dispatch with significant stuck orders. Verify supply chain blockage, credit holds, or dealer operational shutdown. Contact within 24 hours.';
     }
     if (pendingRisk.backlogAgeDays >= 90) {
-      return 'AGED BACKLOG: Orders pending 90+ days indicate systemic fulfillment failure. Investigate production allocation, logistics bottleneck, or order cancellation eligibility. Engage supply chain team.';
+      return 'Aged Backlog: Orders pending 90+ days indicate systemic fulfillment failure. Investigate production allocation, logistics bottleneck, or order cancellation eligibility. Engage supply chain team.';
     }
-    return 'HIGH VOLUME BACKLOG: Pending orders exceed fulfillment capacity significantly. Prioritize dispatch allocation, consider splitting orders across production batches, or negotiate revised delivery timelines.';
+    return 'High Volume Backlog: Pending orders exceed fulfillment capacity significantly. Prioritize dispatch allocation, consider splitting orders across production batches, or negotiate revised delivery timelines.';
   }
   if (pendingRisk.severity === 'HIGH') {
     if (pendingRisk.pendingMonths >= 3) {
-      return 'RECURRING BACKLOG: Pending orders spanning 3+ months suggest persistent capacity mismatch. Review dealer ordering patterns vs actual fulfillment capability. Consider adjusting order acceptance criteria.';
+      return 'Recurring Backlog: Pending orders spanning 3+ months suggest persistent capacity mismatch. Review dealer ordering patterns vs actual fulfillment capability. Consider adjusting order acceptance criteria.';
     }
-    return 'Monitor closely: Pending volume is building up relative to dispatch capacity. Ensure priority allocation in next production cycle. Follow up with logistics for dispatch scheduling.';
+    return 'Monitor Closely: Pending volume is building up relative to dispatch capacity. Ensure priority allocation in next production cycle. Follow up with logistics for dispatch scheduling.';
   }
   if (pendingRisk.severity === 'MEDIUM') {
     return 'Moderate pending volume — ensure orders are queued for next dispatch cycle. Track clearance progress weekly. No immediate escalation needed.';
@@ -337,20 +479,20 @@ const PendingChartTooltipContent = ({ active, payload }) => {
         <div className="font-bold text-white mb-2 truncate text-[11px]">{d.client}</div>
         <div className="space-y-1">
           <div className="flex justify-between">
-            <span className="text-text-secondary">Pending:</span>
+            <span className="text-text-secondary">Backlog Age:</span>
+            <span className="font-semibold text-white">{d.pendingRisk?.backlogAgeDays ?? 0} Days</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Pending Volume (MT):</span>
             <span className="font-semibold text-white">{formatNum(d.pendingQty)} MT</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-text-secondary">Backlog Age:</span>
-            <span className="font-semibold text-white">{d.pendingRisk?.backlogAgeDays ?? 0}d</span>
+            <span className="text-text-secondary">Backlog vs Capacity:</span>
+            <span className="font-semibold text-white">{d.pendingRisk?.fulfillmentRatio ?? 0}x</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-text-secondary">Fulfillment:</span>
-            <span className="font-semibold text-white">{d.pendingRisk?.fulfillmentRatio ?? 0}x capacity</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-text-secondary">Risk Score:</span>
-            <span className="font-bold" style={{ color: getRiskColor(d.pendingRisk?.severity || 'LOW').hex }}>{d.pendingRisk?.riskScore ?? 0}</span>
+            <span className="text-text-secondary">Priority:</span>
+            <span className="font-bold" style={{ color: getRiskColor(d.pendingRisk?.severity || 'LOW').hex }}>{getBusinessPriority(d.pendingRisk?.severity || 'LOW').label}</span>
           </div>
         </div>
       </div>
@@ -374,7 +516,7 @@ const MiniChartTooltipContent = ({ active, payload }) => {
         </div>
         <div className="flex justify-between">
           <span className="text-text-secondary">Inactive:</span>
-          <span className="font-semibold text-white">{data.x}d</span>
+          <span className="font-semibold text-white">{data.x} Days</span>
         </div>
       </div>
     );
@@ -386,7 +528,7 @@ const MiniChartTooltipContent = ({ active, payload }) => {
 // MAIN COMPONENT
 // ═════════════════════════════════════════════════════════════════════════════
 export default function AlertIntelligence() {
-  const { data, rawData, loading, error } = useData();
+  const { data, rawData, loading, error, filterOptions } = useData();
 
   // ── View mode ──────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState('DISPATCH'); // 'DISPATCH' | 'RISK'
@@ -447,7 +589,7 @@ export default function AlertIntelligence() {
   // ═══════════════════════════════════════════════════════════════════════════
   const alerts = useMemo(() => {
     if (!rawData || !rawData.alerts) return [];
-    return rawData.alerts.map(alert => {
+    return rawData.alerts.map((alert, idx) => {
       let productStr = alert.product || alert.products || alert.data?.product || '';
       if (!productStr) {
         const level = (alert.level || alert.category || '').toUpperCase();
@@ -470,7 +612,7 @@ export default function AlertIntelligence() {
         const decliningProds = products.filter(p => (p.cur ?? 0) < (p.prev ?? 0)).map(p => p.product);
         productStr = decliningProds.join(', ');
       }
-      return { ...alert, product: productStr, products: productStr };
+      return { ...alert, _originalIdx: idx, product: productStr, products: productStr };
     });
   }, [rawData]);
 
@@ -484,7 +626,7 @@ export default function AlertIntelligence() {
 
   // Responsive alerts list for counts (applies all filters EXCEPT selectedSeverity)
   const filteredAlertsForCounts = useMemo(() => {
-    return alerts.filter((alert, originalIdx) => {
+    return alerts.filter((alert) => {
       const query = debouncedSearchQuery.toLowerCase();
       const searchable = `${alert.dealer || ''} ${alert.district || ''} ${alert.state || ''} ${alert.products || alert.product || ''} ${alert.reason || alert.title || ''}`.toLowerCase();
       if (debouncedSearchQuery && !searchable.includes(query)) return false;
@@ -509,7 +651,7 @@ export default function AlertIntelligence() {
   const dispatchCounts = useMemo(() => {
     const c = { critical: 0, high: 0, medium: 0, low: 0 };
     filteredAlertsForCounts.forEach(alert => {
-      const originalIdx = alerts.indexOf(alert);
+      const originalIdx = alert._originalIdx;
       const precomputed = alertSeverityMap[originalIdx];
       const severity = precomputed?.severity || 'LOW';
       if (severity === 'CRITICAL') c.critical++;
@@ -518,7 +660,7 @@ export default function AlertIntelligence() {
       else c.low++;
     });
     return c;
-  }, [filteredAlertsForCounts, alertSeverityMap, alerts]);
+  }, [filteredAlertsForCounts, alertSeverityMap]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RISK DEALERS DATA — uses PENDING ORDER RISK SCORING (not dispatch MoM)
@@ -573,6 +715,9 @@ export default function AlertIntelligence() {
   // UNIFIED FILTERS
   // ═══════════════════════════════════════════════════════════════════════════
   const uniqueStates = useMemo(() => {
+    if (filterOptions?.states?.length > 0) {
+      return filterOptions.states;
+    }
     const states = new Set();
     if (viewMode !== 'RISK') {
       alerts.forEach(a => {
@@ -584,7 +729,7 @@ export default function AlertIntelligence() {
       processedDealers.forEach(d => { if (d.state) states.add(d.state); });
     }
     return Array.from(states).sort();
-  }, [alerts, processedDealers, viewMode]);
+  }, [alerts, processedDealers, viewMode, filterOptions]);
 
   const uniqueProducts = useMemo(() => {
     const prods = new Set();
@@ -647,7 +792,7 @@ export default function AlertIntelligence() {
   // ═══════════════════════════════════════════════════════════════════════════
   const unifiedRows = useMemo(() => {
     const dispatchRows = filteredAlerts.map(alert => {
-      const originalIdx = alerts.indexOf(alert);
+      const originalIdx = alert._originalIdx ?? 0;
       const precomputed = alertSeverityMap[originalIdx] || { severity: 'LOW', impactScore: 0 };
       return {
         _type: 'DISPATCH',
@@ -766,7 +911,7 @@ export default function AlertIntelligence() {
         >
           <div className="flex flex-col">
             <span className="text-[10px] font-bold text-accent-blue/70 uppercase tracking-widest mb-0.5">
-              {viewMode === 'DISPATCH' ? 'Dispatch Alerts' : 'Risk Dealers'}
+              {viewMode === 'DISPATCH' ? 'Dispatch Alerts' : 'At-Risk Dealers'}
             </span>
             <span className="text-2xl font-extrabold text-text-primary leading-none">{totalActive}</span>
           </div>
@@ -816,7 +961,7 @@ export default function AlertIntelligence() {
               <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#f97316' }}></div>
             </button>
 
-            {/* Medium (dispatch-relevant) */}
+            {/* Moderate (dispatch-relevant) */}
             <button
               onClick={() => setDispatchSeverityFilter(dispatchSeverityFilter === 'MEDIUM' ? 'ALL' : 'MEDIUM')}
               className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all hover:scale-[1.02]"
@@ -828,7 +973,7 @@ export default function AlertIntelligence() {
               }}
             >
               <div className="flex flex-col text-left">
-                <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(234,179,8,0.7)' }}>Medium</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(234,179,8,0.7)' }}>Moderate</span>
                 <span className="text-2xl font-extrabold text-text-primary leading-none">
                   {dispatchCounts.medium}
                 </span>
@@ -838,14 +983,13 @@ export default function AlertIntelligence() {
           </>
         )}
 
-        {/* Risk-only: show Critical/High/Medium/Low chips — uses riskSeverityFilter */}
+        {/* Risk-only: show Critical/High/Moderate chips — uses riskSeverityFilter */}
         {viewMode === 'RISK' && (
           <>
             {[
               { key: 'CRITICAL', label: 'Critical', color: '#ef4444', count: riskCounts.critical },
               { key: 'HIGH', label: 'High', color: '#f97316', count: riskCounts.high },
-              { key: 'MEDIUM', label: 'Medium', color: '#eab308', count: riskCounts.medium },
-              { key: 'LOW', label: 'Low', color: '#22c55e', count: riskCounts.low },
+              { key: 'MEDIUM', label: 'Moderate', color: '#eab308', count: riskCounts.medium },
             ].map(cfg => (
               <button
                 key={cfg.key}
@@ -904,7 +1048,7 @@ export default function AlertIntelligence() {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input 
                 type="text" 
-                placeholder={viewMode === 'RISK' ? "Search dealer, location..." : "Search alerts, entities..."} 
+                placeholder={viewMode === 'RISK' ? "Search dealers, locations..." : "Search alerts, dealers, locations..."} 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="search-input w-full bg-bg-input border-border/50 focus:border-accent-blue"
@@ -921,8 +1065,6 @@ export default function AlertIntelligence() {
                 <option value="ALL">All Levels</option>
                 <option value="STATE">State</option>
                 <option value="DISTRICT">District</option>
-                <option value="DEALER">Dealer</option>
-                <option value="PRODUCT">Product</option>
               </select>
             )}
 
@@ -931,7 +1073,7 @@ export default function AlertIntelligence() {
               onChange={(e) => setSelectedState(e.target.value)}
               className="filter-select bg-bg-input border-border/50 text-xs w-full sm:w-40"
             >
-              <option value="ALL">All States</option>
+              {uniqueStates.length !== 1 && <option value="ALL">All States</option>}
               {uniqueStates.map(st => <option key={st} value={st}>{st}</option>)}
             </select>
 
@@ -954,13 +1096,13 @@ export default function AlertIntelligence() {
             </span>
             {viewMode === 'RISK' && (
               <div className="flex items-center gap-2">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  className="px-2.5 py-1.5 rounded-lg border border-border/50 text-xs font-bold bg-bg-input hover:border-accent-blue disabled:opacity-40 disabled:cursor-not-allowed text-white cursor-pointer transition-all"
-                >
-                  Prev
-                 </button>
+<button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="px-2.5 py-1.5 rounded-lg border border-border/50 text-xs font-bold bg-bg-input hover:border-accent-blue disabled:opacity-40 disabled:cursor-not-allowed text-white cursor-pointer transition-all"
+                  >
+                    Previous
+                   </button>
                  <span className="text-xs font-bold text-text-muted min-w-[70px] text-center">
                    Page {currentPage} of {Math.ceil(unifiedRows.length / pageSize) || 1}
                  </span>
@@ -987,13 +1129,12 @@ export default function AlertIntelligence() {
                 <th className="p-4 font-bold">Entity</th>
                 <th className="p-4 font-bold text-right">{viewMode === 'RISK' ? 'Backlog Age' : 'MoM %'}</th>
                 <th className="p-4 font-bold text-right hidden md:table-cell">{viewMode === 'RISK' ? 'Pending Vol' : 'MT Loss'}</th>
-                <th className="p-4 font-bold text-center hidden md:table-cell">{viewMode === 'RISK' ? 'Risk Score' : 'Impact Score'}</th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-border/30">
               {paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-text-muted">
+                  <td colSpan={6} className="p-12 text-center text-text-muted">
                     <AlertTriangle className="w-8 h-8 mx-auto mb-3 opacity-20" />
                     No alerts match the selected filters.
                   </td>
@@ -1017,7 +1158,7 @@ export default function AlertIntelligence() {
 
                         {/* SEVERITY */}
                         <td className="p-4">
-                          <SeverityBadge severity={getSeverityTheme(row.severity).severity} color={getSeverityTheme(row.severity).color} />
+                          <SeverityBadge severity={row.severity} color={getSeverityTheme(row.severity).color} />
                         </td>
 
                         {/* LEVEL */}
@@ -1056,7 +1197,7 @@ export default function AlertIntelligence() {
                             <span className="flex items-center justify-end gap-1 font-semibold">
                               <Clock className="w-3.5 h-3.5 text-text-muted" />
                               <span style={{ color: source.pendingRisk?.backlogAgeDays >= 90 ? '#ef4444' : source.pendingRisk?.backlogAgeDays >= 60 ? '#f97316' : source.pendingRisk?.backlogAgeDays >= 30 ? '#eab308' : '#94a3b8' }}>
-                                {source.pendingRisk?.backlogAgeDays ?? 0}d
+                                {source.pendingRisk?.backlogAgeDays ?? 0} Days
                               </span>
                             </span>
                           )}
@@ -1068,15 +1209,6 @@ export default function AlertIntelligence() {
                             ? (source.drop ? formatNum(source.drop) : (source.data?.drop ? formatNum(source.data.drop) : '-'))
                             : <span className="font-semibold text-text-primary">{formatNum(source.pendingQty)} MT</span>
                           }
-                        </td>
-
-                        {/* RISK SCORE / IMPACT SCORE */}
-                        <td className="p-4 text-center hidden md:table-cell">
-                          {isDispatch ? (
-                            <span style={{ color: getImpactScoreColor(row.impactScore), fontWeight: 700 }}>{row.impactScore}</span>
-                          ) : (
-                            <span style={{ color: getRiskColor(source.severity).hex, fontWeight: 700 }}>{source.riskScore}</span>
-                          )}
                         </td>
                       </tr>
 
@@ -1105,6 +1237,83 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode) {
   const hierarchy = buildHierarchy(alert, data);
   const rec = generateRecommendation(alert);
 
+  const level = (alert.level || alert.category || '').toUpperCase();
+  const entityName = (alert.dealer || alert.district || alert.state || (alert.title ? alert.title.split(':')[0].trim() : '')).toUpperCase();
+  const matchName = level === 'DISTRICT' ? entityName.split(',')[0].trim() : entityName;
+
+  const targetStateName = alert.state || alert.data?.state || (level === 'STATE' ? (alert.entity || alert.title?.split(':')[0]?.trim() || entityName) : (
+    (data?.districts || []).find(d => d.district?.toUpperCase() === matchName)?.state ||
+    (data?.dealers || []).find(d => d.district?.toUpperCase() === matchName || d.client?.toUpperCase() === entityName)?.state || ''
+  ));
+  const cleanStateName = targetStateName ? targetStateName.trim() : '';
+
+  // Find active declining dealers in state/district carrying top volume (cur > 0)
+  const maxDealers = level === 'STATE' ? 10 : 3;
+  const decliningDealers = (data?.dealers || [])
+    .filter(d => {
+      const match = level === 'STATE' 
+        ? d.state?.toUpperCase() === entityName
+        : d.district?.toUpperCase() === matchName;
+      return match && (d.cur ?? 0) > 0 && (d.cur ?? 0) < (d.prev ?? 0);
+    })
+    .map(d => {
+      let prods = [];
+      if (Array.isArray(d.products)) {
+        prods = d.products
+          .map(p => {
+            const name = cleanName(typeof p === 'string' ? p : (p.product || p.name || ''));
+            const cur = typeof p === 'object' ? (p.cur ?? 0) : 0;
+            const prev = typeof p === 'object' ? (p.prev ?? 0) : 0;
+            const drop = prev > cur ? (prev - cur) : 0;
+            const mom = typeof p === 'object' ? (p.mom ?? calculateMoM(cur, prev)) : null;
+            return { name, cur, prev, drop, mom };
+          })
+          .filter(p => p.name)
+          .sort((a, b) => b.drop - a.drop);
+      } else if (typeof d.products === 'string') {
+        prods = d.products.split(',').map(s => ({ name: cleanName(s) })).filter(p => p.name);
+      }
+
+      return {
+        name: d.client,
+        drop: d.prev - d.cur,
+        mom: d.mom,
+        cur: d.cur,
+        prev: d.prev,
+        products: prods
+      };
+    })
+    .sort((a, b) => (b.prev ?? 0) - (a.prev ?? 0))
+    .slice(0, maxDealers);
+
+  // Find active products in state/district (both declining and growing)
+  let productBreakdown = [];
+  if (level === 'STATE') {
+    const stateObj = (data?.states || []).find(s => s.state?.toUpperCase() === entityName);
+    productBreakdown = (stateObj?.products || [])
+      .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
+      .map(p => ({
+        name: p.product,
+        drop: (p.prev ?? 0) - (p.cur ?? 0),
+        mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0),
+        cur: p.cur ?? 0,
+        prev: p.prev ?? 0
+      }))
+      .sort((a, b) => b.drop - a.drop);
+  } else if (level === 'DISTRICT') {
+    const distObj = (data?.districts || []).find(d => d.district?.toUpperCase() === matchName);
+    productBreakdown = (distObj?.products || [])
+      .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
+      .map(p => ({
+        name: p.product,
+        drop: (p.prev ?? 0) - (p.cur ?? 0),
+        mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0),
+        cur: p.cur ?? 0,
+        prev: p.prev ?? 0
+      }))
+      .sort((a, b) => b.drop - a.drop);
+  }
+
   return (
     <tr className="bg-bg-primary/40 shadow-inner overflow-hidden transition-all duration-300">
       <td colSpan={viewMode === 'RISK' ? 6 : 7} className="p-0 border-b border-border/50">
@@ -1117,7 +1326,7 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode) {
                 <h4 className="flex items-center gap-2 text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
                   <FileText className="w-4 h-4" /> Operational Context
                 </h4>
-                <p className="text-sm text-text-secondary leading-relaxed bg-bg-card p-4 rounded-lg border border-border/50">
+                <p className="text-base text-text-primary font-medium leading-relaxed bg-bg-card p-4 rounded-lg border border-border/50">
                   {alert.reason || alert.detail || alert.title || "Contextual details unavailable for this alert entity."}
                 </p>
               </div>
@@ -1128,20 +1337,72 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode) {
                   <h4 className="flex items-center gap-2 text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
                     <Layers className="w-4 h-4" /> Root Cause Hierarchy
                   </h4>
-                  <div className="bg-bg-card border border-border/50 rounded-lg p-4 text-sm font-mono">
-                    <div className="flex items-center gap-2 text-text-primary font-bold">
-                      {hierarchy.type === 'STATE' && <Map className="w-3.5 h-3.5 text-accent-blue" />}
-                      {hierarchy.type === 'DISTRICT' && <Map className="w-3.5 h-3.5 text-accent-blue" />}
-                      {hierarchy.type === 'DEALER' && <Search className="w-3.5 h-3.5 text-accent-blue" />}
+                  <div className="bg-bg-card border border-border/50 rounded-lg p-4 text-base font-mono space-y-2">
+                    <div className="flex items-center gap-2 text-text-primary font-bold text-base border-b border-border/40 pb-2">
+                      {hierarchy.type === 'STATE' && <Map className="w-4 h-4 text-accent-blue" />}
+                      {hierarchy.type === 'DISTRICT' && <Map className="w-4 h-4 text-accent-blue" />}
+                      {hierarchy.type === 'DEALER' && <Search className="w-4 h-4 text-accent-blue" />}
                       {hierarchy.name}
                     </div>
                     {hierarchy.children.map((child, i) => (
-                      <div key={i} className="flex items-center gap-2 mt-2 ml-4 relative">
-                        <div className="absolute -left-4 top-0 w-4 h-1/2 border-l border-b border-border-accent rounded-bl"></div>
-                        {child.type === 'DISTRICT' && <Map className="w-3 h-3 text-text-muted z-10 bg-bg-card" />}
-                        {child.type === 'DEALER' && <Search className="w-3 h-3 text-text-muted z-10 bg-bg-card" />}
-                        {child.type === 'PRODUCT' && <Target className="w-3 h-3 text-text-muted z-10 bg-bg-card" />}
-                        <span className="text-text-secondary">{child.name}</span>
+                      <div key={i} className="ml-4 space-y-1">
+                        <div className="flex items-center justify-between gap-4 py-1 relative pr-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div className="absolute -left-4 top-0 w-4 h-1/2 border-l border-b border-border-accent rounded-bl"></div>
+                            {child.type === 'DISTRICT' && <Map className="w-3.5 h-3.5 text-text-muted z-10 bg-bg-card shrink-0" />}
+                            {child.type === 'DEALER' && <Search className="w-3.5 h-3.5 text-text-muted z-10 bg-bg-card shrink-0" />}
+                            {child.type === 'PRODUCT' && <Target className="w-3.5 h-3.5 text-text-muted z-10 bg-bg-card shrink-0" />}
+                            <span className="text-base text-text-primary font-bold truncate" title={child.name}>{child.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm shrink-0 whitespace-nowrap">
+                            {child.drop > 0 && (
+                              <span className="text-severity-critical font-bold text-base">
+                                -{formatNum(child.drop)} MT
+                              </span>
+                            )}
+                            {child.mom != null && child.mom !== 0 && (
+                              <span className="text-text-muted font-mono font-medium text-sm">
+                                ({child.mom}% MoM)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Nested products (district→products or dealer→products) */}
+                        {child.children && child.children.length > 0 && (
+                          <div className="ml-8 space-y-1 my-1 border-l-2 border-accent-blue/30 pl-3.5">
+                            {child.children.map((pChild, pj) => (
+                              <div key={pj} className="flex items-center justify-between gap-4 text-xs py-0.5 text-text-muted">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <div className={`w-1.5 h-1.5 rounded-full ${pChild.drop > 0 ? 'bg-accent-blue/70' : 'bg-emerald-400'} shrink-0`} />
+                                  <span className="font-bold text-slate-300 text-sm truncate" title={PRODUCT_LABELS[pChild.name] || pChild.name}>
+                                    {PRODUCT_LABELS[pChild.name] || pChild.name}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                                  {pChild.drop > 0 ? (
+                                    <span className="text-severity-critical font-bold text-sm">
+                                      -{formatNum(pChild.drop)} MT
+                                    </span>
+                                  ) : pChild.drop < 0 ? (
+                                    <span className="text-emerald-400 font-bold text-sm">
+                                      +{formatNum(-pChild.drop)} MT
+                                    </span>
+                                  ) : (
+                                    <span className="text-text-muted font-bold text-sm">
+                                      0 MT
+                                    </span>
+                                  )}
+                                  {pChild.mom != null && pChild.mom !== 0 && (
+                                    <span className={`font-mono text-xs ${pChild.mom < 0 ? 'text-text-muted' : 'text-emerald-400'}`}>
+                                      ({pChild.mom > 0 ? `+${pChild.mom}` : pChild.mom}% MoM)
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1156,10 +1417,10 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode) {
                 <h4 className="flex items-center gap-2 text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
                   <Briefcase className="w-4 h-4" /> Recommended Actions
                 </h4>
-                <div className="bg-bg-card border border-border/50 rounded-lg p-4 text-sm">
+                <div className="bg-bg-card border border-border/50 rounded-lg p-4 text-base">
                   <div className="flex gap-3 items-start">
                     <Activity className={`w-5 h-5 shrink-0 mt-0.5 ${(() => { const c = alert.data?.cur ?? alert.cur ?? 0; const p = alert.data?.prev ?? alert.prev ?? 0; return getBusinessImpact(c, p).severity === 'CRITICAL' ? 'text-severity-critical' : 'text-accent-blue'; })()}`} />
-                    <span className="text-text-primary leading-relaxed font-medium">{rec}</span>
+                    <span className="text-text-primary leading-relaxed font-semibold text-base">{rec}</span>
                   </div>
                 </div>
               </div>
@@ -1167,23 +1428,127 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode) {
               {/* Escalation Metadata */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-bg-card border border-border/50 rounded-lg p-3">
-                  <div className="text-[10px] text-text-muted uppercase font-bold mb-1">Business Impact</div>
-                  <div className="text-sm font-medium text-text-primary">
+                  <div className="text-xs text-text-muted uppercase font-bold mb-1">Business Impact</div>
+                  <div className="text-base font-bold text-text-primary">
                     {alert.drop ? `${formatNum(alert.drop)} MT Lost` : 'Pending Assessment'}
                   </div>
                 </div>
                 <div className="bg-bg-card border border-border/50 rounded-lg p-3">
-                  <div className="text-[10px] text-text-muted uppercase font-bold mb-1">Product Portfolio</div>
-                  <div className="text-sm font-medium text-text-primary truncate" title={alert.products || alert.product || 'Multiple'}>
+                  <div className="text-xs text-text-muted uppercase font-bold mb-1">Product Portfolio</div>
+                  <div className="text-base font-bold text-text-primary truncate" title={alert.products || alert.product || 'Multiple'}>
                     {alert.products || alert.product || 'Multiple'}
                   </div>
                 </div>
               </div>
+
+              {/* Top Active Declining Dealers (Actionable Insight in Right Space) */}
+              {decliningDealers.length > 0 && (
+                <div>
+                  <h4 className="flex items-center gap-2 text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
+                    <TrendingDown className="w-4 h-4 text-severity-high" /> Top Volume Active Declining Dealers {level === 'STATE' ? (cleanStateName ? `— ${cleanStateName}` : '') : (matchName ? `— ${matchName}` : (cleanStateName ? `— ${cleanStateName}` : ''))}
+                  </h4>
+                  <div className="bg-bg-card border border-border/50 rounded-lg p-4 space-y-3.5">
+                    {decliningDealers.map((d, i) => (
+                      <div key={i} className="border-b border-border/30 last:border-0 pb-3 last:pb-0 space-y-1.5">
+                        <div className="flex justify-between items-start text-sm">
+                          <div className="flex flex-col min-w-0 flex-1 pr-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-base text-text-primary truncate" title={d.name}>
+                                {d.name}
+                              </span>
+                              <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue border border-accent-blue/30">
+                                Active
+                              </span>
+                            </div>
+                            <span className="text-sm text-text-muted font-medium">
+                              Prev: {formatNum(d.prev)} MT → Cur: {formatNum(d.cur)} MT
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                            <span className="text-severity-critical font-extrabold text-base">
+                              -{formatNum(d.drop)} MT
+                            </span>
+                            <span className="text-sm text-text-muted font-medium">
+                              ({d.mom}% MoM)
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Products along with dealer */}
+                        {d.products && d.products.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            {d.products.map((p, pi) => {
+                              const pName = typeof p === 'string' ? p : p.name;
+                              const pLabel = PRODUCT_LABELS[pName] || pName;
+                              const pDrop = typeof p === 'object' ? p.drop : 0;
+                              const pMom = typeof p === 'object' ? p.mom : null;
+
+                              return (
+                                <span 
+                                  key={pi} 
+                                  className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-bg-secondary/80 border border-border/40 text-text-secondary"
+                                >
+                                  <span className="text-text-primary font-bold">{pLabel}</span>
+                                  {pDrop > 0 ? (
+                                    <span className="text-severity-critical font-mono font-bold text-xs">
+                                      -{formatNum(pDrop)} MT
+                                    </span>
+                                  ) : pDrop < 0 ? (
+                                    <span className="text-emerald-400 font-mono font-bold text-xs">
+                                      +{formatNum(-pDrop)} MT
+                                    </span>
+                                  ) : null}
+                                  {pMom != null && pMom !== 0 && (
+                                    <span className={`text-[10px] font-mono ${pMom < 0 ? 'text-text-muted' : 'text-emerald-400'}`}>
+                                      ({pMom > 0 ? `+${pMom}` : pMom}%)
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Product Decline Breakdown */}
+              {productBreakdown.length > 0 && (
+                <div>
+                  <h4 className="flex items-center gap-2 text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
+                    <Target className="w-4 h-4 text-accent-blue" /> Product Decline Breakdown
+                  </h4>
+                  <div className="bg-bg-card border border-border/50 rounded-lg p-4 space-y-3.5">
+                    {productBreakdown.map((p, i) => (
+                      <div key={i} className="flex justify-between items-center text-sm border-b border-border/30 last:border-0 pb-2.5 last:pb-0">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-base text-text-primary">
+                            {p.name}
+                          </span>
+                          <span className="text-sm text-text-muted font-medium">
+                            Prev: {formatNum(p.prev)} MT → Cur: {formatNum(p.cur)} MT
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="text-severity-critical font-extrabold text-base">
+                            -{formatNum(p.drop)} MT
+                          </span>
+                          <span className="text-sm text-text-muted font-medium">
+                            ({p.mom}% MoM)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* FOOTER METADATA */}
-          <div className="flex gap-4 text-xs text-text-muted pt-4 mt-4 border-t border-border/30">
+          <div className="flex gap-4 text-sm text-text-muted pt-4 mt-4 border-t border-border/30">
             <span>Share: <strong className="text-text-primary">{alert.share ? `${alert.share}%` : '-'}</strong></span>
             {alert.suppressedBy && <span>Suppressed By: <strong className="text-text-primary">{alert.suppressedBy}</strong></span>}
             <span>Generated At: <strong className="text-text-primary">{data?.meta?.generatedAt ? new Date(data.meta.generatedAt).toLocaleString() : 'N/A'}</strong></span>
@@ -1234,37 +1599,37 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                   {[
                     { label: 'Pending Volume', value: `${formatNum(dealer.pendingQty)} MT`, icon: <Package className="w-3.5 h-3.5" />, highlight: dealer.pendingQty >= 100 },
                     { label: 'Backlog Age', value: `${pendingRisk.backlogAgeDays ?? 0} days`, icon: <Calendar className="w-3.5 h-3.5" />, highlight: pendingRisk.backlogAgeDays >= 60 },
-                    { label: 'Risk Score', value: `${pendingRisk.riskScore ?? 0}/100`, icon: <Zap className="w-3.5 h-3.5" />, highlight: true },
-                    { label: 'Fulfillment Ratio', value: `${pendingRisk.fulfillmentRatio ?? 0}x`, icon: <BarChart3 className="w-3.5 h-3.5" />, highlight: pendingRisk.fulfillmentRatio >= 2 },
-                    { label: 'Clearance Est.', value: pendingRisk.clearanceDays >= 999 ? '∞ (no dispatch)' : `${pendingRisk.clearanceDays} days`, icon: <Timer className="w-3.5 h-3.5" />, highlight: pendingRisk.clearanceDays >= 60 },
+                    { label: 'Priority', value: getBusinessPriority(pendingRisk.severity || 'LOW').label, icon: <Zap className="w-3.5 h-3.5" />, highlight: true },
+                    { label: 'Backlog Load', value: `${pendingRisk.fulfillmentRatio ?? 0}x capacity`, icon: <BarChart3 className="w-3.5 h-3.5" />, highlight: pendingRisk.fulfillmentRatio >= 2 },
+                    { label: 'Est. Days to Clear', value: pendingRisk.clearanceDays >= 999 ? 'No Despatch' : `${pendingRisk.clearanceDays} days`, icon: <Timer className="w-3.5 h-3.5" />, highlight: pendingRisk.clearanceDays >= 60 },
                     { label: 'Months Pending', value: `${pendingRisk.pendingMonths ?? 0} month${(pendingRisk.pendingMonths ?? 0) !== 1 ? 's' : ''}`, icon: <Clock className="w-3.5 h-3.5" />, highlight: pendingRisk.pendingMonths >= 3 },
                   ].map(item => (
                     <div key={item.label} className="bg-bg-card border border-border/50 rounded-lg p-3">
-                      <div className="flex items-center gap-1.5 text-[10px] text-text-muted uppercase font-bold mb-1">
+                      <div className="flex items-center gap-1.5 text-xs text-text-muted uppercase font-bold mb-1">
                         {item.icon}
                         {item.label}
                       </div>
-                      <div className={`text-sm font-bold ${item.highlight ? theme.text : 'text-text-primary'}`}>{item.value}</div>
+                      <div className={`text-base font-extrabold ${item.highlight ? theme.text : 'text-text-primary'}`}>{item.value}</div>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Business Impact Summary */}
-              <div className="bg-bg-card p-4 rounded-lg border border-border/50 text-xs text-text-secondary leading-relaxed">
-                <h4 className="font-bold text-white flex items-center gap-1.5 mb-1.5 uppercase text-[10px] tracking-wider">
+              <div className="bg-bg-card p-4 rounded-lg border border-border/50 text-sm text-text-primary leading-relaxed">
+                <h4 className="font-bold text-white flex items-center gap-1.5 mb-1.5 uppercase text-xs tracking-wider">
                   <Info className="w-3.5 h-3.5 text-accent-blue shrink-0" /> Business Impact
                 </h4>
-                <p className="break-words">{getPendingImpactSummary(dealer)}</p>
+                <p className="break-words text-base leading-relaxed text-text-primary font-medium">{getPendingImpactSummary(dealer)}</p>
               </div>
 
-              {/* Pending Order Aging Breakdown */}
+              {/* Pending Order Aging Breakdown with Product-wise Split */}
               {historyMonths.length > 0 && (
                 <div>
-                  <h4 className="text-[10px] text-text-muted font-extrabold uppercase tracking-widest mb-3">
+                  <h4 className="text-xs text-text-muted font-extrabold uppercase tracking-widest mb-3">
                     Order Aging Breakdown
                   </h4>
-                  <div className="space-y-2 bg-bg-card p-4 rounded-lg border border-border/50">
+                  <div className="space-y-3 bg-bg-card p-4 rounded-lg border border-border/50">
                     {historyMonths.map(month => {
                       const vol = pendingHistory[month] || 0;
                       const monthDate = new Date(month + '-01');
@@ -1272,19 +1637,60 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                       const pctOfTotal = dealer.pendingQty > 0 ? Math.round((vol / dealer.pendingQty) * 100) : 0;
                       const ageColor = ageDays >= 120 ? '#ef4444' : ageDays >= 90 ? '#f97316' : ageDays >= 60 ? '#eab308' : ageDays >= 30 ? '#94a3b8' : '#22c55e';
                       const monthLabel = monthDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+
+                      // Product-wise pending for this specific month
+                      const pendingProds = (dealer.products || [])
+                        .filter(p => (p.pendingQty ?? 0) > 0)
+                        .sort((a, b) => (b.pendingQty ?? 0) - (a.pendingQty ?? 0));
+
+                      const totalDealerPending = dealer.pendingQty || 1;
+
+                      const monthProducts = pendingProds.map(p => {
+                        const pMonthVol = p.pendingHistory?.[month] ?? (vol * ((p.pendingQty ?? 0) / totalDealerPending));
+                        return {
+                          product: p.product,
+                          label: PRODUCT_LABELS[p.product] || p.product,
+                          vol: pMonthVol,
+                          pct: vol > 0 ? Math.round((pMonthVol / vol) * 100) : 0
+                        };
+                      }).filter(p => p.vol > 0.01);
+
                       return (
-                        <div key={month} className="space-y-1">
-                          <div className="flex justify-between text-xs">
+                        <div key={month} className="space-y-2 pb-3 border-b border-border/30 last:border-0 last:pb-0">
+                          <div className="flex justify-between text-sm items-center">
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full" style={{ background: ageColor }}></div>
-                              <span className="font-bold text-slate-200">{monthLabel}</span>
-                              <span className="text-text-muted text-[10px]">({ageDays}d old)</span>
+                              <span className="font-bold text-base text-slate-200">{monthLabel}</span>
+                              <span className="text-text-muted text-xs font-medium">({ageDays} Days Old)</span>
                             </div>
-                            <span className="font-semibold text-text-primary">{formatNum(vol)} MT</span>
+                            <span className="font-bold text-base text-text-primary">{formatNum(vol)} MT</span>
                           </div>
+
                           <div className="h-2 bg-bg-secondary rounded-full overflow-hidden">
                             <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pctOfTotal)}%`, background: ageColor }}></div>
                           </div>
+
+                          {/* Product-wise Breakdown for this month */}
+                          {monthProducts.length > 0 && (
+                            <div className="mt-2.5 pt-2 pl-3 space-y-1.5 border-l-2 border-slate-700/60 bg-bg-primary/40 p-2.5 rounded-r-lg">
+                              <div className="text-[10px] font-extrabold uppercase text-text-muted tracking-wider mb-1 flex items-center justify-between">
+                                <span>Product Breakdown ({monthLabel})</span>
+                                <span className="font-mono text-slate-400">{formatNum(vol)} MT</span>
+                              </div>
+                              {monthProducts.map(p => (
+                                <div key={p.product} className="flex justify-between items-center text-xs">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-accent-blue/80 shrink-0" />
+                                    <span className="font-bold text-slate-200 truncate" title={p.label}>{p.label}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 font-mono shrink-0">
+                                    <span className="font-extrabold text-text-primary">{formatNum(p.vol)} MT</span>
+                                    <span className="text-text-muted text-[11px] font-normal">({p.pct}%)</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1292,15 +1698,47 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                 </div>
               )}
 
+              {/* Product-wise Pending Breakdown */}
+              {dealer.products && dealer.products.length > 0 && dealer.products.some(p => (p.pendingQty ?? 0) > 0) && (
+                <div>
+                  <h4 className="text-xs text-text-muted font-extrabold uppercase tracking-widest mb-3">
+                    Product-wise Pending
+                  </h4>
+                  <div className="space-y-2 bg-bg-card p-4 rounded-lg border border-border/50">
+                    {dealer.products
+                      .filter(p => (p.pendingQty ?? 0) > 0)
+                      .sort((a, b) => (b.pendingQty ?? 0) - (a.pendingQty ?? 0))
+                      .map(p => {
+                        const pctOfTotal = dealer.pendingQty > 0 ? Math.round(((p.pendingQty ?? 0) / dealer.pendingQty) * 100) : 0;
+                        const productLabel = PRODUCT_LABELS[p.product] || p.product;
+                        return (
+                          <div key={p.product} className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full" style={{ background: getRiskColor(dealer.severity).hex }}></div>
+                                <span className="font-bold text-base text-slate-200">{productLabel}</span>
+                              </div>
+                              <span className="font-bold text-base text-text-primary">{formatNum(p.pendingQty)} MT <span className="text-text-muted font-normal text-xs">({pctOfTotal}%)</span></span>
+                            </div>
+                            <div className="h-2 bg-bg-secondary rounded-full overflow-hidden">
+                              <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pctOfTotal)}%`, background: getRiskColor(dealer.severity).hex }}></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
               {/* Dispatch Context */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-bg-card border border-border/50 rounded-lg p-3">
-                  <div className="text-[10px] text-text-muted uppercase font-bold mb-1">Current Dispatch</div>
-                  <div className={`text-sm font-bold ${dealer.cur === 0 ? 'text-severity-critical' : 'text-text-primary'}`}>{formatNum(dealer.cur)} MT</div>
+                  <div className="text-xs text-text-muted uppercase font-bold mb-1">Current Volume</div>
+                  <div className={`text-base font-extrabold ${dealer.cur === 0 ? 'text-severity-critical' : 'text-text-primary'}`}>{formatNum(dealer.cur)} MT</div>
                 </div>
                 <div className="bg-bg-card border border-border/50 rounded-lg p-3">
-                  <div className="text-[10px] text-text-muted uppercase font-bold mb-1">Previous Dispatch</div>
-                  <div className="text-sm font-bold text-text-primary">{formatNum(dealer.prev)} MT</div>
+                  <div className="text-xs text-text-muted uppercase font-bold mb-1">Previous Volume</div>
+                  <div className="text-base font-extrabold text-text-primary">{formatNum(dealer.prev)} MT</div>
                 </div>
               </div>
             </div>
@@ -1356,10 +1794,10 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                 <h4 className="flex items-center gap-2 text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
                   <Briefcase className="w-4 h-4" /> Recommended Actions
                 </h4>
-                <div className="bg-bg-card border border-border/50 rounded-lg p-4 text-sm">
+                <div className="bg-bg-card border border-border/50 rounded-lg p-4 text-base">
                   <div className="flex gap-3 items-start">
                     <ShieldAlert className={`w-5 h-5 shrink-0 mt-0.5 ${pendingRisk.severity === 'CRITICAL' ? 'text-severity-critical' : pendingRisk.severity === 'HIGH' ? 'text-severity-high' : 'text-accent-blue'}`} />
-                    <span className="text-text-primary leading-relaxed font-medium text-xs">{rec}</span>
+                    <span className="text-text-primary leading-relaxed font-semibold text-base">{rec}</span>
                   </div>
                 </div>
               </div>

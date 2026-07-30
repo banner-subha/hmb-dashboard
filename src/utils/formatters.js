@@ -44,3 +44,11 @@ export const formatDate = (iso) => {
     hour: '2-digit', minute: '2-digit',
   });
 };
+
+/** Format number of days in a business-grade format */
+export const formatDays = (days) => {
+  if (days == null || isNaN(days)) return '—';
+  const val = parseFloat(days);
+  const formattedVal = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
+  return `${formattedVal} ${val === 1 ? 'day' : 'days'}`;
+};

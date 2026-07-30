@@ -15,9 +15,18 @@ export default function CollapsibleCard({
 
   return (
     <div className={`glass-card overflow-hidden ${className}`}>
-      <button 
+      <div 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 sm:p-5 bg-bg-card hover:bg-bg-card-hover transition-colors border-b border-border"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsOpen(!isOpen);
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-expanded={isOpen}
+        className="collapsible-header w-full flex items-center justify-between p-4 sm:p-5 transition-colors border-b border-border cursor-pointer select-none focus-visible:outline-accent-blue"
         style={accentColor ? { borderLeftWidth: '3px', borderLeftColor: accentColor } : {}}
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -31,7 +40,7 @@ export default function CollapsibleCard({
         >
           <ChevronDown className="w-5 h-5" />
         </m.div>
-      </button>
+      </div>
       
       <AnimatePresence initial={false}>
         {isOpen && (

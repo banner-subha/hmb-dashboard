@@ -44,7 +44,7 @@ export default function MoMTrendChart({ data, nameKey = "name", height = 300 }) 
   }
 
   return (
-    <div ref={containerRef} style={{ height: `${height}px`, width: '100%' }}>
+    <div ref={containerRef} className="animate-fade-in" style={{ height: `${height}px`, width: '100%' }}>
       {width > 0 && (
         <BarChart
           width={width}
@@ -57,8 +57,8 @@ export default function MoMTrendChart({ data, nameKey = "name", height = 300 }) 
           <YAxis stroke="var(--color-text-dim)" fontSize={12} tickFormatter={(val) => `${val}`} />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} isAnimationActive={false} />
           <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--color-text-muted)', paddingTop: '12px' }} />
-          <Bar dataKey="prev" name="Previous" fill="var(--color-text-dim)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-          <Bar dataKey="cur" name="Current" fill="var(--color-accent-blue)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+          <Bar dataKey="prev" name="Previous" fill="var(--color-text-dim)" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={true} animationDuration={500} animationEasing="ease-out" />
+          <Bar dataKey="cur" name="Current" fill="var(--color-accent-blue)" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={true} animationDuration={600} animationEasing="ease-out" />
         </BarChart>
       )}
     </div>

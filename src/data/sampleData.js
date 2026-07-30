@@ -20,7 +20,7 @@ export const sampleData = {
   "products": [
     {
       "product": "IG",
-      "label": "IG (Iron Gate)",
+      "label": "IG (I-Grill)",
       "cur": 633,
       "prev": 722,
       "mom": -12.3,
@@ -31,7 +31,7 @@ export const sampleData = {
     },
     {
       "product": "GI",
-      "label": "GI (Galvanised Iron)",
+      "label": "GI (Grill Guard)",
       "cur": 892,
       "prev": 857,
       "mom": 4.1,
@@ -42,7 +42,7 @@ export const sampleData = {
     },
     {
       "product": "IGG",
-      "label": "IGG (Iron Gate — Heavy)",
+      "label": "IGG (Iron Grill Guard)",
       "cur": 287,
       "prev": 310,
       "mom": -7.4,
@@ -53,7 +53,7 @@ export const sampleData = {
     },
     {
       "product": "HGI",
-      "label": "HGI (Heavy GI)",
+      "label": "HGI (Heavy Grill Guard)",
       "cur": 412,
       "prev": 507,
       "mom": -18.7,
@@ -1387,6 +1387,50 @@ export const sampleData = {
   ],
   "intelligence": {
     "executive_summary": "May 2026 dispatch declined 8.0% MoM to 2,847.5 MT, driven primarily by SS product (-22.1%) and HGI (-18.7%) weakness concentrated in West Bengal and Bihar. Three dealers are flagged CRITICAL with zero activity this cycle. GI and Pipe segments show resilience with positive growth, partially offsetting the decline. Immediate intervention required in West Bengal channel where top-3 dealers represent 61% of state volume, creating dangerous concentration risk.",
+    "product_insights": [
+      {
+        "product": "SS",
+        "label": "SS – Structurals & Sections",
+        "cur_mt": 282,
+        "prev_mt": 362,
+        "mom_pct": -22.1,
+        "share_pct": 10,
+        "pending_qty": 185.5,
+        "trend": "DECLINING",
+        "primary_driver": "Supply allocation shortfall at raw material source.",
+        "impact_mt": 80,
+        "pct_of_total_decline": 31,
+        "recommended_action": "Regional Sales Manager to negotiate fresh allocations with prime mills this week."
+      },
+      {
+        "product": "HGI",
+        "label": "HGI – Heavy Galvanised Iron",
+        "cur_mt": 150,
+        "prev_mt": 184.5,
+        "mom_pct": -18.7,
+        "share_pct": 5,
+        "pending_qty": 92.4,
+        "trend": "DECLINING",
+        "primary_driver": "Monsoon transport logistics constraints in West Bengal.",
+        "impact_mt": 34.5,
+        "pct_of_total_decline": 13,
+        "recommended_action": "Dispatch Team to arrange multi-axle logistics by Saturday."
+      },
+      {
+        "product": "GI",
+        "label": "GI – Galvanised Iron",
+        "cur_mt": 625,
+        "prev_mt": 580,
+        "mom_pct": 7.8,
+        "share_pct": 22,
+        "pending_qty": 45.2,
+        "trend": "GROWING",
+        "primary_driver": "Strong agricultural fencing demand in Bihar.",
+        "impact_mt": 45,
+        "pct_of_total_decline": 0,
+        "recommended_action": "Area Sales Manager to increase credit limits for top-3 Bihar accounts."
+      }
+    ],
     "root_cause_analysis": [
       {
         "dimension": "PRODUCT",
@@ -1448,6 +1492,13 @@ export const sampleData = {
         "state": "WEST BENGAL",
         "risk_type": "DECLINING",
         "recommended_action": "Sales Manager to review product mix — shift to GI/Pipe"
+      },
+      {
+        "dealer": "Tapan Kumar Dutta",
+        "district": "PURBA BARDHAMAN",
+        "state": "WEST BENGAL",
+        "risk_type": "DECLINING",
+        "recommended_action": "Area Sales Manager to prioritize visit within 48 hours to clear pending backlog"
       }
     ],
     "geographic_insights": "Eastern corridor (WB + Bihar + Jharkhand) accounts for 78% of total volume decline. West Bengal concentration risk is critical — top 3 dealers = 61% of state volume. Bihar HGI channel is destabilizing with 2 of top 5 dealers inactive or declining. Positive growth in UP (+10.5%) and Chhattisgarh (+5.1%) partially compensates but insufficient to offset eastern losses.",

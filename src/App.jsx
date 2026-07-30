@@ -2,19 +2,21 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import { useData } from './context/DataContext';
-import { useMemo } from 'react';
+import React, { useMemo, lazy } from 'react';
 import { calculateMoM, getBusinessImpact } from './utils/trendEngine';
+import { getPendingAvailableMonths } from './utils/pending';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
 
-import ExecutiveOverview from './pages/ExecutiveOverview';
-import StateIntelligence from './pages/StateIntelligence';
-import DistrictIntelligence from './pages/DistrictIntelligence';
-import DealerIntelligence from './pages/DealerIntelligence';
-import AIWarRoom from './pages/AIWarRoom';
-import AlertIntelligence from './pages/AlertIntelligence';
-import GeoIntelligence from './pages/GeoIntelligence';
+const ExecutiveOverview = lazy(() => import('./pages/ExecutiveOverview'));
+const StateIntelligence = lazy(() => import('./pages/StateIntelligence'));
+const DistrictIntelligence = lazy(() => import('./pages/DistrictIntelligence'));
+const DealerIntelligence = lazy(() => import('./pages/DealerIntelligence'));
+const AIWarRoom = lazy(() => import('./pages/AIWarRoom'));
+const AlertIntelligence = lazy(() => import('./pages/AlertIntelligence'));
+const GeoIntelligence = lazy(() => import('./pages/GeoIntelligence'));
 
 // ─── GeoIntelligence wrapper — transforms rawData → salesData prop ─────────────
 function GeoIntelligenceWrapper() {
@@ -145,33 +147,22 @@ function GeoIntelligenceWrapper() {
         )} />;
 }
 
-// Helper to construct pendingAvailableMonths
-function getPendingAvailableMonths(rawData) {
-  if (!rawData) return [];
-  if (rawData.pendingAvailableMonths) return rawData.pendingAvailableMonths;
+// ── DistrictIntelligence wrapper — transforms rawData → passes pendingAvailableMonths prop ─────────────
+function DistrictIntelligenceWrapper() {
+  const { rawData, loading, error } = useData();
+  const pendingAvailableMonths = useMemo(() => getPendingAvailableMonths(rawData), [rawData]);
+  if (loading) return <div className="min-h-screen bg-bg-primary flex items-center justify-center text-text-muted">Loading district data…</div>;
+  if (error) return <div className="min-h-screen bg-bg-primary flex items-center justify-center text-severity-critical">Error: {error}</div>;
+  return <DistrictIntelligence pendingAvailableMonths={pendingAvailableMonths} />;
+}
 
-  // Extract all unique period keys from pendingHistory across states & districts
-  const keys = new Set();
-  (rawData.states || []).forEach(s => {
-    if (s.pendingHistory) Object.keys(s.pendingHistory).forEach(k => keys.add(k));
-  });
-  (rawData.districts || []).forEach(d => {
-    if (d.pendingHistory) Object.keys(d.pendingHistory).forEach(k => keys.add(k));
-  });
-
-  // Fall back to availableMonths at root if pendingHistory yields nothing
-  if (keys.size === 0 && rawData.availableMonths) {
-    return rawData.availableMonths;
-  }
-
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  return Array.from(keys).sort().reverse().map(pk => {
-    const [yearStr, monthStr] = pk.split('-');
-    const year = parseInt(yearStr, 10);
-    const month = parseInt(monthStr, 10);
-    const label = `${months[month - 1]} ${year}`;
-    return { periodKey: pk, year, month, label };
-  });
+// ── DealerIntelligence wrapper — transforms rawData → passes pendingAvailableMonths prop ─────────────
+function DealerIntelligenceWrapper() {
+  const { rawData, loading, error } = useData();
+  const pendingAvailableMonths = useMemo(() => getPendingAvailableMonths(rawData), [rawData]);
+  if (loading) return <div className="min-h-screen bg-bg-primary flex items-center justify-center text-text-muted">Loading dealer data…</div>;
+  if (error) return <div className="min-h-screen bg-bg-primary flex items-center justify-center text-severity-critical">Error: {error}</div>;
+  return <DealerIntelligence pendingAvailableMonths={pendingAvailableMonths} />;
 }
 
 // ── StateIntelligence wrapper — transforms rawData → passes pendingAvailableMonths prop ─────────────
@@ -211,32 +202,52 @@ function RequireAuth({ children }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return <DataProvider>{children}</DataProvider>;
+  return children;
 }
 
+// Index route element — directs clients to /states and admins to ExecutiveOverview
+function IndexElement() {
+  const { user } = useAuth();
+  if (user?.role === 'client') {
+    return <Navigate to="/states" replace />;
+  }
+  return <ExecutiveOverview />;
+}
 
+// Admin-only route guard
+function RequireAdminRoute({ children }) {
+  const { user } = useAuth();
+  if (user?.role === 'client') {
+    return <Navigate to="/states" replace />;
+  }
+  return children;
+}
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          
-          <Route path="/" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
-            <Route index element={<ExecutiveOverview />} />
-            <Route path="states" element={<StateIntelligenceWrapper />} />
-            <Route path="districts" element={<DistrictIntelligence />} />
-            <Route path="dealers" element={<DealerIntelligence />} />
-            <Route path="risk" element={<Navigate to="/alerts" replace />} />
-            <Route path="war-room" element={<AIWarRoom />} />
-            <Route path="alerts" element={<AlertIntelligence />} />
-            <Route path="geo" element={<GeoIntelligenceWrapper />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <DataProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              
+              <Route path="/" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
+                <Route index element={<IndexElement />} />
+                <Route path="states" element={<StateIntelligenceWrapper />} />
+                <Route path="districts" element={<DistrictIntelligenceWrapper />} />
+                <Route path="dealers" element={<DealerIntelligenceWrapper />} />
+                <Route path="risk" element={<Navigate to="/alerts" replace />} />
+                <Route path="war-room" element={<RequireAdminRoute><AIWarRoom /></RequireAdminRoute>} />
+                <Route path="alerts" element={<RequireAdminRoute><AlertIntelligence /></RequireAdminRoute>} />
+                <Route path="geo" element={<RequireAdminRoute><GeoIntelligenceWrapper /></RequireAdminRoute>} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </DataProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

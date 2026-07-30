@@ -113,46 +113,71 @@ function normalizeName(str) {
 
 const districtAliases = {
   // ── West Bengal ──
-  'paschimmedinipur':  'medinipurwest',
-  'purbamedinipur':    'medinipureast',
+  'paschimmedinipur':        'medinipurwest',
+  'purbamedinipur':          'medinipureast',
   'southtwentyfourparganas': 'south24parganas',
   'northtwentyfourparganas': 'north24parganas',
-  'westmidnapore': 'medinipurwest',
-  'eastmidnapore': 'medinipureast',
-  'westmidnapur': 'medinipurwest',
-  'eastmidnapur': 'medinipureast',
-  'paschimmidnapore': 'medinipurwest',
-  'purbamidnapore': 'medinipureast',
-  'purgamedinipur': 'medinipureast',
+  'westmidnapore':           'medinipurwest',
+  'eastmidnapore':           'medinipureast',
+  'westmidnapur':            'medinipurwest',
+  'eastmidnapur':            'medinipureast',
+  'paschimmidnapore':        'medinipurwest',
+  'purbamidnapore':          'medinipureast',
+  'purgamedinipur':          'medinipureast',
+  'paschimbardhaman':        'paschimbardhaman',
+  'purbabardhaman':          'purbabardhaman',
+  'westbardhaman':           'paschimbardhaman',
+  'eastbardhaman':           'purbabardhaman',
+  'burdwan':                 'purbabardhaman',
+  'bardhaman':               'purbabardhaman',
+  'malda':                   'maldah',
+  'coochbehar':              'coochbehar',
+
   // ── Arunachal Pradesh — cities → parent district ──
   'itanagar':   'papumpare',
   'hollongi':   'papumpare',
   'naharlagun': 'papumpare',
+
   // ── Assam ──
-  'guwahati':        'kamrup',
-  'dispur':          'kamrup',
+  'guwahati':        'kamrupmetropolitan',
+  'dispur':          'kamrupmetropolitan',
+  'kamrup':          'kamrupmetropolitan',
   'kamrupmetro':     'kamrupmetropolitan',
   'silchar':         'cachar',
+
   // ── Bihar ──
   'patna':           'patna',
   'purbichamparan':  'eastchamparan',
+  'paschimchamparan':'westchamparan',
+
   // ── Jharkhand ──
-  'jamshedpur':      'purbisinghbhum',
-  'eastsinghbhum':   'purbisinghbhum',
-  'koderma':         'kodarma',
+  'jamshedpur':         'purbisinghbhum',
+  'eastsinghbhum':      'purbisinghbhum',
+  'eastsinghbhoom':     'purbisinghbhum',
+  'purbisinghbhoom':    'purbisinghbhum',
+  'westsinghbhum':      'paschimisinghbhum',
+  'westsinghbhoom':     'paschimisinghbhum',
+  'paschimisinghbhoom': 'paschimisinghbhum',
+  'koderma':            'kodarma',
   'seraikelakharsawan': 'saraikelakharsawan',
+  'seraikela':          'saraikelakharsawan',
+  'hazaribag':          'hazaribagh',
+
   // ── Odisha ──
   'balasore':        'baleshwar',
   'baleswar':        'baleshwar',
   'berhampur':       'ganjam',
   'bhubaneswar':     'khordha',
+  'bhubneswar':      'khordha',
   'jagatsinghpur':   'jagatsinghapur',
   'jajpur':          'jajapur',
   'keshpur':         'khordha',
+  'anugul':          'angul',
+  'sundergarh':      'sundargarh',
+  'rourkela':        'sundargarh',
+
   // ── Rajasthan ──
   'junjhunu':        'jhunjhunu',
-  // Fix: raw CSV stores "CHURU DISTRICT" → lookupKey "churudistrict" but TopoJSON polygon is "Churu"
-  // These backward-compat aliases handle existing Supabase data until the KPI node is re-run
   'churudistrict':   'churu',
   'jaipurdistrict':  'jaipur',
   'jodhpurdistrict': 'jodhpur',
@@ -163,6 +188,21 @@ const districtAliases = {
   'ajmerdistrict':   'ajmer',
   'sikardistrict':   'sikar',
   'nagaurdistrict':  'nagaur',
+
+  // ── Manipur ──
+  'westimphal':      'imphalwest',
+  'eastimphal':      'imphaleast',
+
+  // ── Uttar Pradesh ──
+  'kanpur':          'kanpurnagar',
+  'allahabad':       'prayagraj',
+  'banaras':         'varanasi',
+  'noida':           'gautambuddhanagar',
+  'faizabad':        'ayodhya',
+
+  // ── Chhattisgarh ──
+  'bhilai':          'durg',
+  'jagdalpur':       'bastar',
 };
 
 function resolveDistrict(name) {
@@ -173,18 +213,18 @@ function resolveDistrict(name) {
 // ─── Geo Visualization Layer (isolated — never mutates global state) ──────────
 const NO_DATA_COLOR = '#1e2535';
 const HEAT_COLORS = [
-  '#1e3a8a', // Dark blue — lowest risk / growing
-  '#1d4ed8', // Strong blue — low risk
-  '#2563eb', // Rich royal blue — moderate risk
-  '#3b82f6', // Medium blue — high risk
-  '#60a5fa', // Sky blue — critical risk (vibrant, not white)
+  '#bfdbfe', // Soft light blue — lowest volume
+  '#60a5fa', // Sky blue — low-med volume
+  '#3b82f6', // Medium blue — moderate volume
+  '#2563eb', // Royal blue — high volume
+  '#1e3a8a', // Rich dark navy — top volume (lighter navy, readable)
 ];
 const HEAT_LABELS = [
-  'Lowest Risk',
-  'Low Risk',
-  'Moderate Risk',
-  'High Risk',
-  'Critical Risk',
+  'Lowest Vol',
+  'Low Vol',
+  'Moderate Vol',
+  'High Vol',
+  'Top Vol',
 ];
 
 // ─── Map dimensions ───────────────────────────────────────────────────────────
@@ -222,7 +262,7 @@ import { useData } from '../context/DataContext';
 import ImpactBadge from '../components/common/ImpactBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import { getSeverityMeta } from '../utils/severity';
-import { formatMT, formatNumber } from '../utils/formatters';
+import { formatMT, formatNumber, formatDays } from '../utils/formatters';
 import { getPendingForPeriod, getTotalPendingForPeriod, getSharePctForPeriod, getBacklogClearance, isAgingPeriod } from '../utils/pending';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -243,68 +283,73 @@ function trendStr(t) {
 
 
 // ─── Tooltip (fixed-positioned, follows mouse) ────────────────────────────────
-function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, selectedPendingMonth }) {
-  if (!visible || !name) return null;
-  
+function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, selectedPendingMonth, isDistrictView }) {
   const isPending = filterType === "PENDING";
-  const pendingQty = isPending ? getPendingForPeriod(data, selectedPendingMonth) : (data ? (data.volume ?? 0) : 0);
+
+  const despatchQty = data ? (data.despatchQty ?? (isPending ? (data.rawCur ?? data.despatchCur ?? 0) : (data.volume ?? data.cur ?? 0))) : 0;
+  const pendingQty = data ? (data.pendingQty ?? getPendingForPeriod(data, selectedPendingMonth || 'ALL')) : 0;
+  
   const dailyAvg = data ? (data.dailyAvgQty ?? 0) : 0;
-  const clearance = getBacklogClearance(pendingQty, dailyAvg);
-  const sharePct = isPending ? getSharePctForPeriod(data, selectedPendingMonth, totalPending) : 0;
+  const rawAvgPeriod = data?.avgPeriod ?? (dailyAvg > 0 && pendingQty > 0 ? (pendingQty / dailyAvg) : null);
+  const clearanceText = rawAvgPeriod != null ? formatDays(rawAvgPeriod) : getBacklogClearance(pendingQty, dailyAvg).text;
+
+  const trendVal = data ? (data.trend ?? data.mom ?? null) : null;
+  const riskTier = data ? (data.impactTier || data.impact || (pendingQty > 0 ? getBacklogClearance(pendingQty, dailyAvg).status : 'STABLE')) : 'STABLE';
 
   return (
     <div
       ref={tooltipRef}
-      className="pointer-events-none fixed z-[9999] border transition-transform duration-75 bg-bg-elevated border-border-accent rounded-lg px-3.5 py-2.5 text-xs shadow-none"
+      className="pointer-events-none fixed z-[9999] border bg-[#060d1d]/98 backdrop-blur-md border-border-accent/80 rounded-xl p-4 shadow-2xl map-tooltip-container space-y-2.5 min-w-[240px]"
       style={{
         left: 0,
         top:  0,
-        transform: 'translate3d(0, 0, 0)',
-        minWidth: 190,
+        display: (visible && name) ? 'block' : 'none'
       }}
     >
-      <div className="font-bold text-text-primary mb-2 text-sm truncate">{name}</div>
+      {/* Entity Title & Type Badge */}
+      <div className="flex items-center justify-between border-b border-border/50 pb-2 gap-3">
+        <div className="font-black text-text-primary text-base truncate tracking-tight">{name}</div>
+        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-bg-card border border-border/50 text-text-muted shrink-0">
+          {isDistrictView ? 'District' : 'State'}
+        </span>
+      </div>
+
       {data ? (
-        <div className="space-y-1.5">
+        <div className="space-y-2 text-sm">
+          {/* Despatch Volume */}
           <Row 
-            label={isPending ? "Pending" : "Volume"} 
-            value={formatMT(isPending ? pendingQty : data.volume)} 
+            label="Despatch Vol" 
+            value={formatMT(despatchQty)} 
           />
-          {isPending ? (
-            <>
-              {selectedPendingMonth !== 'ALL' && (
-                <Row 
-                  label="Total Backlog" 
-                  value={formatMT(getPendingForPeriod(data, 'ALL'))} 
-                />
-              )}
-              <Row 
-                label="Share" 
-                value={`${sharePct.toFixed(1)}%`} 
-              />
-              <div className="flex justify-between gap-6 items-center">
-                <span className="text-text-muted">Clearance</span>
-                <span className="font-semibold text-text-secondary">
-                  {clearance.text}
-                </span>
-                <SeverityBadge severity={clearance.status} />
-              </div>
-            </>
-          ) : (
-            <>
-              <Row 
-                label="Change" 
-                value={trendStr(data.trend)} 
-              />
-              <div className="flex justify-between gap-6 items-center">
-                <span className="text-text-muted">Alert</span>
-                <SeverityBadge severity={data.impactTier || 'LOW'} />
-              </div>
-            </>
-          )}
+
+          {/* Pending Orders Volume */}
+          <Row 
+            label="Pending Orders" 
+            value={pendingQty > 0 ? formatMT(pendingQty) : '0 MT'} 
+          />
+
+          {/* Avg Period of Orders */}
+          <Row 
+            label="Avg Order Period" 
+            value={clearanceText} 
+            valueColor="#38bdf8"
+          />
+
+          {/* MoM Trend */}
+          <Row
+            label="MoM Trend"
+            value={trendStr(trendVal)}
+            valueColor={trendVal > 0 ? '#22c55e' : trendVal < 0 ? '#ef4444' : undefined}
+          />
+
+          {/* Risk Level Badge */}
+          <div className="flex justify-between gap-4 items-center pt-1.5 border-t border-border/30">
+            <span className="text-text-muted font-medium text-xs sm:text-sm">Risk Level</span>
+            <SeverityBadge severity={riskTier} />
+          </div>
         </div>
       ) : (
-        <div className="text-text-muted italic">No data</div>
+        <div className="text-text-muted italic py-1.5 text-center text-sm">No data available</div>
       )}
     </div>
   );
@@ -312,8 +357,8 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, se
 function Row({ label, value, valueColor }) {
   return (
     <div className="flex justify-between gap-6 items-center">
-      <span className="text-text-muted">{label}</span>
-      <span className="font-semibold text-text-primary" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
+      <span className="text-text-muted font-medium text-xs sm:text-sm">{label}</span>
+      <span className="font-bold text-text-primary text-xs sm:text-sm" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
     </div>
   );
 }
@@ -380,7 +425,15 @@ function parseMonthKey(periodStr) {
 
 function findAvailableMonth(selMonth, availMonths) {
   if (!selMonth || !availMonths?.length) return null;
-  const match = selMonth.match(/([a-zA-Z]+)\s+(\d{4})/);
+
+  const keyMatch = availMonths.find(m => 
+    m.periodKey === selMonth || 
+    m.key === selMonth || 
+    m.label === selMonth
+  );
+  if (keyMatch) return keyMatch;
+
+  const match = String(selMonth).match(/([a-zA-Z]+)\s+(\d{4})/);
   if (!match) return null;
 
   const selMonthStr = match[1].toLowerCase();
@@ -399,6 +452,36 @@ function findAvailableMonth(selMonth, availMonths) {
   return availMonths.find(m => m.year === selYear && m.month === targetMonthNum);
 }
 
+function resolvePeriodKey(selectedMonth, availableMonths, monthlyHistory) {
+  if (availableMonths?.length) {
+    const match = findAvailableMonth(selectedMonth, availableMonths);
+    if (match?.periodKey) {
+      console.log(`[resolvePeriodKey] Found via availableMonths: "${selectedMonth}" → periodKey="${match.periodKey}"`);
+      return match.periodKey;
+    }
+  }
+  if (selectedMonth && monthlyHistory) {
+    const parsed = String(selectedMonth).match(/([a-zA-Z]+)\s+(\d{4})/);
+    if (parsed) {
+      const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+      const idx = months.findIndex(m => parsed[1].toLowerCase().startsWith(m));
+      if (idx !== -1) {
+        const key = `${parsed[2]}-${String(idx + 1).padStart(2, '0')}`;
+        const exists = !!monthlyHistory[key];
+        console.log(`[resolvePeriodKey] Fallback: "${selectedMonth}" → key="${key}" exists=${exists}`);
+        if (monthlyHistory[key]) return key;
+      } else {
+        console.log(`[resolvePeriodKey] Fallback FAILED: could not parse month from "${selectedMonth}"`);
+      }
+    } else {
+      console.log(`[resolvePeriodKey] Fallback FAILED: regex no match for "${selectedMonth}"`);
+    }
+  } else {
+    console.log(`[resolvePeriodKey] No monthlyHistory available, selectedMonth="${selectedMonth}"`);
+  }
+  return null;
+}
+
 export default function GeoIntelligence({ salesData: propSalesData, pendingAvailableMonths = [] }) {
   const { rawData } = useData();
 
@@ -408,13 +491,13 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     item: [],
   });
   const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedPendingMonth, setSelectedPendingMonth] = useState(() => pendingAvailableMonths[0]?.periodKey || '');
+  const [selectedPendingMonth, setSelectedPendingMonth] = useState('ALL');
 
   useEffect(() => {
-    if (pendingAvailableMonths && pendingAvailableMonths.length > 0 && !selectedPendingMonth) {
-      setSelectedPendingMonth(pendingAvailableMonths[0].periodKey);
+    if (filterState.type === 'PENDING') {
+      setSelectedPendingMonth('ALL');
     }
-  }, [pendingAvailableMonths, selectedPendingMonth]);
+  }, [filterState.type]);
 
   const sortedPendingMonths = useMemo(() => {
     return [...pendingAvailableMonths].sort((a, b) => {
@@ -429,14 +512,49 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     
     const curPeriod = rawData.meta?.curPeriod || rawData.curPeriod || "";
     const prevPeriod = rawData.meta?.prevPeriod || rawData.prevPeriod || "";
-    const ytdPeriod = rawData.meta?.ytdPeriod || rawData.ytdPeriod || "1 Jan 2026 - 31 May 2026";
 
-    const curMonthKey = parseMonthKey(curPeriod);
+    let curMonthKey = parseMonthKey(curPeriod);
     const prevMonthKey = parseMonthKey(prevPeriod);
 
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const list = [];
+    const seen = new Set();
 
+    if (!curMonthKey) {
+      curMonthKey = "Jul 2026";
+    }
+
+    // 1. Place Current MTD first
+    if (curMonthKey) {
+      seen.add(curMonthKey);
+      list.push({
+        value: curMonthKey,
+        label: `${curMonthKey} (MTD)`,
+        fullName: `${curMonthKey} (MTD)`,
+      });
+    }
+
+    // 2. Add availableMonths from rawData
+    if (Array.isArray(rawData.availableMonths) && rawData.availableMonths.length > 0) {
+      rawData.availableMonths.forEach(m => {
+        let key = m.label;
+        if (m.month && m.year) {
+          key = `${months[m.month - 1]} ${m.year}`;
+        }
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          list.push({
+            value: key,
+            label: key,
+            fullName: key,
+            periodKey: m.periodKey
+          });
+        }
+      });
+    }
+
+    // 3. Parse ytdPeriod as fallback for any additional periods
+    const ytdPeriod = rawData.meta?.ytdPeriod || rawData.ytdPeriod || "1 Jan 2026 - 31 Jul 2026";
     const parseDateString = (str) => {
       const matches = str.match(/([a-zA-Z]+)\s+(\d{4})/);
       if (matches) {
@@ -467,11 +585,14 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       while (currYear < endYear || (currYear === endYear && currMonth <= endMonth)) {
         const name = months[currMonth];
         const key = `${name} ${currYear}`;
-        list.push({
-          value: key,
-          label: key,
-          fullName: key,
-        });
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            value: key,
+            label: key,
+            fullName: key,
+          });
+        }
         currMonth++;
         if (currMonth > 11) {
           currMonth = 0;
@@ -480,20 +601,12 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       }
     }
 
-    if (curMonthKey && !list.some(item => item.value === curMonthKey)) {
-      list.push({
-        value: curMonthKey,
-        label: `${curMonthKey} (MTD)`,
-        fullName: `${curMonthKey} (MTD)`,
-      });
-    }
-
     return {
       buttons: list,
       curMonthLabel: curMonthKey ? `${curMonthKey} (MTD)` : "Current (MTD)",
       prevMonthLabel: prevMonthKey || "Previous Month",
-      curMonthKey,
-      prevMonthKey,
+      curMonthKey: curMonthKey || (list[0]?.value || ""),
+      prevMonthKey: prevMonthKey || (list[1]?.value || ""),
     };
   }, [rawData]);
 
@@ -529,18 +642,15 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       };
     }
     
-    const isCur = selectedMonth === monthButtons.curMonthKey;
-    const isPrev = selectedMonth === monthButtons.prevMonthKey;
-    if (!isCur && !isPrev && rawData.availableMonths && rawData.monthlyHistory) {
-      const avail = findAvailableMonth(selectedMonth, rawData.availableMonths);
-      const periodKey = avail ? avail.periodKey : null;
+    if (rawData.availableMonths && rawData.monthlyHistory && !(selectedMonth === monthButtons.curMonthKey)) {
+      const periodKey = resolvePeriodKey(selectedMonth, rawData.availableMonths, rawData.monthlyHistory);
       const slice = periodKey ? rawData.monthlyHistory[periodKey] : null;
       if (slice) {
         let totalCur = slice.total || 0;
         if (filterState.item.length > 0) {
           totalCur = (slice.products || [])
             .filter(p => filterState.item.includes(p.product?.toUpperCase()))
-            .reduce((sum, p) => sum + (p.qty || 0), 0);
+            .reduce((sum, p) => sum + (p.cur ?? p.qty ?? 0), 0);
         }
         return {
           cur: totalCur || 1,
@@ -594,12 +704,13 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         states[stateName] = {
           ...s,
           name: stateName,
+          despatchQty: rawState.cur ?? s.cur ?? s.volume ?? 0,
           cur,
           prev: 0,
           volume: cur,
-          pendingQty: rawState.pendingQty ?? 0,
+          pendingQty: cur,
           pendingHistory: rawState.pendingHistory ?? {},
-          trend: null,
+          trend: s.trend ?? s.mom ?? null,
           impactScore,
           impact: severity,
           impactTier: severity,
@@ -634,12 +745,13 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           districts[stateName][districtName] = {
             ...d,
             name: districtName,
+            despatchQty: rawDist.cur ?? d.cur ?? d.volume ?? 0,
             cur,
             prev: 0,
             volume: cur,
-            pendingQty: rawDist.pendingQty ?? 0,
+            pendingQty: cur,
             pendingHistory: rawDist.pendingHistory ?? {},
-            trend: null,
+            trend: d.trend ?? d.mom ?? null,
             impactScore,
             impact: severity,
             impactTier: severity,
@@ -655,6 +767,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     // Despatch / All filter Month
     const isCur = selectedMonth === monthButtons.curMonthKey;
     const isPrev = selectedMonth === monthButtons.prevMonthKey;
+    console.log(`[filteredSalesData] type=DESPATCH selectedMonth="${selectedMonth}" isCur=${isCur} isPrev=${isPrev} curKey="${monthButtons.curMonthKey}" prevKey="${monthButtons.prevMonthKey}"`);
 
     const getPrevPeriodKey = (pKey) => {
       if (!pKey) return null;
@@ -663,12 +776,12 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       return `${year}-${String(month - 1).padStart(2, '0')}`;
     };
 
-    if (!isCur && !isPrev && rawData.availableMonths && rawData.monthlyHistory) {
-      const avail = findAvailableMonth(selectedMonth, rawData.availableMonths);
-      const periodKey = avail ? avail.periodKey : null;
+    if (rawData.availableMonths && rawData.monthlyHistory && !isCur) {
+      const periodKey = resolvePeriodKey(selectedMonth, rawData.availableMonths, rawData.monthlyHistory);
       const historySlice = periodKey ? rawData.monthlyHistory[periodKey] : null;
-      const prevPeriodKey = getPrevPeriodKey(periodKey);
-      const prevHistorySlice = prevPeriodKey ? rawData.monthlyHistory[prevPeriodKey] : null;
+      if (historySlice) {
+        const prevPeriodKey = getPrevPeriodKey(periodKey);
+        const prevHistorySlice = prevPeriodKey ? rawData.monthlyHistory[prevPeriodKey] : null;
 
       // Compile states from the selected month's historical snapshot
       (historySlice?.states || []).forEach(hs => {
@@ -677,16 +790,16 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
         const prevHistState = (prevHistorySlice?.states || []).find(phs => phs.state?.toLowerCase() === stateName.toLowerCase());
 
-        let cur = hs.qty || 0;
-        let prev = prevHistState ? prevHistState.qty : 0;
+        let cur = hs.cur ?? hs.qty ?? 0;
+        let prev = prevHistState ? (prevHistState.cur ?? prevHistState.qty ?? 0) : 0;
 
         if (filterState.item.length > 0) {
           cur = 0; prev = 0;
           (hs.products || []).forEach(p => {
-            if (filterState.item.includes(p.product?.toUpperCase())) cur += p.qty || 0;
+            if (filterState.item.includes(p.product?.toUpperCase())) cur += p.cur ?? p.qty ?? 0;
           });
           (prevHistState?.products || []).forEach(p => {
-            if (filterState.item.includes(p.product?.toUpperCase())) prev += p.qty || 0;
+            if (filterState.item.includes(p.product?.toUpperCase())) prev += p.cur ?? p.qty ?? 0;
           });
         }
 
@@ -695,7 +808,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         const sharePct = (cur / (totalVolume.cur || 1)) * 100;
         const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName);
 
-        states[stateName] = {
+        const stateObj = {
+          name: stateName,
           cur,
           prev,
           volume: displayVolume,
@@ -707,6 +821,12 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           healthColor: theme.color,
           slug: hs.slug || '',
         };
+
+        states[stateName] = stateObj;
+        states[stateName.toLowerCase()] = stateObj;
+        if (stateName.toUpperCase() !== stateName) {
+          states[stateName.toUpperCase()] = stateObj;
+        }
       });
 
       // Compile districts from the selected month's historical snapshot
@@ -717,19 +837,21 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         if (!districtName || districtName.toLowerCase() === 'unknown') return;
 
         if (!districts[stateName]) districts[stateName] = {};
+        if (!districts[stateName.toLowerCase()]) districts[stateName.toLowerCase()] = districts[stateName];
+        if (!districts[stateName.toUpperCase()]) districts[stateName.toUpperCase()] = districts[stateName];
 
         const prevHistDist = (prevHistorySlice?.districts || []).find(phd => phd.state?.toLowerCase() === stateName.toLowerCase() && phd.district?.toLowerCase() === districtName.toLowerCase());
 
-        let cur = hd.qty || 0;
-        let prev = prevHistDist ? prevHistDist.qty : 0;
+        let cur = hd.cur ?? hd.qty ?? 0;
+        let prev = prevHistDist ? (prevHistDist.cur ?? prevHistDist.qty ?? 0) : 0;
 
         if (filterState.item.length > 0) {
           cur = 0; prev = 0;
           (hd.products || []).forEach(p => {
-            if (filterState.item.includes(p.product?.toUpperCase())) cur += p.qty || 0;
+            if (filterState.item.includes(p.product?.toUpperCase())) cur += p.cur ?? p.qty ?? 0;
           });
           (prevHistDist?.products || []).forEach(p => {
-            if (filterState.item.includes(p.product?.toUpperCase())) prev += p.qty || 0;
+            if (filterState.item.includes(p.product?.toUpperCase())) prev += p.cur ?? p.qty ?? 0;
           });
         }
 
@@ -738,8 +860,9 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         const distShare = (cur / (totalVolume.cur || 1)) * 100;
         const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName);
 
-        districts[stateName][districtName] = {
-          lookupKey: hd.lookupKey,
+        const distObj = {
+          name: districtName,
+          lookupKey: hd.lookupKey || normalizeName(districtName),
           cur,
           prev,
           volume: displayVolume,
@@ -751,9 +874,13 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           healthColor: theme.color,
           slug: hd.slug || '',
         };
+
+        districts[stateName][districtName] = distObj;
       });
 
-      return { states, districts };
+        console.log('[GEO DEBUG] Returning historical states:', Object.keys(states), states['West Bengal'] || states['WEST BENGAL']);
+        return { states, districts };
+      }
     }
 
     Object.entries(propSalesData.states || {}).forEach(([stateName, s]) => {
@@ -775,11 +902,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         });
       }
 
-      let displayVolume = 0;
-      if (isCur) displayVolume = cur;
-      else if (isPrev) displayVolume = prev;
-
-      let trend = (isCur || isPrev) ? calculateMoM(cur, prev) : null;
+      let displayVolume = isPrev ? prev : cur;
+      let trend = calculateMoM(cur, prev);
       const sharePct = (cur / (totalVolume.cur || 1)) * 100;
       const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName, rawState.expectedMtd || s.expectedMtd);
 
@@ -796,6 +920,9 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         healthStatus: severity,
         healthColor: theme.color,
       };
+      if (stateName.toUpperCase() !== stateName) {
+        states[stateName.toUpperCase()] = states[stateName];
+      }
     });
 
     Object.entries(propSalesData.districts || {}).forEach(([stateName, districtMap]) => {
@@ -821,11 +948,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           });
         }
 
-        let displayVolume = 0;
-        if (isCur) displayVolume = cur;
-        else if (isPrev) displayVolume = prev;
-
-        let trend = (isCur || isPrev) ? calculateMoM(cur, prev) : null;
+        let displayVolume = isPrev ? prev : cur;
+        let trend = calculateMoM(cur, prev);
         const distShare = (cur / (totalVolume.cur || 1)) * 100;
         const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName, rawDist.expectedMtd || d.expectedMtd);
 
@@ -850,13 +974,12 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
   const isMonthAvailable = useMemo(() => {
     if (filterState.type === "PENDING") return true;
-    if (selectedMonth === monthButtons.curMonthKey) return true;
-    if (selectedMonth === monthButtons.prevMonthKey) return true;
-    if (rawData && rawData.availableMonths) {
-      return !!findAvailableMonth(selectedMonth, rawData.availableMonths);
+    if (selectedMonth && monthButtons.curMonthKey && selectedMonth === monthButtons.curMonthKey) return true;
+    if (selectedMonth && rawData) {
+      return !!resolvePeriodKey(selectedMonth, rawData.availableMonths, rawData.monthlyHistory);
     }
-    return false;
-  }, [selectedMonth, monthButtons, filterState.type, rawData]);
+    return true;
+  }, [selectedMonth, monthButtons.curMonthKey, filterState.type, rawData]);
 
   const salesData = filteredSalesData;
   const availableProducts = useMemo(() => {
@@ -877,6 +1000,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
   const panXRef = useRef(0);
   const panYRef = useRef(0);
   const isDragging  = useRef(false);
+  const dragDistanceRef = useRef(0);
+  const [isDraggingState, setIsDraggingState] = useState(false);
   const dragStart   = useRef({ x: 0, y: 0, px: 0, py: 0 });
   const zoomIndicatorRef = useRef(null);
 
@@ -884,13 +1009,54 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
   const [tooltip, setTooltip] = useState({ visible: false, name: '', data: null });
   const tooltipRef = useRef(null);
 
-  const applyTransform = useCallback(() => {
-    if (gRef.current) {
-      gRef.current.setAttribute("transform", `translate(${panXRef.current},${panYRef.current}) scale(${zoomRef.current})`);
-    }
+  // rAF-coalesced transform writes. drag/move/wheel events fire 100+ times/sec,
+  // but the screen only refreshes 60 times/sec, so we collapse every burst of
+  // pan/zoom updates into a single paint per frame. Without this, the SVG
+  // attribute writes trigger re-rasterisation on every event and we blow past
+  // the 60fps ceiling — also visible as judder on trackpad two-finger pans.
+  const transformRafRef = useRef(0);
+  // Stores the live SVG viewport dimensions so writeTransformNow can compute
+  // the correct centre pivot without needing W/H in its dependency array.
+  const mapSizeRef = useRef({ w: STATE_W, h: STATE_H });
+
+  const writeTransformNow = useCallback(() => {
+    transformRafRef.current = 0;
+    const g = gRef.current;
+    if (!g) return;
+    const z = zoomRef.current;
+    const x = panXRef.current;
+    const y = panYRef.current;
+    // Scale strictly around the viewport centre so zoom stays perfectly centered.
+    // SVG transform order: translate to centre → scale → translate back → apply pan.
+    const cx = mapSizeRef.current.w / 2;
+    const cy = mapSizeRef.current.h / 2;
+    g.setAttribute(
+      'transform',
+      `translate(${cx + x},${cy + y}) scale(${z}) translate(${-cx},${-cy})`
+    );
     if (zoomIndicatorRef.current) {
-      zoomIndicatorRef.current.textContent = `${Math.round(zoomRef.current * 100)}%`;
+      zoomIndicatorRef.current.textContent = `${Math.round(z * 100)}%`;
     }
+  }, []);
+
+  const applyTransform = useCallback(() => {
+    if (transformRafRef.current) return;
+    transformRafRef.current = requestAnimationFrame(writeTransformNow);
+  }, [writeTransformNow]);
+
+  // Flush any pending transform on unmount to avoid stray rAF writes.
+  useEffect(() => () => {
+    if (transformRafRef.current) cancelAnimationFrame(transformRafRef.current);
+  }, []);
+
+  const getDistrictMapForState = useCallback((districtsObj, targetState) => {
+    if (!districtsObj || !targetState) return {};
+    if (districtsObj[targetState]) return districtsObj[targetState];
+    const targetNorm = normalizeKey(targetState);
+    const matchedKey = Object.keys(districtsObj).find(
+      k => normalizeKey(k) === targetNorm || norm(k) === norm(targetState)
+    );
+    return matchedKey ? districtsObj[matchedKey] : {};
   }, []);
 
   // ── salesData lookup maps ──
@@ -898,14 +1064,17 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     if (!salesData?.states) return {};
     const m = {};
     Object.entries(salesData.states).forEach(([k, v]) => {
-      m[norm(k)] = { name: k, ...v };
+      const key = norm(k);
+      if (!m[key] || (v.name && v.name !== k.toUpperCase())) {
+        m[key] = { name: v.name || k, ...v };
+      }
     });
     return m;
   }, [salesData]);
 
   const districtMap = useMemo(() => {
     if (!salesData?.districts || !selectedState) return {};
-    const src = salesData.districts[selectedState] ?? {};
+    const src = getDistrictMapForState(salesData.districts, selectedState);
     const m = {};
     // Aggregate volumes when multiple city entries resolve to the same district polygon
     Object.entries(src).forEach(([name, district]) => {
@@ -993,6 +1162,9 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     const canonicalName = stateEntry ? stateEntry.name : name;
     const slug = stateEntry ? stateEntry.slug : null;
 
+    // Force-hide tooltip immediately before any async work so state tooltip
+    // never bleeds into the district view.
+    setTooltip({ visible: false, name: '', data: null });
     setSelectedState(canonicalName);
     setDistrictGeo(null);
     setDistError(null);
@@ -1033,6 +1205,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
   }, [stateMap]);
 
   const handleBack = useCallback(() => {
+    // Force-hide tooltip so district tooltip never bleeds into India view.
+    setTooltip({ visible: false, name: '', data: null });
     setSelectedState(null);
     setDistrictGeo(null);
     setDistError(null);
@@ -1043,58 +1217,125 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
   // ── zoom controls ──
   const zoomIn  = useCallback(() => {
-    zoomRef.current = Math.min(zoomRef.current * 1.4, 10);
-    applyTransform();
-  }, [applyTransform]);
+    zoomRef.current = Math.min(zoomRef.current * 1.35, 10);
+    writeTransformNow();
+  }, [writeTransformNow]);
 
   const zoomOut = useCallback(() => {
-    zoomRef.current = Math.max(zoomRef.current / 1.4, 0.5);
-    applyTransform();
-  }, [applyTransform]);
+    zoomRef.current = Math.max(zoomRef.current / 1.35, 0.5);
+    writeTransformNow();
+  }, [writeTransformNow]);
 
   const resetView = useCallback(() => {
     zoomRef.current = 1;
     panXRef.current = 0;
     panYRef.current = 0;
-    applyTransform();
-  }, [applyTransform]);
+    writeTransformNow();
+  }, [writeTransformNow]);
 
-  // ── drag handlers ──
+  // ── Keyboard zoom: Num +/-, 0 to zoom in/out/reset ──
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+      const c = e.code;
+      const kc = e.keyCode;
+
+      // Numpad + (107) or regular + (187/61)
+      if (c === 'NumpadAdd' || kc === 107 || kc === 187 || kc === 61) {
+        e.preventDefault();
+        zoomIn();
+      // Numpad - (109) or regular - (189/173)
+      } else if (c === 'NumpadSubtract' || kc === 109 || kc === 189 || kc === 173) {
+        e.preventDefault();
+        zoomOut();
+      // Numpad 0 (96) or regular 0 (48)
+      } else if (c === 'Numpad0' || kc === 96 || kc === 48) {
+        e.preventDefault();
+        resetView();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [zoomIn, zoomOut, resetView]);
+
+  // ── drag & pan handlers ──
   const onMouseDown = useCallback((e) => {
+    if (e.button !== 0) return;
     isDragging.current = true;
+    dragDistanceRef.current = 0;
+    setIsDraggingState(true);
     dragStart.current  = { x: e.clientX, y: e.clientY, px: panXRef.current, py: panYRef.current };
+    setTooltip({ visible: false, name: '', data: null });
   }, []);
 
   const onMouseMove = useCallback((e) => {
     if (isDragging.current) {
-      panXRef.current = dragStart.current.px + (e.clientX - dragStart.current.x);
-      panYRef.current = dragStart.current.py + (e.clientY - dragStart.current.y);
-      applyTransform();
+      const dx = e.clientX - dragStart.current.x;
+      const dy = e.clientY - dragStart.current.y;
+      dragDistanceRef.current = Math.hypot(dx, dy);
+      panXRef.current = dragStart.current.px + dx;
+      panYRef.current = dragStart.current.py + dy;
+      writeTransformNow();
+      setTooltip({ visible: false, name: '', data: null });
     }
-  }, [applyTransform]);
+  }, [writeTransformNow]);
 
   const onMouseUp = useCallback(() => {
+    if (!isDragging.current) return;
     isDragging.current = false;
+    setIsDraggingState(false);
   }, []);
 
-  // ── wheel zoom ──
+  // ── wheel & trackpad pan/zoom ──
   const onWheel = useCallback((e) => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.15 : 0.87;
-    zoomRef.current = Math.min(Math.max(zoomRef.current * factor, 0.5), 10);
-    applyTransform();
-  }, [applyTransform]);
+    setTooltip({ visible: false, name: '', data: null });
 
-  // ── Dynamic Map Size ──
-  const W = selectedState ? DIST_W : STATE_W;
-  const H = selectedState ? DIST_H : STATE_H;
-
-  // ── projection (for state/district auto-fit) ──
-  const projection = useMemo(() => {
-    const key = selectedState ? `dist_${selectedState}` : 'state_national';
-    if (projectionCache[key]) {
-      return projectionCache[key];
+    // Trackpad pinch-in / pinch-out gestures dispatch wheel events with ctrlKey = true (or metaKey)
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.08 : 0.92;
+      zoomRef.current = Math.min(Math.max(zoomRef.current * factor, 0.5), 10);
+      writeTransformNow();
+    } else {
+      // 2-finger drag/scroll: pan the map horizontally and vertically without zooming
+      panXRef.current -= e.deltaX * 0.85;
+      panYRef.current -= e.deltaY * 0.85;
+      writeTransformNow();
     }
+  }, [writeTransformNow]);
+
+  // ── Responsive Map Sizing ──
+  // The map fills its fluid container; we track the real pixel box via ResizeObserver
+  // so the D3 projection always fits the actual viewport rather than a fixed box.
+  const mapContainerRef = useRef(null);
+  const [mapSize, setMapSize] = useState({ w: STATE_W, h: STATE_H });
+
+  useEffect(() => {
+    const node = mapContainerRef.current;
+    if (!node) return;
+    const update = () => {
+      const rect = node.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setMapSize(prev => {
+          if (Math.abs(prev.w - rect.width) < 1 && Math.abs(prev.h - rect.height) < 1) return prev;
+          const next = { w: Math.round(rect.width), h: Math.round(rect.height) };
+          mapSizeRef.current = next;
+          return next;
+        });
+      }
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
+
+  const W = mapSize.w;
+  const H = mapSize.h;
+
+  // ── projection (auto-fit with prominent, business-grade default scaling) ──
+  const projection = useMemo(() => {
     const features = selectedState ? districtGeo : stateGeo;
     if (!features?.length) {
       return geoMercator()
@@ -1102,9 +1343,15 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         .scale(INDIA_SCALE)
         .translate([W / 2, H / 2]);
     }
-    const proj = geoMercator().fitSize([W, H], { type: 'FeatureCollection', features });
-    projectionCache[key] = proj;
-    return proj;
+
+    // Optimal padding so shapes fill the map canvas prominently by default
+    const padX = selectedState ? Math.max(28, W * 0.04) : Math.max(20, W * 0.025);
+    const padY = selectedState ? Math.max(28, H * 0.04) : Math.max(20, H * 0.025);
+
+    return geoMercator().fitExtent(
+      [[padX, padY], [W - padX, H - padY]],
+      { type: 'FeatureCollection', features }
+    );
   }, [selectedState, stateGeo, districtGeo, W, H]);
 
   const pathGen = useMemo(() => geoPath().projection(projection), [projection]);
@@ -1113,15 +1360,33 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
   const normalizedStateDataMap = useMemo(() => {
     if (!salesData?.states) return {};
     const map = {};
+    const stateAliases = {
+      'odisha': 'orissa',
+      'orissa': 'orissa',
+      'orrisa': 'orissa',
+      'uttarakhand': 'uttaranchal',
+      'uttaranchal': 'uttaranchal',
+      'pondicherry': 'puducherry',
+      'puducherry': 'puducherry',
+      'andamanandnicobar': 'andamanandnicobarislands',
+      'andamanandnicobarislands': 'andamanandnicobarislands',
+      'dadraandnagarhaveli': 'dadraandnagarhaveli',
+      'damananddiu': 'damananddiu',
+      'jammuandkashmir': 'jammukashmir',
+      'jammukashmir': 'jammukashmir',
+    };
     Object.entries(salesData.states).forEach(([name, data]) => {
-      map[normalizeKey(name)] = { name, ...data };
+      const norm = normalizeKey(name);
+      const alias = stateAliases[norm] || norm;
+      map[norm] = { name, ...data };
+      map[alias] = { name, ...data };
     });
     return map;
   }, [salesData]);
 
   const normalizedDistrictDataMap = useMemo(() => {
     if (!salesData?.districts || !selectedState) return {};
-    const src = salesData.districts[selectedState] ?? {};
+    const src = getDistrictMapForState(salesData.districts, selectedState);
     const map = {};
     // Aggregate city entries into parent district polygons
     Object.entries(src).forEach(([name, data]) => {
@@ -1175,6 +1440,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         deduped.push(item);
       }
     }
+    console.log('[GEO DEBUG] rankedStates output:', deduped);
     return deduped;
   }, [stateMap, filterState.type]);
 
@@ -1200,31 +1466,44 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
   const totalPendingVolume = useMemo(() => {
     if (filterState.type !== "PENDING") return 0;
-    return getTotalPendingForPeriod(rankedList, selectedPendingMonth);
-  }, [rankedList, filterState.type, selectedPendingMonth]);
+    return rankedList.reduce((sum, e) => sum + (e.volume ?? e.cur ?? 0), 0);
+  }, [rankedList, filterState.type]);
 
   // ── tooltip helpers ──
   const showTip = useCallback((e, name, entry) => {
+    // Skip on touch/pen — tooltip doesn't make sense without a persistent cursor.
+    // D3 synthetic events don't always carry pointerType, so also check touches.
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
+    if (e.touches && e.touches.length > 0) return;
     const clientX = e.clientX;
     const clientY = e.clientY;
+    if (clientX == null || clientY == null) return;
     setTooltip({ visible: true, name, data: entry ?? null });
     requestAnimationFrame(() => {
       if (tooltipRef.current) {
-        tooltipRef.current.style.left = `${clientX + 16}px`;
-        tooltipRef.current.style.top = `${clientY - 12}px`;
+        const vw = window.innerWidth;
+        const tw = tooltipRef.current.offsetWidth || 220;
+        // Flip tooltip to left side if it would overflow the right edge
+        const left = clientX + 16 + tw > vw ? clientX - tw - 8 : clientX + 16;
+        tooltipRef.current.style.left = `${left}px`;
+        tooltipRef.current.style.top = `${Math.max(8, clientY - 12)}px`;
       }
     });
   }, []);
 
   const moveTip = useCallback((e) => {
-    if (tooltipRef.current) {
-      tooltipRef.current.style.left = `${e.clientX + 16}px`;
-      tooltipRef.current.style.top = `${e.clientY - 12}px`;
-    }
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
+    if (e.touches && e.touches.length > 0) return;
+    if (!tooltipRef.current) return;
+    const vw = window.innerWidth;
+    const tw = tooltipRef.current.offsetWidth || 220;
+    const left = e.clientX + 16 + tw > vw ? e.clientX - tw - 8 : e.clientX + 16;
+    tooltipRef.current.style.left = `${left}px`;
+    tooltipRef.current.style.top = `${Math.max(8, e.clientY - 12)}px`;
   }, []);
 
   const hideTip = useCallback(() => {
-    setTooltip(t => t.visible ? { ...t, visible: false } : t);
+    setTooltip({ visible: false, name: '', data: null });
   }, []);
 
   // ── render features ──
@@ -1235,43 +1514,14 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
   const { heatColorScale, geoHeatMap } = useMemo(() => {
     const entries = Object.entries(activeMap);
     const heatMap = {};
-    
-    const isMtd = selectedMonth === monthButtons.curMonthKey || selectedMonth === "MTD";
-    const isPrevMonth = selectedMonth === monthButtons.prevMonthKey || selectedMonth === monthButtons.prevMonthLabel;
-    const isHistorical = !isMtd && !isPrevMonth;
+    const isPending = filterState.type === "PENDING";
 
-    if (isHistorical && filterState.type !== "PENDING") {
-      // Detect whether we have REAL historical data: if ANY entry has volume > 0,
-      // real monthlyHistory was loaded. If all volume=0, it's a fallback to MTD cur
-      // values — in that case the linear scale makes small states like Rajasthan (35 MT)
-      // invisible against large states like West Bengal (9000+ MT) at <0.4% of the scale.
-      const hasRealHistoricalData = entries.some(([_, e]) => (e.volume || 0) > 0);
+    if (isPending) {
+      const pendings = entries.map(([_, e]) => (e.volume !== undefined ? e.volume : (e.cur !== undefined ? e.cur : (e.pendingQty || 0))));
+      const maxPending = Math.max(...pendings, 1);
 
-      if (hasRealHistoricalData) {
-        // Real monthly data: use volume-based linear scale
-        const volumes = entries.map(([_, e]) => e.volume || 0);
-        const maxVol = Math.max(...volumes, 1);
-        entries.forEach(([key, e]) => {
-          heatMap[key] = { geoHeatScore: e.volume || 0 };
-        });
-        const baseScale = d3.scaleLinear()
-          .domain([0, maxVol * 0.3, maxVol])
-          .range(['#1d4ed8', '#3b82f6', '#60a5fa']) // Starts at strong blue instead of dark background color
-          .interpolate(d3.interpolateHcl)
-          .clamp(true);
-        const colorScale = (vol) => {
-          if (!vol) return '#1e2535'; // Return grey only for true 0/no data
-          return baseScale(vol);
-        };
-        return { heatColorScale: colorScale, geoHeatMap: heatMap };
-      }
-      // No real historical data — fall through to impactScore path below
-      // so states with cur>0 (e.g. Rajasthan) still appear visibly colored.
-    }
-    
-    if (filterState.type === "PENDING") {
       entries.forEach(([key, e]) => {
-        const pendingQty = e.volume || e.cur || 0;
+        const pendingQty = e.volume !== undefined ? e.volume : (e.cur !== undefined ? e.cur : (e.pendingQty || 0));
         heatMap[key] = {
           geoHeatScore: pendingQty,
           pendingQty
@@ -1279,48 +1529,40 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       });
 
       const baseScale = d3.scaleLinear()
-        .domain([0, 100, 300])
-        .range(['#fee2e2', '#f97316', '#ef4444'])
+        .domain([0, maxPending * 0.2, maxPending * 0.45, maxPending * 0.75, maxPending])
+        .range(['#fee2e2', '#fca5a5', '#f87171', '#ef4444', '#b91c1c'])
         .interpolate(d3.interpolateHcl)
         .clamp(true);
 
       const colorScale = (val) => {
-        if (!val || val <= 0) return '#1e2535';
+        if (!val || val <= 0) return NO_DATA_COLOR;
         return baseScale(val);
       };
 
       return { heatColorScale: colorScale, geoHeatMap: heatMap };
     }
 
-    // Step 1: Gather impactScore per district/state (e.impactScore) using getBusinessImpact logic
-    const scored = entries
-      .map(([key, e]) => {
-        const impactScore = e.impactScore != null && Number.isFinite(e.impactScore) ? e.impactScore : 0;
-        return { key, impactScore };
-      });
+    // Despatch volume weight-based scale
+    const volumes = entries.map(([_, e]) => e.volume || e.cur || 0);
+    const maxVol = Math.max(...volumes, 1);
 
-    scored.forEach(({ key, impactScore }) => {
-      const e = activeMap[key];
-      const hasCurVolume = e && ((e.cur || 0) > 0 || (e.volume || 0) > 0);
-      // States/districts with actual volume but impactScore=0 are new/growing regions
-      // (prev=0 means no risk of decline). Give them a minimum visible score so they
-      // appear colored instead of blending into the no-data dark background.
-      const effectiveScore = (impactScore === 0 && hasCurVolume) ? 15 : impactScore;
+    entries.forEach(([key, e]) => {
+      const vol = e.volume || e.cur || 0;
       heatMap[key] = {
-        geoHeatScore: effectiveScore,
-        impactScore
+        geoHeatScore: vol,
+        volume: vol
       };
     });
 
-    // Replace fixed thresholds with absolute severity threshold scaling
-    const colorScale = (score) => {
-      if (score == null) return NO_DATA_COLOR;
-      if (score === 0) return NO_DATA_COLOR;   // True no-data (cur=0 AND prev=0)
-      if (score <= 15) return HEAT_COLORS[0];  // New/growing — lowest visible shade
-      if (score < 40) return HEAT_COLORS[1];   // Low Risk
-      if (score < 50) return HEAT_COLORS[2];   // Moderate Risk
-      if (score < 75) return HEAT_COLORS[3];   // High Risk
-      return HEAT_COLORS[4];                   // Critical Risk
+    const baseScale = d3.scaleLinear()
+      .domain([0, maxVol * 0.15, maxVol * 0.4, maxVol * 0.7, maxVol])
+      .range(['#bfdbfe', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a'])
+      .interpolate(d3.interpolateHcl)
+      .clamp(true);
+
+    const colorScale = (vol) => {
+      if (!vol || vol <= 0) return NO_DATA_COLOR;
+      return baseScale(vol);
     };
 
     return { heatColorScale: colorScale, geoHeatMap: heatMap };
@@ -1328,116 +1570,177 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
   const gRef = useRef(null);
 
+  // Use a ref so D3 event-handler closures always read the *current*
+  // selectedState without needing to be re-created every render.
+  const selectedStateRef = useRef(selectedState);
+  useEffect(() => { selectedStateRef.current = selectedState; }, [selectedState]);
+
+  // Force-clear tooltip whenever the view switches (India ↔ state).
+  // This is the safety net for any path that doesn't call hideTip() directly.
   useEffect(() => {
-    // Reset zoom and pan on state switch
+    setTooltip({ visible: false, name: '', data: null });
+  }, [selectedState]);
+
+  // Reset zoom + pan and clear stale paths whenever the projection recomputes.
+  useEffect(() => {
     zoomRef.current = 1;
     panXRef.current = 0;
     panYRef.current = 0;
-    applyTransform();
-  }, [selectedState, applyTransform]);
+    writeTransformNow();
+    if (gRef.current) {
+      d3.select(gRef.current).selectAll('path.map-path').remove();
+    }
+  }, [projection, writeTransformNow]);
 
-  // Main map drawing logic inside requestAnimationFrame
+  // Main map drawing logic
   useEffect(() => {
     if (!gRef.current || !activeFeatures) return;
-    
+
     let animId;
     const drawMap = () => {
       const g = d3.select(gRef.current);
-      
-      // 1. Bind path data
-      const paths = g.selectAll("path.map-path")
-        .data(activeFeatures);
-        
-      paths.exit().remove();
-      
-      const newPaths = paths.enter().append("path")
-        .attr("class", "map-path")
-        .attr("fill", "#1e2535"); // Default dark color for no-data / initial enter
-        
-      const allPaths = newPaths.merge(paths);
-      
-      allPaths
-        .attr("d", pathGen)
-        .attr("stroke", "#0f1117")
-        .attr("stroke-width", selectedState ? 0.4 : 0.7)
-        .style("cursor", selectedState ? "default" : "pointer")
-        .style("transition", "fill 450ms ease") // Native smooth transition style
-        .on("click", (event, d) => {
-          if (!selectedState) {
-            const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || "";
-            handleStateClick(topoName);
-          }
-        })
-        .on("mouseover", (event, d) => {
-          const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || "";
-          const normTopo = selectedState ? resolveDistrict(topoName) : normalizeKey(topoName);
-          const entry = selectedState 
-            ? normalizedDistrictDataMap[normTopo] 
-            : (normalizedStateDataMap[normTopo] || Object.values(normalizedStateDataMap).find(s => normalizeKey(s.geoKey) === normTopo));
-            
-          const selection = d3.select(event.currentTarget);
-          
-          // Store original attributes
-          const origFill = selection.attr("fill") || "#1e2535";
-          const origStroke = selection.attr("stroke") || "#0f1117";
-          const origStrokeWidth = selection.attr("stroke-width") || (selectedState ? 0.4 : 0.7);
-          
-          selection
-            .property("__origFill", origFill)
-            .property("__origStroke", origStroke)
-            .property("__origStrokeWidth", origStrokeWidth);
-            
-          const c = d3.color(origFill);
-          const hoverFill = c ? c.brighter(0.6).toString() : origFill;
-          
-          selection
-            .attr("fill", hoverFill)
-            .attr("stroke", "#ffffff")
-            .attr("stroke-width", 1.5)
-            .style("opacity", "0.85");
-            
-          showTip(event, topoName, entry);
-        })
-        .on("mousemove", (event) => {
-          moveTip(event);
-        })
-        .on("mouseleave", (event, d) => {
-          const selection = d3.select(event.currentTarget);
-          const origFill = selection.property("__origFill") || "#1e2535";
-          const origStroke = selection.property("__origStroke") || "#0f1117";
-          const origStrokeWidth = selection.property("__origStrokeWidth") || (selectedState ? 0.4 : 0.7);
-          
-          selection
-            .attr("fill", origFill)
-            .attr("stroke", origStroke)
-            .attr("stroke-width", origStrokeWidth)
-            .style("opacity", "1");
-            
-          hideTip();
-        });
- 
-      allPaths.attr("fill", d => {
-        const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || "";
+
+      // Helper to resolve fill color for a datum
+      const getFill = (d) => {
+        const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || '';
         const normTopo = selectedState ? resolveDistrict(topoName) : normalizeKey(topoName);
-        const entry = selectedState 
-          ? normalizedDistrictDataMap[normTopo] 
+        const entry = selectedState
+          ? normalizedDistrictDataMap[normTopo]
           : (normalizedStateDataMap[normTopo] || Object.values(normalizedStateDataMap).find(s => normalizeKey(s.geoKey) === normTopo));
-          
         if (entry) {
-          if (filterState.type === "PENDING") {
-            const pendingQty = entry.volume || entry.cur || 0;
-            return heatColorScale(pendingQty);
-          } else if (entry.cur > 0 || entry.prev > 0) {
-            const heatKey = selectedState ? normTopo : norm(topoName);
-            if (geoHeatMap[heatKey] != null && geoHeatMap[heatKey].geoHeatScore != null) {
-              return heatColorScale(geoHeatMap[heatKey].geoHeatScore);
+          const heatKey = selectedState ? normTopo : norm(topoName);
+          if (filterState.type === 'PENDING') {
+            const pendingQty = geoHeatMap[heatKey]?.geoHeatScore ?? entry.volume ?? entry.cur ?? entry.pendingQty ?? 0;
+            if (pendingQty > 0) {
+              return heatColorScale(pendingQty);
+            }
+          } else {
+            const curVol = entry.cur ?? entry.volume ?? 0;
+            if (curVol > 0) {
+              const score = geoHeatMap[heatKey]?.geoHeatScore ?? curVol;
+              if (score > 0) {
+                return heatColorScale(score);
+              }
             }
           }
         }
-        return '#1e2535';
+        return NO_DATA_COLOR;
+      };
+
+      // 1. Bind data — interrupt any in-flight transitions on exit paths
+      const paths = g.selectAll('path.map-path').data(activeFeatures);
+
+      paths.exit()
+        .interrupt()
+        .transition().duration(150).ease(d3.easeCubicIn)
+        .style('opacity', 0)
+        .remove();
+
+      // 2. Enter — start invisible for entrance animation
+      const newPaths = paths.enter().append('path')
+        .attr('class', 'map-path map-paths')
+        .attr('d', pathGen)
+        .attr('stroke', '#0f1117')
+        .attr('stroke-width', selectedState ? 0.4 : 0.7)
+        .attr('vector-effect', 'non-scaling-stroke')
+        .attr('stroke-linejoin', 'round')
+        .attr('stroke-linecap', 'round')
+        .style('cursor', selectedState ? 'default' : 'pointer')
+        .style('opacity', 0)
+        .attr('fill', getFill);
+
+      // 3. Merge enter + update
+      const allPaths = newPaths.merge(paths);
+
+      // 3a. Update geometry / stroke on existing paths instantly
+      paths
+        .attr('d', pathGen)
+        .attr('stroke', '#0f1117')
+        .attr('stroke-width', selectedState ? 0.4 : 0.7)
+        .attr('vector-effect', 'non-scaling-stroke')
+        .attr('stroke-linejoin', 'round')
+        .attr('stroke-linecap', 'round')
+        .style('cursor', selectedState ? 'default' : 'pointer');
+
+      // 3b. Animate fill change on existing (update) paths
+      paths.interrupt()
+        .transition('fill').duration(300).ease(d3.easeCubicOut)
+        .attr('fill', getFill);
+
+      // 4. Staggered entrance — each path blooms in with a tiny delay
+      const total = activeFeatures.length;
+      newPaths.each(function(_, i) {
+        d3.select(this)
+          .interrupt()
+          .transition('enter')
+          .delay(Math.min(i * (280 / total), 220)) // max 220ms spread
+          .duration(380)
+          .ease(d3.easeCubicOut)
+          .style('opacity', 1);
       });
+
+      // 5. Event handlers — use D3 transitions for smooth hover/leave
+      allPaths
+        .on('click', (event, d) => {
+          if (dragDistanceRef.current > 5) {
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+          if (!selectedStateRef.current) {
+            const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || '';
+            handleStateClick(topoName);
+          }
+        })
+        .on('mouseover', (event, d) => {
+          if (isDragging.current) return;
+          const isSel = selectedStateRef.current;
+          const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || '';
+          const normTopo = isSel ? resolveDistrict(topoName) : normalizeKey(topoName);
+          const entry = isSel
+            ? normalizedDistrictDataMap[normTopo]
+            : (normalizedStateDataMap[normTopo] || Object.values(normalizedStateDataMap).find(s => normalizeKey(s.geoKey) === normTopo));
+
+          const sel = d3.select(event.currentTarget);
+          const origFill = sel.attr('fill') || NO_DATA_COLOR;
+          sel.property('__origFill', origFill)
+             .property('__origStroke', sel.attr('stroke') || '#0f1117')
+             .property('__origStrokeWidth', sel.attr('stroke-width') || (isSel ? 0.4 : 0.7));
+
+          const isNoData = origFill === NO_DATA_COLOR || origFill === '#1e2535';
+          const c = d3.color(origFill);
+          const hoverFill = isNoData ? '#2a364a' : (c ? c.brighter(0.7).toString() : origFill);
+
+          // Snappy hover in — 100ms
+          sel.interrupt('hover')
+            .transition('hover').duration(100).ease(d3.easeQuadOut)
+            .attr('fill', hoverFill)
+            .attr('stroke', 'rgba(255, 255, 255, 0.85)')
+            .attr('stroke-width', isSel ? 1.2 : 1.8)
+            .style('opacity', 0.9);
+
+          showTip(event, topoName, entry);
+        })
+        .on('mousemove', (event) => { moveTip(event); })
+        .on('mouseleave', (event) => {
+          const isSel = selectedStateRef.current;
+          const sel = d3.select(event.currentTarget);
+          const origFill       = sel.property('__origFill') || NO_DATA_COLOR;
+          const origStroke     = sel.property('__origStroke') || '#0f1117';
+          const origStrokeWidth = sel.property('__origStrokeWidth') || (isSel ? 0.4 : 0.7);
+
+          // Smooth hover out — 200ms
+          sel.interrupt('hover')
+            .transition('hover').duration(200).ease(d3.easeQuadOut)
+            .attr('fill', origFill)
+            .attr('stroke', origStroke)
+            .attr('stroke-width', origStrokeWidth)
+            .style('opacity', 1);
+
+          hideTip();
+        });
     };
-    
+
     animId = requestAnimationFrame(drawMap);
     return () => cancelAnimationFrame(animId);
   }, [
@@ -1455,164 +1758,33 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
   // ─── JSX ──────────────────────────────────────────────────────────────────
   return (
-    <div>
-      {/* Header row */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        {selectedState && (
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-border text-text-muted hover:border-accent-blue transition-colors cursor-pointer bg-bg-card"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to India
-          </button>
-        )}
-        <div>
-          <h2 className="text-3xl font-extrabold text-text-primary flex items-center gap-2">
+    <div className="flex flex-col h-full">
+      {/* Header section with theme bottom border */}
+      <div className="flex items-center justify-between gap-4 pb-4 mb-5 border-b border-border flex-wrap">
+        <div className="flex items-center gap-3">
+          {selectedState && (
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-1.5 text-sm px-3.5 py-1.5 rounded-lg border border-border text-text-muted hover:border-accent-blue transition-colors cursor-pointer bg-bg-card shadow-sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to India
+            </button>
+          )}
+          <h2 className="text-2xl lg:text-3xl font-black tracking-tight text-text-primary flex items-center gap-2.5">
             <MapPin className="w-7 h-7 text-accent-blue" />
             {selectedState ? selectedState : 'Regional Sales Distribution'}
           </h2>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-row items-center gap-3 flex-wrap w-full mb-4 p-4 rounded-xl bg-bg-card/60 border border-border/50">
-        <span className="text-xs font-bold uppercase text-text-secondary tracking-wider whitespace-nowrap">
-          Filters
-        </span>
+      {/* Main body: large fluid MAP on the left, independent Controls + Insights sidebar on the right */}
+      <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
 
-        {/* TYPE group */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold uppercase text-text-muted whitespace-nowrap">
-            Type
-          </span>
-          {[
-            { value: "DESPATCH", label: "Despatch" },
-            { value: "PENDING", label: "Pending" }
-          ].map(opt => {
-            const active = filterState.type === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => setFilterState(s => ({ ...s, type: opt.value }))}
-                className={`text-xs px-4 py-1.5 rounded-full border transition-all cursor-pointer ${
-                  active 
-                    ? 'bg-accent-blue-soft text-blue-300 border-accent-blue/60' 
-                    : 'bg-transparent text-text-muted border-border/60 hover:text-text-primary'
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Divider */}
-        <div className="w-px h-7 bg-border/50 self-center" />
-
-        {/* VIEWING LABEL & MONTH dropdown */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase text-text-secondary tracking-wider whitespace-nowrap">
-            Viewing:
-          </span>
-          <select
-            value={filterState.type === "PENDING" ? selectedPendingMonth : selectedMonth}
-            onChange={(e) => {
-              if (filterState.type === "PENDING") {
-                setSelectedPendingMonth(e.target.value);
-              } else {
-                setSelectedMonth(e.target.value);
-              }
-            }}
-            className="text-xs px-3 py-1.5 rounded-full border border-border/70 text-purple-300 bg-purple-950/30 cursor-pointer outline-none appearance-none"
-            style={{
-              backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23c4b5fd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 8px center',
-              backgroundSize: '14px',
-              paddingRight: '32px'
-            }}
-          >
-            {filterState.type === "PENDING" ? (
-              <>
-                <option value="ALL" style={{ background: '#1a1f2c', color: '#f1f5f9' }}>Total Backlog</option>
-                {sortedPendingMonths.map(opt => (
-                  <option key={opt.periodKey} value={opt.periodKey} style={{ background: '#1a1f2c', color: '#f1f5f9' }}>
-                    {opt.label}
-                  </option>
-                ))}
-              </>
-            ) : (
-              monthButtons.buttons?.map(opt => (
-                <option key={opt.value} value={opt.value} style={{ background: '#1a1f2c', color: '#f1f5f9' }}>
-                  {opt.fullName}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-
-          {/* Divider */}
-        <div className="w-px h-7 bg-border/50 self-center" />
-
-        {/* PRODUCTS group */}
-        <div className="flex items-center gap-1.5 flex-nowrap">
-          <span className="text-xs font-bold uppercase text-text-muted whitespace-nowrap">
-            Products
-          </span>
-          {availableProducts.map(prod => {
-            const active = filterState.item.includes(prod);
-            return (
-              <button
-                key={prod}
-                onClick={() => {
-                  setFilterState(s => {
-                    const alreadySelected = s.item.includes(prod);
-                    const newItem = alreadySelected
-                      ? s.item.filter(x => x !== prod)
-                      : [...s.item, prod];
-                    return { ...s, item: newItem };
-                  });
-                }}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
-                  active 
-                    ? 'bg-green-950/30 text-green-300 border-severity-none/60' 
-                    : 'bg-transparent text-text-muted border-border/60 hover:text-text-primary'
-                }`}
-              >
-                {prod}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Divider */}
-        <div className="w-px h-7 bg-border/50 self-center" />
-
-        {/* Reset button */}
-        <button
-          onClick={() => {
-            setFilterState({ type: "DESPATCH", item: [] });
-            if (monthButtons.curMonthKey) {
-              setSelectedMonth(monthButtons.curMonthKey);
-            }
-          }}
-          className="text-xs text-text-dim hover:text-text-muted transition-colors border-none bg-transparent cursor-pointer px-1.5"
-        >
-          Reset
-        </button>
-      </div>
-
-      {/* Main body: Map container width W, height H | 28% panel */}
-      <div className="flex flex-col lg:flex-row gap-4 lg:min-h-[560px]">
-
-        {/* ── MAP ── */}
+        {/* ── MAP (dominant, fluid, expanded height) ── */}
         <div
-          className="rounded-xl border border-border overflow-hidden relative flex-shrink-0 bg-bg-secondary"
-          style={{ 
-            width: `${W}px`,
-            height: `${H}px`
-          }}
+          ref={mapContainerRef}
+          className="rounded-xl border border-border overflow-hidden relative flex-1 w-full min-h-[680px] lg:min-h-[760px] xl:min-h-[820px] panel shadow-md"
         >
           {/* Loading state */}
           {(geoLoading || distLoading) && (
@@ -1660,139 +1832,276 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
             </div>
           )}
 
-          {/* SVG Map */}
+          {/* SVG Map — key on selectedState so React remounts the element
+              when switching India ↔ district view, triggering the CSS fade-in */}
           <svg
+            key={selectedState || '__india__'}
             width="100%"
             height="100%"
             viewBox={`0 0 ${W} ${H}`}
-            style={{ 
-              cursor: isDragging.current ? 'grabbing' : 'grab', 
-              display: (geoLoading || distLoading || distError) ? 'none' : 'block' 
+            preserveAspectRatio="xMidYMid meet"
+            shapeRendering="geometricPrecision"
+            className="map-svg"
+            style={{
+              cursor: isDraggingState ? 'grabbing' : 'grab',
+              display: (geoLoading || distLoading || distError) ? 'none' : 'block',
+              animation: 'mapFadeIn 0.35s ease both',
             }}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUp}
-            onMouseLeave={onMouseUp}
+            onMouseLeave={(e) => {
+              onMouseUp(e);
+              hideTip();
+            }}
             onWheel={onWheel}
+            onTouchEnd={hideTip}
+            onTouchCancel={hideTip}
           >
-            <g ref={gRef} style={{ transformOrigin: '50% 50%' }} />
-          </svg>
+            <g ref={gRef} className="map-transform-layer" />
+         </svg>
 
           {/* Zoom controls */}
-          <div className="absolute top-3 right-3 flex flex-col gap-1">
+          <div className="absolute top-3 right-3 flex flex-col items-center gap-1 z-10">
             {[
-              { icon: <ZoomIn className="w-3.5 h-3.5" />,  fn: zoomIn,    title: 'Zoom in' },
-              { icon: <ZoomOut className="w-3.5 h-3.5" />, fn: zoomOut,   title: 'Zoom out' },
-              { icon: <RotateCcw className="w-3.5 h-3.5" />, fn: resetView, title: 'Reset' },
+              { icon: <ZoomIn className="w-3.5 h-3.5" />,  fn: zoomIn,    title: 'Zoom in (Num + or +)' },
+              { icon: <ZoomOut className="w-3.5 h-3.5" />, fn: zoomOut,   title: 'Zoom out (Num - or -)' },
+              { icon: <RotateCcw className="w-3.5 h-3.5" />, fn: resetView, title: 'Reset view (Num 0 or 0)' },
             ].map(({ icon, fn, title }) => (
               <button key={title} onClick={fn} title={title}
-                className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
-                style={{ background: '#0d1526', border: '1px solid #1e293b', color: '#94a3b8' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#161b22'; e.currentTarget.style.color = '#f1f5f9'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#0d1526'; e.currentTarget.style.color = '#94a3b8'; }}>
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors duration-100 cursor-pointer hover:bg-[#161b22] hover:text-[#f1f5f9]"
+                style={{ background: '#0d1526', border: '1px solid #1e293b', color: '#94a3b8' }}>
                 {icon}
               </button>
             ))}
+            <span
+              ref={zoomIndicatorRef}
+              className="text-[9px] font-mono font-bold px-1 py-0.5 rounded bg-[#0d1526] border border-[#1e293b] text-[#94a3b8] mt-0.5 select-none"
+            >
+              100%
+            </span>
           </div>
 
           {/* Legend */}
           <div className="absolute bottom-3 left-3 rounded-lg px-3 py-2 border"
             style={{ background: 'rgba(13,21,38,0.92)', borderColor: '#1e293b' }}>
             <div className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#475569' }}>
-              {filterState.type === "PENDING" ? "Pending Orders (MT)" : "Business Risk"}
+              {filterState.type === "PENDING" ? "Pending Order Risk" : "Alert Tag Severity"}
             </div>
             {filterState.type === "PENDING" ? (
-              <Legend 
-                colors={['#1e2535', '#fdba74', '#f97316', '#ef4444']} 
-                labels={['0 MT', 'Low (<100)', 'Moderate (100-300)', 'High (>300)']} 
+              <Legend
+                colors={['#fee2e2', '#fca5a5', '#f87171', '#ef4444', '#b91c1c']}
+                labels={['Stable', 'Low Risk', 'Moderate', 'High Risk', 'Critical']}
               />
             ) : (
-              <Legend colors={HEAT_COLORS} labels={HEAT_LABELS} />
+              <Legend
+                colors={['#bfdbfe', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']}
+                labels={['Stable', 'Low Risk', 'Moderate', 'High Risk', 'Critical Risk']}
+              />
             )}
           </div>
 
           {/* Zoom indicator */}
-          <div 
-            ref={zoomIndicatorRef} 
-            className="absolute bottom-3 right-3 text-[10px] px-2 py-1 rounded" 
+          <div
+            ref={zoomIndicatorRef}
+            className="absolute bottom-3 right-3 text-[10px] px-2 py-1 rounded"
             style={{ background: '#0d1526', color: '#475569' }}
           >
             100%
           </div>
         </div>
 
-        {/* ── RIGHT PANEL ── */}
-        <div className="flex-1 flex flex-col gap-3" style={{ maxHeight: `${H}px` }}>
+        {/* ── RIGHT SIDEBAR: Controls + Insights (independent column) ── */}
+        <div key={'sidebar-' + (selectedState || 'india')} className="animate-fade-in lg:w-[310px] xl:w-[330px] lg:flex-shrink-0 flex flex-col gap-3 w-full">
 
-          {/* Summary / Header Cards */}
-          <div className="rounded-xl border p-4 flex-shrink-0" style={{ background: '#161b22', borderColor: '#1e293b' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <BarChart2 className="w-4 h-4" style={{ color: '#3b82f6' }} />
-              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: '#cbd5e1' }}>
-                Summary
-              </span>
+          {/* Filters Card */}
+          <div className="rounded-xl border p-4 panel">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-accent-blue" />
+                <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">Controls</span>
+              </div>
+              <button
+                onClick={() => {
+                  setFilterState({ type: "DESPATCH", item: [] });
+                  if (monthButtons.curMonthKey) {
+                    setSelectedMonth(monthButtons.curMonthKey);
+                  }
+                }}
+                className="text-[11px] text-text-dim hover:text-accent-blue transition-colors cursor-pointer"
+              >
+                Reset
+              </button>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <StatCard 
-                label={selectedState ? "Active Districts" : "Active States"} 
+
+            <div className="space-y-3">
+              {/* TYPE group */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase text-text-muted tracking-wider">
+                  Metric Type
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {[
+                    { value: "DESPATCH", label: "Despatch" },
+                    { value: "PENDING", label: "Pending" }
+                  ].map(opt => {
+                    const active = filterState.type === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setFilterState(s => ({ ...s, type: opt.value }))}
+                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors duration-150 cursor-pointer flex-1 ${
+                          active
+                            ? 'bg-accent-blue-soft text-blue-300 border-accent-blue/60'
+                            : 'bg-transparent text-text-muted border-border/60 hover:text-text-primary'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* VIEWING / MONTH */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase text-text-muted tracking-wider">
+                  Viewing
+                </span>
+                <select
+                  value={filterState.type === "PENDING" ? selectedPendingMonth : selectedMonth}
+                  onChange={(e) => {
+                    if (filterState.type === "PENDING") {
+                      setSelectedPendingMonth(e.target.value);
+                    } else {
+                      setSelectedMonth(e.target.value);
+                    }
+                  }}
+                  className="text-xs font-bold px-3 py-1.5 rounded-full border border-border/70 text-white bg-bg-card cursor-pointer outline-none appearance-none w-full"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 8px center',
+                    backgroundSize: '14px',
+                    paddingRight: '32px'
+                  }}
+                >
+                  {filterState.type === "PENDING" ? (
+                    <>
+                      <option value="ALL" style={{ background: '#1a1f2c', color: '#ffffff' }}>Total Backlog</option>
+                      {sortedPendingMonths.map(opt => (
+                        <option key={opt.periodKey} value={opt.periodKey} style={{ background: '#1a1f2c', color: '#ffffff' }}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </>
+                  ) : (
+                    monthButtons.buttons?.map(opt => (
+                      <option key={opt.value} value={opt.value} style={{ background: '#1a1f2c', color: '#f1f5f9' }}>
+                        {opt.fullName}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              {/* PRODUCTS group */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase text-text-muted tracking-wider">
+                  Products
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {availableProducts.map(prod => {
+                    const active = filterState.item.includes(prod);
+                    return (
+                      <button
+                        key={prod}
+                        onClick={() => {
+                          setFilterState(s => {
+                            const alreadySelected = s.item.includes(prod);
+                            const newItem = alreadySelected
+                              ? s.item.filter(x => x !== prod)
+                              : [...s.item, prod];
+                            return { ...s, item: newItem };
+                          });
+                        }}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors duration-150 cursor-pointer ${
+                          active
+                            ? 'bg-green-950/30 text-green-300 border-severity-none/60'
+                            : 'bg-transparent text-text-muted border-border/60 hover:text-text-primary'
+                        }`}
+                      >
+                        {prod}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Stat Cards */}
+          <div className="rounded-xl border panel">
+            <div className="grid grid-cols-2 divide-x divide-border/50">
+              <StatCard
+                label={selectedState ? "Districts" : "States"}
                 value={
                   filterState.type === "PENDING"
-                    ? (selectedState ? rankedDistricts : rankedStates).filter(e => getPendingForPeriod(e, selectedPendingMonth) > 0).length
+                    ? (selectedState ? rankedDistricts : rankedStates).filter(e => (e.volume ?? e.cur ?? 0) > 0).length
                     : (selectedState ? rankedDistricts.length : rankedStates.length)
-                } 
-                sub={selectedState ? "districts" : "states"} 
+                }
+                sub="active"
               />
               <StatCard
                 label={filterState.type === "PENDING" ? "Total Pending" : "Total Volume"}
                 value={formatNumber(
-                  filterState.type === "PENDING"
-                    ? getTotalPendingForPeriod(selectedState ? rankedDistricts : rankedStates, selectedPendingMonth)
-                    : (selectedState ? rankedDistricts : rankedStates).reduce((s, e) => s + (e.volume ?? 0), 0)
+                  (selectedState ? rankedDistricts : rankedStates).reduce((s, e) => s + (e.volume ?? e.cur ?? 0), 0)
                 )}
                 sub={
                   filterState.type === "PENDING" && selectedPendingMonth !== 'ALL'
-                    ? `MT (Total Backlog: ${formatNumber(getTotalPendingForPeriod(selectedState ? rankedDistricts : rankedStates, 'ALL'))})`
+                    ? `MT · Backlog ${formatNumber(getTotalPendingForPeriod(selectedState ? rankedDistricts : rankedStates, 'ALL'))}`
                     : "MT"
                 }
               />
             </div>
           </div>
 
-          {/* Scrollable List Card */}
-          <div className="rounded-xl border p-4 flex-1 flex flex-col overflow-hidden" style={{ background: '#161b22', borderColor: '#1e293b' }}>
+          {/* Scrollable Ranked List */}
+          <div className="rounded-xl border p-4 flex-1 flex flex-col overflow-hidden min-h-[200px] panel">
             <div className="flex items-center justify-between mb-3 flex-shrink-0">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                {selectedState ? `${selectedState.toUpperCase()} DISTRICTS` : 'STATE PERFORMANCE'}
+                {selectedState ? `${selectedState.toUpperCase()} DISTRICTS` : 'State Performance'}
               </span>
               {selectedState && (
                 <button
                   onClick={handleBack}
-                  className="text-xs px-2.5 py-1 rounded transition-colors flex items-center gap-1 cursor-pointer"
+                  className="text-xs px-2.5 py-1 rounded transition-colors duration-100 flex items-center gap-1 cursor-pointer hover:border-accent-blue"
                   style={{ background: '#0d1526', border: '1px solid #1e293b', color: '#94a3b8' }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = '#3b82f6'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = '#1e293b'}
                 >
-                  ← Back to States
+                  ← Back
                 </button>
               )}
             </div>
-            
-            <div className="flex-1 overflow-y-auto pr-1">
+
+            <div key={filterState.type + '-' + (selectedState || 'india')} className="flex-1 overflow-y-auto pr-1">
               {rankedList.map((item, idx) => {
                 const isPending = filterState.type === "PENDING";
+                const delay = Math.min(idx * 25, 200);
                 const trendColor = isPending ? '#3b82f6' : getTrendColor(item.trend, item.cur, item.prev);
                 const trendVal = isPending
                   ? `${getSharePctForPeriod(item, selectedPendingMonth, totalPendingVolume)}%`
                   : trendStr(item.trend);
-                
+
                 return (
                   <div
                     key={item.name}
-                    className="flex items-center justify-between"
+                    className="flex items-center justify-between animate-slide-up"
                     style={{
                       fontSize: '13px',
                       padding: '12px 0',
                       borderBottom: '0.5px solid #1e2a3a',
+                      animationDelay: `${delay}ms`,
+                      animationFillMode: 'both',
                     }}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -1802,13 +2111,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                     <div className="flex items-center gap-4 text-right flex-shrink-0">
                       <div className="flex flex-col text-right">
                         <span className="text-slate-300 font-semibold whitespace-nowrap">
-                          {formatMT(isPending ? getPendingForPeriod(item, selectedPendingMonth) : item.volume)}
+                          {formatMT(isPending ? (item.volume ?? item.cur ?? 0) : item.volume)}
                         </span>
-                        {isPending && selectedPendingMonth !== 'ALL' && (
-                          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
-                            Total Backlog: {formatMT(getPendingForPeriod(item, 'ALL'))}
-                          </span>
-                        )}
                       </div>
                       <span className="font-bold whitespace-nowrap text-right" style={{ color: trendColor, minWidth: '45px' }}>
                         {trendVal}
@@ -1824,9 +2128,9 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           </div>
         </div>
       </div>
- 
+
       {/* Floating tooltip */}
-      <Tooltip tooltipRef={tooltipRef} {...tooltip} filterType={filterState.type} totalPending={totalPendingVolume} selectedPendingMonth={selectedPendingMonth} />
+      <Tooltip tooltipRef={tooltipRef} {...tooltip} filterType={filterState.type} totalPending={totalPendingVolume} selectedPendingMonth={selectedPendingMonth} isDistrictView={!!selectedState} />
     </div>
   );
 }
@@ -1834,10 +2138,10 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 // ── Small card helper ──
 function StatCard({ label, value, sub }) {
   return (
-    <div className="rounded-lg p-4 border flex flex-col justify-between" style={{ background: '#0d1526', borderColor: '#1e293b', minHeight: '100px' }}>
-      <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#94a3b8' }}>{label}</div>
-      <div className="text-2xl font-bold text-white my-1">{value}</div>
-      <div className="text-[11px] font-medium leading-normal" style={{ color: '#94a3b8' }}>{sub}</div>
+    <div className="p-3 flex flex-col gap-1">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted truncate">{label}</div>
+      <div className="text-lg xl:text-xl font-bold text-white leading-tight break-words">{value}</div>
+      <div className="text-[10px] font-medium text-text-muted leading-snug break-words">{sub}</div>
     </div>
   );
 }

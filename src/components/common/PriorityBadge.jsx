@@ -41,7 +41,7 @@ export default function PriorityBadge({ priority, className = '' }) {
         whiteSpace: 'nowrap'
       }}
     >
-      {s || '–'}
+      {s === 'MEDIUM' ? 'MODERATE' : (s || '–')}
     </div>
   );
 }

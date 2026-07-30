@@ -146,22 +146,31 @@ if (!latestDate) {
 
 const curMonthStart  = startOfMonth(latestDate);
 const prevMonthStart = addMonths(curMonthStart, -1);
-const prevMonthEnd   = endOfPrevMonth(latestDate); // last day of prev month
-const ytdStart       = new Date(latestDate.getFullYear(), 0, 1); // Jan 1
+
+// Dynamic same-day comparison: compare cur MTD (1st → latestDate)
+// against the same day-of-month range in the previous month.
+const comparisonDay = latestDate.getDate();
+let prevPeriodEnd = new Date(prevMonthStart.getFullYear(), prevMonthStart.getMonth(), comparisonDay);
+if (prevPeriodEnd.getMonth() !== prevMonthStart.getMonth()) {
+  // prev month has fewer days than comparisonDay — clamp to its last day
+  prevPeriodEnd = endOfPrevMonth(latestDate);
+}
+
+const ytdStart = new Date(latestDate.getFullYear(), 0, 1); // Jan 1
 
 // ── 4. PERIOD LABELS ──────────────────────────────────────────────────────────
 const curPeriodLabel  = `${fmtDate(curMonthStart)} - ${fmtDate(latestDate)}`;
-const prevPeriodLabel = `${fmtDate(prevMonthStart)} - ${fmtDate(prevMonthEnd)}`;
-const ytdPeriodLabel  = `${fmtDate(ytdStart)} - ${fmtDate(prevMonthEnd)}`;
+const prevPeriodLabel = `${fmtDate(prevMonthStart)} - ${fmtDate(prevPeriodEnd)}`;
+const ytdPeriodLabel  = `${fmtDate(ytdStart)} - ${fmtDate(prevPeriodEnd)}`;
 
 // ── 5. TAG DESPATCH ROWS ──────────────────────────────────────────────────────
 // CUR  = current month MTD (curMonthStart → latestDate inclusive)
-// PREV = previous full month
+// PREV = same day-of-month range in previous month (same-day comparison)
 // YTD  = Jan 1 → start of prev month (exclusive of prev month itself)
 //        but YTD_QTY = YTD tag + PREV tag at group time
 function tagDespatch(date) {
   if (date >= curMonthStart && date <= latestDate) return 'CUR';
-  if (date >= prevMonthStart && date <= prevMonthEnd) return 'PREV';
+  if (date >= prevMonthStart && date <= prevPeriodEnd) return 'PREV';
   if (date >= ytdStart && date < prevMonthStart) return 'YTD';
   return 'OUTSIDE';
 }

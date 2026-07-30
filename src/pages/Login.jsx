@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Activity, Lock, User } from 'lucide-react';
+import { Activity, Lock, User, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -31,20 +32,23 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative" style={{ background: 'var(--gradient-page)' }}>
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 bg-accent-blue/20 rounded-full flex items-center justify-center border border-accent-blue/30">
-            <Activity className="w-8 h-8 text-accent-blue" />
-          </div>
-        </div>
-        <h2 className="mt-6 text-center text-5xl font-extrabold text-text-primary">
+        <div className="flex justify-center mb-5">
+          <img
+            src="/hmb.png"
+            alt="HMB Ispat"
+            className="h-28 w-auto object-contain select-none drop-shadow-[0_4px_18px_rgba(59,130,246,0.25)]"
+            draggable={false}
+          />
+       </div>
+        <h1 className="text-center text-3xl sm:text-4xl font-extrabold tracking-tight text-text-primary">
           HMB Ispat
-        </h2>
-        <p className="mt-2 text-center text-sm text-text-muted">
+       </h1>
+        <p className="mt-3 mb-1 text-center text-xs sm:text-sm font-semibold uppercase tracking-[0.22em] text-text-secondary whitespace-nowrap">
           Operational Intelligence Platform
-        </p>
-      </div>
+     </p>
+     </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="glass-card py-8 px-4 sm:px-10">
@@ -66,7 +70,7 @@ export default function Login() {
                   className="search-input pl-10"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
+                  placeholder="Username"
                 />
               </div>
             </div>
@@ -78,19 +82,28 @@ export default function Login() {
                   <Lock className="h-5 w-5 text-text-muted" />
                 </div>
                 <input
-                  type="password"
-                  className="search-input pl-10"
+                  type={showPassword ? "text" : "password"}
+                  className="search-input pl-10 pr-10"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
             </div>
 
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-accent-blue hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-blue focus:ring-offset-bg-card transition-colors"
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-all duration-200 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-blue focus:ring-offset-bg-card"
+                style={{ background: 'var(--gradient-accent)' }}
               >
                 Sign in to Dashboard
               </button>
@@ -98,7 +111,7 @@ export default function Login() {
           </form>
           
           <div className="mt-6 text-center text-xs text-text-muted">
-            v1.0 • Protected by HMB Security
+            v1.1 • HMB Executive & Client Portal
           </div>
         </div>
       </div>

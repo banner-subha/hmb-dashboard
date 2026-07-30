@@ -135,6 +135,7 @@ const STATE_CANONICAL = {
   'westbengal':        'West Bengal',
   'jharkhand':         'Jharkhand',
   'odisha':            'Orisha',
+  'orissa':            'Orisha',
   'assam':             'Assam',
   'bihar':             'Bihar',
   'tripura':           'Tripura',
@@ -144,6 +145,28 @@ const STATE_CANONICAL = {
   'up':                'Uttar Pradesh',
   'arunachal pradesh': 'Arunachal Pradesh',
   'arunachalpradesh':  'Arunachal Pradesh',
+  'manipur':           'Manipur',
+  'meghalaya':         'Meghalaya',
+  'mizoram':           'Mizoram',
+  'nagaland':          'Nagaland',
+  'sikkim':            'Sikkim',
+  'punjab':            'Punjab',
+  'haryana':           'Haryana',
+  'himachal pradesh':  'Himachal Pradesh',
+  'uttarakhand':       'Uttarakhand',
+  'delhi':             'Delhi',
+  'goa':               'Goa',
+  'gujarat':           'Gujarat',
+  'maharashtra':       'Maharashtra',
+  'chhattisgarh':      'Chhattisgarh',
+  'madhya pradesh':    'Madhya Pradesh',
+  'mp':                'Madhya Pradesh',
+  'andhra pradesh':    'Andhra Pradesh',
+  'ap':                'Andhra Pradesh',
+  'telangana':         'Telangana',
+  'karnataka':         'Karnataka',
+  'kerala':            'Kerala',
+  'tamil nadu':        'Tamil Nadu',
 };
 
 const STATE_SLUG = {
@@ -156,6 +179,7 @@ const STATE_SLUG = {
   'Rajasthan':         'rajasthan',
   'Uttar Pradesh':     'uttarpradesh',
   'Arunachal Pradesh': 'arunachalpradesh',
+  'Manipur':           'manipur',
 };
 
 const NON_WB_ALIASES = {
@@ -190,7 +214,7 @@ const NON_WB_ALIASES = {
 
 function resolveState(raw) {
   if (!raw) return 'Unknown';
-  return STATE_CANONICAL[normState(raw)] || String(raw).trim();
+  return STATE_CANONICAL[normState(raw)] || 'Unknown';
 }
 
 function resolveDistrict(rawName, canonicalState) {
@@ -221,11 +245,25 @@ function cleanDateLabel(raw) {
 // ── 5. PRODUCT CATALOGUE ──────────────────────────────────────────────────────
 
 const PRODUCT_LABELS = {
-  IG:'IG (Iron Gate)', GI:'GI (Galvanised Iron)', IGG:'IGG (Iron Gate - Heavy)',
-  HGI:'HGI (Heavy GI)', P:'P (Pipe)', RS:'RS (Roofing Sheet)', SS:'SS (Stainless Steel)'
+  IG:'IG (I-Grill)', GI:'GI (Grill Guard)', IGG:'IGG (Iron Grill Guard)',
+  HGI:'HGI (Heavy Grill Guard)', P:'P (Pipe)', RS:'RS (Roofing Sheet)', SS:'SS (Stainless Steel)'
 };
 const ALL_PRODUCTS = Object.keys(PRODUCT_LABELS);
 const PRODUCT_SET  = new Set(ALL_PRODUCTS);
+
+// Cross-sheet product-code normalization.
+// The pending_export.csv sheet abbreviates some products differently from the
+// despatch (MoM/monthly) sheets. Map the pending-side codes onto the canonical
+// despatch codes so both sides aggregate into the same product bucket:
+//   GG   (pending) == GI  (despatch) — Galvanised Iron
+//   IGGI (pending) == IGG (despatch) — Iron Gate (Heavy)
+// Unknown codes still fall back to 'GI' (unchanged behaviour).
+const PRODUCT_ALIASES = { GG: 'GI', IGGI: 'IGG' };
+function canonProduct(raw) {
+  const up = (raw || '').trim().toUpperCase();
+  const aliased = PRODUCT_ALIASES[up] || up;
+  return PRODUCT_SET.has(aliased) ? aliased : 'GI';
+}
 
 // ── 6. READ PRE-AGGREGATED ROWS & CALCULATE DATE WINDOWS ──────────────────────
 
@@ -279,7 +317,7 @@ for (const row of rawRows) {
   const pendingCur  = parseFloat(r['PENDING_CUR'])  || 0;
 
   const rawItem      = (r['ITEM']        || '').trim().toUpperCase();
-  const product      = PRODUCT_SET.has(rawItem) ? rawItem : 'GI';
+  const product      = canonProduct(rawItem);
   const rawStateName = (r['STATE']       || 'Unknown').trim();
   const rawDistName  = (r['DISTRICT']    || 'Unknown').trim();
   const client       = (r['CLIENT NAME'] || 'Unknown').trim();

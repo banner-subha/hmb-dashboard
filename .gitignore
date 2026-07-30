@@ -27,3 +27,19 @@ temp_script.cjs
 temp_script.js
 # Local Netlify folder
 .netlify
+
+# Scratch, data, and dev tool artifacts
+scratch/
+*.csv
+*.txt
+.opencode/
+graphify-out/
+opencode.json
+skills/
+skills-lock.json
+latest.json
+TEST_Dashboard (2).json
+full_fixed_kpi_node.js
+compute_mom_monthly.js
+validate_merge_v2.js
+

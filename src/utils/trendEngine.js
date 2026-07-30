@@ -30,15 +30,19 @@ export function calculateMoM(cur = 0, prev = 0) {
  * ALL components, charts, maps, and tables MUST use this.
  *
  * Thresholds:
- *   score >= 75  →  CRITICAL
+ *   score >= 70  →  CRITICAL
  *   score >= 50  →  HIGH
- *   score >= 30  →  MEDIUM
- *   else         →  LOW
+ *   score >= 30  →  MEDIUM (MODERATE)
+ *   else         →  LOW (STABLE)
  */
+export function getBusinessImpactThresholds() {
+  return { CRITICAL: 70, HIGH: 50, MEDIUM: 30 };
+}
+
 export function getSeverityFromImpactScore(score) {
-  if (score >= 75) return 'CRITICAL';
+  if (score >= 70) return 'CRITICAL';
   if (score >= 50) return 'HIGH';
-  if (score >= 40) return 'MEDIUM';
+  if (score >= 30) return 'MEDIUM';
   return 'LOW';
 }
 
@@ -63,150 +67,147 @@ export function getSeverityTheme(level) {
       border: 'rgba(249,115,22,0.45)',
       shadow: 'none',
     },
-
     MEDIUM: {
-      severity: 'MEDIUM',
+      severity: 'MODERATE',
       color: '#eab308',
       bg: 'rgba(234,179,8,0.12)',
       border: 'rgba(234,179,8,0.45)',
       shadow: 'none',
     },
     LOW: {
-      severity: 'LOW',
+      severity: 'STABLE',
       color: '#22c55e',
       bg: 'rgba(34,197,94,0.12)',
       border: 'rgba(34,197,94,0.45)',
+      shadow: 'none',
+    },
+    CLEAR: {
+      severity: 'Clear',
+      color: '#22c55e',
+      bg: 'rgba(34,197,94,0.12)',
+      border: 'rgba(34,197,94,0.45)',
+      shadow: 'none',
+    },
+    ON_TRACK: {
+      severity: 'On Track',
+      color: '#22c55e',
+      bg: 'rgba(34,197,94,0.12)',
+      border: 'rgba(34,197,94,0.45)',
+      shadow: 'none',
+    },
+    MONITOR: {
+      severity: 'Monitor',
+      color: '#eab308',
+      bg: 'rgba(234,179,8,0.12)',
+      border: 'rgba(234,179,8,0.45)',
+      shadow: 'none',
+    },
+    AT_RISK: {
+      severity: 'At Risk',
+      color: '#f97316',
+      bg: 'rgba(249,115,22,0.12)',
+      border: 'rgba(249,115,22,0.45)',
+      shadow: 'none',
+    },
+    NODATA: {
+      severity: 'No Data',
+      color: '#6b7280',
+      bg: 'rgba(107,114,128,0.12)',
+      border: 'rgba(107,114,128,0.45)',
       shadow: 'none',
     }
   };
   return themes[lvl] || themes['LOW'];
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * ALERT TAG BUSINESS LOGIC
+ * ═══════════════════════════════════════════════════════════════════════════════
+ *
+ * Formula: alertScore = (volumeRiskScore × 40%) + (paceScore × 30%) + (momScore × 30%)
+ *
+ * Primary Signal — Volume Risk / Volume Basis (40% weight):
+ *   volumeRiskScore = Math.round(shareAmplifier × (underperformanceDeficit / 100))
+ *   shareAmplifier = Math.min((sharePct / shareDenom) * 100, 100)
+ *   shareDenom: STATE=20%, DISTRICT/PRODUCT=10%, DEALER=5%
+ *
+ * Secondary Signal — Pace vs Historical Avg (30% weight):
+ *   paceAchievement = cur / expectedMtd
+ *   ≥ 1.00  → paceScore = 0   (at or above historical pace)
+ *   0.95–0.99 → 10            (within 5% behind)
+ *   0.85–0.94 → 30            (5–15% behind)
+ *   0.70–0.84 → 55            (15–30% behind)
+ *   < 0.70    → 100           (>30% behind pace — serious underperformance)
+ *
+ * Supporting Signal — MoM Direction (30% weight):
+ *   ≥ +10%          → momScore = 0   (strong growth, no concern)
+ *   0% to +9.9%     → 10             (mild growth)
+ *   -10% to -0.1%   → 35             (mild decline)
+ *   -25% to -10.1%  → 65             (moderate decline)
+ *   < -25%          → 100            (heavy decline)
+ *
+ * Final severity thresholds:
+ *   alertScore >= 70 → CRITICAL
+ *   alertScore >= 50 → HIGH
+ *   alertScore >= 30 → MODERATE
+ *   alertScore < 30 → STABLE
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
 export function getBusinessImpact(cur = 0, prev = 0, sharePct = 0, level = '', stateName = '', expectedMtd = null) {
-  const referenceValue = (expectedMtd !== null && expectedMtd !== undefined && expectedMtd > 0) ? expectedMtd : prev;
-  const mom = calculateMoM(cur, referenceValue);
-  const drop = Math.max(0, referenceValue - cur);
+  const hasPaceBenchmark = expectedMtd !== null && expectedMtd !== undefined && expectedMtd > 0;
+  const momPct = calculateMoM(cur, prev);   // pure MoM vs last month (not expectedMtd)
 
-  // Decline-Only Guard: If there is no decline in sales, immediately return LOW severity
-  if (drop <= 0) {
+  // ── Edge case: never active (both zero) ─────────────────────────────────────
+  if (cur === 0 && prev === 0) {
     return { impactScore: 0, severity: 'LOW', theme: getSeverityTheme('LOW') };
   }
 
-  if (level === 'DEALER') {
-    // --- DEALER LEVEL SCORER (Percentage/Decline-based) ---
-    // 1. MoM decline risk curve
-    let declineRisk = 0;
-    if (mom <= -75) declineRisk = 100;
-    else if (mom <= -60) declineRisk = 95;
-    else if (mom <= -45) declineRisk = 83;
-    else if (mom <= -30) declineRisk = 68;
-    else if (mom <= -20) declineRisk = 52;
-    else if (mom <= -10) declineRisk = 34;
-    else if (mom < 0)    declineRisk = 16;
-
-    // 2. Supporting risk signals (inactivity & volatility derived from cur/prev)
-    const inactivityDays = cur > 0 ? 0 : 30;
-    const inactivityRisk = Math.min((inactivityDays || 0) * 15, 100);
-    
-    const volatilityVal = Math.min(100, Math.abs(mom));
-    const volatilityRisk = Math.min(volatilityVal * 28, 100);
-
-    // 3. Raw risk
-    const rawRisk = (declineRisk * 0.70) + (inactivityRisk * 0.18) + (volatilityRisk * 0.12);
-
-    // 4. Business weight by current volume
-    let businessWeight = 1.0;
-    if (cur < 100)        businessWeight = 0.80;
-    else if (cur <= 300)  businessWeight = 0.92;
-    else if (cur <= 700)  businessWeight = 1.00;
-    else if (cur <= 1500) businessWeight = 1.10;
-    else                  businessWeight = 1.22;
-
-    // 5. Score
-    let impactScore = rawRisk * businessWeight;
-
-    // 6. Pre-threshold boost when raw ingredients are severe
-    if (rawRisk >= 55) impactScore += 8;
-
-    // 7. Hard CRITICAL floor — complete market collapse
-    if (cur === 0 && referenceValue >= 100) {
-      impactScore = Math.max(impactScore, 75);
-    }
-
-    impactScore = Math.min(100, Math.round(impactScore));
-    const severity = getSeverityFromImpactScore(impactScore);
-    const theme = getSeverityTheme(severity);
-
-    return { impactScore, severity, theme };
-  } else {
-    // --- REGIONAL / DISTRICT LEVEL SCORER (Weight-based) ---
-    const STRATEGIC_STATES = new Set(['West Bengal', 'Jharkhand', 'Odisha']);
-
-    // 1. Scale denominators based on level (districts/products are smaller than states/overall)
-    const isDistrictOrProduct = (level === 'DISTRICT' || level === 'PRODUCT');
-    const shareDenom = isDistrictOrProduct ? 3.0 : 20.0;
-    const dropDenom = isDistrictOrProduct ? 80.0 : 300.0;
-    const volumeDenom = isDistrictOrProduct ? 120.0 : 500.0;
-
-    const shareWeight = Math.min((sharePct / shareDenom) * 100, 100);
-    const dropWeight = Math.min((drop / dropDenom) * 100, 100);
-    
-    let momWeight = 0;
-    if (mom <= -70) momWeight = 100;
-    else if (mom <= -50) momWeight = 80;
-    else if (mom <= -30) momWeight = 50;
-    else if (mom <= -15) momWeight = 20;
-    
-    const volumeWeight = Math.min((referenceValue / volumeDenom) * 100, 100);
-    
-    // 2. Weighted score
-    let impactScore = (shareWeight * 0.35) + (dropWeight * 0.30) + (momWeight * 0.20) + (volumeWeight * 0.15);
-    
-    // 3. Strategic state boost
-    if (STRATEGIC_STATES.has(stateName || '')) {
-      if (drop >= 75 || mom <= -15) {
-        impactScore += 5;
-      }
-    }
-
-    // 4. Severe MoM decline boost (highlight severe relative drop in active markets)
-    if (mom <= -70) {
-      impactScore += 15;
-    } else if (mom <= -50) {
-      impactScore += 8;
-    }
-    
-    // 5. Zero-collapse tiered inactivity floor (cur === 0 and prev > 0)
-    if (cur === 0 && referenceValue > 0) {
-      if (isDistrictOrProduct) {
-        if (referenceValue >= 50) {
-          impactScore = Math.max(impactScore, 75); // CRITICAL
-        } else if (referenceValue >= 25) {
-          impactScore = Math.max(impactScore, 55); // HIGH
-        } else if (referenceValue >= 10) {
-          impactScore = Math.max(impactScore, 42); // MEDIUM
-        } else if (referenceValue >= 2) {
-          impactScore = Math.max(impactScore, 32); // visible LOW
-        }
-      } else {
-        if (referenceValue >= 100) {
-          impactScore = Math.max(impactScore, 75); // CRITICAL
-        } else if (referenceValue >= 50) {
-          impactScore = Math.max(impactScore, 55); // HIGH
-        } else if (referenceValue >= 25) {
-          impactScore = Math.max(impactScore, 42); // MEDIUM
-        } else if (referenceValue >= 5) {
-          impactScore = Math.max(impactScore, 32); // visible LOW
-        }
-      }
-    }
-    
-    impactScore = Math.min(100, Math.round(impactScore));
-    const severity = getSeverityFromImpactScore(impactScore);
-    const theme = getSeverityTheme(severity);
-    
-    return { impactScore, severity, theme };
+  // ── Signal 1: Pace vs Historical Average (30% weight) ────────────────────────
+  let paceScore = 0;
+  if (hasPaceBenchmark) {
+    const paceAchievement = cur / expectedMtd;
+    if (paceAchievement >= 1.00)                              paceScore = 0;
+    else if (paceAchievement >= 0.95)                         paceScore = 10;
+    else if (paceAchievement >= 0.85)                         paceScore = 30;
+    else if (paceAchievement >= 0.70)                         paceScore = 55;
+    else                                                       paceScore = 100;
+  } else if (cur === 0 && prev > 0) {
+    paceScore = 100;
   }
+
+  // ── Signal 2: MoM Direction (30% weight) ─────────────────────────────────────
+  let momScore = 0;
+  if (cur === 0 && prev > 0) {
+    momScore = 100;
+  } else if (momPct >= 10)                  momScore = 0;    // strong growth
+  else if (momPct >= 0)              momScore = 10;   // mild growth
+  else if (momPct >= -10)            momScore = 35;   // mild decline
+  else if (momPct >= -25)            momScore = 65;   // moderate decline
+  else                               momScore = 100;  // heavy decline (< -25%)
+
+  // ── Underperformance Deficit (0 to 100) ─────────────────────────────────────
+  const underperformanceDeficit = hasPaceBenchmark
+    ? Math.round((paceScore * 0.50) + (momScore * 0.50))
+    : momScore;
+
+  // ── Primary Signal: Volume Risk / Share Basis (40% weight) ───────────────────
+  const isDistrictOrProduct = (level === 'DISTRICT' || level === 'PRODUCT');
+  const isDealer = (level === 'DEALER');
+  const shareDenom = isDealer ? 5.0 : isDistrictOrProduct ? 10.0 : 25.0;
+  const shareAmplifier = Math.min((sharePct / shareDenom) * 100, 100);
+  const volumeRiskScore = Math.round(shareAmplifier * (underperformanceDeficit / 100));
+
+  // ── Composite Score ─────────────────────────────────────────────────────────
+  const alertScore = Math.round(
+    (volumeRiskScore * 0.40) + (paceScore * 0.30) + (momScore * 0.30)
+  );
+
+  const impactScore = Math.min(100, alertScore);
+  const severity = getSeverityFromImpactScore(impactScore);
+  const theme = getSeverityTheme(severity);
+
+  return { impactScore, severity, theme };
 }
 
 /**

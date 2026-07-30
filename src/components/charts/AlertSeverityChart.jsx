@@ -1,7 +1,7 @@
 import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { SEVERITY_CONFIG } from '../../utils/constants';
 import { getBusinessImpact } from '../../utils/trendEngine';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 
 const CustomTooltip = ({ active, payload }) => {
@@ -28,30 +28,29 @@ export default function AlertSeverityChart({ alerts, height = 250 }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
 
+  const chartData = useMemo(() => {
+    if (!alerts || alerts.length === 0) return [];
+    const counts = alerts.reduce((acc, alert) => {
+      const cur = alert.data?.cur ?? alert.cur ?? 0;
+      const prev = alert.data?.prev ?? alert.prev ?? 0;
+      const sev = getBusinessImpact(cur, prev).severity;
+      acc[sev] = (acc[sev] || 0) + 1;
+      return acc;
+    }, {});
+
+    const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, NONE: 4 };
+    return Object.keys(counts).map(severity => ({
+      name: severity,
+      value: counts[severity]
+    })).sort((a, b) => order[a.name] - order[b.name]);
+  }, [alerts]);
+
   if (!alerts || alerts.length === 0) {
     return <div className="flex items-center justify-center h-full text-text-muted text-sm">No alerts available</div>;
   }
 
-  // Aggregate alerts by severity
-  const counts = alerts.reduce((acc, alert) => {
-    const cur = alert.data?.cur ?? alert.cur ?? 0;
-    const prev = alert.data?.prev ?? alert.prev ?? 0;
-    const sev = getBusinessImpact(cur, prev).severity;
-    acc[sev] = (acc[sev] || 0) + 1;
-    return acc;
-  }, {});
-
-  const chartData = Object.keys(counts).map(severity => ({
-    name: severity,
-    value: counts[severity]
-  })).sort((a, b) => {
-    // Sort by SEVERITY_ORDER
-    const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, NONE: 4 };
-    return order[a.name] - order[b.name];
-  });
-
   return (
-    <div ref={containerRef} style={{ height: `${height}px`, width: '100%' }}>
+    <div ref={containerRef} className="animate-fade-in" style={{ height: `${height}px`, width: '100%' }}>
       {width > 0 && (
         <PieChart width={width} height={height}>
           <Pie
@@ -63,6 +62,9 @@ export default function AlertSeverityChart({ alerts, height = 250 }) {
             paddingAngle={2}
             dataKey="value"
             stroke="none"
+            isAnimationActive={true}
+            animationDuration={700}
+            animationEasing="ease-out"
           >
             {chartData.map((entry, index) => (
               <Cell 

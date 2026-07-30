@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { authenticateClientUser } from '../data/clientRegistry';
 
 const AuthContext = createContext(null);
 
@@ -23,13 +24,43 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = (username, password) => {
-    if (VALID_CREDENTIALS[username] === password) {
-      const userData = { username, role: 'admin', loginAt: new Date().toISOString() };
+    // 1. Admin login check
+    if (username?.trim().toLowerCase() === 'admin' && password === VALID_CREDENTIALS.admin) {
+      const userData = {
+        username: 'admin',
+        name: 'Admin',
+        role: 'admin',
+        loginAt: new Date().toISOString()
+      };
       setUser(userData);
       localStorage.setItem('hmb_auth', JSON.stringify(userData));
       return { success: true };
     }
-    return { success: false, error: 'Invalid credentials' };
+
+    // 2. Client login check via clientRegistry
+    const clientUser = authenticateClientUser(username, password);
+    if (clientUser) {
+      const isAdminRole = clientUser.role === 'ADMIN';
+      const userData = {
+        username: clientUser.name,
+        name: clientUser.name,
+        role: isAdminRole ? 'admin' : 'client',
+        kroRole: clientUser.role,
+        states: clientUser.states || [],
+        districts: clientUser.districts || [],
+        labels: clientUser.labels || [],
+        chatId: clientUser.chatId,
+        loginAt: new Date().toISOString()
+      };
+      setUser(userData);
+      localStorage.setItem('hmb_auth', JSON.stringify(userData));
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: 'Invalid username or password'
+    };
   };
 
   const logout = () => {

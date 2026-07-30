@@ -98,7 +98,10 @@
   }
 
   .glass-card-hover {
-    @apply border border-border/80 rounded-2xl transition-all duration-200;
+    @apply border border-border/80 rounded-2xl transition-transform duration-200;
+    transition-property: transform, border-color, box-shadow, background;
+    transition-duration: 200ms;
+    transition-timing-function: ease-out;
     background: var(--gradient-card);
     backdrop-filter: blur(16px);
     box-shadow: 0 2px 12px rgba(3, 11, 26, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -227,7 +230,7 @@
   }
 
   .sidebar-link {
-    @apply flex items-center gap-3 px-6 py-3 rounded-lg text-[15px] text-text-secondary transition-all duration-150;
+    @apply flex items-center gap-3 px-6 py-3 rounded-lg text-[15px] text-text-secondary transition-colors duration-150;
   }
   .sidebar-link:hover {
     @apply text-text-primary;
@@ -282,14 +285,17 @@
   .chart-tooltip:hover {
     filter: brightness(1.08);
   }
+  .map-tooltip-container {
+    will-change: transform, opacity;
+  }
 }
 
 @layer utilities {
   .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
+    animation: fadeIn 0.3s ease-out both;
   }
   .animate-slide-up {
-    animation: slideUp 0.3s ease-out;
+    animation: slideUp 0.3s ease-out both;
   }
   .animate-pulse-subtle {
     animation: pulseSub 2s ease-in-out infinite;
@@ -366,4 +372,42 @@ body {
   .section-header { font-size: 9px; }
   .filter-select { width: 100%; font-size: 14px; }
   .search-input { font-size: 16px; }
+}
+
+/* Map SVG entrance animation — fires on India ↔ district view switch */
+@keyframes mapFadeIn {
+  from { opacity: 0; transform: scale(0.985); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Map rendering / pan-zoom performance layer ──────────────────────────────
+   The Geo Intelligence map needs three guarantees for 60fps panning:
+
+   1. `map-svg` enables `shape-rendering: geometricPrecision` for sharp polygon
+      edges and `touch-action: none` so the browser doesn't fight our gestures
+      (pinch-zoom on trackpads, two-finger pan on touchscreens).
+   2. `map-transform-layer` is the `<g>` that receives pan/zoom. We use
+      `translate3d(...)` + `scale(...)` via CSS so the browser composites the
+      whole layer on the GPU instead of re-rasterising every frame. `will-change`
+      keeps the layer promoted; `backface-visibility: hidden` + `translateZ(0)`
+      keeps the layer on its own compositor tile on Chromium/Safari/Firefox.
+   3. `map-paths` opt every polygon path into the non-scaling-stroke pipeline
+      AND crisp-edge shape rendering, so 1px borders stay exactly 1px at any
+      zoom level instead of stretching into blurry thick lines.
+   ──────────────────────────────────────────────────────────────────────── */
+.map-svg {
+  shape-rendering: geometricPrecision;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.map-transform-layer {
+  transform-box: fill-box;
+  transform-origin: 0 0;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.map-paths {
+  shape-rendering: geometricPrecision;
 }

@@ -147,6 +147,20 @@ const PRODUCT_LABELS = {
 const ALL_PRODUCTS = Object.keys(PRODUCT_LABELS);
 const PRODUCT_SET  = new Set(ALL_PRODUCTS);
 
+// Cross-sheet product-code normalization.
+// The pending_export.csv sheet abbreviates some products differently from the
+// despatch (MoM/monthly) sheets. Map the pending-side codes onto the canonical
+// despatch codes so both sides aggregate into the same product bucket:
+//   GG   (pending) == GI  (despatch) — Galvanised Iron
+//   IGGI (pending) == IGG (despatch) — Iron Gate (Heavy)
+// Unknown codes still fall back to 'GI' (unchanged behaviour).
+const PRODUCT_ALIASES = { GG: 'GI', IGGI: 'IGG' };
+function canonProduct(raw) {
+  const up = (raw || '').trim().toUpperCase();
+  const aliased = PRODUCT_ALIASES[up] || up;
+  return PRODUCT_SET.has(aliased) ? aliased : 'GI';
+}
+
 // ── SPLIT ROWS: MoM DESPATCH vs PENDING ───────────────────────────────────────
 const momRows     = [];
 const pendingRows = [];
@@ -234,6 +248,9 @@ const pendingByDealer   = {};
 const pendingByDistrict = {};
 const pendingByState    = {};
 const pendingByProduct  = {};
+const pendingByStateProduct = {};
+const pendingByDistrictProduct = {};
+const pendingByDealerProduct = {};
 const pendingHistoryByState = {};
 const pendingHistoryByDistrict = {};
 const pendingMonthsSet = new Set();
@@ -253,7 +270,7 @@ for (const r of pendingRows) {
   }
   const client   = (r['CLIENT'] || r['CLIENT NAME'] || '').trim();
   const rawItem  = (r['ITEM'] || '').trim().toUpperCase();
-  const product  = PRODUCT_SET.has(rawItem) ? rawItem : 'GI';
+  const product  = canonProduct(rawItem);
 
   const dlKey    = `${state}||${district}||${client}`;
   const distKey2 = `${state}||${district}`;
@@ -263,6 +280,16 @@ for (const r of pendingRows) {
   pendingByState[state]       = (pendingByState[state]       || 0) + pending;
   pendingByProduct[product]   = (pendingByProduct[product]   || 0) + pending;
   pendingOverall             += pending;
+
+  // Aggregate product-wise pending
+  if (!pendingByStateProduct[state]) pendingByStateProduct[state] = {};
+  pendingByStateProduct[state][product] = (pendingByStateProduct[state][product] || 0) + pending;
+
+  if (!pendingByDistrictProduct[distKey2]) pendingByDistrictProduct[distKey2] = {};
+  pendingByDistrictProduct[distKey2][product] = (pendingByDistrictProduct[distKey2][product] || 0) + pending;
+
+  if (!pendingByDealerProduct[dlKey]) pendingByDealerProduct[dlKey] = {};
+  pendingByDealerProduct[dlKey][product] = (pendingByDealerProduct[dlKey][product] || 0) + pending;
 
   // Monthly pending tracking
   const year  = parseInt(r['YEAR'] || r['Year'] || r['year'],  10) || 0;
@@ -296,7 +323,7 @@ for (const r of momRows) {
   const ytdQty  = parseFloat(r['YTD_QTY'])  || 0;
 
   const rawItem  = (r['ITEM'] || '').trim().toUpperCase();
-  const product  = PRODUCT_SET.has(rawItem) ? rawItem : 'GI';
+  const product  = canonProduct(rawItem);
   const state    = resolveState((r['STATE'] || '').trim());
   const district = resolveDistrict((r['DISTRICT'] || '').trim(), state);
   if (state !== 'Unknown' && district !== 'Unknown') {
@@ -370,6 +397,12 @@ for (const [state, val] of Object.entries(pendingByState)) {
     byState[state].geoSlug = STATE_SLUG[state] || null;
   }
   byState[state].pending = val;
+  if (pendingByStateProduct[state]) {
+    for (const [prod, pVal] of Object.entries(pendingByStateProduct[state])) {
+      if (!byState[state].pr[prod]) byState[state].pr[prod] = mkA();
+      byState[state].pr[prod].pending = pVal;
+    }
+  }
 }
 
 for (const [key, val] of Object.entries(pendingByDistrict)) {
@@ -382,6 +415,12 @@ for (const [key, val] of Object.entries(pendingByDistrict)) {
     byDistrict[key].pr = {};
   }
   byDistrict[key].pending = val;
+  if (pendingByDistrictProduct[key]) {
+    for (const [prod, pVal] of Object.entries(pendingByDistrictProduct[key])) {
+      if (!byDistrict[key].pr[prod]) byDistrict[key].pr[prod] = mkA();
+      byDistrict[key].pr[prod].pending = pVal;
+    }
+  }
 }
 
 for (const [key, val] of Object.entries(pendingByDealer)) {
@@ -395,6 +434,12 @@ for (const [key, val] of Object.entries(pendingByDealer)) {
     byDealer[key].pr = {};
   }
   byDealer[key].pending = val;
+  if (pendingByDealerProduct[key]) {
+    for (const [prod, pVal] of Object.entries(pendingByDealerProduct[key])) {
+      if (!byDealer[key].pr[prod]) byDealer[key].pr[prod] = mkA();
+      byDealer[key].pr[prod].pending = pVal;
+    }
+  }
 }
 
 for (const [prod, val] of Object.entries(pendingByProduct)) {
@@ -439,11 +484,12 @@ function volatility(cur, prev) {
 
 function buildProdBreakdown(prMap) {
   return ALL_PRODUCTS
-    .filter(p => prMap[p] && (prMap[p].c || prMap[p].p))
+    .filter(p => prMap[p] && (prMap[p].c || prMap[p].p || prMap[p].pending))
     .map(prod => ({
       product: prod,
       cur: fN(prMap[prod].c), prev: fN(prMap[prod].p),
       mom: mom(prMap[prod].c, prMap[prod].p),
+      pendingQty: fN(prMap[prod].pending || 0),
     }));
 }
 
@@ -494,7 +540,6 @@ const regionalMapData = Object.values(byDistrict).map(d => ({
 const monthlyHistory = {};
 const monthlyAcc = {};   // periodKey -> { overall, byProduct, byState, byDistrict, byDealer }
 
-const pad2 = n => String(n).padStart(2, '0');
 const MONTH_FULL = ['January','February','March','April','May','June',
                     'July','August','September','October','November','December'];
 
@@ -506,7 +551,7 @@ for (const r of monthlyRows) {
   const qty       = parseFloat(r['QTY'] || r['Qty'] || r['qty']) || 0;
 
   const rawItem  = (r['ITEM'] || r['Item'] || r['item'] || '').trim().toUpperCase();
-  const product  = PRODUCT_SET.has(rawItem) ? rawItem : 'GI';
+  const product  = canonProduct(rawItem);
   
   let state      = resolveState((r['STATE'] || r['State'] || r['state'] || r['STATE NAME'] || r['State Name'] || r['state name'] || '').trim());
   let district   = resolveDistrict((r['DISTRICT'] || r['District'] || r['district'] || r['DISTRICTS'] || '').trim(), state);
