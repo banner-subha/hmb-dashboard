@@ -397,7 +397,7 @@ body {
    ──────────────────────────────────────────────────────────────────────── */
 .map-svg {
   shape-rendering: geometricPrecision;
-  touch-action: none;
+  touch-action: pan-y;
   -webkit-user-select: none;
   user-select: none;
 }

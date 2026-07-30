@@ -1844,7 +1844,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         {/* ── MAP (dominant, fluid, expanded height) ── */}
         <div
           ref={mapContainerRef}
-          className="rounded-xl border border-border overflow-hidden relative flex-1 w-full min-h-[680px] lg:min-h-[760px] xl:min-h-[820px] panel shadow-md"
+          className="rounded-xl border border-border overflow-hidden relative flex-1 w-full min-h-[420px] sm:min-h-[520px] lg:min-h-[760px] xl:min-h-[820px] panel shadow-md"
         >
           {/* Loading state */}
           {(geoLoading || distLoading) && (
