@@ -5,7 +5,7 @@ import { scaleQuantile } from 'd3-scale';
 import { feature } from 'topojson-client';
 import {
   ArrowLeft, TrendingUp, TrendingDown, Minus,
-  AlertTriangle, MapPin, BarChart2, Loader2, ZoomIn, ZoomOut, RotateCcw,
+  AlertTriangle, MapPin, BarChart2, Loader2, ZoomIn, ZoomOut, RotateCcw, X,
 } from 'lucide-react';
 
 const STATE_GEO_URL = '/geo/india_state.geojson';
@@ -282,8 +282,8 @@ function trendStr(t) {
 // getBacklogClearance is imported from utils/pending.js
 
 
-// ─── Tooltip (fixed-positioned, follows mouse) ────────────────────────────────
-function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, selectedPendingMonth, isDistrictView }) {
+// ─── Tooltip (fixed-positioned, follows mouse/touch) ────────────────────────────────
+function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, selectedPendingMonth, isDistrictView, onClose }) {
   const isPending = filterType === "PENDING";
 
   const despatchQty = data ? (data.despatchQty ?? (isPending ? (data.rawCur ?? data.despatchCur ?? 0) : (data.volume ?? data.cur ?? 0))) : 0;
@@ -299,19 +299,33 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, se
   return (
     <div
       ref={tooltipRef}
-      className="pointer-events-none fixed z-[9999] border bg-[#060d1d]/98 backdrop-blur-md border-border-accent/80 rounded-xl p-4 shadow-2xl map-tooltip-container space-y-2.5 min-w-[240px]"
+      className="pointer-events-auto fixed z-[9999] border bg-[#060d1d]/98 backdrop-blur-md border-border-accent/80 rounded-xl p-4 shadow-2xl map-tooltip-container space-y-2.5 min-w-[240px]"
       style={{
         left: 0,
         top:  0,
         display: (visible && name) ? 'block' : 'none'
       }}
     >
-      {/* Entity Title & Type Badge */}
+      {/* Entity Title & Type Badge + Close Button */}
       <div className="flex items-center justify-between border-b border-border/50 pb-2 gap-3">
         <div className="font-black text-text-primary text-base truncate tracking-tight">{name}</div>
-        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-bg-card border border-border/50 text-text-muted shrink-0">
-          {isDistrictView ? 'District' : 'State'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-bg-card border border-border/50 text-text-muted shrink-0">
+            {isDistrictView ? 'District' : 'State'}
+          </span>
+          {onClose && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              className="p-1 rounded-md hover:bg-white/10 text-text-muted hover:text-white transition-colors cursor-pointer"
+              title="Close tooltip"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {data ? (
@@ -1469,42 +1483,88 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     return rankedList.reduce((sum, e) => sum + (e.volume ?? e.cur ?? 0), 0);
   }, [rankedList, filterState.type]);
 
-  // ── tooltip helpers ──
+  // ── tooltip helpers (Desktop + Mobile touch optimized) ──
   const showTip = useCallback((e, name, entry) => {
-    // Skip on touch/pen — tooltip doesn't make sense without a persistent cursor.
-    // D3 synthetic events don't always carry pointerType, so also check touches.
-    if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
-    if (e.touches && e.touches.length > 0) return;
-    const clientX = e.clientX;
-    const clientY = e.clientY;
+    const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX;
+    const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY;
     if (clientX == null || clientY == null) return;
+
     setTooltip({ visible: true, name, data: entry ?? null });
+
     requestAnimationFrame(() => {
       if (tooltipRef.current) {
         const vw = window.innerWidth;
-        const tw = tooltipRef.current.offsetWidth || 220;
-        // Flip tooltip to left side if it would overflow the right edge
-        const left = clientX + 16 + tw > vw ? clientX - tw - 8 : clientX + 16;
-        tooltipRef.current.style.left = `${left}px`;
-        tooltipRef.current.style.top = `${Math.max(8, clientY - 12)}px`;
+        const vh = window.innerHeight;
+        const tw = tooltipRef.current.offsetWidth || 240;
+        const th = tooltipRef.current.offsetHeight || 180;
+
+        let left = clientX + 16;
+        let top = clientY - 12;
+
+        if (vw < 768) {
+          // Mobile touch positioning — center horizontally above tap, flip below if near top
+          left = Math.max(12, Math.min(vw - tw - 12, clientX - tw / 2));
+          top = clientY - th - 20;
+          if (top < 12) top = clientY + 24;
+        } else {
+          if (left + tw > vw) left = clientX - tw - 12;
+          if (top + th > vh) top = Math.max(8, vh - th - 12);
+        }
+
+        tooltipRef.current.style.left = `${Math.max(8, left)}px`;
+        tooltipRef.current.style.top = `${Math.max(8, top)}px`;
       }
     });
   }, []);
 
   const moveTip = useCallback((e) => {
-    if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
-    if (e.touches && e.touches.length > 0) return;
     if (!tooltipRef.current) return;
+    const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX;
+    const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY;
+    if (clientX == null || clientY == null) return;
+
     const vw = window.innerWidth;
-    const tw = tooltipRef.current.offsetWidth || 220;
-    const left = e.clientX + 16 + tw > vw ? e.clientX - tw - 8 : e.clientX + 16;
-    tooltipRef.current.style.left = `${left}px`;
-    tooltipRef.current.style.top = `${Math.max(8, e.clientY - 12)}px`;
+    const vh = window.innerHeight;
+    const tw = tooltipRef.current.offsetWidth || 240;
+    const th = tooltipRef.current.offsetHeight || 180;
+
+    let left = clientX + 16;
+    let top = clientY - 12;
+
+    if (vw < 768) {
+      left = Math.max(12, Math.min(vw - tw - 12, clientX - tw / 2));
+      top = clientY - th - 20;
+      if (top < 12) top = clientY + 24;
+    } else {
+      if (left + tw > vw) left = clientX - tw - 12;
+      if (top + th > vh) top = Math.max(8, vh - th - 12);
+    }
+
+    tooltipRef.current.style.left = `${Math.max(8, left)}px`;
+    tooltipRef.current.style.top = `${Math.max(8, top)}px`;
   }, []);
 
   const hideTip = useCallback(() => {
     setTooltip({ visible: false, name: '', data: null });
   }, []);
+
+  // Global tap/click outside listener to prevent sticky tooltips on mobile
+  useEffect(() => {
+    if (!tooltip.visible) return;
+    const handleOutsideTouch = (e) => {
+      if (e.target.closest('.map-path') || e.target.closest('.map-tooltip-container')) {
+        return;
+      }
+      setTooltip({ visible: false, name: '', data: null });
+    };
+
+    document.addEventListener('touchstart', handleOutsideTouch, { passive: true });
+    document.addEventListener('mousedown', handleOutsideTouch, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', handleOutsideTouch);
+      document.removeEventListener('mousedown', handleOutsideTouch);
+    };
+  }, [tooltip.visible]);
 
   // ── render features ──
   const activeFeatures = selectedState ? districtGeo : stateGeo;
@@ -2130,7 +2190,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       </div>
 
       {/* Floating tooltip */}
-      <Tooltip tooltipRef={tooltipRef} {...tooltip} filterType={filterState.type} totalPending={totalPendingVolume} selectedPendingMonth={selectedPendingMonth} isDistrictView={!!selectedState} />
+      <Tooltip tooltipRef={tooltipRef} {...tooltip} filterType={filterState.type} totalPending={totalPendingVolume} selectedPendingMonth={selectedPendingMonth} isDistrictView={!!selectedState} onClose={hideTip} />
     </div>
   );
 }
