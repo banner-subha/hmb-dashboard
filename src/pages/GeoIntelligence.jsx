@@ -1017,6 +1017,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
   const dragDistanceRef = useRef(0);
   const [isDraggingState, setIsDraggingState] = useState(false);
   const dragStart   = useRef({ x: 0, y: 0, px: 0, py: 0 });
+  const touchedPathRef = useRef(null);
   const zoomIndicatorRef = useRef(null);
 
   // ── hover tooltip content state ──
@@ -1923,6 +1924,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
               const path = el?.closest('path.map-path');
               if (!path) return;
 
+              touchedPathRef.current = path;
+
               const feature = activeFeatures?.[Array.from(path.parentNode.children).indexOf(path)];
               if (!feature) return;
 
@@ -1957,23 +1960,20 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
               const touch = e.touches[0];
               moveTip({ clientX: touch.clientX, clientY: touch.clientY });
             }}
-            onTouchEnd={(e) => {
-              const touch = e.changedTouches?.[0];
-              if (touch) {
-                const el = document.elementFromPoint(touch.clientX, touch.clientY);
-                const path = el?.closest('path.map-path');
-                if (path) {
-                  const sel = d3.select(path);
-                  const origFill = sel.property('__origFill') || NO_DATA_COLOR;
-                  const origStroke = sel.property('__origStroke') || '#0f1117';
-                  const origStrokeWidth = sel.property('__origStrokeWidth') || (selectedStateRef.current ? 0.4 : 0.7);
-                  sel.interrupt('hover')
-                    .transition('hover').duration(200).ease(d3.easeQuadOut)
-                    .attr('fill', origFill)
-                    .attr('stroke', origStroke)
-                    .attr('stroke-width', origStrokeWidth)
-                    .style('opacity', 1);
-                }
+            onTouchEnd={() => {
+              const path = touchedPathRef.current;
+              if (path) {
+                const sel = d3.select(path);
+                const origFill = sel.property('__origFill') || NO_DATA_COLOR;
+                const origStroke = sel.property('__origStroke') || '#0f1117';
+                const origStrokeWidth = sel.property('__origStrokeWidth') || (selectedStateRef.current ? 0.4 : 0.7);
+                sel.interrupt('hover')
+                  .transition('hover').duration(200).ease(d3.easeQuadOut)
+                  .attr('fill', origFill)
+                  .attr('stroke', origStroke)
+                  .attr('stroke-width', origStrokeWidth)
+                  .style('opacity', 1);
+                touchedPathRef.current = null;
               }
               hideTip();
             }}
