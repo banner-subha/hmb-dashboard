@@ -1906,6 +1906,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
               cursor: isDraggingState ? 'grabbing' : 'grab',
               display: (geoLoading || distLoading || distError) ? 'none' : 'block',
               animation: 'mapFadeIn 0.35s ease both',
+              touchAction: 'none',
             }}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
@@ -1915,7 +1916,67 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
               hideTip();
             }}
             onWheel={onWheel}
-            onTouchEnd={hideTip}
+            onTouchStart={(e) => {
+              if (e.touches.length > 1) return;
+              const touch = e.touches[0];
+              const el = document.elementFromPoint(touch.clientX, touch.clientY);
+              const path = el?.closest('path.map-path');
+              if (!path) return;
+
+              const feature = activeFeatures?.[Array.from(path.parentNode.children).indexOf(path)];
+              if (!feature) return;
+
+              const topoName = feature.properties?.ST_NM || feature.properties?.state_name || feature.properties?.NAME || feature.properties?.district || feature.properties?.NAME_2 || feature.properties?.name || feature.properties?.NAME_1 || '';
+              const isSel = selectedStateRef.current;
+              const normTopo = isSel ? resolveDistrict(topoName) : normalizeKey(topoName);
+              const entry = isSel
+                ? normalizedDistrictDataMap[normTopo]
+                : (normalizedStateDataMap[normTopo] || Object.values(normalizedStateDataMap).find(s => normalizeKey(s.geoKey) === normTopo));
+
+              const sel = d3.select(path);
+              const origFill = sel.attr('fill') || NO_DATA_COLOR;
+              sel.property('__origFill', origFill)
+                 .property('__origStroke', sel.attr('stroke') || '#0f1117')
+                 .property('__origStrokeWidth', sel.attr('stroke-width') || (isSel ? 0.4 : 0.7));
+
+              const isNoData = origFill === NO_DATA_COLOR || origFill === '#1e2535';
+              const c = d3.color(origFill);
+              const hoverFill = isNoData ? '#2a364a' : (c ? c.brighter(0.7).toString() : origFill);
+
+              sel.interrupt('hover')
+                .transition('hover').duration(100).ease(d3.easeQuadOut)
+                .attr('fill', hoverFill)
+                .attr('stroke', 'rgba(255, 255, 255, 0.85)')
+                .attr('stroke-width', isSel ? 1.2 : 1.8)
+                .style('opacity', 0.9);
+
+              showTip({ clientX: touch.clientX, clientY: touch.clientY }, topoName, entry);
+            }}
+            onTouchMove={(e) => {
+              if (e.touches.length > 1) return;
+              const touch = e.touches[0];
+              moveTip({ clientX: touch.clientX, clientY: touch.clientY });
+            }}
+            onTouchEnd={(e) => {
+              const touch = e.changedTouches?.[0];
+              if (touch) {
+                const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                const path = el?.closest('path.map-path');
+                if (path) {
+                  const sel = d3.select(path);
+                  const origFill = sel.property('__origFill') || NO_DATA_COLOR;
+                  const origStroke = sel.property('__origStroke') || '#0f1117';
+                  const origStrokeWidth = sel.property('__origStrokeWidth') || (selectedStateRef.current ? 0.4 : 0.7);
+                  sel.interrupt('hover')
+                    .transition('hover').duration(200).ease(d3.easeQuadOut)
+                    .attr('fill', origFill)
+                    .attr('stroke', origStroke)
+                    .attr('stroke-width', origStrokeWidth)
+                    .style('opacity', 1);
+                }
+              }
+              hideTip();
+            }}
             onTouchCancel={hideTip}
           >
             <g ref={gRef} className="map-transform-layer" />
