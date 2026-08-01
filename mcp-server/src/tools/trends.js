@@ -15,24 +15,29 @@ export function getSalesTrend({ months } = {}, data) {
   const trend = selected.map(m => {
     const key = m.periodKey;
     const entry = history[key];
+    const total = entry?.overall || 0;
     return {
       periodKey: key,
       label: m.label,
       year: m.year,
       month: m.month,
-      total: entry?.total || 0,
+      total,
       stateCount: entry?.states?.length || 0,
       districtCount: entry?.districts?.length || 0,
-      topStates: (entry?.states || []).slice(0, 5).map(s => ({
-        state: s.state,
-        qty: s.qty,
-        share: s.share
-      })),
+      topStates: (entry?.states || [])
+        .slice()
+        .sort((a, b) => (b.cur || 0) - (a.cur || 0))
+        .slice(0, 5)
+        .map(s => ({
+          state: s.state,
+          qty: s.cur || 0,
+          share: total > 0 ? Math.round(((s.cur || 0) / total) * 100) : 0
+        })),
       products: (entry?.products || []).map(p => ({
         product: p.product,
         label: p.label,
-        qty: p.qty,
-        share: p.share
+        qty: p.cur || 0,
+        share: total > 0 ? Math.round(((p.cur || 0) / total) * 100) : 0
       }))
     };
   });
