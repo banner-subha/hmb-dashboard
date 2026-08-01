@@ -1,5 +1,4 @@
 import express from 'express';
-import { randomUUID } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
@@ -135,7 +134,7 @@ async function main() {
   // Stateless transport: no sessionIdGenerator needed since each request
   // gets fresh data from the in-memory store and there's no per-session state.
   const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID()
+    sessionIdGenerator: undefined
   });
   await server.connect(transport);
 
