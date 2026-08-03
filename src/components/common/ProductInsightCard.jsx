@@ -97,7 +97,7 @@ export default function ProductInsightCard({ productInsights = [] }) {
                   <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider">
                     Pending (MT)
                   </span>
-                  <span className="text-sm font-extrabold text-[#c084fc] mt-0.5">
+                  <span className="text-sm font-extrabold text-text-primary mt-0.5">
                     {formatMT(pending_qty)}
                   </span>
                 </div>

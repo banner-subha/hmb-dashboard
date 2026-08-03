@@ -22,7 +22,7 @@ export default function SearchInput({ placeholder = "Search dealers, districts..
 
     timerRef.current = setTimeout(() => {
       dispatch({ type: 'SET_SEARCH', payload: val });
-    }, 250);
+    }, 200);
   };
 
   const handleClear = () => {
@@ -46,7 +46,7 @@ export default function SearchInput({ placeholder = "Search dealers, districts..
       </div>
       <input
         type="text"
-        className="w-full bg-[#0b1329] border border-slate-700/70 hover:border-accent-blue/50 focus:border-accent-blue focus:bg-[#0d1630] focus:ring-2 focus:ring-accent-blue/20 rounded-full pl-8 pr-7 py-1.5 text-xs text-text-primary placeholder-text-muted/70 focus:outline-none transition-all duration-200"
+        className="w-full bg-bg-input border border-border/70 hover:border-accent-blue/50 focus:border-accent-blue focus:bg-bg-card-hover focus:ring-2 focus:ring-accent-blue/20 rounded-full pl-8 pr-7 py-1.5 text-xs text-text-primary placeholder-text-muted/70 focus:outline-none transition-all duration-200"
         placeholder={placeholder}
         value={localValue}
         onChange={handleChange}

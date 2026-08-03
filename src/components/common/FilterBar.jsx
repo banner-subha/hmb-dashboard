@@ -52,11 +52,11 @@ export default function FilterBar({ children }) {
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 border ${
             filters.isNorthBengal
               ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
-              : 'bg-bg-tertiary/60 text-white border-border/40 hover:border-border'
+              : 'bg-bg-tertiary/60 text-text-secondary border-border/40 hover:border-border'
           }`}
           title="Filter North Bengal Districts (Darjeeling, Jalpaiguri, Coochbehar, etc.)"
         >
-          <span className={`w-2 h-2 rounded-full ${filters.isNorthBengal ? 'bg-emerald-400 animate-pulse' : 'bg-white/50'}`} />
+          <span className={`w-2 h-2 rounded-full ${filters.isNorthBengal ? 'bg-emerald-400 animate-pulse' : 'bg-text-muted/40'}`} />
           North Bengal
         </button>
       )}

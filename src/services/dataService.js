@@ -175,10 +175,44 @@ function cleanData(data) {
       return { ...m, key: k, periodKey: k };
     });
   }
-  if (data.pendingAvailableMonths && Array.isArray(data.pendingAvailableMonths)) {
-    data.pendingAvailableMonths = data.pendingAvailableMonths.map(m => {
-      const k = m.key || m.periodKey || `${m.year}-${String(m.month).padStart(2, '0')}`;
-      return { ...m, key: k, periodKey: k };
+
+  const pendingMonthsMap = new Map();
+  const shortMonthsList = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  const addPendingMonthKey = (pk, year, month, label) => {
+    if (!pk || pendingMonthsMap.has(pk)) return;
+    let y = year, m = month;
+    if (!y || !m) {
+      const parts = String(pk).split('-');
+      if (parts.length === 2) {
+        y = parseInt(parts[0], 10);
+        m = parseInt(parts[1], 10);
+      }
+    }
+    if (y && m && m >= 1 && m <= 12) {
+      const displayLabel = label || `${shortMonthsList[m - 1]} ${y}`;
+      pendingMonthsMap.set(pk, { key: pk, periodKey: pk, year: y, month: m, label: displayLabel });
+    }
+  };
+
+  if (Array.isArray(data.availableMonths)) {
+    data.availableMonths.forEach(m => addPendingMonthKey(m.periodKey || m.key, m.year, m.month, m.label));
+  }
+  if (Array.isArray(data.pendingAvailableMonths)) {
+    data.pendingAvailableMonths.forEach(m => addPendingMonthKey(m.periodKey || m.key, m.year, m.month, m.label));
+  }
+  ['states', 'districts', 'dealers'].forEach(group => {
+    (data[group] || []).forEach(e => {
+      if (e.pendingHistory) {
+        Object.keys(e.pendingHistory).forEach(pk => addPendingMonthKey(pk));
+      }
+    });
+  });
+
+  if (pendingMonthsMap.size > 0) {
+    data.pendingAvailableMonths = Array.from(pendingMonthsMap.values()).sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year;
+      return b.month - a.month;
     });
   }
 
@@ -344,9 +378,11 @@ class DataService {
         cleanedData.meta.prevPeriod = cleanedData.prevPeriod;
       }
 
-      // Ensure curPeriod and prevPeriod reflect actual fetched data end date (e.g. 17th Jul) instead of generatedAt wall-clock
-      const elapsedDays = cleanedData.curElapsedDays || cleanedData.meta?.curElapsedDays || 17;
-      if (!cleanedData.meta.curPeriod || cleanedData.meta.curPeriod.includes('19 Jul')) {
+      // Ensure curPeriod and prevPeriod reflect actual fetched data end date
+      // Only rewrite if labels are missing or use the old stale format
+      const elapsedDays = cleanedData.curElapsedDays || cleanedData.meta?.curElapsedDays;
+      const needsRewrite = !cleanedData.meta.curPeriod || !cleanedData.meta.prevPeriod;
+      if (needsRewrite && elapsedDays) {
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         let endDay = elapsedDays;
         let monthName = 'Jul';
@@ -364,8 +400,12 @@ class DataService {
         cleanedData.meta.curPeriod = `1 ${monthName} ${yearNum} - ${endDay} ${monthName} ${yearNum}`;
         cleanedData.curPeriod = cleanedData.meta.curPeriod;
 
-        const prevMonthName = monthName === 'Jul' ? 'Jun' : 'May';
-        cleanedData.meta.prevPeriod = `1 ${prevMonthName} ${yearNum} - ${endDay} ${prevMonthName} ${yearNum}`;
+        // Proper previous month calculation (handles Jan → Dec of prior year)
+        const curMonthIdx = monthNames.indexOf(monthName);
+        const prevMonthIdx = curMonthIdx > 0 ? curMonthIdx - 1 : 11;
+        const prevMonthName = monthNames[prevMonthIdx];
+        const prevYearNum = curMonthIdx === 0 ? yearNum - 1 : yearNum;
+        cleanedData.meta.prevPeriod = `1 ${prevMonthName} ${prevYearNum} - ${endDay} ${prevMonthName} ${prevYearNum}`;
         cleanedData.prevPeriod = cleanedData.meta.prevPeriod;
       }
 

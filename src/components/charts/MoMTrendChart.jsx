@@ -55,7 +55,7 @@ export default function MoMTrendChart({ data, nameKey = "name", height = 300 }) 
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
           <XAxis dataKey={nameKey} stroke="var(--color-text-dim)" fontSize={12} tickMargin={12} />
           <YAxis stroke="var(--color-text-dim)" fontSize={12} tickFormatter={(val) => `${val}`} />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#0a0f1e' }} isAnimationActive={false} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--color-chart-cursor)' }} isAnimationActive={false} />
           <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--color-text-muted)', paddingTop: '12px' }} />
           <Bar dataKey="prev" name="Previous" fill="var(--color-text-dim)" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={true} animationDuration={500} animationEasing="ease-out" />
           <Bar dataKey="cur" name="Current" fill="var(--color-accent-blue)" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={true} animationDuration={600} animationEasing="ease-out" />

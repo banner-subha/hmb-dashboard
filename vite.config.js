@@ -15,7 +15,10 @@ export default defineConfig({
             if (id.includes('recharts')) {
               return 'recharts';
             }
-            if (id.includes('react') || id.includes('framer-motion') || id.includes('scheduler')) {
+            if (id.includes('framer-motion')) {
+              return 'motion';
+            }
+            if (id.includes('react') || id.includes('scheduler')) {
               return 'vendor';
             }
           }

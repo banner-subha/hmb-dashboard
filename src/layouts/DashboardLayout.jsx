@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
+import { useTheme } from '../context/ThemeContext';
 import { NAV_ITEMS, CLIENT_NAV_ITEMS, CATEGORY_ICONS } from '../utils/constants';
 import * as Icons from 'lucide-react';
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
@@ -13,6 +14,7 @@ import { calculateMoM, formatTrend } from '../utils/trendEngine';
 export default function DashboardLayout() {
   const { logout, user } = useAuth();
   const { rawData } = useData();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -75,15 +77,11 @@ export default function DashboardLayout() {
     return curP.replace(/\s*-\s*/g, ' – ');
   }, [rawData]);
 
-  // Run-rate based MoM dispatch growth
+  // Use backend's totalMoM directly — it already compares identical day-ranges
+  // (e.g. Aug 1-2 vs Jul 1-2). No frontend recalculation needed.
   const dispatchGrowth = useMemo(() => {
     if (!rawData) return null;
-    const curElapsed = rawData.meta?.curElapsedDays || 30;
-    const prevElapsed = rawData.meta?.prevElapsedDays || 30;
-    const curDailyRate = rawData.totalCur / curElapsed;
-    const prevDailyRate = rawData.totalPrev / prevElapsed;
-    if (!prevDailyRate) return 0;
-    const mom = ((curDailyRate - prevDailyRate) / prevDailyRate) * 100;
+    const mom = rawData.totalMoM;
     if (mom === null || mom === undefined || isNaN(mom)) return null;
     return mom;
   }, [rawData]);
@@ -110,7 +108,7 @@ export default function DashboardLayout() {
           className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-border transition-transform duration-300 lg:static lg:translate-x-0 flex-shrink-0 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
-          style={{ background: 'var(--gradient-surface)' }}
+          style={{ background: 'var(--gradient-sidebar)' }}
         >
         <div className="flex items-center justify-between h-16 px-5 border-b border-border">
           <div className="flex items-center gap-3 min-w-0">
@@ -118,16 +116,16 @@ export default function DashboardLayout() {
             <div className="w-1 h-8 rounded-full shrink-0" style={{ background: 'var(--gradient-accent)' }} />
             <div className="flex flex-col leading-tight min-w-0">
               <span className="text-base font-extrabold tracking-tight gradient-text truncate">HMB Ispat</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted truncate">Intelligence Platform</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/80 truncate">Intelligence Platform</span>
             </div>
           </div>
-          <button className="lg:hidden text-text-muted ml-2" onClick={() => setSidebarOpen(false)}>
+          <button className="lg:hidden text-white ml-2" onClick={() => setSidebarOpen(false)}>
             <Icons.X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-4 space-y-0.5 overflow-y-auto h-[calc(100vh-8rem)]">
-          <div className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3 px-2 mt-4">
+          <div className="text-xs font-bold text-white uppercase tracking-wider mb-3 px-2 mt-4">
             Intelligence
           </div>
           {navItemsToRender.map((item) => {
@@ -141,32 +139,44 @@ export default function DashboardLayout() {
                 }
                 onClick={() => setSidebarOpen(false)}
               >
-                <Icon className="w-5 h-5" />
-                {item.label}
+                <Icon className="w-5 h-5 shrink-0" />
+                <span className="truncate">{item.label}</span>
               </NavLink>
             );
           })}
         </div>
 
-        <div className="absolute bottom-0 w-full px-4 py-3.5 border-t border-border" style={{ background: 'linear-gradient(180deg, rgba(10,15,30,0.9) 0%, rgba(10,15,30,1) 100%)' }}>
+        <div className="absolute bottom-0 w-full px-4 py-3.5 border-t border-border" style={{ background: 'var(--color-sidebar-bg)' }}>
           <div className="flex items-center justify-between px-2">
             <div className="flex flex-col gap-0.5 min-w-0 pr-2">
-              <span className="text-sm font-semibold text-text-primary truncate" title={user?.name || user?.username}>
+              <span className="text-sm font-semibold text-sidebar-text truncate" title={user?.name || user?.username}>
                 {user?.name || user?.username}
               </span>
-              <span className="text-xs text-text-muted truncate">
+              <span className="text-xs text-sidebar-text-muted truncate">
                 {user?.role === 'client'
-                  ? `${user?.kroRole || 'Client View'}${user?.states?.length ? ` (${user.states.join(', ')})` : ''}`
+                  ? `${user?.kroRole || 'Client View'}${user?.states ? ` (${Array.isArray(user.states) ? user.states.join(', ') : user.states})` : ''}`
                   : 'Administrator'}
               </span>
             </div>
-            <button 
-              onClick={handleLogout}
-              className="p-2 text-text-muted hover:text-severity-critical transition-colors rounded-lg hover:bg-severity-critical/10 shrink-0"
-              title="Logout"
-            >
-              <Icons.LogOut className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-sidebar-text-muted hover:text-sidebar-text transition-colors rounded-lg hover:bg-white/10"
+                title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+                aria-label="Toggle theme"
+              >
+                {theme === 'light'
+                  ? <Icons.Moon className="w-5 h-5" />
+                  : <Icons.Sun className="w-5 h-5" />}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-sidebar-text-muted hover:text-severity-critical transition-colors rounded-lg hover:bg-severity-critical/10 shrink-0"
+                title="Logout"
+              >
+                <Icons.LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -202,25 +212,25 @@ export default function DashboardLayout() {
 {/* Text stack */}
                 <div className="flex flex-col gap-0.5 min-w-0">
                   {/* Eyebrow */}
-                  <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">
+                  <span className="text-xs font-semibold uppercase tracking-[0.06em] text-sidebar-text-muted">
                     HMB Ispat · Business Intelligence
                   </span>
 
                   {/* Title */}
-                  <h1 className="text-2xl font-semibold text-text-primary leading-tight m-0">
+                  <h1 className="text-2xl font-semibold text-sidebar-text leading-tight m-0">
                     Executive Dashboard
                   </h1>
 
                   {/* Meta row */}
-                  <div className="flex items-center gap-0 text-xs text-text-muted flex-wrap leading-relaxed">
+                  <div className="flex items-center gap-0 text-xs text-sidebar-text-muted flex-wrap leading-relaxed">
                     {headerDateRange && (
                       <span>{headerDateRange}</span>
                     )}
-                    <span className="mx-2 text-text-secondary font-bold">|</span>
+                    <span className="mx-2 text-sidebar-text-muted font-bold">|</span>
                     <span>Current Cycle (MTD)</span>
                     {dispatchGrowth !== null && (
                       <>
-                        <span className="mx-2 text-text-secondary font-bold">|</span>
+                        <span className="mx-2 text-sidebar-text-muted font-bold">|</span>
                         <span className={`font-semibold ${dispatchGrowth >= 0 ? 'text-severity-none' : 'text-severity-critical'}`}>
                           {dispatchGrowth >= 0 ? '↑' : '↓'} {Math.abs(dispatchGrowth).toFixed(1)}% vs last period
                         </span>
@@ -232,7 +242,7 @@ export default function DashboardLayout() {
 
               {/* RIGHT SIDE — Sync status only */}
               <div className="flex flex-col items-end gap-1 shrink-0">
-                <div className="flex items-center gap-2 text-xs text-text-muted whitespace-nowrap">
+                <div className="flex items-center gap-2 text-xs text-sidebar-text-muted whitespace-nowrap">
                   <span className="w-2 h-2 rounded-full bg-severity-none shrink-0" />
                   Live · Updated {syncAgoText}
                 </div>

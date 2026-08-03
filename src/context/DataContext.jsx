@@ -1,12 +1,14 @@
 import { createContext, useContext, useReducer, useEffect, useState, useMemo, useCallback } from 'react';
 import { dataService } from '../services/dataService';
 import { calculateMoM, formatTrend, getTrendColor, getBusinessImpact } from '../utils/trendEngine';
-import { isRealState, NORTH_BENGAL_DISTRICTS } from '../utils/constants';
+import { isRealState, NORTH_BENGAL_DISTRICTS, getExpandedStatesSet } from '../utils/constants';
 import { useAuth } from './AuthContext';
 import { getNormalizedDistrictSet, matchesAssignedDistrict } from '../utils/districtNormalizer';
 import { syncClientUsers } from '../data/clientRegistry';
 
 const DataContext = createContext(null);
+const DataStateContext = createContext(null);
+const FilterContext = createContext(null);
 
 // Filter reducer
 const filterReducer = (state, action) => {
@@ -68,23 +70,43 @@ function processData(rawData, filters, user) {
     dealers = dealers.filter(dl => matchesAssignedDistrict(dl.district, nbSet));
     states = states.filter(st => st.state && st.state.replace(/\s+/g, '').toUpperCase() === 'WEST BENGAL');
   } else if (user && user.role === 'client') {
-    const allowedStates = (user.states || []).map(s => s.replace(/\s+/g, '').toUpperCase());
+    const rawUserStates = Array.isArray(user.states) 
+      ? user.states 
+      : (typeof user.states === 'string' ? user.states.split(',') : []);
+    const allowedStatesSet = getExpandedStatesSet(rawUserStates);
     const assignedDistricts = user.districts || [];
     const assignedSet = getNormalizedDistrictSet(assignedDistricts);
 
-    if (assignedSet.size > 0) {
-      districts = districts.filter(d => matchesAssignedDistrict(d.district, assignedSet));
-      dealers = dealers.filter(dl => matchesAssignedDistrict(dl.district, assignedSet));
-      const distStateSet = new Set([
-        ...districts.map(d => (d.state || '').replace(/\s+/g, '').toUpperCase()),
-        ...dealers.map(dl => (dl.state || '').replace(/\s+/g, '').toUpperCase())
-      ]);
-      states = states.filter(st => distStateSet.has((st.state || '').replace(/\s+/g, '').toUpperCase()));
-    } else if (allowedStates.length > 0) {
-      districts = districts.filter(d => allowedStates.includes((d.state || '').replace(/\s+/g, '').toUpperCase()));
-      dealers = dealers.filter(dl => allowedStates.includes((dl.state || '').replace(/\s+/g, '').toUpperCase()));
-      states = states.filter(st => allowedStates.includes((st.state || '').replace(/\s+/g, '').toUpperCase()));
+    const statesWithDistrictLocks = new Set();
+    if (assignedSet.size > 0 && rawData.districts) {
+      rawData.districts.forEach(d => {
+        if (d.state && d.district && matchesAssignedDistrict(d.district, assignedSet)) {
+          statesWithDistrictLocks.add((d.state || '').replace(/\s+/g, '').toUpperCase());
+        }
+      });
     }
+
+    const isEntityAllowed = (stName, distName) => {
+      const normState = (stName || '').replace(/\s+/g, '').toUpperCase();
+      if (allowedStatesSet.size > 0 && !allowedStatesSet.has(normState)) return false;
+      if (statesWithDistrictLocks.has(normState)) {
+        return distName ? matchesAssignedDistrict(distName, assignedSet) : true;
+      }
+      return true;
+    };
+
+    districts = districts.filter(d => isEntityAllowed(d.state, d.district));
+    dealers = dealers.filter(dl => isEntityAllowed(dl.state, dl.district));
+
+    const activeStateNames = new Set([
+      ...districts.map(d => (d.state || '').replace(/\s+/g, '').toUpperCase()),
+      ...dealers.map(dl => (dl.state || '').replace(/\s+/g, '').toUpperCase())
+    ]);
+    states = states.filter(st => {
+      const normState = (st.state || '').replace(/\s+/g, '').toUpperCase();
+      if (allowedStatesSet.size > 0 && !allowedStatesSet.has(normState)) return false;
+      return activeStateNames.has(normState) || !statesWithDistrictLocks.has(normState);
+    });
   }
 
   if (filters.selectedState) {
@@ -509,18 +531,39 @@ export function DataProvider({ children }) {
       baseDistricts = baseDistricts.filter(d => matchesAssignedDistrict(d.district, nbSet));
       baseStates = baseStates.filter(st => (st.state || '').replace(/\s+/g, '').toUpperCase() === 'WEST BENGAL');
     } else if (user && user.role === 'client') {
-      const allowedStates = (user.states || []).map(s => s.replace(/\s+/g, '').toUpperCase());
+      const rawUserStates = Array.isArray(user.states) 
+        ? user.states 
+        : (typeof user.states === 'string' ? user.states.split(',') : []);
+      const allowedStatesSet = getExpandedStatesSet(rawUserStates);
       const assignedDistricts = user.districts || [];
       const assignedSet = getNormalizedDistrictSet(assignedDistricts);
 
-      if (assignedSet.size > 0) {
-        baseDistricts = baseDistricts.filter(d => matchesAssignedDistrict(d.district, assignedSet));
-        const distStateSet = new Set(baseDistricts.map(d => (d.state || '').replace(/\s+/g, '').toUpperCase()));
-        baseStates = baseStates.filter(st => distStateSet.has((st.state || '').replace(/\s+/g, '').toUpperCase()));
-      } else if (allowedStates.length > 0) {
-        baseDistricts = baseDistricts.filter(d => allowedStates.includes((d.state || '').replace(/\s+/g, '').toUpperCase()));
-        baseStates = baseStates.filter(st => allowedStates.includes((st.state || '').replace(/\s+/g, '').toUpperCase()));
+      const statesWithDistrictLocks = new Set();
+      if (assignedSet.size > 0 && rawData.districts) {
+        rawData.districts.forEach(d => {
+          if (d.state && d.district && matchesAssignedDistrict(d.district, assignedSet)) {
+            statesWithDistrictLocks.add((d.state || '').replace(/\s+/g, '').toUpperCase());
+          }
+        });
       }
+
+      const isEntityAllowed = (stName, distName) => {
+        const normState = (stName || '').replace(/\s+/g, '').toUpperCase();
+        if (allowedStatesSet.size > 0 && !allowedStatesSet.has(normState)) return false;
+        if (statesWithDistrictLocks.has(normState)) {
+          return distName ? matchesAssignedDistrict(distName, assignedSet) : true;
+        }
+        return true;
+      };
+
+      baseDistricts = baseDistricts.filter(d => isEntityAllowed(d.state, d.district));
+
+      const activeStateNames = new Set(baseDistricts.map(d => (d.state || '').replace(/\s+/g, '').toUpperCase()));
+      baseStates = baseStates.filter(st => {
+        const normState = (st.state || '').replace(/\s+/g, '').toUpperCase();
+        if (allowedStatesSet.size > 0 && !allowedStatesSet.has(normState)) return false;
+        return activeStateNames.has(normState) || !statesWithDistrictLocks.has(normState);
+      });
     }
 
     return {
@@ -548,13 +591,45 @@ export function DataProvider({ children }) {
     }
   }, [user, filterOptions.states, filters.selectedState]);
 
+  const dataStateValue = useMemo(
+    () => ({ rawData, data: filteredData, overallData, loading, error, filterOptions, refresh }),
+    [rawData, filteredData, overallData, loading, error, filterOptions, refresh]
+  );
+
+  const filterValue = useMemo(
+    () => ({ filters, dispatch }),
+    [filters, dispatch]
+  );
+
   const value = useMemo(
     () => ({ rawData, data: filteredData, overallData, loading, error, filters, dispatch, filterOptions, refresh }),
     [rawData, filteredData, overallData, loading, error, filters, dispatch, filterOptions, refresh]
   );
 
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  return (
+    <DataStateContext.Provider value={dataStateValue}>
+      <FilterContext.Provider value={filterValue}>
+        <DataContext.Provider value={value}>{children}</DataContext.Provider>
+      </FilterContext.Provider>
+    </DataStateContext.Provider>
+  );
 }
+
+export const useDataState = () => {
+  const ctx = useContext(DataStateContext);
+  if (!ctx) {
+    return { rawData: null, data: null, overallData: null, loading: true, error: null, filterOptions: { states: [], districts: [], products: [], severities: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] }, refresh: () => {} };
+  }
+  return ctx;
+};
+
+export const useFilterState = () => {
+  const ctx = useContext(FilterContext);
+  if (!ctx) {
+    return { filters: { selectedState: null, selectedDistrict: null, selectedProduct: null, selectedSeverity: null, searchQuery: '', isNorthBengal: false }, dispatch: () => {} };
+  }
+  return ctx;
+};
 
 export const useData = () => {
   const ctx = useContext(DataContext);

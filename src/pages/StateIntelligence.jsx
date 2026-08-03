@@ -28,8 +28,8 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
   const sortedPendingMonths = useMemo(() => {
     return [...pendingAvailableMonths].sort((a, b) => {
-      if (a.year !== b.year) return a.year - b.year;
-      return a.month - b.month;
+      if (a.year !== b.year) return b.year - a.year;
+      return b.month - a.month;
     });
   }, [pendingAvailableMonths]);
 
@@ -334,7 +334,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
             );
           }
           
-          return <span style={{ color: '#6b7280' }}>—</span>;
+          return <span style={{ color: 'var(--color-text-muted)' }}>—</span>;
         }
       }
     ];
@@ -483,7 +483,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                       onClick={() => setMetricMode(opt.value)}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
                         active 
-                          ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/35' 
+                          ? 'bg-accent-sky/20 text-accent-sky border-accent-sky/35' 
                           : 'bg-transparent text-text-muted/60 border-transparent hover:text-text-primary'
                       }`}
                     >
@@ -498,15 +498,15 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                 onChange={(e) => setSelectedPendingMonth(e.target.value)}
                 className="filter-select w-full sm:w-[150px]"
               >
-                <option value="" disabled className="bg-[#0b1329] text-text-muted">Select month</option>
+                <option value="" disabled className="bg-bg-input text-text-muted">Select month</option>
                 {metricMode === 'PENDING' ? (
                   <>
-                    <option value="ALL" className="bg-[#0b1329] text-text-primary">Total Backlog</option>
+                    <option value="ALL" className="bg-bg-input text-text-primary">Total Backlog</option>
                     {sortedPendingMonths.map(opt => (
                       <option 
                         key={opt.key || opt.periodKey} 
                         value={opt.key || opt.periodKey}
-                        className="bg-[#0b1329] text-text-primary"
+                        className="bg-bg-input text-text-primary"
                       >
                         {opt.label}
                       </option>
@@ -517,7 +517,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                     <option 
                       key={opt.key || opt.periodKey} 
                       value={opt.key || opt.periodKey}
-                      className="bg-[#0b1329] text-text-primary"
+                      className="bg-bg-input text-text-primary"
                     >
                       {opt.label}
                     </option>

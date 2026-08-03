@@ -101,7 +101,7 @@ export default function ProductBarChart({ data, height = 300 }) {
           />
           <Tooltip
             content={<CustomTooltip />}
-            cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }}
+            cursor={{ fill: 'var(--color-chart-cursor)' }}
             isAnimationActive={false}
           />
           <Bar

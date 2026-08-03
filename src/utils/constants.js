@@ -36,7 +36,7 @@ export const SEVERITY_CONFIG = {
 export const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'NONE'];
 
 // Chart color palette
-export const CHART_COLORS = ['#3b82f6', '#06b6d4', '#8b5cf6', '#f97316', '#22c55e', '#ef4444', '#eab308'];
+export const CHART_COLORS = ['#3b82f6', '#4FA98C', '#8b5cf6', '#f97316', '#22c55e', '#ef4444', '#eab308'];
 
 // Risk thresholds
 export const RISK_THRESHOLDS = { HIGH: 70, MEDIUM: 40 };
@@ -129,7 +129,10 @@ export const VALID_INDIAN_STATES = new Set([
 export const STATE_ALIASES = {
   'HAILAKANDI': 'Assam',
   'UTTARPRADESH': 'Uttar Pradesh',
+  'UP': 'Uttar Pradesh',
   'WB': 'West Bengal',
+  'MP': 'Madhya Pradesh',
+  'AP': 'Andhra Pradesh',
   'ODISHA': 'Orissa',
 };
 
@@ -149,11 +152,74 @@ export function isRealState(name) {
   return VALID_INDIAN_STATES.has(norm);
 }
 
+export const NORTH_EAST_STATES = [
+  'ASSAM',
+  'TRIPURA',
+  'MEGHALAYA',
+  'MANIPUR',
+  'MIZORAM',
+  'NAGALAND',
+  'ARUNACHAL PRADESH',
+  'SIKKIM',
+  'HAILAKANDI'
+];
+
+/**
+ * Parses comma-separated state strings or arrays, automatically expanding region tokens
+ * like "NORTH EAST" / "NORTHEAST" into all individual active North East states.
+ * Returns a Set of normalized uppercase space-stripped state strings.
+ */
+export function getExpandedStatesSet(statesInput) {
+  const set = new Set();
+  if (!statesInput) return set;
+
+  let rawList = [];
+  if (Array.isArray(statesInput)) {
+    statesInput.forEach(s => {
+      if (typeof s === 'string') {
+        s.split(',').forEach(item => rawList.push(item.trim()));
+      }
+    });
+  } else if (typeof statesInput === 'string') {
+    statesInput.split(',').forEach(item => rawList.push(item.trim()));
+  }
+
+  rawList.forEach(rawItem => {
+    if (!rawItem) return;
+    const cleanItem = rawItem.toUpperCase().replace(/\s+/g, '');
+    
+    // Check if token represents North East region
+    if (
+      cleanItem === 'NORTHEAST' || 
+      cleanItem === 'NORTHEASTSTATES' || 
+      cleanItem === 'NE' || 
+      cleanItem === 'NORTH-EAST'
+    ) {
+      NORTH_EAST_STATES.forEach(neState => {
+        set.add(neState.replace(/\s+/g, '').toUpperCase());
+        const norm = normalizeStateName(neState);
+        if (norm) set.add(norm.replace(/\s+/g, '').toUpperCase());
+      });
+    } else {
+      set.add(cleanItem);
+      const norm = normalizeStateName(rawItem);
+      if (norm) {
+        set.add(norm.replace(/\s+/g, '').toUpperCase());
+      }
+    }
+  });
+
+  return set;
+}
+
 export function isWestBengalUser(user, filterOptions) {
   if (!user || user.role === 'admin') return true;
   if (user.role === 'client') {
-    const userStates = (user.states || []).map(s => normalizeStateName(s).toUpperCase());
-    if (userStates.some(s => s.includes('WB') || s.includes('BENGAL'))) return true;
+    const rawUserStates = Array.isArray(user.states) 
+      ? user.states 
+      : (typeof user.states === 'string' ? user.states.split(',') : []);
+    const expandedSet = getExpandedStatesSet(rawUserStates);
+    if (expandedSet.has('WESTBENGAL') || expandedSet.has('WB')) return true;
 
     if (filterOptions?.states && Array.isArray(filterOptions.states)) {
       if (filterOptions.states.some(s => {

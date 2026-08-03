@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { useData } from './context/DataContext';
 import React, { useMemo, lazy } from 'react';
 import { calculateMoM, getBusinessImpact } from './utils/trendEngine';
@@ -226,6 +227,7 @@ function RequireAdminRoute({ children }) {
 function App() {
   return (
     <ErrorBoundary>
+      <ThemeProvider>
       <AuthProvider>
         <DataProvider>
           <BrowserRouter>
@@ -247,6 +249,7 @@ function App() {
           </BrowserRouter>
         </DataProvider>
       </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

@@ -105,7 +105,7 @@ export default function RiskScatterPlot({ data, height = 300 }) {
             fontSize={12}
             domain={[0, 100]}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#475569' }} isAnimationActive={false} />
+          <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: 'var(--color-border)' }} isAnimationActive={false} />
           <Scatter data={chartData} name="Impact" isAnimationActive={true} animationDuration={700} animationEasing="ease-out">
             {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry._severity.color} />

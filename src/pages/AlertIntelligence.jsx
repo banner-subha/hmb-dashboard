@@ -476,19 +476,19 @@ const PendingChartTooltipContent = ({ active, payload }) => {
     if (!d) return null;
     return (
       <div className="glass-card p-3 border border-border/85 text-[10px] shadow-xl min-w-[200px] bg-bg-secondary">
-        <div className="font-bold text-white mb-2 truncate text-[11px]">{d.client}</div>
+        <div className="font-bold text-text-primary mb-2 truncate text-[11px]">{d.client}</div>
         <div className="space-y-1">
           <div className="flex justify-between">
             <span className="text-text-secondary">Backlog Age:</span>
-            <span className="font-semibold text-white">{d.pendingRisk?.backlogAgeDays ?? 0} Days</span>
+            <span className="font-semibold text-text-primary">{d.pendingRisk?.backlogAgeDays ?? 0} Days</span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-secondary">Pending Volume (MT):</span>
-            <span className="font-semibold text-white">{formatNum(d.pendingQty)} MT</span>
+            <span className="font-semibold text-text-primary">{formatNum(d.pendingQty)} MT</span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-secondary">Backlog vs Capacity:</span>
-            <span className="font-semibold text-white">{d.pendingRisk?.fulfillmentRatio ?? 0}x</span>
+            <span className="font-semibold text-text-primary">{d.pendingRisk?.fulfillmentRatio ?? 0}x</span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-secondary">Priority:</span>
@@ -509,14 +509,14 @@ const MiniChartTooltipContent = ({ active, payload }) => {
     if (!d) return null;
     return (
       <div className="glass-card p-2 border border-border/85 text-[10px] shadow-xl min-w-[160px] bg-bg-secondary">
-        <div className="font-bold text-white mb-1 truncate">{d.client}</div>
+        <div className="font-bold text-text-primary mb-1 truncate">{d.client}</div>
         <div className="flex justify-between">
           <span className="text-text-secondary">Drop:</span>
-          <span className="font-semibold text-white">{data.y}%</span>
+          <span className="font-semibold text-text-primary">{data.y}%</span>
         </div>
         <div className="flex justify-between">
           <span className="text-text-secondary">Inactive:</span>
-          <span className="font-semibold text-white">{data.x} Days</span>
+          <span className="font-semibold text-text-primary">{data.x} Days</span>
         </div>
       </div>
     );
@@ -1099,7 +1099,7 @@ export default function AlertIntelligence() {
 <button
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    className="px-2.5 py-1.5 rounded-lg border border-border/50 text-xs font-bold bg-bg-input hover:border-accent-blue disabled:opacity-40 disabled:cursor-not-allowed text-white cursor-pointer transition-all"
+                    className="px-2.5 py-1.5 rounded-lg border border-border/50 text-xs font-bold bg-bg-input hover:border-accent-blue disabled:opacity-40 disabled:cursor-not-allowed text-text-primary cursor-pointer transition-all"
                   >
                     Previous
                    </button>
@@ -1109,10 +1109,10 @@ export default function AlertIntelligence() {
                  <button
                    disabled={currentPage >= Math.ceil(unifiedRows.length / pageSize)}
                    onClick={() => setCurrentPage(prev => prev + 1)}
-                   className="px-2.5 py-1.5 rounded-lg border border-border/50 text-xs font-bold bg-bg-input hover:border-accent-blue disabled:opacity-40 disabled:cursor-not-allowed text-white cursor-pointer transition-all"
-                 >
-                   Next
-                 </button>
+                    className="px-2.5 py-1.5 rounded-lg border border-border/50 text-xs font-bold bg-bg-input hover:border-accent-blue disabled:opacity-40 disabled:cursor-not-allowed text-text-primary cursor-pointer transition-all"
+                  >
+                    Next
+                  </button>
                </div>
              )}
           </div>
@@ -1617,7 +1617,7 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
 
               {/* Business Impact Summary */}
               <div className="bg-bg-card p-4 rounded-lg border border-border/50 text-sm text-text-primary leading-relaxed">
-                <h4 className="font-bold text-white flex items-center gap-1.5 mb-1.5 uppercase text-xs tracking-wider">
+                <h4 className="font-bold text-text-primary flex items-center gap-1.5 mb-1.5 uppercase text-xs tracking-wider">
                   <Info className="w-3.5 h-3.5 text-accent-blue shrink-0" /> Business Impact
                 </h4>
                 <p className="break-words text-base leading-relaxed text-text-primary font-medium">{getPendingImpactSummary(dealer)}</p>
@@ -1660,7 +1660,7 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                           <div className="flex justify-between text-sm items-center">
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full" style={{ background: ageColor }}></div>
-                              <span className="font-bold text-base text-slate-200">{monthLabel}</span>
+                              <span className="font-bold text-base text-text-primary">{monthLabel}</span>
                               <span className="text-text-muted text-xs font-medium">({ageDays} Days Old)</span>
                             </div>
                             <span className="font-bold text-base text-text-primary">{formatNum(vol)} MT</span>
@@ -1672,16 +1672,16 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
 
                           {/* Product-wise Breakdown for this month */}
                           {monthProducts.length > 0 && (
-                            <div className="mt-2.5 pt-2 pl-3 space-y-1.5 border-l-2 border-slate-700/60 bg-bg-primary/40 p-2.5 rounded-r-lg">
+                            <div className="mt-2.5 pt-2 pl-3 space-y-1.5 border-l-2 border-border/60 bg-bg-secondary/40 p-2.5 rounded-r-lg">
                               <div className="text-[10px] font-extrabold uppercase text-text-muted tracking-wider mb-1 flex items-center justify-between">
                                 <span>Product Breakdown ({monthLabel})</span>
-                                <span className="font-mono text-slate-400">{formatNum(vol)} MT</span>
+                                <span className="font-mono text-text-secondary">{formatNum(vol)} MT</span>
                               </div>
                               {monthProducts.map(p => (
                                 <div key={p.product} className="flex justify-between items-center text-xs">
                                   <div className="flex items-center gap-2 min-w-0">
                                     <div className="w-1.5 h-1.5 rounded-full bg-accent-blue/80 shrink-0" />
-                                    <span className="font-bold text-slate-200 truncate" title={p.label}>{p.label}</span>
+                                    <span className="font-bold text-text-primary truncate" title={p.label}>{p.label}</span>
                                   </div>
                                   <div className="flex items-center gap-2 font-mono shrink-0">
                                     <span className="font-extrabold text-text-primary">{formatNum(p.vol)} MT</span>
@@ -1716,7 +1716,7 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                             <div className="flex justify-between text-sm">
                               <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full" style={{ background: getRiskColor(dealer.severity).hex }}></div>
-                                <span className="font-bold text-base text-slate-200">{productLabel}</span>
+                                <span className="font-bold text-base text-text-primary">{productLabel}</span>
                               </div>
                               <span className="font-bold text-base text-text-primary">{formatNum(p.pendingQty)} MT <span className="text-text-muted font-normal text-xs">({pctOfTotal}%)</span></span>
                             </div>
@@ -1762,10 +1762,10 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                           <ReferenceArea x1={60} x2={90} y1={100} y2={maxVol + 50} fill="#f97316" fillOpacity={0.05} />
                           <ReferenceArea x1={90} x2={maxAge + 10} y1={0} y2={100} fill="#f97316" fillOpacity={0.04} />
                           <ReferenceArea x1={0} x2={60} y1={0} y2={100} fill="#3b82f6" fillOpacity={0.03} />
-                          <XAxis type="number" dataKey="x" tick={{ fill: '#94a3b8', fontSize: 10 }} stroke="#1e293b" domain={[0, maxAge + 10]}
-                            label={{ value: 'Backlog Age (days)', position: 'bottom', offset: 8, fill: '#64748b', fontSize: 10, fontWeight: 600 }} />
-                          <YAxis type="number" dataKey="y" tick={{ fill: '#94a3b8', fontSize: 10 }} stroke="#1e293b" domain={[0, 'auto']}
-                            label={{ value: 'Pending Volume (MT)', angle: -90, position: 'insideLeft', offset: 0, fill: '#64748b', fontSize: 10, fontWeight: 600 }} />
+                          <XAxis type="number" dataKey="x" tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} stroke="var(--color-border)" domain={[0, maxAge + 10]}
+                            label={{ value: 'Backlog Age (days)', position: 'bottom', offset: 8, fill: 'var(--color-text-muted)', fontSize: 10, fontWeight: 600 }} />
+                          <YAxis type="number" dataKey="y" tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} stroke="var(--color-border)" domain={[0, 'auto']}
+                            label={{ value: 'Pending Volume (MT)', angle: -90, position: 'insideLeft', offset: 0, fill: 'var(--color-text-muted)', fontSize: 10, fontWeight: 600 }} />
                           <ZAxis type="number" dataKey="z" range={[30, 200]} />
                           <ChartTooltip content={<PendingChartTooltipContent />} />
                           <ReferenceLine x={60} stroke="rgba(249,115,22,0.2)" strokeDasharray="4 4" />
@@ -1811,12 +1811,12 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                   onClick={(e) => e.stopPropagation()}
                   placeholder="Add an observation or note about this dealer..."
                   rows={3}
-                  className="w-full bg-bg-card border border-border/50 focus:border-accent-blue outline-none p-3 rounded-lg text-xs text-white placeholder-text-muted leading-relaxed resize-none"
+                  className="w-full bg-bg-card border border-border/50 focus:border-accent-blue outline-none p-3 rounded-lg text-xs text-text-primary placeholder-text-muted leading-relaxed resize-none"
                 />
                 <button
                   onClick={(e) => { e.stopPropagation(); handleSaveNote(dealer.client); }}
                   disabled={!noteText.trim()}
-                  className="mt-2 px-4 py-2 text-xs font-bold bg-accent-blue hover:bg-accent-blue/80 text-white rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="mt-2 px-4 py-2 text-xs font-bold bg-accent-blue hover:bg-accent-blue-strong text-white rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Save Note <ChevronRight className="w-3.5 h-3.5" />
                 </button>

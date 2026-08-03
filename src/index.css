@@ -1,23 +1,35 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #030b1a;
-  --color-bg-primary-rgb: 3, 11, 26;
-  --color-bg-secondary: #071020;
-  --color-bg-card: #0a1628;
-  --color-bg-card-hover: #0f1f3a;
-  --color-bg-elevated: #0d1a30;
-  --color-bg-input: #0c1425;
-  --color-border: #1e293b;
+  --color-bg-primary: #14161C;
+  --color-bg-primary-rgb: 20, 22, 28;
+  --color-bg-secondary: #16181E;
+  --color-bg-card: #1C1F26;
+  --color-bg-card-hover: #242730;
+  --color-bg-elevated: #20232A;
+  --color-bg-input: #1A1D24;
+  --color-border: #2A2D34;
   --color-border-accent: #1e3a5f;
-  --color-text-primary: #F8FAFC;
-  --color-text-secondary: rgba(255, 255, 255, 0.82);
-  --color-text-muted: rgba(255, 255, 255, 0.66);
-  --color-text-dim: #334155;
+  --color-text-primary: #E9EAEC;
+  --color-text-secondary: rgba(233, 234, 236, 0.82);
+  --color-text-muted: rgba(233, 234, 236, 0.60);
+  --color-text-dim: #4A4D54;
   --color-accent-blue: #3b82f6;
   --color-accent-blue-strong: #4d88ff;
   --color-accent-blue-soft: #1e3a5f;
-  --color-accent-cyan: #06b6d4;
+  --color-accent-cyan: #4FA98C;
+  --color-accent-sky: #4EA8DE;
+  --color-accent-sky-strong: #7BC4EA;
+  --color-accent-sky-soft: #1B3A4D;
+
+  /* Sidebar / header strip tokens — navy in light, charcoal in dark.
+     Dark defaults live here so the generated utilities (bg-sidebar-bg,
+     text-sidebar-text, etc.) match the current dark sidebar exactly. */
+  --color-sidebar-bg: #16181E;
+  --color-sidebar-text: #FFFFFF;
+  --color-sidebar-text-muted: #FFFFFF;
+  --color-sidebar-active-bg: rgba(59, 130, 246, 0.20);
+  --color-sidebar-active-icon: #3b82f6;
   --color-severity-critical: #ef4444;
   --color-severity-high: #f97316;
   --color-severity-medium: #eab308;
@@ -30,20 +42,23 @@
 }
 
 :root {
-  /* Gradient palette — rich dark-blue spectrum */
-  --gradient-page: radial-gradient(ellipse 100% 70% at 15% -5%, rgba(59, 130, 246, 0.13), transparent 55%),
-                   radial-gradient(ellipse 80% 60% at 85% 10%, rgba(37, 99, 235, 0.07), transparent 50%),
-                   radial-gradient(ellipse 60% 50% at 50% 80%, rgba(59, 130, 246, 0.04), transparent 45%),
-                   linear-gradient(175deg, #030b1a 0%, #081630 40%, #05101e 70%, #030b1a 100%);
+  /* Gradient palette — warm charcoal with restrained gold glow */
+  --gradient-page: radial-gradient(ellipse 100% 70% at 15% -5%, rgba(59, 130, 246, 0.10), transparent 55%),
+                   radial-gradient(ellipse 80% 60% at 85% 10%, rgba(59, 130, 246, 0.05), transparent 50%),
+                   linear-gradient(175deg, #14161C 0%, #191B21 40%, #121319 70%, #14161C 100%);
 
-  --gradient-card: linear-gradient(145deg, #0b1729 0%, #0d1b30 45%, #0a1525 100%);
-  --gradient-card-hover: linear-gradient(145deg, #0f1f3a 0%, #112340 45%, #0d1b30 100%);
-  --gradient-surface: linear-gradient(180deg, #061020 0%, #091528 50%, #061020 100%);
-  --gradient-header: linear-gradient(135deg, rgba(11, 23, 41, 0.95) 0%, rgba(8, 18, 35, 0.90) 100%);
+  --gradient-card: linear-gradient(145deg, #1C1F26 0%, #1E2129 45%, #191B21 100%);
+  --gradient-card-hover: linear-gradient(145deg, #242730 0%, #262A33 45%, #1E2129 100%);
+  --gradient-surface: linear-gradient(180deg, #16181E 0%, #1A1D24 50%, #16181E 100%);
+  --gradient-header: linear-gradient(135deg, rgba(28, 31, 38, 0.95) 0%, rgba(22, 24, 30, 0.90) 100%);
   --gradient-accent: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   --gradient-accent-soft: linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(37, 99, 235, 0.06) 100%);
   --gradient-accent-subtle: linear-gradient(90deg, rgba(59, 130, 246, 0.55) 0%, rgba(59, 130, 246, 0.12) 100%);
   --gradient-glow: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12), transparent 60%);
+  --gradient-sky: linear-gradient(135deg, #4EA8DE 0%, #2E86C1 100%);
+  /* Sidebar gradient. Dark = identical to --gradient-surface (current sidebar
+     appearance). Light overridden below to navy. */
+  --gradient-sidebar: linear-gradient(180deg, #16181E 0%, #1A1D24 50%, #16181E 100%);
 
   --text-fluid-xs: clamp(0.65rem, 0.55rem + 0.25vw, 0.75rem);
   --text-fluid-sm: clamp(0.75rem, 0.7rem + 0.2vw, 0.875rem);
@@ -54,6 +69,232 @@
   --text-fluid-3xl: clamp(1.5rem, 1.3rem + 0.8vw, 2.25rem);
   --text-fluid-4xl: clamp(1.75rem, 1.5rem + 1vw, 2.75rem);
   --text-fluid-5xl: clamp(2rem, 1.7rem + 1.2vw, 3.5rem);
+
+  /* Dark-mode defaults for tokens that also have light overrides below.
+     These MUST live before [data-theme="light"] so the light block wins
+     the cascade (same specificity → last rule wins). */
+  --color-severity-critical-bg: rgba(239, 68, 68, 0.12);
+  --color-severity-critical-text: #ef4444;
+  --color-severity-critical-border: rgba(239, 68, 68, 0.45);
+  --color-severity-high-bg: rgba(249, 115, 22, 0.12);
+  --color-severity-high-text: #f97316;
+  --color-severity-high-border: rgba(249, 115, 22, 0.45);
+  --color-severity-medium-bg: rgba(234, 179, 8, 0.12);
+  --color-severity-medium-text: #eab308;
+  --color-severity-medium-border: rgba(234, 179, 8, 0.45);
+  --color-severity-low-bg: rgba(107, 114, 128, 0.12);
+  --color-severity-low-text: #6b7280;
+  --color-severity-low-border: rgba(107, 114, 128, 0.45);
+  --color-severity-none-bg: rgba(34, 197, 94, 0.12);
+  --color-severity-none-text: #22c55e;
+  --color-severity-none-border: rgba(34, 197, 94, 0.45);
+
+  --color-map-landmass: #1e2535;
+  --color-map-border: #475569;
+  --color-chart-tooltip-bg: #1C1F26;
+  --color-chart-tooltip-border: rgba(59, 130, 246, 0.18);
+  --color-chart-cursor: #0a0f1e;
+  --shadow-chart-tooltip: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+
+  /* Map stroke — dark default */
+  --color-map-stroke: #475569;
+
+  /* AI War Room sub-card surface (dark default) */
+  --ai-card-bg: #10131a;
+  --ai-card-border: #1e2433;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   CORPORATE NAVY LIGHT — second theme.
+   Every value here is an OVERRIDE; dark defaults (above) are untouched, so
+   dark mode stays pixel-identical. Activated by <html data-theme="light">.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+[data-theme="light"] {
+  /* Content surfaces — light steel-gray */
+  --color-bg-primary: #EEF1F4;
+  --color-bg-primary-rgb: 238, 241, 244;
+  --color-bg-secondary: #E4E8ED;
+  --color-bg-card: #FFFFFF;
+  --color-bg-card-hover: #F7F9FB;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-input: #FFFFFF;
+  --color-border: #D3D9E0;
+  --color-border-accent: #B8CCE0;
+
+  /* Text — navy-toned for contrast on light */
+  --color-text-primary: #0B2240;
+  --color-text-secondary: rgba(11, 34, 64, 0.75);
+  --color-text-muted: rgba(11, 34, 64, 0.55);
+  --color-text-dim: #9AA5B1;
+
+  /* Accents — blue */
+  --color-accent-blue: #4E9BE0;
+  --color-accent-blue-strong: #1D6FB8;
+  --color-accent-blue-soft: #E6F1FB;
+  --color-accent-cyan: #2E9E88;
+
+  /* Sidebar / header strip — stays navy in light mode */
+  --color-sidebar-bg: #0B2240;
+  --color-sidebar-text: #FFFFFF;
+  --color-sidebar-text-muted: #FFFFFF;
+  --color-sidebar-active-bg: rgba(78, 155, 224, 0.22);
+  --color-sidebar-active-icon: #4E9BE0;
+
+  /* Gradients — light equivalents (dark --gradient-* untouched) */
+  --gradient-page: linear-gradient(175deg, #EEF1F4 0%, #F2F4F7 50%, #EEF1F4 100%);
+  --gradient-card: linear-gradient(145deg, #FFFFFF 0%, #FBFCFD 100%);
+  --gradient-card-hover: linear-gradient(145deg, #F7F9FB 0%, #FFFFFF 100%);
+  --gradient-header: linear-gradient(135deg, #0B2240 0%, #0E2A4D 100%);
+  --gradient-accent: linear-gradient(135deg, #4E9BE0 0%, #1D6FB8 100%);
+  --gradient-accent-soft: linear-gradient(135deg, rgba(78, 155, 224, 0.14) 0%, rgba(78, 155, 224, 0.05) 100%);
+  --gradient-glow: radial-gradient(circle at 50% 0%, rgba(78, 155, 224, 0.08), transparent 60%);
+  --gradient-sidebar: linear-gradient(180deg, #0B2240 0%, #0E2A4D 100%);
+
+  /* Severity badge surfaces — pale tinted bg + dark-toned text on white cards.
+     Hues stay the same (red/orange/amber/gray/green). */
+  --color-severity-critical-bg: #FCEBEB;
+  --color-severity-critical-text: #791F1F;
+  --color-severity-critical-border: rgba(121, 31, 31, 0.25);
+  --color-severity-high-bg: #FDEEE0;
+  --color-severity-high-text: #9A4A0C;
+  --color-severity-high-border: rgba(154, 74, 12, 0.25);
+  --color-severity-medium-bg: #E6F1FB;
+  --color-severity-medium-text: #0C447C;
+  --color-severity-medium-border: rgba(12, 68, 124, 0.25);
+  --color-severity-low-bg: #F1F2F4;
+  --color-severity-low-text: #5B6472;
+  --color-severity-low-border: rgba(91, 100, 114, 0.25);
+  --color-severity-none-bg: #E8F5E9;
+  --color-severity-none-text: #256029;
+  --color-severity-none-border: rgba(37, 96, 41, 0.25);
+
+  /* Map base landmass fill + tooltip — light variants */
+  --color-map-landmass: #DCE2E8;
+  --color-map-border: #475569;
+  --color-chart-tooltip-bg: #FFFFFF;
+  --color-chart-tooltip-border: rgba(78, 155, 224, 0.35);
+  --color-chart-cursor: rgba(11, 34, 64, 0.06);
+  --shadow-chart-tooltip: 0 10px 30px -10px rgba(11, 34, 64, 0.25);
+
+  /* Map stroke — light variant */
+  --color-map-stroke: #475569;
+
+  /* AI War Room sub-card surface — light */
+  --ai-card-bg: #FFFFFF;
+  --ai-card-border: #D3D9E0;
+}
+
+
+/* Light-mode component tweaks — scoped so dark rules are never edited. */
+
+/* Sidebar links read as pure white text on the navy strip in both themes */
+[data-theme="light"] .sidebar-link {
+  color: #FFFFFF !important;
+}
+[data-theme="light"] .sidebar-link:hover {
+  color: #FFFFFF !important;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.12), transparent);
+}
+
+/* Active nav: navy strip + sky-blue accent in light */
+[data-theme="light"] .sidebar-link.active {
+  background: linear-gradient(90deg, var(--color-sidebar-active-bg) 0%, transparent 100%);
+  box-shadow: inset 3.5px 0 0 var(--color-sidebar-active-icon);
+  color: #FFFFFF !important;
+}
+
+/* Severity badge overrides in light — pale bg + dark-toned text.
+   Badges carry a data-severity attribute (bucketed by current hue) so these
+   rules target them regardless of inline styles. !important overrides inline. */
+[data-theme="light"] [data-severity="critical"] {
+  background: var(--color-severity-critical-bg) !important;
+  color: var(--color-severity-critical-text) !important;
+  border-color: var(--color-severity-critical-border) !important;
+}
+[data-theme="light"] [data-severity="high"] {
+  background: var(--color-severity-high-bg) !important;
+  color: var(--color-severity-high-text) !important;
+  border-color: var(--color-severity-high-border) !important;
+}
+[data-theme="light"] [data-severity="medium"] {
+  background: var(--color-severity-medium-bg) !important;
+  color: var(--color-severity-medium-text) !important;
+  border-color: var(--color-severity-medium-border) !important;
+}
+[data-theme="light"] [data-severity="low"] {
+  background: var(--color-severity-low-bg) !important;
+  color: var(--color-severity-low-text) !important;
+  border-color: var(--color-severity-low-border) !important;
+}
+[data-theme="light"] [data-severity="none"] {
+  background: var(--color-severity-none-bg) !important;
+  color: var(--color-severity-none-text) !important;
+  border-color: var(--color-severity-none-border) !important;
+}
+
+/* The CSS-class badges (.badge-*) in light — same pale-bg/dark-text treatment */
+[data-theme="light"] .badge-critical,
+[data-theme="light"] .badge-immediate {
+  background: linear-gradient(135deg, #FCEBEB, #FCEBEB);
+  border-color: rgba(121, 31, 31, 0.25);
+  color: #791F1F;
+}
+[data-theme="light"] .badge-high {
+  background: linear-gradient(135deg, #FDEEE0, #FDEEE0);
+  border-color: rgba(154, 74, 12, 0.25);
+  color: #9A4A0C;
+}
+[data-theme="light"] .badge-medium {
+  background: linear-gradient(135deg, #E6F1FB, #E6F1FB);
+  border-color: rgba(12, 68, 124, 0.25);
+  color: #0C447C;
+}
+[data-theme="light"] .badge-low {
+  background: linear-gradient(135deg, #F1F2F4, #F1F2F4);
+  border-color: rgba(91, 100, 114, 0.25);
+  color: #5B6472;
+}
+[data-theme="light"] .badge-none {
+  background: linear-gradient(135deg, #E8F5E9, #E8F5E9);
+  border-color: rgba(37, 96, 41, 0.25);
+  color: #256029;
+}
+
+/* Geo map — light surfaces + light landmass. .panel dark rule untouched.
+   CSS fill !important overrides the SVG presentation attribute while
+   D3's sel.attr('fill') still returns the no-data hex, so map logic is
+   not affected. */
+[data-theme="light"] .panel {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 249, 251, 0.92) 100%);
+  border-color: rgba(211, 217, 224, 0.7);
+}
+[data-theme="light"] .panel-inset {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 249, 251, 0.94) 100%);
+  border-color: rgba(211, 217, 224, 0.55);
+}
+[data-theme="light"] path.map-path[fill="#1e2535"] {
+  fill: var(--color-map-landmass) !important;
+}
+[data-theme="light"] .glass-card {
+  box-shadow: 0 2px 12px rgba(11, 34, 64, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* ── Light overrides for shared component classes (dark rules untouched,
+   so dark mode stays pixel-identical). These only activate in light mode. ── */
+
+/* Skeleton shimmer — light tint instead of dark */
+[data-theme="light"] .skeleton {
+  background: linear-gradient(90deg, rgba(11, 34, 64, 0.05) 25%, rgba(11, 34, 64, 0.11) 50%, rgba(11, 34, 64, 0.05) 75%);
+}
+
+/* Geo map landmass strokes — slate grey borders across all themes */
+path.map-path,
+[data-theme="light"] path.map-path {
+  stroke: #475569 !important;
+}
+[data-theme="light"] path.map-path[fill="#1e2535"],
+[data-theme="light"] path.map-path[fill="rgb(30, 37, 53)"] {
+  fill: var(--color-map-landmass) !important;
 }
 
 @layer base {
@@ -94,7 +335,7 @@
     @apply border border-border/80 rounded-2xl;
     background: var(--gradient-card);
     backdrop-filter: blur(16px);
-    box-shadow: 0 2px 12px rgba(3, 11, 26, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    box-shadow: 0 2px 12px rgba(20, 22, 28, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 
   .glass-card-hover {
@@ -104,7 +345,7 @@
     transition-timing-function: ease-out;
     background: var(--gradient-card);
     backdrop-filter: blur(16px);
-    box-shadow: 0 2px 12px rgba(3, 11, 26, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    box-shadow: 0 2px 12px rgba(20, 22, 28, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
   @media (hover: hover) {
     .glass-card-hover:hover {
@@ -157,22 +398,22 @@
   }
 
   .collapsible-header {
-    background: linear-gradient(180deg, rgba(11, 23, 41, 0.96) 0%, rgba(9, 19, 36, 0.92) 100%);
+    background: var(--color-bg-secondary);
   }
   @media (hover: hover) {
     .collapsible-header:hover {
-      background: linear-gradient(180deg, rgba(15, 31, 58, 0.98) 0%, rgba(12, 24, 46, 0.94) 100%);
+      background: var(--color-bg-card-hover);
     }
   }
 
   /* Inner content panel — gradient surface for depth on top of the page gradient */
   .panel {
-    background: linear-gradient(160deg, rgba(13, 22, 42, 0.92) 0%, rgba(9, 16, 33, 0.88) 100%);
-    border: 1px solid rgba(30, 41, 59, 0.7);
+    background: linear-gradient(160deg, rgba(32, 35, 42, 0.92) 0%, rgba(25, 27, 33, 0.88) 100%);
+    border: 1px solid rgba(42, 45, 52, 0.7);
   }
   .panel-inset {
-    background: linear-gradient(180deg, rgba(8, 14, 29, 0.95) 0%, rgba(6, 11, 24, 0.90) 100%);
-    border: 1px solid rgba(30, 41, 59, 0.55);
+    background: linear-gradient(180deg, rgba(26, 29, 36, 0.95) 0%, rgba(22, 24, 30, 0.90) 100%);
+    border: 1px solid rgba(42, 45, 52, 0.55);
   }
 
   .section-header {
@@ -230,44 +471,46 @@
   }
 
   .sidebar-link {
-    @apply flex items-center gap-3 px-6 py-3 rounded-lg text-[15px] text-text-secondary transition-colors duration-150;
+    @apply flex items-center gap-3 px-5 py-3 rounded-lg text-[15px] font-medium whitespace-nowrap transition-colors duration-150;
+    color: #FFFFFF !important;
   }
   .sidebar-link:hover {
-    @apply text-text-primary;
-    background: linear-gradient(90deg, rgba(11, 23, 41, 0.8), rgba(11, 23, 41, 0.3));
+    color: #FFFFFF !important;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.12), transparent);
   }
   .sidebar-link.active {
-    @apply text-accent-blue border-l-2 border-accent-blue;
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.14) 0%, rgba(59, 130, 246, 0.04) 60%, transparent 100%);
-    box-shadow: inset 0 0 20px rgba(59, 130, 246, 0.06);
+    color: #FFFFFF !important;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.20) 0%, rgba(59, 130, 246, 0.05) 60%, transparent 100%);
+    box-shadow: inset 3.5px 0 0 var(--color-accent-blue);
   }
 
   /* Modern styling for all select dropdowns to match the theme and resolve native browser glitches */
   select, .filter-select {
     @apply border rounded-xl px-4 py-2 text-[13px] text-text-primary focus:outline-none transition-all cursor-pointer;
-    border-color: rgba(30, 41, 59, 0.7);
+    border-color: var(--color-border) !important;
     appearance: none !important;
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
-    background-color: #0b1329 !important;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") !important;
+    background-color: var(--color-bg-input) !important;
+    color: var(--color-text-primary) !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234EA8DE' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") !important;
     background-repeat: no-repeat !important;
     background-position: right 12px center !important;
     background-size: 13px !important;
     padding-right: 32px !important;
   }
   select:focus, .filter-select:focus {
-    border-color: rgba(59, 130, 246, 0.7) !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12) !important;
+    border-color: rgba(78, 168, 222, 0.35) !important;
+    box-shadow: 0 0 0 3px rgba(78, 168, 222, 0.12) !important;
   }
   select option, .filter-select option {
-    background-color: #0b1329 !important;
-    color: #F8FAFC !important;
+    background-color: var(--color-bg-input) !important;
+    color: var(--color-text-primary) !important;
   }
 
   .search-input {
     @apply bg-bg-input border border-border/80 rounded-xl pl-10 pr-4 py-2.5 text-[15px] text-text-primary placeholder-text-muted focus:outline-none transition-all w-full;
-    background: linear-gradient(180deg, #0c1425 0%, #0a1220 100%);
+    background: var(--color-bg-input);
   }
   .search-input:focus {
     border-color: rgba(59, 130, 246, 0.7);
@@ -275,10 +518,10 @@
   }
 
   .chart-tooltip {
-    background: linear-gradient(145deg, #060e1e 0%, #0a1628 100%);
-    border: 1px solid rgba(59, 130, 246, 0.18);
+    background: var(--color-chart-tooltip-bg);
+    border: 1px solid var(--color-chart-tooltip-border);
     border-radius: 12px;
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+    box-shadow: var(--shadow-chart-tooltip);
     transition: opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
     will-change: transform, opacity;
   }
@@ -304,6 +547,10 @@
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
   }
+
+  /* ── Light theme overrides ──────────────────────────────────────────
+     Most base rules now use CSS variables that self-resolve per theme,
+     so only edge-case overrides remain here. Dark mode untouched. */
 }
 
 @keyframes fadeIn {
@@ -359,7 +606,7 @@ body {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, rgba(11, 23, 41, 0.9) 25%, rgba(15, 31, 58, 0.95) 50%, rgba(11, 23, 41, 0.9) 75%);
+  background: linear-gradient(90deg, var(--color-bg-secondary) 25%, var(--color-bg-card-hover) 50%, var(--color-bg-secondary) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 0.5rem;

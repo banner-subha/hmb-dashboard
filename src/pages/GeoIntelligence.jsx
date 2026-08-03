@@ -1,7 +1,11 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import * as d3 from 'd3';
+import { select } from 'd3-selection';
+import 'd3-transition';
+import { scaleLinear } from 'd3-scale';
+import { interpolateHcl } from 'd3-interpolate';
+import { easeCubicIn, easeCubicOut, easeQuadOut } from 'd3-ease';
+import { color } from 'd3-color';
 import { geoMercator, geoPath } from 'd3-geo';
-import { scaleQuantile } from 'd3-scale';
 import { feature } from 'topojson-client';
 import {
   ArrowLeft, TrendingUp, TrendingDown, Minus,
@@ -211,13 +215,13 @@ function resolveDistrict(name) {
 }
 
 // ─── Geo Visualization Layer (isolated — never mutates global state) ──────────
-const NO_DATA_COLOR = '#1e2535';
+const NO_DATA_COLOR = '#1e2535'; // dark-mode fallback; at draw time we read --color-map-landmass
 const HEAT_COLORS = [
-  '#bfdbfe', // Soft light blue — lowest volume
-  '#60a5fa', // Sky blue — low-med volume
-  '#3b82f6', // Medium blue — moderate volume
-  '#2563eb', // Royal blue — high volume
-  '#1e3a8a', // Rich dark navy — top volume (lighter navy, readable)
+  '#D6EDFA', // Soft cyan — lowest volume
+  '#A9D9F0', // Light sky — low-med volume
+  '#7BC4EA', // Sky — moderate volume
+  '#4EA8DE', // Deep sky — high volume
+  '#2E86C1', // Dark navy — top volume (readable on charcoal)
 ];
 const HEAT_LABELS = [
   'Lowest Vol',
@@ -299,11 +303,13 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, se
   return (
     <div
       ref={tooltipRef}
-      className="pointer-events-auto fixed z-[9999] border bg-[#060d1d]/98 backdrop-blur-md border-border-accent/80 rounded-xl p-4 shadow-2xl map-tooltip-container space-y-2.5 min-w-[240px]"
+      className="pointer-events-auto fixed z-[9999] border backdrop-blur-md border-border-accent/80 rounded-xl p-4 shadow-2xl map-tooltip-container space-y-2.5 min-w-[240px]"
       style={{
         left: 0,
         top:  0,
-        display: (visible && name) ? 'block' : 'none'
+        willChange: 'transform',
+        display: (visible && name) ? 'block' : 'none',
+        backgroundColor: 'var(--color-chart-tooltip-bg)',
       }}
     >
       {/* Entity Title & Type Badge + Close Button */}
@@ -506,6 +512,19 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
   });
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedPendingMonth, setSelectedPendingMonth] = useState('ALL');
+  const [currentTheme, setCurrentTheme] = useState(() =>
+    typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-theme') || 'dark') : 'dark'
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const observer = new MutationObserver(() => {
+      const newTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      setCurrentTheme(newTheme);
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (filterState.type === 'PENDING') {
@@ -515,8 +534,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
   const sortedPendingMonths = useMemo(() => {
     return [...pendingAvailableMonths].sort((a, b) => {
-      if (a.year !== b.year) return a.year - b.year;
-      return a.month - b.month;
+      if (a.year !== b.year) return b.year - a.year;
+      return b.month - a.month;
     });
   }, [pendingAvailableMonths]);
 
@@ -1003,9 +1022,9 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
   // ── view state ──
   const [selectedState, setSelectedState]   = useState(null);
-  const [stateGeo,      setStateGeo]        = useState(null);   // GeoJSON features[]
+  const [stateGeo,      setStateGeo]        = useState(() => geoCache['__states__'] || null);   // GeoJSON features[]
   const [districtGeo,   setDistrictGeo]     = useState(null);   // GeoJSON features[]
-  const [geoLoading,    setGeoLoading]      = useState(true);
+  const [geoLoading,    setGeoLoading]      = useState(() => !geoCache['__states__']);
   const [distLoading,   setDistLoading]     = useState(false);
   const [distError,     setDistError]       = useState(null);
 
@@ -1135,15 +1154,11 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       }
     });
     return m;
-  }, [salesData, selectedState, totalVolume]);
+  }, [salesData, selectedState, totalVolume, getDistrictMapForState]);
 
   // ── load state GeoJSON on mount ──
   useEffect(() => {
-    if (geoCache['__states__']) {
-      setStateGeo(geoCache['__states__']);
-      setGeoLoading(false);
-      return;
-    }
+    if (geoCache['__states__']) return;
     fetch(STATE_GEO_URL)
       .then(r => r.json())
       .then(gj => {
@@ -1512,8 +1527,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           if (top + th > vh) top = Math.max(8, vh - th - 12);
         }
 
-        tooltipRef.current.style.left = `${Math.max(8, left)}px`;
-        tooltipRef.current.style.top = `${Math.max(8, top)}px`;
+        tooltipRef.current.style.transform = `translate3d(${Math.max(8, left)}px, ${Math.max(8, top)}px, 0)`;
       }
     });
   }, []);
@@ -1541,8 +1555,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       if (top + th > vh) top = Math.max(8, vh - th - 12);
     }
 
-    tooltipRef.current.style.left = `${Math.max(8, left)}px`;
-    tooltipRef.current.style.top = `${Math.max(8, top)}px`;
+    tooltipRef.current.style.transform = `translate3d(${Math.max(8, left)}px, ${Math.max(8, top)}px, 0)`;
   }, []);
 
   const hideTip = useCallback(() => {
@@ -1578,7 +1591,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     const isPending = filterState.type === "PENDING";
 
     if (isPending) {
-      const pendings = entries.map(([_, e]) => (e.volume !== undefined ? e.volume : (e.cur !== undefined ? e.cur : (e.pendingQty || 0))));
+      const pendings = entries.map(([, e]) => (e.volume !== undefined ? e.volume : (e.cur !== undefined ? e.cur : (e.pendingQty || 0))));
       const maxPending = Math.max(...pendings, 1);
 
       entries.forEach(([key, e]) => {
@@ -1589,10 +1602,10 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         };
       });
 
-      const baseScale = d3.scaleLinear()
+      const baseScale = scaleLinear()
         .domain([0, maxPending * 0.2, maxPending * 0.45, maxPending * 0.75, maxPending])
         .range(['#fee2e2', '#fca5a5', '#f87171', '#ef4444', '#b91c1c'])
-        .interpolate(d3.interpolateHcl)
+        .interpolate(interpolateHcl)
         .clamp(true);
 
       const colorScale = (val) => {
@@ -1604,7 +1617,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     }
 
     // Despatch volume weight-based scale
-    const volumes = entries.map(([_, e]) => e.volume || e.cur || 0);
+    const volumes = entries.map(([, e]) => e.volume || e.cur || 0);
     const maxVol = Math.max(...volumes, 1);
 
     entries.forEach(([key, e]) => {
@@ -1615,10 +1628,10 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       };
     });
 
-    const baseScale = d3.scaleLinear()
+    const baseScale = scaleLinear()
       .domain([0, maxVol * 0.15, maxVol * 0.4, maxVol * 0.7, maxVol])
-      .range(['#bfdbfe', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a'])
-      .interpolate(d3.interpolateHcl)
+      .range(['#D6EDFA', '#A9D9F0', '#7BC4EA', '#4EA8DE', '#2E86C1'])
+      .interpolate(interpolateHcl)
       .clamp(true);
 
     const colorScale = (vol) => {
@@ -1636,12 +1649,6 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
   const selectedStateRef = useRef(selectedState);
   useEffect(() => { selectedStateRef.current = selectedState; }, [selectedState]);
 
-  // Force-clear tooltip whenever the view switches (India ↔ state).
-  // This is the safety net for any path that doesn't call hideTip() directly.
-  useEffect(() => {
-    setTooltip({ visible: false, name: '', data: null });
-  }, [selectedState]);
-
   // Reset zoom + pan and clear stale paths whenever the projection recomputes.
   useEffect(() => {
     zoomRef.current = 1;
@@ -1649,7 +1656,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     panYRef.current = 0;
     writeTransformNow();
     if (gRef.current) {
-      d3.select(gRef.current).selectAll('path.map-path').remove();
+      select(gRef.current).selectAll('path.map-path').remove();
     }
   }, [projection, writeTransformNow]);
 
@@ -1659,7 +1666,16 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
     let animId;
     const drawMap = () => {
-      const g = d3.select(gRef.current);
+      const g = select(gRef.current);
+
+      // Theme-aware hover colors so the light map doesn't flash a dark blob.
+      const isLightTheme = document.documentElement.getAttribute('data-theme') === 'light';
+      const HOVER_NODATA_FILL = isLightTheme ? '#c4ccd6' : '#2a364a';
+      const HOVER_STROKE = isLightTheme ? 'rgba(11, 34, 64, 0.4)' : 'rgba(255, 255, 255, 0.85)';
+      // Read theme-resolved map colors from CSS custom properties
+      const computedStyle = getComputedStyle(document.documentElement);
+      const noDataColor = computedStyle.getPropertyValue('--color-map-landmass').trim() || NO_DATA_COLOR;
+      const mapStroke = computedStyle.getPropertyValue('--color-map-stroke').trim() || '#475569';
 
       // Helper to resolve fill color for a datum
       const getFill = (d) => {
@@ -1685,7 +1701,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
             }
           }
         }
-        return NO_DATA_COLOR;
+        return noDataColor;
       };
 
       // 1. Bind data — interrupt any in-flight transitions on exit paths
@@ -1693,7 +1709,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
       paths.exit()
         .interrupt()
-        .transition().duration(150).ease(d3.easeCubicIn)
+        .transition().duration(150).ease(easeCubicIn)
         .style('opacity', 0)
         .remove();
 
@@ -1701,8 +1717,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       const newPaths = paths.enter().append('path')
         .attr('class', 'map-path map-paths')
         .attr('d', pathGen)
-        .attr('stroke', '#0f1117')
-        .attr('stroke-width', selectedState ? 0.4 : 0.7)
+        .attr('stroke', mapStroke)
+        .attr('stroke-width', selectedState ? 0.5 : 0.8)
         .attr('vector-effect', 'non-scaling-stroke')
         .attr('stroke-linejoin', 'round')
         .attr('stroke-linecap', 'round')
@@ -1716,8 +1732,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       // 3a. Update geometry / stroke on existing paths instantly
       paths
         .attr('d', pathGen)
-        .attr('stroke', '#0f1117')
-        .attr('stroke-width', selectedState ? 0.4 : 0.7)
+        .attr('stroke', mapStroke)
+        .attr('stroke-width', selectedState ? 0.5 : 0.8)
         .attr('vector-effect', 'non-scaling-stroke')
         .attr('stroke-linejoin', 'round')
         .attr('stroke-linecap', 'round')
@@ -1725,18 +1741,18 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
       // 3b. Animate fill change on existing (update) paths
       paths.interrupt()
-        .transition('fill').duration(300).ease(d3.easeCubicOut)
+        .transition('fill').duration(300).ease(easeCubicOut)
         .attr('fill', getFill);
 
       // 4. Staggered entrance — each path blooms in with a tiny delay
       const total = activeFeatures.length;
       newPaths.each(function(_, i) {
-        d3.select(this)
+        select(this)
           .interrupt()
           .transition('enter')
           .delay(Math.min(i * (280 / total), 220)) // max 220ms spread
           .duration(380)
-          .ease(d3.easeCubicOut)
+          .ease(easeCubicOut)
           .style('opacity', 1);
       });
 
@@ -1762,40 +1778,35 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
             ? normalizedDistrictDataMap[normTopo]
             : (normalizedStateDataMap[normTopo] || Object.values(normalizedStateDataMap).find(s => normalizeKey(s.geoKey) === normTopo));
 
-          const sel = d3.select(event.currentTarget);
-          const origFill = sel.attr('fill') || NO_DATA_COLOR;
-          sel.property('__origFill', origFill)
-             .property('__origStroke', sel.attr('stroke') || '#0f1117')
-             .property('__origStrokeWidth', sel.attr('stroke-width') || (isSel ? 0.4 : 0.7));
-
-          const isNoData = origFill === NO_DATA_COLOR || origFill === '#1e2535';
-          const c = d3.color(origFill);
-          const hoverFill = isNoData ? '#2a364a' : (c ? c.brighter(0.7).toString() : origFill);
+          const sel = select(event.currentTarget);
+          const baseFill = getFill(d);
+          const isNoData = baseFill === noDataColor || baseFill === NO_DATA_COLOR || baseFill === '#1e2535' || baseFill === '#DCE2E8';
+          const c = color(baseFill);
+          const hoverFill = isNoData ? HOVER_NODATA_FILL : (c ? c.brighter(0.7).toString() : baseFill);
 
           // Snappy hover in — 100ms
           sel.interrupt('hover')
-            .transition('hover').duration(100).ease(d3.easeQuadOut)
+            .transition('hover').duration(100).ease(easeQuadOut)
             .attr('fill', hoverFill)
-            .attr('stroke', 'rgba(255, 255, 255, 0.85)')
+            .attr('stroke', HOVER_STROKE)
             .attr('stroke-width', isSel ? 1.2 : 1.8)
             .style('opacity', 0.9);
 
           showTip(event, topoName, entry);
         })
         .on('mousemove', (event) => { moveTip(event); })
-        .on('mouseleave', (event) => {
+        .on('mouseleave', (event, d) => {
           const isSel = selectedStateRef.current;
-          const sel = d3.select(event.currentTarget);
-          const origFill       = sel.property('__origFill') || NO_DATA_COLOR;
-          const origStroke     = sel.property('__origStroke') || '#0f1117';
-          const origStrokeWidth = sel.property('__origStrokeWidth') || (isSel ? 0.4 : 0.7);
+          const sel = select(event.currentTarget);
+          const baseFill = getFill(d);
+          const baseStrokeWidth = isSel ? 0.5 : 0.8;
 
-          // Smooth hover out — 200ms
+          // Smooth hover out — 200ms (always restores deterministic base fill and stroke)
           sel.interrupt('hover')
-            .transition('hover').duration(200).ease(d3.easeQuadOut)
-            .attr('fill', origFill)
-            .attr('stroke', origStroke)
-            .attr('stroke-width', origStrokeWidth)
+            .transition('hover').duration(200).ease(easeQuadOut)
+            .attr('fill', baseFill)
+            .attr('stroke', mapStroke)
+            .attr('stroke-width', baseStrokeWidth)
             .style('opacity', 1);
 
           hideTip();
@@ -1814,7 +1825,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     geoHeatMap, 
     heatColorScale,
     filterState.type,
-    selectedPendingMonth
+    selectedPendingMonth,
+    currentTheme
   ]);
 
   // ─── JSX ──────────────────────────────────────────────────────────────────
@@ -1875,17 +1887,16 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           {/* District error */}
           {distError && !distLoading && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4"
-              style={{ background: 'rgba(22,27,34,0.95)' }}>
-              <AlertTriangle className="w-10 h-10" style={{ color: '#fbbf24' }} />
+              style={{ background: 'rgba(var(--color-bg-primary-rgb),0.95)' }}>
+              <AlertTriangle className="w-10 h-10 text-severity-medium" />
               <div className="text-center">
-                <p className="text-sm font-semibold text-white mb-1">District data unavailable</p>
-                <p className="text-xs mb-4" style={{ color: '#475569' }}>
-                  Boundaries for <strong className="text-white">{selectedState}</strong> could not be loaded
+                <p className="text-sm font-semibold text-text-primary mb-1">District data unavailable</p>
+                <p className="text-xs mb-4 text-text-muted">
+                  Boundaries for <strong className="text-text-primary">{selectedState}</strong> could not be loaded
                 </p>
                 <button
                   onClick={handleBack}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold text-white transition-colors"
-                  style={{ background: '#3b82f6' }}
+                  className="px-4 py-2 rounded-lg text-xs font-semibold text-white transition-colors bg-accent-blue hover:bg-accent-blue-strong"
                 >
                   ← Return to India map
                 </button>
@@ -1936,20 +1947,16 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                 ? normalizedDistrictDataMap[normTopo]
                 : (normalizedStateDataMap[normTopo] || Object.values(normalizedStateDataMap).find(s => normalizeKey(s.geoKey) === normTopo));
 
-              const sel = d3.select(path);
-              const origFill = sel.attr('fill') || NO_DATA_COLOR;
-              sel.property('__origFill', origFill)
-                 .property('__origStroke', sel.attr('stroke') || '#0f1117')
-                 .property('__origStrokeWidth', sel.attr('stroke-width') || (isSel ? 0.4 : 0.7));
-
-              const isNoData = origFill === NO_DATA_COLOR || origFill === '#1e2535';
-              const c = d3.color(origFill);
-              const hoverFill = isNoData ? '#2a364a' : (c ? c.brighter(0.7).toString() : origFill);
+              const sel = select(path);
+              const baseFill = getFill(feature);
+              const isNoData = baseFill === noDataColor || baseFill === NO_DATA_COLOR || baseFill === '#1e2535' || baseFill === '#DCE2E8';
+              const c = color(baseFill);
+              const hoverFill = isNoData ? HOVER_NODATA_FILL : (c ? c.brighter(0.7).toString() : baseFill);
 
               sel.interrupt('hover')
-                .transition('hover').duration(100).ease(d3.easeQuadOut)
+                .transition('hover').duration(100).ease(easeQuadOut)
                 .attr('fill', hoverFill)
-                .attr('stroke', 'rgba(255, 255, 255, 0.85)')
+                .attr('stroke', HOVER_STROKE)
                 .attr('stroke-width', isSel ? 1.2 : 1.8)
                 .style('opacity', 0.9);
 
@@ -1963,15 +1970,15 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
             onTouchEnd={() => {
               const path = touchedPathRef.current;
               if (path) {
-                const sel = d3.select(path);
-                const origFill = sel.property('__origFill') || NO_DATA_COLOR;
-                const origStroke = sel.property('__origStroke') || '#0f1117';
-                const origStrokeWidth = sel.property('__origStrokeWidth') || (selectedStateRef.current ? 0.4 : 0.7);
+                const pathIdx = Array.from(path.parentNode.children).indexOf(path);
+                const feature = activeFeatures?.[pathIdx];
+                const baseFill = feature ? getFill(feature) : noDataColor;
+                const sel = select(path);
                 sel.interrupt('hover')
-                  .transition('hover').duration(200).ease(d3.easeQuadOut)
-                  .attr('fill', origFill)
-                  .attr('stroke', origStroke)
-                  .attr('stroke-width', origStrokeWidth)
+                  .transition('hover').duration(200).ease(easeQuadOut)
+                  .attr('fill', baseFill)
+                  .attr('stroke', mapStroke)
+                  .attr('stroke-width', selectedStateRef.current ? 0.5 : 0.8)
                   .style('opacity', 1);
                 touchedPathRef.current = null;
               }
@@ -1984,20 +1991,24 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
           {/* Zoom controls */}
           <div className="absolute top-3 right-3 flex flex-col items-center gap-1 z-10">
-            {[
-              { icon: <ZoomIn className="w-3.5 h-3.5" />,  fn: zoomIn,    title: 'Zoom in (Num + or +)' },
-              { icon: <ZoomOut className="w-3.5 h-3.5" />, fn: zoomOut,   title: 'Zoom out (Num - or -)' },
-              { icon: <RotateCcw className="w-3.5 h-3.5" />, fn: resetView, title: 'Reset view (Num 0 or 0)' },
-            ].map(({ icon, fn, title }) => (
-              <button key={title} onClick={fn} title={title}
-                className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors duration-100 cursor-pointer hover:bg-[#161b22] hover:text-[#f1f5f9]"
-                style={{ background: '#0d1526', border: '1px solid #1e293b', color: '#94a3b8' }}>
-                {icon}
-              </button>
-            ))}
+            <button onClick={zoomIn} title="Zoom in (Num + or +)"
+              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors duration-100 cursor-pointer hover:bg-bg-card-hover hover:text-text-primary"
+              style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={zoomOut} title="Zoom out (Num - or -)"
+              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors duration-100 cursor-pointer hover:bg-bg-card-hover hover:text-text-primary"
+              style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={resetView} title="Reset view (Num 0 or 0)"
+              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors duration-100 cursor-pointer hover:bg-bg-card-hover hover:text-text-primary"
+              style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}>
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
             <span
               ref={zoomIndicatorRef}
-              className="text-[9px] font-mono font-bold px-1 py-0.5 rounded bg-[#0d1526] border border-[#1e293b] text-[#94a3b8] mt-0.5 select-none"
+              className="text-[9px] font-mono font-bold px-1 py-0.5 rounded bg-bg-elevated border border-border text-text-muted mt-0.5 select-none"
             >
               100%
             </span>
@@ -2005,8 +2016,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
           {/* Legend */}
           <div className="absolute bottom-3 left-3 rounded-lg px-3 py-2 border"
-            style={{ background: 'rgba(13,21,38,0.92)', borderColor: '#1e293b' }}>
-            <div className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: '#475569' }}>
+            style={{ background: 'var(--color-bg-elevated)', borderColor: 'var(--color-border)' }}>
+            <div className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
               {filterState.type === "PENDING" ? "Pending Order Risk" : "Alert Tag Severity"}
             </div>
             {filterState.type === "PENDING" ? (
@@ -2016,7 +2027,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
               />
             ) : (
               <Legend
-                colors={['#bfdbfe', '#60a5fa', '#3b82f6', '#2563eb', '#1e3a8a']}
+                colors={['#D6EDFA', '#A9D9F0', '#7BC4EA', '#4EA8DE', '#2E86C1']}
                 labels={['Stable', 'Low Risk', 'Moderate', 'High Risk', 'Critical Risk']}
               />
             )}
@@ -2026,7 +2037,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           <div
             ref={zoomIndicatorRef}
             className="absolute bottom-3 right-3 text-[10px] px-2 py-1 rounded"
-            style={{ background: '#0d1526', color: '#475569' }}
+            style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-text-muted)' }}
           >
             100%
           </div>
@@ -2073,7 +2084,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                         onClick={() => setFilterState(s => ({ ...s, type: opt.value }))}
                         className={`text-xs px-3 py-1.5 rounded-full border transition-colors duration-150 cursor-pointer flex-1 ${
                           active
-                            ? 'bg-accent-blue-soft text-blue-300 border-accent-blue/60'
+                            ? 'bg-accent-sky-soft text-accent-sky-strong border-accent-sky/60'
                             : 'bg-transparent text-text-muted border-border/60 hover:text-text-primary'
                         }`}
                       >
@@ -2098,9 +2109,9 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                       setSelectedMonth(e.target.value);
                     }
                   }}
-                  className="text-xs font-bold px-3 py-1.5 rounded-full border border-border/70 text-white bg-bg-card cursor-pointer outline-none appearance-none w-full"
+                  className="text-xs font-bold px-3 py-1.5 rounded-full border border-border/70 text-text-primary bg-bg-card cursor-pointer outline-none appearance-none w-full"
                   style={{
-                    backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
+                    backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234EA8DE' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>")`,
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'right 8px center',
                     backgroundSize: '14px',
@@ -2109,16 +2120,16 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                 >
                   {filterState.type === "PENDING" ? (
                     <>
-                      <option value="ALL" style={{ background: '#1a1f2c', color: '#ffffff' }}>Total Backlog</option>
+                      <option value="ALL" style={{ background: 'var(--color-bg-input)', color: 'var(--color-text-primary)' }}>Total Backlog</option>
                       {sortedPendingMonths.map(opt => (
-                        <option key={opt.periodKey} value={opt.periodKey} style={{ background: '#1a1f2c', color: '#ffffff' }}>
+                        <option key={opt.periodKey} value={opt.periodKey} style={{ background: 'var(--color-bg-input)', color: 'var(--color-text-primary)' }}>
                           {opt.label}
                         </option>
                       ))}
                     </>
                   ) : (
                     monthButtons.buttons?.map(opt => (
-                      <option key={opt.value} value={opt.value} style={{ background: '#1a1f2c', color: '#f1f5f9' }}>
+                      <option key={opt.value} value={opt.value} style={{ background: 'var(--color-bg-input)', color: 'var(--color-text-primary)' }}>
                         {opt.fullName}
                       </option>
                     ))
@@ -2190,14 +2201,14 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           {/* Scrollable Ranked List */}
           <div className="rounded-xl border p-4 flex-1 flex flex-col overflow-hidden min-h-[200px] panel">
             <div className="flex items-center justify-between mb-3 flex-shrink-0">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
                 {selectedState ? `${selectedState.toUpperCase()} DISTRICTS` : 'State Performance'}
               </span>
               {selectedState && (
                 <button
                   onClick={handleBack}
                   className="text-xs px-2.5 py-1 rounded transition-colors duration-100 flex items-center gap-1 cursor-pointer hover:border-accent-blue"
-                  style={{ background: '#0d1526', border: '1px solid #1e293b', color: '#94a3b8' }}
+                  style={{ background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)' }}
                 >
                   ← Back
                 </button>
@@ -2220,18 +2231,18 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                     style={{
                       fontSize: '13px',
                       padding: '12px 0',
-                      borderBottom: '0.5px solid #1e2a3a',
+                      borderBottom: '0.5px solid var(--color-border)',
                       animationDelay: `${delay}ms`,
                       animationFillMode: 'both',
                     }}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span style={{ color: '#94a3b8', minWidth: '20px' }}>#{idx + 1}</span>
-                      <span className="font-semibold text-white truncate" title={item.name}>{item.name}</span>
+                      <span style={{ color: 'var(--color-text-muted)', minWidth: '20px' }}>#{idx + 1}</span>
+                      <span className="font-semibold text-text-primary truncate" title={item.name}>{item.name}</span>
                     </div>
                     <div className="flex items-center gap-4 text-right flex-shrink-0">
                       <div className="flex flex-col text-right">
-                        <span className="text-slate-300 font-semibold whitespace-nowrap">
+                        <span className="text-text-secondary font-semibold whitespace-nowrap">
                           {formatMT(isPending ? (item.volume ?? item.cur ?? 0) : item.volume)}
                         </span>
                       </div>
@@ -2242,8 +2253,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                   </div>
                 );
               })}
-              {!rankedList.length && (
-                <div className="text-xs text-center py-6 italic text-slate-500">No data available</div>
+               {!rankedList.length && (
+                <div className="text-xs text-center py-6 italic text-text-muted">No data available</div>
               )}
             </div>
           </div>
@@ -2261,7 +2272,7 @@ function StatCard({ label, value, sub }) {
   return (
     <div className="p-3 flex flex-col gap-1">
       <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted truncate">{label}</div>
-      <div className="text-lg xl:text-xl font-bold text-white leading-tight break-words">{value}</div>
+      <div className="text-lg xl:text-xl font-bold text-text-primary leading-tight break-words">{value}</div>
       <div className="text-[10px] font-medium text-text-muted leading-snug break-words">{sub}</div>
     </div>
   );

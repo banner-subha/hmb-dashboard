@@ -4,22 +4,32 @@
  * Centralizes the logic for monthly pending-order distributions.
  */
 
-export function getPendingForPeriod(entity, periodKey) {
+export function getPendingForPeriod(entity, periodKey, rawData = null) {
   if (!entity) return 0;
   // If period is ALL or not specified, fallback to all-time total pendingQty
   if (periodKey === 'ALL' || !periodKey) {
     return entity.pendingQty ?? 0;
   }
-  return entity.pendingHistory?.[periodKey] ?? 0;
+  if (entity.pendingHistory && entity.pendingHistory[periodKey] !== undefined) {
+    return entity.pendingHistory[periodKey];
+  }
+  // Fallback for current month (e.g. 2026-08) if entity.pendingHistory doesn't have an explicit periodKey entry
+  if (rawData?.availableMonths?.length > 0) {
+    const curMonthKey = rawData.availableMonths[0]?.periodKey || rawData.availableMonths[0]?.key;
+    if (curMonthKey && periodKey === curMonthKey) {
+      return entity.pendingQty ?? 0;
+    }
+  }
+  return 0;
 }
 
-export function getTotalPendingForPeriod(entities, periodKey) {
-  return (entities || []).reduce((sum, e) => sum + getPendingForPeriod(e, periodKey), 0);
+export function getTotalPendingForPeriod(entities, periodKey, rawData = null) {
+  return (entities || []).reduce((sum, e) => sum + getPendingForPeriod(e, periodKey, rawData), 0);
 }
 
-export function getSharePctForPeriod(entity, periodKey, totalForPeriod) {
+export function getSharePctForPeriod(entity, periodKey, totalForPeriod, rawData = null) {
   if (!totalForPeriod) return 0;
-  return Math.round((getPendingForPeriod(entity, periodKey) / totalForPeriod) * 100);
+  return Math.round((getPendingForPeriod(entity, periodKey, rawData) / totalForPeriod) * 100);
 }
 
 export function getBacklogClearance(pendingQty = 0, dailyAvgQty = 0) {
@@ -51,28 +61,55 @@ export function isAgingPeriod(periodKey, availableMonths) {
 
 export function getPendingAvailableMonths(rawData) {
   if (!rawData) return [];
-  if (rawData.pendingAvailableMonths) return rawData.pendingAvailableMonths;
 
-  // Extract all unique period keys from pendingHistory across states & districts
-  const keys = new Set();
-  (rawData.states || []).forEach(s => {
-    if (s.pendingHistory) Object.keys(s.pendingHistory).forEach(k => keys.add(k));
-  });
-  (rawData.districts || []).forEach(d => {
-    if (d.pendingHistory) Object.keys(d.pendingHistory).forEach(k => keys.add(k));
-  });
+  const map = new Map();
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  // Fall back to availableMonths at root if pendingHistory yields nothing
-  if (keys.size === 0 && rawData.availableMonths) {
-    return rawData.availableMonths;
+  const addKey = (pk, year, month, label) => {
+    if (!pk || map.has(pk)) return;
+    let y = year;
+    let m = month;
+    if (!y || !m) {
+      const parts = String(pk).split('-');
+      if (parts.length === 2) {
+        y = parseInt(parts[0], 10);
+        m = parseInt(parts[1], 10);
+      }
+    }
+    if (y && m && m >= 1 && m <= 12) {
+      const fullLabel = label || `${months[m - 1]} ${y}`;
+      map.set(pk, { periodKey: pk, key: pk, year: y, month: m, label: fullLabel });
+    }
+  };
+
+  // 1. Include explicit pendingAvailableMonths if present
+  if (Array.isArray(rawData.pendingAvailableMonths)) {
+    rawData.pendingAvailableMonths.forEach(m => {
+      const pk = m.periodKey || m.key;
+      addKey(pk, m.year, m.month, m.label);
+    });
   }
 
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  return Array.from(keys).sort().reverse().map(pk => {
-    const [yearStr, monthStr] = pk.split('-');
-    const year = parseInt(yearStr, 10);
-    const month = parseInt(monthStr, 10);
-    const label = `${months[month - 1]} ${year}`;
-    return { periodKey: pk, year, month, label };
+  // 2. Include all availableMonths from rawData
+  if (Array.isArray(rawData.availableMonths)) {
+    rawData.availableMonths.forEach(m => {
+      const pk = m.periodKey || m.key;
+      addKey(pk, m.year, m.month, m.label);
+    });
+  }
+
+  // 3. Include all pendingHistory keys across states, districts, dealers
+  ['states', 'districts', 'dealers'].forEach(group => {
+    (rawData[group] || []).forEach(e => {
+      if (e.pendingHistory) {
+        Object.keys(e.pendingHistory).forEach(pk => addKey(pk));
+      }
+    });
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.year !== b.year) return b.year - a.year;
+    return b.month - a.month;
   });
 }

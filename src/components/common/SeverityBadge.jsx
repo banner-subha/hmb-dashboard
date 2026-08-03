@@ -1,13 +1,25 @@
 import { getSeverityTheme } from '../../utils/trendEngine';
 
+// Map a severity hue to a 5-bucket id used by CSS light-mode overrides.
+// Bucketed by the same color that renders in dark mode so the light hue matches.
+const SEVERITY_BUCKET = {
+  '#ef4444': 'critical',
+  '#f97316': 'high',
+  '#eab308': 'medium',
+  '#22c55e': 'none',
+  '#6b7280': 'low',
+};
+
 export default function SeverityBadge({ severity, color, className = '' }) {
   const theme = getSeverityTheme(severity);
 
   // Allow manual color override if provided, else use theme
   const displayColor = color || theme.color;
+  const bucket = SEVERITY_BUCKET[displayColor] || 'none';
 
   return (
-    <div 
+    <div
+      data-severity={bucket}
       className={className}
       style={{
         display: 'inline-flex',

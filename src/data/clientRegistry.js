@@ -260,6 +260,45 @@ export const CLIENT_USERS = [
       "DINAJPUR DAKSHIN"
     ],
     labels: ["NORTH BENGAL"]
+  },
+  {
+    name: "PRIYA SHAW",
+    chatId: "",
+    role: "SALES COORDINATOR",
+    states: ["UP", "WB"],
+    districts: [
+      "JHARGRAM",
+      "MEDINIPUR EAST",
+      "MEDINIPUR WEST",
+      "EAST MEDINIPUR",
+      "WEST MEDINIPUR"
+    ],
+    labels: []
+  },
+  {
+    name: "TOUFIK MONDAL",
+    chatId: "",
+    role: "SALES COORDINATOR",
+    states: ["WB"],
+    districts: [
+      "NORTH 24 PGS",
+      "SOUTH 24 PGS",
+      "NADIA",
+      "KOLKATA",
+      "HOWRAH",
+      "HOOGHLY",
+      "EAST BARDHAMAN",
+      "WEST BARDHAMAN"
+    ],
+    labels: []
+  },
+  {
+    name: "SOURIB DAS",
+    chatId: "",
+    role: "SALES COORDINATOR",
+    states: ["JHARKHAND", "NORTH EAST"],
+    districts: [],
+    labels: []
   }
 ];
 
@@ -276,7 +315,9 @@ try {
   if (cached) {
     const parsed = JSON.parse(cached);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      dynamicUsersList = parsed;
+      const parsedNames = new Set(parsed.map(u => clean(u.name)));
+      const staticFallbacks = CLIENT_USERS.filter(u => !parsedNames.has(clean(u.name)));
+      dynamicUsersList = [...parsed, ...staticFallbacks];
     }
   }
 } catch { /* ignore */ }
@@ -286,10 +327,12 @@ try {
  */
 export function syncClientUsers(backendUsers) {
   if (Array.isArray(backendUsers) && backendUsers.length > 0) {
-    dynamicUsersList = backendUsers;
+    const backendNames = new Set(backendUsers.map(u => clean(u.name)));
+    const staticFallbacks = CLIENT_USERS.filter(u => !backendNames.has(clean(u.name)));
+    dynamicUsersList = [...backendUsers, ...staticFallbacks];
     try {
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('hmb_synced_users', JSON.stringify(backendUsers));
+        localStorage.setItem('hmb_synced_users', JSON.stringify(dynamicUsersList));
       }
     } catch { /* ignore */ }
   }
@@ -311,7 +354,7 @@ export function authenticateClientUser(inputUsername, inputPassword) {
   const cleanPass = clean(inputPassword);
 
   const activeRoster = dynamicUsersList && dynamicUsersList.length > 0 ? dynamicUsersList : CLIENT_USERS;
-  const matchedUser = activeRoster.find(u => clean(u.name) === cleanUser);
+  const matchedUser = activeRoster.find(u => clean(u.name) === cleanUser) || CLIENT_USERS.find(u => clean(u.name) === cleanUser);
   if (!matchedUser) return null;
 
   const expectedPass = cleanUser + "@26";

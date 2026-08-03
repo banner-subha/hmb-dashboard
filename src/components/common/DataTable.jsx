@@ -5,9 +5,33 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+
+const TableRow = memo(function TableRow({ row, idx, onRowClick }) {
+  return (
+    <tr 
+      onClick={() => onRowClick && onRowClick(row.original)}
+      className={`animate-fade-in transition-colors bg-bg-card hover:bg-bg-card-hover ${onRowClick ? 'cursor-pointer' : ''}`}
+      style={{ animationDelay: `${Math.min(idx * 20, 200)}ms`, animationFillMode: 'both' }}
+    >
+      {row.getVisibleCells().map((cell, index) => (
+        <td 
+          key={cell.id} 
+          className={`px-2.5 sm:px-3 py-3 ${index === 0 ? 'sticky left-0 z-10 bg-inherit shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] font-semibold' : ''}`}
+          style={{ 
+            width: cell.column.columnDef.meta?.width,
+            minWidth: cell.column.columnDef.meta?.minWidth,
+            maxWidth: cell.column.columnDef.meta?.maxWidth,
+          }}
+        >
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </td>
+      ))}
+    </tr>
+  );
+});
 
 export default function DataTable({ data, columns, onRowClick, pageSize = 15, renderHeader, defaultSort = [] }) {
   const [sorting, setSorting] = useState(defaultSort);
@@ -53,7 +77,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
               onClick={() => table.setPageIndex(i)}
               className={`px-3.5 py-2 rounded-lg font-bold border transition-colors cursor-pointer text-sm ${
                 currentPage === i
-                  ? 'bg-accent-blue border-accent-blue text-white'
+                  ? 'bg-accent-sky border-accent-sky text-white'
                   : 'border-border bg-bg-card hover:bg-bg-card-hover text-text-muted'
               }`}
             >
@@ -194,26 +218,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
           <tbody className="divide-y divide-border/80">
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row, idx) => (
-                <tr 
-                  key={row.id}
-                  onClick={() => onRowClick && onRowClick(row.original)}
-                  className={`animate-fade-in transition-colors bg-bg-card hover:bg-bg-card-hover ${onRowClick ? 'cursor-pointer' : ''}`}
-                  style={{ animationDelay: `${Math.min(idx * 20, 200)}ms`, animationFillMode: 'both' }}
-                >
-                  {row.getVisibleCells().map((cell, index) => (
-                    <td 
-                      key={cell.id} 
-                      className={`px-2.5 sm:px-3 py-3 ${index === 0 ? 'sticky left-0 z-10 bg-inherit shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] font-semibold' : ''}`}
-                      style={{ 
-                        width: cell.column.columnDef.meta?.width,
-                        minWidth: cell.column.columnDef.meta?.minWidth,
-                        maxWidth: cell.column.columnDef.meta?.maxWidth,
-                      }}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
+                <TableRow key={row.id} row={row} idx={idx} onRowClick={onRowClick} />
               ))
             ) : (
               <tr>

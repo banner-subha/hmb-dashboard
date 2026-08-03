@@ -31,8 +31,8 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
   const sortedPendingMonths = useMemo(() => {
     return [...pendingAvailableMonths].sort((a, b) => {
-      if (a.year !== b.year) return a.year - b.year;
-      return a.month - b.month;
+      if (a.year !== b.year) return b.year - a.year;
+      return b.month - a.month;
     });
   }, [pendingAvailableMonths]);
 
@@ -297,7 +297,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
             );
           }
           
-          return <span style={{ color: '#6b7280' }}>—</span>;
+          return <span style={{ color: 'var(--color-text-muted)' }}>—</span>;
         }
       },
       {
@@ -448,11 +448,11 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                   className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 border ${
                     filters.isNorthBengal
                       ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
-                      : 'bg-bg-tertiary/60 text-white border-border/40 hover:border-border'
+                      : 'bg-bg-tertiary/60 text-text-secondary border-border/40 hover:border-border'
                   }`}
                   title="Filter North Bengal Districts (Darjeeling, Jalpaiguri, Cooch Behar, etc.)"
                 >
-                  <span className={`w-2 h-2 rounded-full ${filters.isNorthBengal ? 'bg-emerald-400 animate-pulse' : 'bg-white/50'}`} />
+                  <span className={`w-2 h-2 rounded-full ${filters.isNorthBengal ? 'bg-emerald-400 animate-pulse' : 'bg-text-muted/40'}`} />
                   North Bengal
                 </button>
               )}
@@ -483,7 +483,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                       onClick={() => setMetricMode(opt.value)}
                       className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
                         active 
-                          ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/35' 
+                          ? 'bg-accent-sky/20 text-accent-sky border-accent-sky/35' 
                           : 'bg-transparent text-text-muted/60 border-transparent hover:text-text-primary'
                       }`}
                     >
@@ -498,15 +498,15 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                 onChange={(e) => setSelectedPendingMonth(e.target.value)}
                 className="filter-select text-xs py-1.5 px-3 w-[110px] sm:w-[125px] shrink-0"
               >
-                <option value="" disabled className="bg-[#0b1329] text-text-muted">Select month</option>
+                <option value="" disabled className="bg-bg-input text-text-muted">Select month</option>
                 {metricMode === 'PENDING' ? (
                   <>
-                    <option value="ALL" className="bg-[#0b1329] text-text-primary">Total Backlog</option>
+                    <option value="ALL" className="bg-bg-input text-text-primary">Total Backlog</option>
                     {sortedPendingMonths.map(opt => (
                       <option 
                         key={opt.key || opt.periodKey} 
                         value={opt.key || opt.periodKey}
-                        className="bg-[#0b1329] text-text-primary"
+                        className="bg-bg-input text-text-primary"
                       >
                         {opt.label}
                       </option>
@@ -517,7 +517,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                     <option 
                       key={opt.key || opt.periodKey} 
                       value={opt.key || opt.periodKey}
-                      className="bg-[#0b1329] text-text-primary"
+                      className="bg-bg-input text-text-primary"
                     >
                       {opt.label}
                     </option>

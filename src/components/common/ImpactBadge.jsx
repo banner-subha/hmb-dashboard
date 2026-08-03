@@ -1,5 +1,13 @@
 import { getBusinessImpact, getSeverityTheme } from '../../utils/trendEngine';
 
+const SEVERITY_BUCKET = {
+  '#ef4444': 'critical',
+  '#f97316': 'high',
+  '#eab308': 'medium',
+  '#22c55e': 'none',
+  '#6b7280': 'low',
+};
+
 /**
  * ImpactBadge — glassmorphism severity pill.
  * 
@@ -26,7 +34,8 @@ export default function ImpactBadge({ cur, prev, tier, score, color, className =
   }
 
   return (
-    <div 
+    <div
+      data-severity={SEVERITY_BUCKET[theme.color] || 'none'}
       className={className}
       title={score ? `Priority: ${score >= 75 ? 'Urgent Action' : score >= 50 ? 'Needs Attention' : score >= 40 ? 'Monitor' : 'On Track'}` : ''}
       style={{
