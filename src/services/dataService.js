@@ -115,10 +115,11 @@ function normalizeAndMergeDistricts(districtsList, curElapsedDays = 30) {
       lossDelta = Math.round(diff * 100) / 100;
       lossDeltaPct = Math.round((Math.abs(diff) / d.dailyAvgQty) * 1000) / 10;
       lossFlag = diff >= 0 ? 'AHEAD' : 'BEHIND';
-    } else if (prev > 0) {
-      // Fallback: estimate avg from prev using curElapsedDays (same-day-range, matches n8n v29 logic).
-      // curElapsedDays defaults to 30 for monthly history snapshots.
-      const estDailyAvg = Math.round((prev / curElapsedDays) * 100) / 100;
+    } else if (d.ytd > 0 || prev > 0) {
+      // Fallback: estimate dailyAvgQty from YTD historical closed months (ytd / ytdTotalDays)
+      const ytdDays = (d.ytdTotalDays || 212);
+      const ytdQty = d.ytd || prev;
+      const estDailyAvg = Math.round((ytdQty / ytdDays) * 100) / 100;
       if (estDailyAvg > 0) {
         const curRate = d.currentDailyRate || 0;
         const diff = curRate - estDailyAvg;
@@ -319,17 +320,15 @@ function cleanData(data) {
       }
 
       // 3. Derive dailyAvgQty if 0
-      // Use curElapsedDays from meta for same-day-range comparison (matches n8n v29 logic).
-      // DO NOT use pendingQty as a proxy — pending orders ≠ historical dispatch rate.
+      // Calculate from YTD historical closed months (ytd / ytdTotalDays)
       if (!d.dailyAvgQty || d.dailyAvgQty === 0) {
-        const elapsedDays = (data.meta?.curElapsedDays) || 30;
-        if (d.prev > 0) {
-          // prev = same N days of last month → divide by same N days for true daily avg
+        const ytdDays = (data.meta?.ytdTotalDays) || 212;
+        if (d.ytd > 0) {
+          d.dailyAvgQty = Math.round((d.ytd / ytdDays) * 100) / 100;
+        } else if (d.prev > 0) {
+          const elapsedDays = (data.meta?.curElapsedDays) || 30;
           d.dailyAvgQty = Math.round((d.prev / elapsedDays) * 100) / 100;
         }
-        // NOTE: pendingQty/30 branch intentionally removed — pending balance is NOT
-        // a reliable proxy for historical dispatch rate and produced misleading values
-        // (e.g. 30 MT pending ÷ 30 = 1.0 MT/d avg for districts with zero dispatch).
       }
 
       // 4. Set lossFlag and lossDelta/lossDeltaPct for pace display
