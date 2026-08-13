@@ -28,6 +28,119 @@ function normalizeAndMergeStates(statesList) {
   return Object.values(map);
 }
 
+function normalizeAndMergeDistricts(districtsList) {
+  if (!districtsList || !Array.isArray(districtsList)) return districtsList;
+  const map = {};
+
+  districtsList.forEach(d => {
+    if (!d || !d.district || !d.state) return;
+
+    const normState = normalizeStateName(d.state);
+    const normDistrict = d.district.trim().toUpperCase();
+
+    // Skip data entry errors where state name was entered into district column (e.g. UTTARPRADESH, ASSAM)
+    if (isRealState(normDistrict)) return;
+
+    const key = `${normState}||${normDistrict}`;
+
+    if (!map[key]) {
+      map[key] = {
+        ...d,
+        state: normState,
+        district: normDistrict,
+        cur: 0,
+        prev: 0,
+        expectedMtd: 0,
+        dailyAvgQty: 0,
+        currentDailyRate: 0,
+        pendingQty: 0,
+        products: [],
+      };
+    }
+
+    const existing = map[key];
+    existing.cur = Math.round((existing.cur + (d.cur || 0)) * 100) / 100;
+    existing.prev = Math.round((existing.prev + (d.prev || 0)) * 100) / 100;
+    if (d.expectedMtd) existing.expectedMtd = Math.round((existing.expectedMtd + (d.expectedMtd || 0)) * 100) / 100;
+    if (d.dailyAvgQty) existing.dailyAvgQty = Math.round((existing.dailyAvgQty + (d.dailyAvgQty || 0)) * 100) / 100;
+    if (d.currentDailyRate) existing.currentDailyRate = Math.round((existing.currentDailyRate + (d.currentDailyRate || 0)) * 100) / 100;
+    if (d.pendingQty) existing.pendingQty = Math.round((existing.pendingQty + (d.pendingQty || 0)) * 100) / 100;
+
+    // Preserve non-null avgPeriod
+    if (d.avgPeriod != null && !isNaN(d.avgPeriod) && d.avgPeriod > 0) {
+      if (existing.avgPeriod == null || existing.avgPeriod === 0) {
+        existing.avgPeriod = d.avgPeriod;
+      } else {
+        const w1 = existing.cur || 1;
+        const w2 = d.cur || 1;
+        existing.avgPeriod = Math.round(((existing.avgPeriod * w1 + d.avgPeriod * w2) / (w1 + w2)) * 10) / 10;
+      }
+    }
+
+    // Preserve valid pace flag if available
+    if (d.lossFlag === 'AHEAD' || d.lossFlag === 'BEHIND') {
+      existing.lossFlag = d.lossFlag;
+      if (d.lossDeltaPct != null) existing.lossDeltaPct = d.lossDeltaPct;
+      if (d.lossDelta != null) existing.lossDelta = d.lossDelta;
+    }
+
+    // Merge products
+    if (Array.isArray(d.products)) {
+      d.products.forEach(p => {
+        if (!p || !p.product) return;
+        const existingP = existing.products.find(item => item.product === p.product);
+        if (!existingP) {
+          existing.products.push({ ...p });
+        } else {
+          existingP.cur = Math.round(((existingP.cur || 0) + (p.cur || 0)) * 100) / 100;
+          existingP.prev = Math.round(((existingP.prev || 0) + (p.prev || 0)) * 100) / 100;
+        }
+      });
+    }
+  });
+
+  return Object.values(map).map(d => {
+    const cur = d.cur || 0;
+    const prev = d.prev || 0;
+    const mom = prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : (cur > 0 ? 100 : 0);
+    const drop = Math.max(0, prev - cur);
+
+    // Derive pace fields if currentDailyRate & dailyAvgQty exist or can be calculated
+    let lossFlag = d.lossFlag;
+    let lossDeltaPct = d.lossDeltaPct;
+    let lossDelta = d.lossDelta;
+
+    if (d.currentDailyRate > 0 && d.dailyAvgQty > 0) {
+      const diff = d.currentDailyRate - d.dailyAvgQty;
+      lossDelta = Math.round(diff * 100) / 100;
+      lossDeltaPct = Math.round((Math.abs(diff) / d.dailyAvgQty) * 1000) / 10;
+      lossFlag = diff >= 0 ? 'AHEAD' : 'BEHIND';
+    } else if (prev > 0 || cur > 0) {
+      const estDailyAvg = Math.round((prev / 30) * 100) / 100;
+      const estCurRate = Math.round((cur / 10) * 100) / 100;
+      if (estDailyAvg > 0) {
+        const diff = estCurRate - estDailyAvg;
+        lossDelta = Math.round(diff * 100) / 100;
+        lossDeltaPct = Math.round((Math.abs(diff) / estDailyAvg) * 1000) / 10;
+        lossFlag = diff >= 0 ? 'AHEAD' : 'BEHIND';
+        if (!d.dailyAvgQty) d.dailyAvgQty = estDailyAvg;
+        if (!d.currentDailyRate) d.currentDailyRate = estCurRate;
+      }
+    }
+
+    return {
+      ...d,
+      cur,
+      prev,
+      mom,
+      drop,
+      lossFlag: lossFlag || (cur < prev ? 'BEHIND' : 'AHEAD'),
+      lossDeltaPct: lossDeltaPct != null ? lossDeltaPct : Math.abs(mom),
+      lossDelta: lossDelta || (cur - prev),
+    };
+  });
+}
+
 function cleanData(data) {
   if (!data) return data;
   const isKnown = (name) => name && name.toLowerCase() !== 'unknown' && name.toLowerCase() !== 'nan';
@@ -44,7 +157,7 @@ function cleanData(data) {
     data.states = normalizeAndMergeStates(data.states).filter(s => isKnown(s.state) && isRealState(s.state));
   }
   if (data.districts) {
-    data.districts = data.districts.filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
+    data.districts = normalizeAndMergeDistricts(data.districts).filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
   }
   if (data.dealers) {
     data.dealers = data.dealers.filter(dl => isKnown(dl.state) && isRealState(dl.state) && isKnown(dl.district) && isKnown(dl.client));
@@ -56,7 +169,7 @@ function cleanData(data) {
         hist.states = hist.states.filter(s => isKnown(s.state) && isRealState(s.state));
       }
       if (hist.districts) {
-        hist.districts = hist.districts.filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
+        hist.districts = normalizeAndMergeDistricts(hist.districts).filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
       }
       if (hist.dealers) {
         hist.dealers = hist.dealers.filter(dl => isKnown(dl.state) && isRealState(dl.state) && isKnown(dl.district) && isKnown(dl.client));
@@ -167,6 +280,67 @@ function cleanData(data) {
       // DESPATCH_DATE - ORDER_DATE. Never invent it from cur/dailyAvgQty.
     });
   });
+
+  // ── Fallback avgPeriod and pace fields for districts ──
+  if (data.states && data.districts) {
+    const stateAvgMap = new Map(data.states.map(s => [s.state, s.avgPeriod]));
+    const stateDailyAvgMap = new Map(data.states.map(s => [s.state, s.dailyAvgQty]));
+
+    data.districts.forEach(d => {
+      // 1. Lead time fallback from state if missing
+      if ((d.avgPeriod == null || d.avgPeriod === 0) && stateAvgMap.has(d.state)) {
+        const sAvg = stateAvgMap.get(d.state);
+        if (sAvg != null && sAvg > 0) {
+          d.avgPeriod = sAvg;
+        }
+      }
+
+      // 2. Derive prev from dealers if prev is 0
+      if ((!d.prev || d.prev === 0) && data.dealers) {
+        const dUpper = (d.district || '').toUpperCase();
+        const sUpper = (d.state || '').toUpperCase();
+        const dealerPrevSum = data.dealers
+          .filter(dl => (dl.state || '').toUpperCase() === sUpper && (dl.district || '').toUpperCase() === dUpper)
+          .reduce((sum, dl) => sum + (dl.prev || 0), 0);
+        if (dealerPrevSum > 0) {
+          d.prev = Math.round(dealerPrevSum * 100) / 100;
+        }
+
+        // Derive pendingQty from dealers if pendingQty is 0
+        if (!d.pendingQty || d.pendingQty === 0) {
+          const dealerPendingSum = data.dealers
+            .filter(dl => (dl.state || '').toUpperCase() === sUpper && (dl.district || '').toUpperCase() === dUpper)
+            .reduce((sum, dl) => sum + (dl.pendingQty || 0), 0);
+          if (dealerPendingSum > 0) {
+            d.pendingQty = Math.round(dealerPendingSum * 100) / 100;
+          }
+        }
+      }
+
+      // 3. Derive dailyAvgQty if 0
+      // Use curElapsedDays from meta for same-day-range comparison (matches n8n v29 logic).
+      // DO NOT use pendingQty as a proxy — pending orders ≠ historical dispatch rate.
+      if (!d.dailyAvgQty || d.dailyAvgQty === 0) {
+        const elapsedDays = (data.meta?.curElapsedDays) || 30;
+        if (d.prev > 0) {
+          // prev = same N days of last month → divide by same N days for true daily avg
+          d.dailyAvgQty = Math.round((d.prev / elapsedDays) * 100) / 100;
+        }
+        // NOTE: pendingQty/30 branch intentionally removed — pending balance is NOT
+        // a reliable proxy for historical dispatch rate and produced misleading values
+        // (e.g. 30 MT pending ÷ 30 = 1.0 MT/d avg for districts with zero dispatch).
+      }
+
+      // 4. Set lossFlag and lossDelta/lossDeltaPct for pace display
+      if (d.dailyAvgQty > 0) {
+        const curRate = d.currentDailyRate || 0;
+        const diff = curRate - d.dailyAvgQty;
+        d.lossDelta = Math.round(diff * 100) / 100;
+        d.lossDeltaPct = curRate === 0 ? -100 : Math.round((diff / d.dailyAvgQty) * 1000) / 10;
+        d.lossFlag = diff >= 0 ? 'AHEAD' : 'BEHIND';
+      }
+    });
+  }
 
   // ── Normalize availableMonths and pendingAvailableMonths ──
   if (data.availableMonths && Array.isArray(data.availableMonths)) {
