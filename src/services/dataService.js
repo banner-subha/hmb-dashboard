@@ -28,7 +28,7 @@ function normalizeAndMergeStates(statesList) {
   return Object.values(map);
 }
 
-function normalizeAndMergeDistricts(districtsList) {
+function normalizeAndMergeDistricts(districtsList, curElapsedDays = 30) {
   if (!districtsList || !Array.isArray(districtsList)) return districtsList;
   const map = {};
 
@@ -115,16 +115,17 @@ function normalizeAndMergeDistricts(districtsList) {
       lossDelta = Math.round(diff * 100) / 100;
       lossDeltaPct = Math.round((Math.abs(diff) / d.dailyAvgQty) * 1000) / 10;
       lossFlag = diff >= 0 ? 'AHEAD' : 'BEHIND';
-    } else if (prev > 0 || cur > 0) {
-      const estDailyAvg = Math.round((prev / 30) * 100) / 100;
-      const estCurRate = Math.round((cur / 10) * 100) / 100;
+    } else if (prev > 0) {
+      // Fallback: estimate avg from prev using curElapsedDays (same-day-range, matches n8n v29 logic).
+      // curElapsedDays defaults to 30 for monthly history snapshots.
+      const estDailyAvg = Math.round((prev / curElapsedDays) * 100) / 100;
       if (estDailyAvg > 0) {
-        const diff = estCurRate - estDailyAvg;
+        const curRate = d.currentDailyRate || 0;
+        const diff = curRate - estDailyAvg;
         lossDelta = Math.round(diff * 100) / 100;
         lossDeltaPct = Math.round((Math.abs(diff) / estDailyAvg) * 1000) / 10;
         lossFlag = diff >= 0 ? 'AHEAD' : 'BEHIND';
         if (!d.dailyAvgQty) d.dailyAvgQty = estDailyAvg;
-        if (!d.currentDailyRate) d.currentDailyRate = estCurRate;
       }
     }
 
@@ -157,7 +158,7 @@ function cleanData(data) {
     data.states = normalizeAndMergeStates(data.states).filter(s => isKnown(s.state) && isRealState(s.state));
   }
   if (data.districts) {
-    data.districts = normalizeAndMergeDistricts(data.districts).filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
+    data.districts = normalizeAndMergeDistricts(data.districts, data.meta?.curElapsedDays || 30).filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
   }
   if (data.dealers) {
     data.dealers = data.dealers.filter(dl => isKnown(dl.state) && isRealState(dl.state) && isKnown(dl.district) && isKnown(dl.client));
