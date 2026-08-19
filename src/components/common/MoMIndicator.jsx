@@ -23,7 +23,7 @@ export default function MoMIndicator({ cur, prev, pct, className = '' }) {
   return (
     <span 
       style={{ color }} 
-      className={`font-bold whitespace-nowrap ${className}`}
+      className={`font-black tracking-wide whitespace-nowrap ${className}`}
     >
       {display}
     </span>

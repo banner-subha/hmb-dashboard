@@ -77,13 +77,13 @@ export default function KPICard({ label, value, subtitle, momDisplay, momColor, 
         {renderFormattedValue()}
       </div>
 
-      <div className="text-xs text-text-secondary mt-1 flex items-center gap-2 truncate">
+      <div className="text-xs sm:text-[13px] text-text-secondary mt-1 flex items-center gap-2 truncate">
         {momDisplay && (
-          <span style={{ color: displayColor }} className="font-bold whitespace-nowrap">
+          <span style={{ color: displayColor }} className="text-sm sm:text-[13.5px] font-black tracking-wide whitespace-nowrap">
             {momDisplay}
           </span>
         )}
-        <span className="truncate text-text-muted">{subtitle}</span>
+        <span className="truncate font-semibold text-text-muted/90">{subtitle}</span>
       </div>
     </div>
   );

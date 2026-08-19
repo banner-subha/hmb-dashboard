@@ -16,7 +16,13 @@ export default class ErrorBoundary extends Component {
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    const isModuleError = this.state.error?.message?.includes('Failed to fetch dynamically imported module') ||
+                          this.state.error?.name === 'ChunkLoadError';
+    if (isModuleError) {
+      window.location.reload();
+    } else {
+      this.setState({ hasError: false, error: null });
+    }
   };
 
   handleRelogin = () => {

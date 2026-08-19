@@ -7,6 +7,7 @@ import { getNormalizedDistrictSet, matchesAssignedDistrict } from '../utils/dist
 import { syncClientUsers } from '../data/clientRegistry';
 
 const DataContext = createContext(null);
+const RawDataContext = createContext(null);
 const DataStateContext = createContext(null);
 const FilterContext = createContext(null);
 
@@ -361,8 +362,6 @@ function processData(rawData, filters, user) {
       : [])
       .filter(item => {
         if (!item.product) return false;
-        if (item.trend && item.trend !== 'DECLINING') return false;
-        if (typeof item.mom_pct === 'number' && item.mom_pct >= 0) return false;
         return true;
       })
       .map(item => {
@@ -421,6 +420,39 @@ function processData(rawData, filters, user) {
               primary_driver,
               impact_mt: Math.round(drop),
               pct_of_total_decline: pctOfTotalDecline,
+              recommended_action
+            });
+          }
+        } else {
+          const exists = validatedProductInsights.some(item => item.product?.toUpperCase() === p.product?.toUpperCase());
+          if (!exists) {
+            const gain = Math.max(0, (p.cur || 0) - (p.prev || 0));
+            const trend = p.mom > 0 ? 'GROWING' : 'STABLE';
+
+            let primary_driver = `We gained ${Math.round(gain)} MT of ${p.product} volume this period (a ${Math.abs(p.mom)}% MoM ${p.mom > 0 ? 'growth' : 'movement'}), driven by strong regional demand.`;
+            if (p.pendingQty > 0) {
+              primary_driver += ` ${p.pendingQty} MT of orders remain in the pipeline awaiting dispatch.`;
+            }
+
+            let recommended_action = '';
+            if (p.pendingQty > 0) {
+              recommended_action = `Area Sales Manager to coordinate with the Dispatch Team to fulfill the ${p.pendingQty} MT pending backlog for ${p.product} and ensure timely delivery to sustain momentum.`;
+            } else {
+              recommended_action = `Area Sales Manager to maintain supply allocation discipline for ${p.product} and monitor key accounts to sustain the positive trajectory.`;
+            }
+
+            validatedProductInsights.push({
+              product: p.product,
+              label: p.label || p.product,
+              cur_mt: p.cur,
+              prev_mt: p.prev,
+              mom_pct: p.mom,
+              share_pct: p.share,
+              pending_qty: p.pendingQty,
+              trend,
+              primary_driver,
+              impact_mt: Math.round(gain),
+              pct_of_total_decline: 0,
               recommended_action
             });
           }
@@ -591,9 +623,14 @@ export function DataProvider({ children }) {
     }
   }, [user, filterOptions.states, filters.selectedState]);
 
+  const rawValue = useMemo(
+    () => ({ rawData, loading, error, refresh }),
+    [rawData, loading, error, refresh]
+  );
+
   const dataStateValue = useMemo(
-    () => ({ rawData, data: filteredData, overallData, loading, error, filterOptions, refresh }),
-    [rawData, filteredData, overallData, loading, error, filterOptions, refresh]
+    () => ({ data: filteredData, overallData, filterOptions }),
+    [filteredData, overallData, filterOptions]
   );
 
   const filterValue = useMemo(
@@ -607,18 +644,28 @@ export function DataProvider({ children }) {
   );
 
   return (
-    <DataStateContext.Provider value={dataStateValue}>
-      <FilterContext.Provider value={filterValue}>
-        <DataContext.Provider value={value}>{children}</DataContext.Provider>
-      </FilterContext.Provider>
-    </DataStateContext.Provider>
+    <RawDataContext.Provider value={rawValue}>
+      <DataStateContext.Provider value={dataStateValue}>
+        <FilterContext.Provider value={filterValue}>
+          <DataContext.Provider value={value}>{children}</DataContext.Provider>
+        </FilterContext.Provider>
+      </DataStateContext.Provider>
+    </RawDataContext.Provider>
   );
 }
 
 export const useDataState = () => {
   const ctx = useContext(DataStateContext);
   if (!ctx) {
-    return { rawData: null, data: null, overallData: null, loading: true, error: null, filterOptions: { states: [], districts: [], products: [], severities: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] }, refresh: () => {} };
+    return { data: null, overallData: null, filterOptions: { states: [], districts: [], products: [], severities: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] } };
+  }
+  return ctx;
+};
+
+export const useRawData = () => {
+  const ctx = useContext(RawDataContext);
+  if (!ctx) {
+    return { rawData: null, loading: true, error: null, refresh: () => {} };
   }
   return ctx;
 };

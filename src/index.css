@@ -121,33 +121,35 @@
   --color-border: #D3D9E0;
   --color-border-accent: #B8CCE0;
 
-  /* Text — navy-toned for contrast on light */
-  --color-text-primary: #0B2240;
-  --color-text-secondary: rgba(11, 34, 64, 0.75);
-  --color-text-muted: rgba(11, 34, 64, 0.55);
-  --color-text-dim: #9AA5B1;
+  /* Text — navy & dark slate for high contrast legibility on light cards */
+  --color-text-primary: #0A192F;
+  --color-text-secondary: #1E293B;
+  --color-text-muted: #334155;
+  --color-text-dim: #475569;
 
-  /* Accents — blue */
-  --color-accent-blue: #4E9BE0;
-  --color-accent-blue-strong: #1D6FB8;
-  --color-accent-blue-soft: #E6F1FB;
-  --color-accent-cyan: #2E9E88;
+  /* Accents — rich, high-contrast darker royal blue for sharp readability in light mode */
+  --color-accent-blue: #1D4ED8;
+  --color-accent-blue-strong: #1E40AF;
+  --color-accent-blue-soft: #EBF3FC;
+  --color-accent-sky: #0369A1;
+  --color-accent-sky-strong: #075985;
+  --color-accent-cyan: #0E7490;
 
   /* Sidebar / header strip — stays navy in light mode */
   --color-sidebar-bg: #0B2240;
   --color-sidebar-text: #FFFFFF;
   --color-sidebar-text-muted: #FFFFFF;
-  --color-sidebar-active-bg: rgba(78, 155, 224, 0.22);
-  --color-sidebar-active-icon: #4E9BE0;
+  --color-sidebar-active-bg: rgba(29, 78, 216, 0.22);
+  --color-sidebar-active-icon: #3B82F6;
 
   /* Gradients — light equivalents (dark --gradient-* untouched) */
   --gradient-page: linear-gradient(175deg, #EEF1F4 0%, #F2F4F7 50%, #EEF1F4 100%);
   --gradient-card: linear-gradient(145deg, #FFFFFF 0%, #FBFCFD 100%);
   --gradient-card-hover: linear-gradient(145deg, #F7F9FB 0%, #FFFFFF 100%);
   --gradient-header: linear-gradient(135deg, #0B2240 0%, #0E2A4D 100%);
-  --gradient-accent: linear-gradient(135deg, #4E9BE0 0%, #1D6FB8 100%);
-  --gradient-accent-soft: linear-gradient(135deg, rgba(78, 155, 224, 0.14) 0%, rgba(78, 155, 224, 0.05) 100%);
-  --gradient-glow: radial-gradient(circle at 50% 0%, rgba(78, 155, 224, 0.08), transparent 60%);
+  --gradient-accent: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  --gradient-accent-soft: linear-gradient(135deg, rgba(29, 78, 216, 0.14) 0%, rgba(29, 78, 216, 0.05) 100%);
+  --gradient-glow: radial-gradient(circle at 50% 0%, rgba(29, 78, 216, 0.08), transparent 60%);
   --gradient-sidebar: linear-gradient(180deg, #0B2240 0%, #0E2A4D 100%);
 
   /* Severity badge surfaces — pale tinted bg + dark-toned text on white cards.
@@ -186,6 +188,54 @@
 
 
 /* Light-mode component tweaks — scoped so dark rules are never edited. */
+
+/* Executive Segmented Control / Toggle Pill Styling */
+.toggle-pill-active {
+  background: var(--gradient-accent) !important;
+  color: #FFFFFF !important;
+  border-color: transparent !important;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.35) !important;
+}
+.toggle-pill-inactive {
+  background: transparent !important;
+  color: var(--color-text-muted) !important;
+  border-color: transparent !important;
+}
+.toggle-pill-inactive:hover {
+  color: var(--color-text-primary) !important;
+  background: rgba(11, 34, 64, 0.06) !important;
+}
+[data-theme="dark"] .toggle-pill-inactive:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Refined Filter Dropdowns for Light Theme */
+[data-theme="light"] select, 
+[data-theme="light"] .filter-select {
+  background-color: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  color: #0A192F !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 3px rgba(11, 34, 64, 0.06) !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%231D6FB8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") !important;
+}
+
+[data-theme="light"] select:hover,
+[data-theme="light"] .filter-select:hover {
+  border-color: #4E9BE0 !important;
+  box-shadow: 0 2px 6px rgba(78, 155, 224, 0.15) !important;
+}
+
+[data-theme="light"] select:focus,
+[data-theme="light"] .filter-select:focus {
+  border-color: #1D6FB8 !important;
+  box-shadow: 0 0 0 3px rgba(29, 111, 184, 0.18) !important;
+}
+
+[data-theme="light"] .metric-toggle-container {
+  background: #E4E8ED !important;
+  border-color: #CBD5E1 !important;
+}
 
 /* Sidebar links read as pure white text on the navy strip in both themes */
 [data-theme="light"] .sidebar-link {
@@ -232,32 +282,71 @@
   border-color: var(--color-severity-none-border) !important;
 }
 
-/* The CSS-class badges (.badge-*) in light — same pale-bg/dark-text treatment */
-[data-theme="light"] .badge-critical,
-[data-theme="light"] .badge-immediate {
-  background: linear-gradient(135deg, #FCEBEB, #FCEBEB);
-  border-color: rgba(121, 31, 31, 0.25);
-  color: #791F1F;
+/* Universal High-Contrast Theme Badges & Pills */
+.badge-theme-blue {
+  background-color: rgba(59, 130, 246, 0.14);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.35);
 }
-[data-theme="light"] .badge-high {
-  background: linear-gradient(135deg, #FDEEE0, #FDEEE0);
-  border-color: rgba(154, 74, 12, 0.25);
-  color: #9A4A0C;
+[data-theme="light"] .badge-theme-blue {
+  background-color: #EBF3FC !important;
+  color: #1D4ED8 !important;
+  border-color: #BFDBFE !important;
 }
-[data-theme="light"] .badge-medium {
-  background: linear-gradient(135deg, #E6F1FB, #E6F1FB);
-  border-color: rgba(12, 68, 124, 0.25);
-  color: #0C447C;
+
+.badge-theme-green {
+  background-color: rgba(34, 197, 94, 0.14);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.35);
 }
-[data-theme="light"] .badge-low {
-  background: linear-gradient(135deg, #F1F2F4, #F1F2F4);
-  border-color: rgba(91, 100, 114, 0.25);
-  color: #5B6472;
+[data-theme="light"] .badge-theme-green {
+  background-color: #EDFDF2 !important;
+  color: #15803D !important;
+  border-color: #BBF7D0 !important;
 }
-[data-theme="light"] .badge-none {
-  background: linear-gradient(135deg, #E8F5E9, #E8F5E9);
-  border-color: rgba(37, 96, 41, 0.25);
-  color: #256029;
+
+.badge-theme-red {
+  background-color: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+[data-theme="light"] .badge-theme-red {
+  background-color: #FEF2F2 !important;
+  color: #B91C1C !important;
+  border-color: #FECACA !important;
+}
+
+.badge-theme-amber {
+  background-color: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+[data-theme="light"] .badge-theme-amber {
+  background-color: #FFFBEB !important;
+  color: #B45309 !important;
+  border-color: #FDE68A !important;
+}
+
+.badge-theme-purple {
+  background-color: rgba(168, 85, 247, 0.14);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+[data-theme="light"] .badge-theme-purple {
+  background-color: #FAF5FF !important;
+  color: #7E22CE !important;
+  border-color: #E9D5FF !important;
+}
+
+.badge-theme-cyan {
+  background-color: rgba(6, 182, 212, 0.14);
+  color: #06b6d4;
+  border: 1px solid rgba(6, 182, 212, 0.35);
+}
+[data-theme="light"] .badge-theme-cyan {
+  background-color: #ECFEFF !important;
+  color: #0E7490 !important;
+  border-color: #A5F3FC !important;
 }
 
 /* Geo map — light surfaces + light landmass. .panel dark rule untouched.
@@ -277,6 +366,67 @@
 }
 [data-theme="light"] .glass-card {
   box-shadow: 0 2px 12px rgba(11, 34, 64, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Action navigation pills (e.g., View District Breakdown, View All Dealers) */
+.btn-action-pill {
+  color: var(--color-accent-blue);
+  background-color: rgba(59, 130, 246, 0.10);
+  border: 1px solid rgba(59, 130, 246, 0.30);
+}
+.btn-action-pill:hover {
+  background-color: rgba(59, 130, 246, 0.20);
+}
+
+[data-theme="light"] .btn-action-pill {
+  color: #1D4ED8 !important;
+  background-color: #EBF3FC !important;
+  border-color: #BFDBFE !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .btn-action-pill:hover {
+  color: #1E40AF !important;
+  background-color: #DBEAFE !important;
+  border-color: #93C5FD !important;
+}
+
+/* Dedicated Pill-Shaped Action Button (View AI Insights, Lead Times, View All Actions, Dealer Intelligence) */
+.btn-pill-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.18s ease-in-out;
+  background-color: rgba(59, 130, 246, 0.14);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.btn-pill-action:hover {
+  background-color: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.55);
+  color: #93c5fd;
+  transform: translateY(-0.5px);
+}
+
+[data-theme="light"] .btn-pill-action {
+  background-color: #EBF3FC !important;
+  color: #1D4ED8 !important;
+  border-color: #BFDBFE !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .btn-pill-action:hover {
+  background-color: #DBEAFE !important;
+  color: #1E40AF !important;
+  border-color: #93C5FD !important;
 }
 
 /* ── Light overrides for shared component classes (dark rules untouched,
@@ -436,38 +586,46 @@ path.map-path,
   }
 
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold tracking-wide;
   }
 
   .badge-critical {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold text-severity-critical;
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.10));
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-critical tracking-wide;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(239, 68, 68, 0.06));
     border: 1px solid rgba(239, 68, 68, 0.35);
   }
   .badge-immediate {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold text-severity-critical;
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.20), rgba(239, 68, 68, 0.12));
-    border: 1px solid rgba(239, 68, 68, 0.55);
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-critical tracking-wide;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.08));
+    border: 1px solid rgba(239, 68, 68, 0.45);
   }
   .badge-high {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold text-severity-high;
-    background: linear-gradient(135deg, rgba(249, 115, 22, 0.18), rgba(249, 115, 22, 0.10));
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-high tracking-wide;
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.16), rgba(249, 115, 22, 0.08));
     border: 1px solid rgba(249, 115, 22, 0.35);
   }
   .badge-medium {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold text-severity-medium;
-    background: linear-gradient(135deg, rgba(234, 179, 8, 0.18), rgba(234, 179, 8, 0.10));
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-medium tracking-wide;
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.16), rgba(234, 179, 8, 0.08));
     border: 1px solid rgba(234, 179, 8, 0.35);
   }
   .badge-low {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold text-severity-low;
-    background: linear-gradient(135deg, rgba(107, 114, 128, 0.18), rgba(107, 114, 128, 0.10));
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-low tracking-wide;
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.16), rgba(107, 114, 128, 0.08));
     border: 1px solid rgba(107, 114, 128, 0.35);
   }
   .badge-none {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold text-severity-none;
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(34, 197, 94, 0.10));
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-none tracking-wide;
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.16), rgba(34, 197, 94, 0.08));
     border: 1px solid rgba(34, 197, 94, 0.35);
+  }
+
+  /* Dark theme: critical red font + badge surface tokens. */
+  [data-theme="dark"] {
+    --color-severity-critical: #ef4444;
+    --color-severity-critical-text: #ef4444;
+    --color-severity-critical-bg: rgba(239, 68, 68, 0.12);
+    --color-severity-critical-border: rgba(239, 68, 68, 0.45);
   }
 
   .sidebar-link {

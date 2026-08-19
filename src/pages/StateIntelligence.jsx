@@ -15,6 +15,7 @@ import { getPendingForPeriod, getTotalPendingForPeriod, getSharePctForPeriod, ge
 import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalStates } from '../utils/despatch';
 import { isRealState } from '../utils/constants';
 import { Map } from 'lucide-react';
+import MoMAreaTrendChart from '../components/charts/MoMAreaTrendChart';
 
 export default function StateIntelligence({ pendingAvailableMonths = [] }) {
   const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
@@ -52,12 +53,22 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
   // Sync URL params → Context: runs only when the URL itself changes.
   useEffect(() => {
+    const trend = searchParams.get('trend');
     const state = searchParams.get('state') || null;
     const district = searchParams.get('district') || null;
     const product = searchParams.get('product') || null;
     const search = searchParams.get('search') || '';
 
     const currentUrlParamString = searchParams.toString();
+
+    if (trend === 'GROWING') {
+      if (!state && filters.selectedState) {
+        dispatch({ type: 'SET_STATE', payload: null });
+      }
+      if (!district && filters.selectedDistrict) {
+        dispatch({ type: 'SET_DISTRICT', payload: null });
+      }
+    }
 
     if (state || district || product || search) {
       if (lastSyncedParamsRef.current !== currentUrlParamString) {
@@ -76,13 +87,14 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
     const currentDistrict = searchParams.get('district') || null;
     const currentProduct = searchParams.get('product') || null;
     const currentSearch = searchParams.get('search') || '';
+    const currentTrend = searchParams.get('trend') || null;
 
     const nextState = filters.selectedState || null;
     const nextDistrict = filters.selectedDistrict || null;
     const nextProduct = filters.selectedProduct || null;
     const nextSearch = filters.searchQuery || '';
 
-    const urlHasParams = !!(currentState || currentDistrict || currentProduct || currentSearch);
+    const urlHasParams = !!(currentState || currentDistrict || currentProduct || currentSearch || currentTrend);
     const isContextPendingHydration = urlHasParams && (
       (currentState && nextState !== currentState) ||
       (currentDistrict && nextDistrict !== currentDistrict) ||
@@ -101,6 +113,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       currentSearch !== nextSearch
     ) {
       const params = {};
+      if (currentTrend) params.trend = currentTrend;
       if (nextState) params.state = nextState;
       if (nextDistrict) params.district = nextDistrict;
       if (nextProduct) params.product = nextProduct;
@@ -126,7 +139,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         .sort((a, b) => b.activePendingVal - a.activePendingVal);
     }
     
-    // DESPATCH MODE: Sort by % share of state volume descending
+    // DESPATCH MODE: Sort by % share of state volume descending, or filter by positive growth
     let list = [];
     const curMonthKey = getCurMonthKey(rawData);
     if (!selectedPendingMonth || selectedPendingMonth === curMonthKey) {
@@ -135,13 +148,27 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       list = getHistoricalStates(rawData, filters, selectedPendingMonth).filter(s => s && isRealState(s.state));
     }
 
+    const trendParam = searchParams.get('trend');
+    if (trendParam === 'GROWING') {
+      const sourceStates = (rawData?.states || data?.states || []).filter(s => s && isRealState(s.state));
+      list = sourceStates.filter(s => {
+        const mom = calculateMoM(s.cur, s.prev);
+        return mom > 0 && s.cur > 0;
+      });
+      return list.sort((a, b) => {
+        const gainA = (a.cur || 0) - (a.prev || 0);
+        const gainB = (b.cur || 0) - (b.prev || 0);
+        return gainB - gainA;
+      });
+    }
+
     return list.sort((a, b) => {
       const shareA = a.share !== undefined ? a.share : (a.cur || 0);
       const shareB = b.share !== undefined ? b.share : (b.cur || 0);
       if (shareB !== shareA) return shareB - shareA;
       return (b.cur || 0) - (a.cur || 0);
     });
-  }, [data, rawData, metricMode, selectedPendingMonth, filters]);
+  }, [data, rawData, metricMode, selectedPendingMonth, filters, searchParams]);
 
   const columns = useMemo(() => {
     if (metricMode === 'PENDING') {
@@ -150,7 +177,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         {
           id: 'severity',
           header: 'Severity',
-          meta: { width: '120px', minWidth: '110px' },
+          meta: { width: '140px', minWidth: '135px' },
           cell: info => {
             const row = info.row.original;
             const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
@@ -196,7 +223,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
           cell: info => {
             const row = info.row.original;
             const sharePct = getSharePctForPeriod(row, selectedPendingMonth, totalPending);
-            return <span className="text-text-muted">{sharePct}%</span>;
+            return <span className="font-bold text-text-primary">{sharePct}%</span>;
           },
         },
         {
@@ -238,7 +265,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       {
         id: 'severity',
         header: 'Status',
-        meta: { width: '105px', minWidth: '100px' },
+        meta: { width: '140px', minWidth: '135px' },
         cell: info => {
           const row = info.row.original;
           const sharePct = totalCur > 0 ? ((row.cur || 0) / totalCur) * 100 : (row.share || 0);
@@ -265,13 +292,13 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         accessorKey: 'cur',
         header: 'Cur. Vol (MT)',
         meta: { width: '12%', minWidth: '95px' },
-        cell: info => <span className="font-medium">{formatMT(info.getValue())}</span>,
+        cell: info => <span className="font-bold text-text-primary">{formatMT(info.getValue())}</span>,
       },
       {
         accessorKey: 'prev',
         header: 'Prev. Vol (MT)',
         meta: { width: '12%', minWidth: '95px' },
-        cell: info => <span className="text-text-muted">{formatMT(info.getValue())}</span>,
+        cell: info => <span className="font-medium text-text-muted">{formatMT(info.getValue())}</span>,
       },
       {
         header: 'MoM',
@@ -286,7 +313,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         accessorKey: 'share',
         header: '% Share',
         meta: { width: '8%', minWidth: '65px' },
-        cell: info => <span className="text-text-muted">{info.getValue()}%</span>,
+        cell: info => <span className="font-bold text-text-primary">{info.getValue()}%</span>,
       },
       {
         accessorKey: 'avgPeriod',
@@ -327,7 +354,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                 <span className={`text-sm font-bold ${colorClass}`}>
                   {showPct}
                 </span>
-                <span className="text-[10px] text-text-muted mt-0.5 truncate block">
+                <span className="text-[11px] font-semibold text-text-primary mt-0.5 truncate block">
                   {shortRateText}
                 </span>
               </div>
@@ -374,6 +401,71 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       .sort((a, b) => b.pendingQty - a.pendingQty);
   }, [selectedStateData, data?.dealers, selectedPendingMonth]);
 
+  // Compute multi-month historical dispatch trend for selected state
+  const stateMonthlyTrend = useMemo(() => {
+    if (!selectedStateData || !rawData) return [];
+    const stateNorm = selectedStateData.state?.replace(/\s+/g, '').toUpperCase();
+    const months = rawData.pendingAvailableMonths || rawData.availableMonths || [];
+
+    const sortedPastMonths = [...months]
+      .filter(m => (m.key || m.periodKey) !== '2026-08')
+      .sort((a, b) => {
+        const yearDiff = (a.year || 0) - (b.year || 0);
+        if (yearDiff !== 0) return yearDiff;
+        return (a.month || 0) - (b.month || 0);
+      });
+    
+    let prevVol = 0;
+    const trend = [];
+
+    sortedPastMonths.forEach(m => {
+      const hist = rawData.monthlyHistory?.[m.key || m.periodKey];
+      if (!hist) return;
+      const st = (hist.states || []).find(s => s.state && s.state.replace(/\s+/g, '').toUpperCase() === stateNorm);
+      const vol = st ? (st.cur ?? st.qty ?? 0) : 0;
+      const mom = prevVol > 0 ? ((vol - prevVol) / prevVol) * 100 : 0;
+      if (vol > 0 || prevVol > 0) {
+        trend.push({
+          monthKey: m.key || m.periodKey,
+          monthLabel: m.label || `${m.year}-${m.month}`,
+          volume: Math.round(vol * 100) / 100,
+          mom: Math.round(mom * 10) / 10
+        });
+        prevVol = vol;
+      }
+    });
+
+    const curVol = selectedStateData.cur || 0;
+    const curMom = prevVol > 0 ? ((curVol - prevVol) / prevVol) * 100 : 0;
+    trend.push({
+      monthKey: '2026-08',
+      monthLabel: 'Aug MTD',
+      volume: Math.round(curVol * 100) / 100,
+      mom: Math.round(curMom * 10) / 10
+    });
+
+    return trend;
+  }, [selectedStateData, rawData]);
+
+  // Compute state-specific inactive dealers dynamically from all dealers
+  const stateInactiveDealers = useMemo(() => {
+    if (!selectedStateData || !data?.dealers) return [];
+    const stateNorm = selectedStateData.state?.replace(/\s+/g, '').toUpperCase();
+    return (data.dealers || [])
+      .filter(dl => 
+        dl.state?.replace(/\s+/g, '').toUpperCase() === stateNorm && 
+        ((dl.cur === 0 && (dl.prev > 0 || (dl.inactivityDays || 0) > 0)) || dl.isInactive)
+      )
+      .map(dl => ({
+        client: dl.client,
+        state: dl.state,
+        district: dl.district,
+        prevVolume: dl.prev || 0,
+        products: (dl.products || []).map(p => p.product).join(', ')
+      }))
+      .sort((a, b) => (b.prevVolume || 0) - (a.prevVolume || 0));
+  }, [selectedStateData, data?.dealers]);
+
   if (loading) return (
     <div className="space-y-6">
       <div className="glass-card shadow-lg">
@@ -403,7 +495,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         <div className="flex items-center gap-3">
           <Map className="w-7 h-7 text-accent-blue" />
           <h2 className="text-3xl font-extrabold text-text-primary">
-            {metricMode === 'PENDING' ? 'State Pending Order Rankings' : 'State Performance Rankings'}
+            {metricMode === 'PENDING' ? 'State Backlog Rankings' : 'State Dispatch Rankings'}
           </h2>
         </div>
         {filters.selectedState && (
@@ -471,9 +563,9 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
               <div className="hidden sm:block w-px h-5 bg-border/40 mx-1 flex-shrink-0" />
 
-              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-card/40 border border-border/10 flex-shrink-0">
+              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-secondary border border-border/40 shrink-0 metric-toggle-container shadow-inner">
                 {[
-                  { value: "DESPATCH", label: "Despatch" },
+                  { value: "DESPATCH", label: "Dispatch" },
                   { value: "PENDING", label: "Pending" }
                 ].map(opt => {
                   const active = metricMode === opt.value;
@@ -481,10 +573,10 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                     <button
                       key={opt.value}
                       onClick={() => setMetricMode(opt.value)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
+                      className={`px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
                         active 
-                          ? 'bg-accent-sky/20 text-accent-sky border-accent-sky/35' 
-                          : 'bg-transparent text-text-muted/60 border-transparent hover:text-text-primary'
+                          ? 'toggle-pill-active' 
+                          : 'toggle-pill-inactive'
                       }`}
                     >
                       {opt.label}
@@ -547,7 +639,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
               </div>
             ) : (
               <div className="space-y-2">
-                {topPendingDealers.slice(0, 5).map((d, i) => (
+                {topPendingDealers.slice(0, 10).map((d, i) => (
                   <div 
                     key={i} 
                     onClick={() => navigate(`/dealers?state=${d.state}&district=${d.district}&search=${d.client}`)}
@@ -578,11 +670,17 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                     </div>
                   </div>
                 ))}
-                {topPendingDealers.length > 5 && (
+                {topPendingDealers.length > 10 && (
                   <div className="text-center text-xs text-text-muted pt-1 pb-0.5">
-                    + {topPendingDealers.length - 5} more dealers with pending
+                    + {topPendingDealers.length - 10} more dealers with pending
                   </div>
                 )}
+                <button
+                  onClick={() => navigate(`/districts?state=${selectedStateData.state}`)}
+                  className="btn-action-pill w-fit mx-auto mt-2.5 py-1 px-3.5 text-[11px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  View District Breakdown →
+                </button>
               </div>
             )}
           </CollapsibleCard>
@@ -591,15 +689,15 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
           {selectedStateData && metricMode === 'DESPATCH' && (
             <CollapsibleCard 
               title={`Inactive Dealers in ${selectedStateData.state}`} 
-              badge={<span className="badge bg-severity-critical/20 text-severity-critical">{data.intel?.inactiveDealers?.length || 0}</span>}
+              badge={<span className="badge bg-severity-critical/20 text-severity-critical">{stateInactiveDealers.length}</span>}
             >
-              {(!data.intel?.inactiveDealers || data.intel.inactiveDealers.length === 0) ? (
+              {stateInactiveDealers.length === 0 ? (
                 <div className="text-center text-text-muted py-6 text-sm">
                   No inactive dealers in this state.
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {data.intel.inactiveDealers.slice(0, 5).map((d, i) => (
+                  {stateInactiveDealers.slice(0, 10).map((d, i) => (
                     <div 
                       key={i} 
                       onClick={() => navigate(`/dealers?state=${d.state}&district=${d.district}&search=${d.client}`)}
@@ -626,11 +724,17 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                       </div>
                     </div>
                   ))}
-                  {data.intel.inactiveDealers.length > 5 && (
+                  {stateInactiveDealers.length > 10 && (
                     <div className="text-center text-xs text-text-muted pt-1 pb-0.5">
-                      + {data.intel.inactiveDealers.length - 5} more inactive dealers
+                      + {stateInactiveDealers.length - 10} more inactive dealers
                     </div>
                   )}
+                  <button
+                    onClick={() => navigate(`/districts?state=${selectedStateData.state}`)}
+                    className="btn-action-pill w-fit mx-auto mt-2.5 py-1 px-3.5 text-[11px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    View District Breakdown →
+                  </button>
                 </div>
               )}
             </CollapsibleCard>
@@ -642,7 +746,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         {selectedStateData && (
           <div className="lg:col-span-3 space-y-6">
             <CollapsibleCard 
-              title={`${selectedStateData.state} ${metricMode === 'PENDING' ? 'Pending' : 'Despatch'}`} 
+              title={`${selectedStateData.state} ${metricMode === 'PENDING' ? 'Backlog' : 'Dispatch'}`} 
               accentColor={selectedAccentColor}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SET_STATE', payload: null }); }}
@@ -652,7 +756,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-center">
                   <div className="text-xs text-text-muted">
-                    {metricMode === 'PENDING' ? 'Pending Orders' : 'MoM Trend'}
+                    {metricMode === 'PENDING' ? 'Backlog (MT)' : 'vs Last Month'}
                   </div>
                   <div className="flex items-center justify-between mt-1">
                     {metricMode === 'PENDING' ? (
@@ -671,7 +775,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
                 <div className="p-3 bg-bg-secondary rounded-lg">
                   <div className="text-xs text-text-muted mb-2">
-                    {metricMode === 'PENDING' ? 'Aging Risk' : 'Business Impact'}
+                    {metricMode === 'PENDING' ? 'Backlog Risk' : 'Impact Level'}
                   </div>
                   <div className="mt-1">
                     {metricMode === 'PENDING' ? (
@@ -693,48 +797,70 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
               </div>
 
               {/* Daily Pace Benchmark vs Current Daily Rate */}
-              {selectedStateData.dailyAvgQty !== undefined && (
-                <div className="mb-6 p-4 bg-bg-secondary/60 border border-border/40 rounded-xl space-y-4 shadow-sm">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">Daily Pace Benchmark</h4>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${selectedStateData.lossFlag === 'BEHIND' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
-                      <span className={`w-2 h-2 rounded-full ${selectedStateData.lossFlag === 'BEHIND' ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
-                      {selectedStateData.lossFlag === 'BEHIND' ? 'BEHIND BENCHMARK' : 'ON TRACK'}
-                    </span>
+              {(selectedStateData.dailyAvgQty !== undefined || selectedStateData.currentDailyRate !== undefined) && (() => {
+                const dailyAvg = Number(selectedStateData.dailyAvgQty || 0);
+                const curRate = Number(selectedStateData.currentDailyRate || 0);
+                const actualMtd = selectedStateData.actualMtd ?? selectedStateData.cur ?? 0;
+                const expectedMtd = selectedStateData.expectedMtd || (dailyAvg > 0 ? dailyAvg * 10 : 0);
+                const delta = (selectedStateData.lossDelta !== undefined && selectedStateData.lossDelta !== 0)
+                  ? Number(selectedStateData.lossDelta)
+                  : (curRate - dailyAvg);
+                const isBehind = selectedStateData.lossFlag === 'BEHIND' || (curRate < dailyAvg);
+
+                return (
+                  <div className="mb-6 p-4 bg-bg-secondary/60 border border-border/40 rounded-xl space-y-4 shadow-sm">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">Daily Dispatch Target</h4>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${isBehind ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
+                        <span className={`w-2 h-2 rounded-full ${isBehind ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+                        {isBehind ? 'BEHIND TARGET' : 'ON TRACK'}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-text-muted uppercase block">Target Daily Rate</span>
+                        <div className="text-base font-extrabold text-text-primary">{formatMT(dailyAvg)}/day</div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-text-muted uppercase block">Current Daily Rate</span>
+                        <div className="text-base font-extrabold text-text-primary">{formatMT(curRate)}/day</div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-text-muted uppercase block">Expected This Month</span>
+                        <div className="text-sm font-semibold text-text-primary">{formatMT(expectedMtd)}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-text-muted uppercase block">Actual Dispatched</span>
+                        <div className="text-sm font-semibold text-text-primary">{formatMT(actualMtd)}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-2 border-t border-border/40 flex justify-between items-center text-xs">
+                      <span className="text-text-muted">Daily Gap</span>
+                      <span className={`font-bold ${delta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {delta >= 0 ? '+' : ''}{formatMT(delta)}/day
+                      </span>
+                    </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-text-muted uppercase block">Daily Avg Benchmark</span>
-                      <div className="text-base font-extrabold text-text-primary">{formatMT(selectedStateData.dailyAvgQty)}/day</div>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-text-muted uppercase block">Current Daily Rate</span>
-                      <div className="text-base font-extrabold text-text-primary">{formatMT(selectedStateData.currentDailyRate)}/day</div>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-text-muted uppercase block">Expected MTD Pace</span>
-                      <div className="text-sm font-semibold text-text-primary">{formatMT(selectedStateData.expectedMtd)}</div>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-text-muted uppercase block">Actual MTD Dispatch</span>
-                      <div className="text-sm font-semibold text-text-primary">{formatMT(selectedStateData.actualMtd)}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-2 border-t border-border/40 flex justify-between items-center text-xs">
-                    <span className="text-text-muted">Pace Variance (Delta)</span>
-                    <span className={`font-bold ${selectedStateData.lossDelta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {selectedStateData.lossDelta >= 0 ? '+' : ''}{formatMT(selectedStateData.lossDelta)}/day
-                    </span>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div className="space-y-6">
+                {metricMode === 'DESPATCH' && stateMonthlyTrend.length > 1 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-text-muted uppercase mb-3">
+                      Monthly Volume Trend
+                    </h4>
+                    <div className="p-3 bg-bg-secondary/40 border border-border/30 rounded-xl shadow-sm">
+                      <MoMAreaTrendChart data={stateMonthlyTrend} accentColor={selectedAccentColor} height={180} />
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <h4 className="text-xs font-bold text-text-muted uppercase mb-3">
-                    {metricMode === 'PENDING' ? 'Pending Product Mix' : 'Product Mix'}
+                    {metricMode === 'PENDING' ? 'Pending by Product' : 'Product Mix'}
                   </h4>
                   <ShareDonutChart 
                     data={metricMode === 'PENDING' ? stateProductsWithPending : selectedStateData.products} 
@@ -745,7 +871,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                 
                 <div>
                   <h4 className="text-xs font-bold text-text-muted uppercase mb-3">
-                    {metricMode === 'PENDING' ? 'Product Pending Breakdown' : 'Product MoM Breakdown'}
+                    {metricMode === 'PENDING' ? 'Product Backlog Breakdown' : 'Product vs Last Month'}
                   </h4>
                   <div className="space-y-2">
                     {(metricMode === 'PENDING'
@@ -778,13 +904,6 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                     ))}
                   </div>
                 </div>
-
-                <button 
-                  onClick={() => navigate(`/districts?state=${selectedStateData.state}`)}
-                  className="w-full py-2 bg-bg-secondary hover:bg-border border border-border rounded-lg text-sm transition-colors text-center cursor-pointer"
-                >
-                  View District Breakdown →
-                </button>
               </div>
             </CollapsibleCard>
           </div>

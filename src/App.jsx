@@ -1,8 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { DataProvider } from './context/DataContext';
+import { DataProvider, useRawData } from './context/DataContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { useData } from './context/DataContext';
 import React, { useMemo, lazy } from 'react';
 import { calculateMoM, getBusinessImpact } from './utils/trendEngine';
 import { getPendingAvailableMonths } from './utils/pending';
@@ -21,7 +20,7 @@ const GeoIntelligence = lazy(() => import('./pages/GeoIntelligence'));
 
 // ─── GeoIntelligence wrapper — transforms rawData → salesData prop ─────────────
 function GeoIntelligenceWrapper() {
-  const { rawData, loading, error } = useData();
+  const { rawData, loading, error } = useRawData();
 
   const salesData = useMemo(() => {
     if (!rawData) return { states: {}, districts: {} };
@@ -150,7 +149,7 @@ function GeoIntelligenceWrapper() {
 
 // ── DistrictIntelligence wrapper — transforms rawData → passes pendingAvailableMonths prop ─────────────
 function DistrictIntelligenceWrapper() {
-  const { rawData, loading, error } = useData();
+  const { rawData, loading, error } = useRawData();
   const pendingAvailableMonths = useMemo(() => getPendingAvailableMonths(rawData), [rawData]);
   if (loading) return <div className="min-h-screen bg-bg-primary flex items-center justify-center text-text-muted">Loading district data…</div>;
   if (error) return <div className="min-h-screen bg-bg-primary flex items-center justify-center text-severity-critical">Error: {error}</div>;
@@ -159,7 +158,7 @@ function DistrictIntelligenceWrapper() {
 
 // ── DealerIntelligence wrapper — transforms rawData → passes pendingAvailableMonths prop ─────────────
 function DealerIntelligenceWrapper() {
-  const { rawData, loading, error } = useData();
+  const { rawData, loading, error } = useRawData();
   const pendingAvailableMonths = useMemo(() => getPendingAvailableMonths(rawData), [rawData]);
   if (loading) return <div className="min-h-screen bg-bg-primary flex items-center justify-center text-text-muted">Loading dealer data…</div>;
   if (error) return <div className="min-h-screen bg-bg-primary flex items-center justify-center text-severity-critical">Error: {error}</div>;
@@ -168,7 +167,7 @@ function DealerIntelligenceWrapper() {
 
 // ── StateIntelligence wrapper — transforms rawData → passes pendingAvailableMonths prop ─────────────
 function StateIntelligenceWrapper() {
-  const { rawData, loading, error } = useData();
+  const { rawData, loading, error } = useRawData();
 
   const pendingAvailableMonths = useMemo(() => getPendingAvailableMonths(rawData), [rawData]);
 

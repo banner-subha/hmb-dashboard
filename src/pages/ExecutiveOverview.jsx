@@ -3,7 +3,6 @@ import { useData } from '../context/DataContext';
 import KPICard from '../components/common/KPICard';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import ProductBarChart from '../components/charts/ProductBarChart';
-import AlertSeverityChart from '../components/charts/AlertSeverityChart';
 import ImpactBadge from '../components/common/ImpactBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
@@ -14,10 +13,17 @@ import { useNavigate } from 'react-router-dom';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 import { m } from 'framer-motion';
 import { staggerContainer, kpiCard } from '../utils/motionVariants';
-
+import MoMAreaTrendChart from '../components/charts/MoMAreaTrendChart';
+import PaceTrackerCard from '../components/common/PaceTrackerCard';
+import BacklogClearanceCard from '../components/common/BacklogClearanceCard';
+import TopGrowthLeadersCard from '../components/common/TopGrowthLeadersCard';
+import OrderFulfillmentVelocityCard from '../components/common/OrderFulfillmentVelocityCard';
+import RootCauseAndInsightsCard from '../components/common/RootCauseAndInsightsCard';
+import MultiMonthTrajectoryCard from '../components/common/MultiMonthTrajectoryCard';
+import { ArrowRight } from 'lucide-react';
 
 export default function ExecutiveOverview() {
-  const { data: filteredData, overallData, loading, error } = useData();
+  const { data: filteredData, overallData, rawData, loading, error } = useData();
   const data = overallData || filteredData;
   const navigate = useNavigate();
 
@@ -35,99 +41,174 @@ export default function ExecutiveOverview() {
         },
         {
           dimension: "STATE",
-          finding: "West Bengal region dropped 147 MT due to inactive dealers and HGI product weakness",
+          finding: "West Bengal region dropped 147 MT due to inactive dealers and GI product weakness",
           impact_mt: 147,
           pct_of_total_decline: 58
         },
-        {
-          dimension: "DISTRICT",
-          finding: "Kolkata & Murshidabad districts account for primary drop with key accounts inactive",
-          impact_mt: 70,
-          pct_of_total_decline: 28
-        }
       ];
     }
-    const list = [];
 
-    if (intelligence?.root_cause_analysis?.length > 0) {
-      list.push(...intelligence.root_cause_analysis);
+    if (Array.isArray(intelligence.root_cause_analysis) && intelligence.root_cause_analysis.length > 0) {
+      return intelligence.root_cause_analysis;
     }
 
-    if (intelligence?.product_insights?.length > 0) {
-      intelligence.product_insights.forEach(pi => {
-        const isDup = list.some(r => 
-          r.finding?.toLowerCase().includes(pi.product?.toLowerCase()) || 
-          r.finding?.toLowerCase().includes(pi.label?.toLowerCase())
-        );
-        if (!isDup) {
-          list.push({
-            dimension: 'PRODUCT',
-            finding: `${pi.label || pi.product}: ${pi.primary_driver || `Volume impact of ${pi.impact_mt || 0} MT`}`,
-            impact_mt: pi.impact_mt || 0,
-            pct_of_total_decline: pi.pct_of_total_decline || 0,
-            action: pi.recommended_action || pi.recommendation
-          });
-        }
+    const causes = [];
+    const products = data.products || [];
+    const states = data.states || [];
+
+    const totalDecline = products
+      .filter(p => (p.prev || 0) > (p.cur || 0))
+      .reduce((sum, p) => sum + ((p.prev || 0) - (p.cur || 0)), 0);
+
+    const biggestProductDrop = [...products]
+      .sort((a, b) => ((b.prev || 0) - (b.cur || 0)) - ((a.prev || 0) - (a.cur || 0)))
+      .find(p => (p.prev || 0) > (p.cur || 0));
+
+    if (biggestProductDrop) {
+      const drop = (biggestProductDrop.prev || 0) - (biggestProductDrop.cur || 0);
+      const pct = totalDecline > 0 ? Math.round((drop / totalDecline) * 100) : 0;
+      causes.push({
+        dimension: "PRODUCT",
+        finding: `${biggestProductDrop.label || biggestProductDrop.product} segment contraction — ${Math.round(drop)} MT volume reduction`,
+        impact_mt: Math.round(drop),
+        pct_of_total_decline: pct,
+        action: `Review supply allocation for ${biggestProductDrop.label || biggestProductDrop.product}`
       });
     }
 
-    if (list.length > 0) return list;
+    const biggestStateDrop = [...states]
+      .sort((a, b) => ((b.prev || 0) - (b.cur || 0)) - ((a.prev || 0) - (a.cur || 0)))
+      .find(s => (s.prev || 0) > (s.cur || 0));
 
-    return [
-      {
-        dimension: "PRODUCT",
-        finding: "SS segment supply allocation shortfall — 80 MT volume loss from 362 to 282 MT",
-        impact_mt: 80,
-        pct_of_total_decline: 31
-      },
-      {
+    if (biggestStateDrop) {
+      const drop = (biggestStateDrop.prev || 0) - (biggestStateDrop.cur || 0);
+      const pct = totalDecline > 0 ? Math.round((drop / totalDecline) * 100) : 0;
+      causes.push({
         dimension: "STATE",
-        finding: "West Bengal region dropped 147 MT due to inactive dealers and HGI product weakness",
-        impact_mt: 147,
-        pct_of_total_decline: 58
-      },
+        finding: `${biggestStateDrop.state} regional decline — ${Math.round(drop)} MT volume reduction`,
+        impact_mt: Math.round(drop),
+        pct_of_total_decline: pct,
+        action: `Coordinate with ${biggestStateDrop.state} sales team`
+      });
+    }
+
+    return causes.length > 0 ? causes : [
       {
-        dimension: "DISTRICT",
-        finding: "Kolkata & Murshidabad districts account for primary drop with key accounts inactive",
-        impact_mt: 70,
-        pct_of_total_decline: 28
+        dimension: "OVERALL",
+        finding: "Performance is on track — no major root-cause anomalies detected",
+        impact_mt: 0,
+        pct_of_total_decline: 0
       }
     ];
-  }, [data?.intelligence]);
+  }, [data]);
+
+  // National volume trend across all historical months for MoMAreaTrendChart
+  // NOTE: Must be declared before any early returns to satisfy Rules of Hooks.
+  const nationalMonthlyTrend = useMemo(() => {
+    const months = rawData?.availableMonths || [];
+    if (!months || months.length === 0) return [];
+
+    const sortedMonths = [...months].sort((a, b) => {
+      const yearDiff = (a.year || 0) - (b.year || 0);
+      if (yearDiff !== 0) return yearDiff;
+      return (a.month || 0) - (b.month || 0);
+    });
+
+    let prevVol = 0;
+    const trend = [];
+
+    sortedMonths.forEach(m => {
+      const hist = rawData.monthlyHistory?.[m.key || m.periodKey];
+      if (!hist) return;
+      const vol = (hist.states || []).reduce((acc, s) => acc + (s.cur ?? s.qty ?? 0), 0);
+      const mom = prevVol > 0 ? ((vol - prevVol) / prevVol) * 100 : 0;
+      if (vol > 0 || prevVol > 0) {
+        trend.push({
+          monthKey: m.key || m.periodKey,
+          monthLabel: m.label || `${m.year}-${m.month}`,
+          volume: Math.round(vol * 100) / 100,
+          mom: Math.round(mom * 10) / 10
+        });
+        prevVol = vol;
+      }
+    });
+
+    return trend;
+  }, [rawData]);
 
   if (loading) return (
     <div className="space-y-6">
-      <SkeletonLoader variant="kpi" count={4} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" />
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-5 space-y-6">
-          <SkeletonLoader variant="chart" count={2} className="h-72" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="glass-card p-6 h-32">
+            <SkeletonLoader variant="stat-card" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="glass-card p-6 h-80">
+          <SkeletonLoader variant="chart" />
         </div>
-        <div className="lg:col-span-7 space-y-6">
-          <SkeletonLoader variant="card" count={3} />
+        <div className="glass-card p-6 h-80">
+          <SkeletonLoader variant="chart" />
         </div>
       </div>
     </div>
   );
-  if (error) return <div className="text-severity-critical text-center py-12">Error loading data: {error}</div>;
+
+  if (error) return (
+    <div className="flex flex-col items-center justify-center p-12 text-center">
+      <div className="text-severity-critical text-lg font-bold mb-2">Error Loading Dashboard</div>
+      <div className="text-text-muted text-sm max-w-md">{error}</div>
+    </div>
+  );
+
   if (!data) return null;
 
-  const { intel, intelligence, products, alerts, alertCount } = data;
+  const { totalCur, totalPrev, products, states, districts, dealers, alerts, intelligence, alertCount, intel } = data;
 
-  // Compute total MoM on frontend
-  const totalMoM = calculateMoM(data.totalCur, data.totalPrev);
+  const totalMoM = calculateMoM(totalCur, totalPrev);
   const totalTrendDisplay = formatTrend(totalMoM);
-  const totalTrendColor = getTrendColor(totalMoM, data.totalCur, data.totalPrev);
+  const totalTrendColor = getTrendColor(totalMoM);
 
-  const topStates = (intel?.scoredStates || []).filter(s => {
-    const mom = calculateMoM(s.cur, s.prev);
-    return mom < 0;
-  }).slice(0, 5);
-  const topDistricts = (intel?.scoredDistricts || []).slice(0, 5);
-  const inactiveDealers = (intel?.inactiveDealers || []).slice(0, 3);
-  const decliningDealers = (intel?.scoredDealers || []).filter(d => {
-    if (d.isInactive) return false;
-    const mom = calculateMoM(d.cur, d.prev);
-    return mom < 0;
+  const topStates = [...(states || [])]
+    .filter(s => {
+      const drop = (s.prev || 0) - (s.cur || 0);
+      const mom = calculateMoM(s.cur, s.prev);
+      return drop > 0 || mom < 0;
+    })
+    .sort((a, b) => {
+      const scoreA = a.impactScore !== undefined ? a.impactScore : ((a.prev || 0) - (a.cur || 0));
+      const scoreB = b.impactScore !== undefined ? b.impactScore : ((b.prev || 0) - (b.cur || 0));
+      return scoreB - scoreA;
+    })
+    .slice(0, 5);
+
+  const topDistricts = [...(districts || [])]
+    .filter(d => {
+      const drop = (d.prev || 0) - (d.cur || 0);
+      const mom = calculateMoM(d.cur, d.prev);
+      return drop > 0 || mom < 0;
+    })
+    .sort((a, b) => {
+      const scoreA = a.impactScore !== undefined ? a.impactScore : ((a.prev || 0) - (a.cur || 0));
+      const scoreB = b.impactScore !== undefined ? b.impactScore : ((b.prev || 0) - (b.cur || 0));
+      return scoreB - scoreA;
+    })
+    .slice(0, 5);
+
+  const inactiveDealers = [...(dealers || [])].filter(d => {
+    return d.cur === 0 && (d.prev > 0 || (d.inactivityDays || 0) > 0);
+  }).sort((a, b) => {
+    return (b.prev || 0) - (a.prev || 0);
+  }).slice(0, 3);
+
+  const decliningDealers = [...(dealers || [])].filter(d => {
+    return d.cur > 0 && d.prev > d.cur;
+  }).sort((a, b) => {
+    const scoreA = a.impactScore !== undefined ? a.impactScore : ((a.prev || 0) - (a.cur || 0));
+    const scoreB = b.impactScore !== undefined ? b.impactScore : ((b.prev || 0) - (b.cur || 0));
+    return scoreB - scoreA;
   }).slice(0, 3);
 
   return (
@@ -143,11 +224,11 @@ export default function ExecutiveOverview() {
         {/* 1. Total Dispatch */}
         <m.div variants={kpiCard}>
           <KPICard 
-            label="Total Dispatch" 
+            label="Dispatched This Month" 
             value={formatMT(data.totalCur)} 
             momDisplay={totalTrendDisplay}
             momColor={totalTrendColor}
-            subtitle="vs Previous Period"
+            subtitle="vs Last Month"
             accentColor="#3b82f6"
           />
         </m.div>
@@ -155,17 +236,17 @@ export default function ExecutiveOverview() {
         {/* 2. Total Pending Orders */}
         <m.div variants={kpiCard}>
           <KPICard 
-            label="Total Pending Orders" 
+            label="Pending Orders" 
             value={formatMT(data.pendingTotal)} 
-            subtitle={data.pendingTotal > 0 ? "Active Order Backlog" : "No active backlog"}
+            subtitle={data.pendingTotal > 0 ? "Awaiting dispatch" : "No active backlog"}
             accentColor="#f97316"
           />
         </m.div>
 
-        {/* 3. Avg Despatch Period */}
+        {/* 3. Avg Delivery Time */}
         <m.div variants={kpiCard}>
           <KPICard 
-            label="Avg Despatch Period" 
+            label="Avg Delivery Time" 
             value={
               data.avgPeriod != null
                 ? `${data.avgPeriod} Days`
@@ -175,7 +256,7 @@ export default function ExecutiveOverview() {
                 ? `${data.operationalContext.overall_performance.avg_period} Days`
                 : '16.6 Days'
             } 
-            subtitle="Order-to-despatch avg period"
+            subtitle="Order-to-dispatch avg"
             accentColor="#06b6d4"
           />
         </m.div>
@@ -185,7 +266,7 @@ export default function ExecutiveOverview() {
           <KPICard 
             label="Active Alerts" 
             value={alertCount || 0} 
-            subtitle="requires attention"
+            subtitle="Requires attention"
             accentColor={alertCount > 0 ? "#ef4444" : "#22c55e"}
           />
         </m.div>
@@ -195,41 +276,53 @@ export default function ExecutiveOverview() {
           <KPICard 
             label="Active Dealers" 
             value={data.dealers?.filter(d => d.cur > 0).length || 0} 
-            subtitle="currently transacting"
+            subtitle="Transacting this month"
             accentColor="#8b5cf6"
           />
         </m.div>
       </m.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
         
         {/* Left Column - Sales Analytics (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5 space-y-4 sm:space-y-4.5">
+          {nationalMonthlyTrend.length > 1 && (
+            <div>
+              <CollapsibleCard title="Monthly Volume Trend" accentColor="#3b82f6">
+                <MoMAreaTrendChart data={nationalMonthlyTrend} accentColor="#3b82f6" height={190} />
+              </CollapsibleCard>
+            </div>
+          )}
+
           <div>
-            <CollapsibleCard title="Product Performance" badge={<span className="badge bg-bg-secondary text-text-muted">{products?.length || 0}</span>}>
+            <CollapsibleCard title="Volume by Product Type" badge={<span className="badge bg-bg-secondary text-text-muted font-bold text-xs">{products?.length || 0}</span>}>
               <ProductBarChart data={products} height={250} />
             </CollapsibleCard>
           </div>
 
           <div>
-            <CollapsibleCard title="Top Declining States">
-              <div className="space-y-3">
-                {topStates.length === 0 && <div className="text-text-muted text-sm">No declining states</div>}
+            <CollapsibleCard 
+              title="Regions Falling Behind" 
+              badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-red">{topStates.length}</span>}
+              accentColor="#ef4444"
+            >
+              <div className="space-y-2.5">
+                {topStates.length === 0 && <div className="text-text-muted text-sm">All regions on track</div>}
                 {topStates.map(s => (
                   <div 
                     key={s.state} 
-                    className="flex items-center justify-between p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer" 
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer" 
                     onClick={() => navigate(`/states?state=${encodeURIComponent(s.state)}`)}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-[100px] flex-shrink-0">
+                    <div className="flex items-center gap-4 sm:gap-5">
+                      <div className="w-[130px] min-w-[130px] flex-shrink-0 pr-1">
                         <ImpactBadge 
                           tier={s.impactTier}
                           score={s.impactScore}
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{s.state}</span>
+                        <span className="text-sm font-semibold text-text-primary">{s.state}</span>
                       </div>
                     </div>
                     <div className="text-right">
@@ -243,25 +336,29 @@ export default function ExecutiveOverview() {
           </div>
 
           <div>
-            <CollapsibleCard title="District Hotspots">
-              <div className="space-y-3">
-                {topDistricts.length === 0 && <div className="text-text-muted text-sm">No district data</div>}
+            <CollapsibleCard 
+              title="Districts at Risk" 
+              badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-amber">{topDistricts.length}</span>}
+              accentColor="#f97316"
+            >
+              <div className="space-y-2.5">
+                {topDistricts.length === 0 && <div className="text-text-muted text-sm">No district issues found</div>}
                 {topDistricts.map(d => (
                   <div 
                     key={d.district} 
-                    className="flex items-center justify-between p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer" 
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer" 
                     onClick={() => navigate(`/districts?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}`)}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-[100px] flex-shrink-0">
+                    <div className="flex items-center gap-4 sm:gap-5">
+                      <div className="w-[130px] min-w-[130px] flex-shrink-0 pr-1">
                         <ImpactBadge 
                           tier={d.impactTier}
                           score={d.impactScore}
                         />
                       </div>
                       <div>
-                        <div className="text-sm font-medium leading-none">{d.district}</div>
-                        <div className="text-[10px] text-text-muted mt-1">{d.state}</div>
+                        <div className="text-sm font-semibold text-text-primary leading-none">{d.district}</div>
+                        <div className="text-xs text-text-muted mt-1">{d.state}</div>
                       </div>
                     </div>
                     <div className="text-right">
@@ -274,13 +371,17 @@ export default function ExecutiveOverview() {
             </CollapsibleCard>
           </div>
 
-          {/* Dealer Impact Alerts — moved right below District Hotspots */}
+          {/* Dealer Impact Alerts */}
           <div>
-            <CollapsibleCard title="Dealer Impact Alerts">
-              <div className="space-y-3">
+            <CollapsibleCard 
+              title="Dealer Alerts" 
+              badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-red">{inactiveDealers.length + decliningDealers.length}</span>}
+              accentColor="#ef4444"
+            >
+              <div className="space-y-2.5">
                 {inactiveDealers.map((d, i) => (
                   <div key={`in-${i}`} 
-                    className="flex items-center justify-between p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer"
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer" 
                     onClick={() => navigate(`/dealers?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}&search=${encodeURIComponent(d.client)}`)}
                   >
                     <div>
@@ -292,7 +393,7 @@ export default function ExecutiveOverview() {
                 ))}
                 {decliningDealers.map((d, i) => (
                   <div key={`dec-${i}`} 
-                    className="flex items-center justify-between p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer"
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer" 
                     onClick={() => navigate(`/dealers?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}&search=${encodeURIComponent(d.client)}`)}
                   >
                     <div>
@@ -305,16 +406,24 @@ export default function ExecutiveOverview() {
               </div>
             </CollapsibleCard>
           </div>
+
+          {/* 8-Month Macro Trajectory Chart */}
+          <div>
+            <MultiMonthTrajectoryCard 
+              rawData={rawData} 
+              data={data}
+            />
+          </div>
         </div>
 
         {/* Right Column - Intelligence (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-4 sm:space-y-4.5">
           
           {/* AI Exec Summary */}
           {intelligence?.executive_summary && (
             <div>
-              <CollapsibleCard title="AI Executive Summary" accentColor="#06b6d4">
-                <p className="text-[15px] text-text-secondary leading-relaxed md:leading-loose py-2">
+              <CollapsibleCard title="AI Business Summary" accentColor="#06b6d4">
+                <p className="text-[15px] text-text-secondary leading-relaxed md:leading-loose py-1">
                   {intelligence.executive_summary}
                 </p>
               </CollapsibleCard>
@@ -324,10 +433,10 @@ export default function ExecutiveOverview() {
           {/* Escalation Flags */}
           {intelligence?.escalation_flags?.length > 0 && (
             <div>
-              <CollapsibleCard title="Escalation Flags" badge={<SeverityBadge severity="CRITICAL" />} accentColor="#ef4444">
-                <div className="space-y-3">
+              <CollapsibleCard title="Urgent Escalations" badge={<SeverityBadge severity="CRITICAL" />} accentColor="#ef4444">
+                <div className="space-y-2.5">
                   {intelligence.escalation_flags.map((flag, idx) => (
-                    <div key={idx} className="p-4 bg-severity-critical/10 border-l-4 border-severity-critical rounded-r-lg text-[15px] text-text-primary leading-relaxed">
+                    <div key={idx} className="p-3.5 bg-severity-critical/10 border-l-4 border-severity-critical rounded-r-lg text-[14.5px] text-text-primary leading-relaxed">
                       {flag}
                     </div>
                   ))}
@@ -336,53 +445,57 @@ export default function ExecutiveOverview() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            <CollapsibleCard title="Root Cause Analysis">
-              <div className="space-y-3">
-                {rootCauses.map((rc, idx) => (
-                  <div key={idx} className="p-3.5 bg-bg-secondary rounded-lg border-l-2 border-accent-blue space-y-1.5 transition-colors hover:bg-bg-card">
-                    <div className="flex items-center justify-between gap-2">
-                      {rc.dimension && (
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-accent-blue px-2 py-0.5 rounded bg-accent-blue/10">
-                          {rc.dimension}
-                        </span>
-                      )}
-                      {rc.impact_mt > 0 && (
-                        <span className="text-xs font-bold text-severity-high font-mono">
-                          -{formatMT(rc.impact_mt)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-sm font-semibold text-text-primary leading-snug">{rc.finding}</div>
-                    {rc.action && (
-                      <div className="text-xs text-text-secondary border-t border-border/20 pt-1.5 mt-1.5 leading-relaxed">
-                        <span className="text-accent-blue font-bold">Action:</span> {rc.action}
-                      </div>
-                    )}
-                    {rc.pct_of_total_decline > 0 && (
-                      <div className="text-[10px] text-text-muted flex items-center justify-between border-t border-border/30 pt-1.5 mt-1">
-                        <span>Share of Decline:</span>
-                        <span className="text-severity-high font-bold">{rc.pct_of_total_decline}%</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CollapsibleCard>
+          {/* Dynamic 2-Column Responsive Masonry Flow */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-4.5 items-start">
+            
+            {/* Sub-Column 1: Daily Pace -> Root Cause & Insights -> Top Growth Leaders */}
+            <div className="space-y-4 sm:space-y-4.5 flex flex-col">
+              <PaceTrackerCard data={data} rawData={rawData} />
+              <RootCauseAndInsightsCard 
+                rootCauses={rootCauses} 
+                productInsights={data?.intelligence?.product_insights || []} 
+                productsData={data?.products || []}
+                dealerRisks={data?.intelligence?.dealer_risks || []}
+              />
+              <TopGrowthLeadersCard intel={intel} />
+            </div>
 
-            <CollapsibleCard title="Recommended Actions">
-              <div className="space-y-4">
-                {intelligence?.recommended_actions?.slice(0, 4).map((act, idx) => (
-                  <div key={idx} className="flex flex-col gap-3 py-4 border-b border-border last:border-0">
-                    <div className="flex items-center justify-between">
-                      <PriorityBadge priority={act.priority} />
-                      <div className="text-[11px] text-text-muted">{act.owner} • {act.deadline_hint}</div>
-                    </div>
-                    <div className="text-sm text-text-primary leading-relaxed">{act.action}</div>
+            {/* Sub-Column 2: Order Backlog -> Recommended Actions -> Order Velocity */}
+            <div className="space-y-4 sm:space-y-4.5 flex flex-col">
+              <BacklogClearanceCard data={data} />
+              <CollapsibleCard 
+                title="Action Plan"
+                badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-blue">{intelligence?.recommended_actions?.length || 0} Actions Ready</span>}
+                accentColor="#06b6d4"
+              >
+                <div className="space-y-3.5 py-0.5">
+                  <div className="space-y-3">
+                    {intelligence?.recommended_actions?.slice(0, 4).map((act, idx) => (
+                      <div key={idx} className="p-3.5 sm:p-4 bg-bg-secondary/70 rounded-xl border border-border/40 space-y-2.5 transition-colors hover:bg-bg-card shadow-xs">
+                        <div className="flex items-center justify-between">
+                          <PriorityBadge priority={act.priority} />
+                          <div className="text-xs sm:text-[13.5px] text-text-muted font-bold">{act.owner} • {act.deadline_hint}</div>
+                        </div>
+                        <div className="text-[14.5px] sm:text-[15.5px] text-text-primary leading-relaxed font-normal">{act.action}</div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CollapsibleCard>
+
+                  <div className="pt-2.5 border-t border-border/40 flex justify-between items-center gap-2">
+                    <span className="text-[11px] sm:text-xs text-text-muted font-medium truncate min-w-0">Generated by AI</span>
+                    <button
+                      onClick={() => navigate('/war-room')}
+                      className="btn-pill-action shrink-0"
+                    >
+                      <span>See All Actions</span>
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                    </button>
+                  </div>
+                </div>
+              </CollapsibleCard>
+              <OrderFulfillmentVelocityCard data={data} rawData={rawData} />
+            </div>
+
           </div>
         </div>
       </div>

@@ -1,9 +1,9 @@
 import { Search, X } from 'lucide-react';
-import { useData } from '../../context/DataContext';
+import { useFilterState } from '../../context/DataContext';
 import { useState, useEffect, useRef } from 'react';
 
 export default function SearchInput({ placeholder = "Search dealers, districts...", className = "" }) {
-  const { filters, dispatch } = useData();
+  const { filters, dispatch } = useFilterState();
   const [localValue, setLocalValue] = useState(filters.searchQuery || '');
   const timerRef = useRef(null);
 

@@ -7,6 +7,7 @@ import { easeCubicIn, easeCubicOut, easeQuadOut } from 'd3-ease';
 import { color } from 'd3-color';
 import { geoMercator, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
+import { simplifyFeatureCollection } from '../utils/geoSimplify';
 import {
   ArrowLeft, TrendingUp, TrendingDown, Minus,
   AlertTriangle, MapPin, BarChart2, Loader2, ZoomIn, ZoomOut, RotateCcw, X,
@@ -31,71 +32,6 @@ const districtTopoUrl = (stateName, slug) => {
     remote: `https://raw.githubusercontent.com/guneetnarula/indian-district-boundaries/master/topojson/state-wise/${activeSlug}.json`,
   };
 };
-
-// ─── Douglas-Peucker Simplification ──────────────────────────────────────────
-function simplifyPath(points, tolerance) {
-  if (points.length <= 2) return points;
-  let maxSqDist = 0;
-  let index = 0;
-  const end = points.length - 1;
-  for (let i = 1; i < end; i++) {
-    const sqDist = getSqSegDist(points[i], points[0], points[end]);
-    if (sqDist > maxSqDist) {
-      index = i;
-      maxSqDist = sqDist;
-    }
-  }
-  if (maxSqDist > tolerance * tolerance) {
-    const results1 = simplifyPath(points.slice(0, index + 1), tolerance);
-    const results2 = simplifyPath(points.slice(index), tolerance);
-    return results1.slice(0, results1.length - 1).concat(results2);
-  }
-  return [points[0], points[end]];
-}
-
-function getSqSegDist(p, p1, p2) {
-  let x = p1[0], y = p1[1];
-  let dx = p2[0] - x, dy = p2[1] - y;
-  if (dx !== 0 || dy !== 0) {
-    let t = ((p[0] - x) * dx + (p[1] - y) * dy) / (dx * dx + dy * dy);
-    if (t > 1) {
-      x = p2[0];
-      y = p2[1];
-    } else if (t > 0) {
-      x += dx * t;
-      y += dy * t;
-    }
-  }
-  dx = p[0] - x;
-  dy = p[1] - y;
-  return dx * dx + dy * dy;
-}
-
-function simplifyGeometry(geom, tolerance = 0.01) {
-  if (!geom) return null;
-  if (geom.type === 'Polygon') {
-    return {
-      ...geom,
-      coordinates: geom.coordinates.map(ring => simplifyPath(ring, tolerance))
-    };
-  }
-  if (geom.type === 'MultiPolygon') {
-    return {
-      ...geom,
-      coordinates: geom.coordinates.map(polygon => 
-        polygon.map(ring => simplifyPath(ring, tolerance))
-      )
-    };
-  }
-  return geom;
-}
-
-function simplifyFeatureCollection(features, tolerance = 0.01) {
-  return features.map(f => ({
-    ...f,
-    geometry: simplifyGeometry(f.geometry, tolerance)
-  }));
-}
 
 // ─── Key Normalization Helper ────────────────────────────────────────────────
 const normalizeKey = (str) => {
@@ -262,22 +198,25 @@ const normKey = (value = "") => {
 };
 
 import { calculateMoM, getTrendColor as _getTrendColor, formatTrend, getBusinessImpact } from '../utils/trendEngine';
-import { useData } from '../context/DataContext';
+import { useRawData } from '../context/DataContext';
 import ImpactBadge from '../components/common/ImpactBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
 import { getSeverityMeta } from '../utils/severity';
 import { formatMT, formatNumber, formatDays } from '../utils/formatters';
-import { getPendingForPeriod, getTotalPendingForPeriod, getSharePctForPeriod, getBacklogClearance, isAgingPeriod } from '../utils/pending';
+import { getPendingForPeriod, getTotalPendingForPeriod, getSharePctForPeriod, getBacklogClearance, isAgingPeriod, getBacklogAgeInfo } from '../utils/pending';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getTrendColor(t, cur, prev) {
-  if (t == null) return '#94a3b8';
-  return _getTrendColor(t, cur, prev);
+  if (t == null) return undefined;
+  const num = typeof t === 'number' ? t : parseFloat(String(t).replace(/[^0-9.-]/g, ''));
+  if (isNaN(num) || num === 0) return undefined;
+  return num > 0 ? '#22c55e' : '#ef4444';
 }
 
 function trendStr(t) {
   if (t == null) return 'N/A';
-  const val = Number(t);
+  const val = typeof t === 'number' ? t : parseFloat(String(t).replace(/[^0-9.-]/g, ''));
+  if (isNaN(val)) return String(t);
   if (val > 0) return `+${val.toFixed(1)}%`;
   if (val < 0) return `↓ ${Math.abs(val).toFixed(1)}%`;
   return `0.0%`;
@@ -287,18 +226,35 @@ function trendStr(t) {
 
 
 // ─── Tooltip (fixed-positioned, follows mouse/touch) ────────────────────────────────
-function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, selectedPendingMonth, isDistrictView, onClose }) {
+function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, selectedPendingMonth, selectedMonth, pendingAvailableMonths = [], isDistrictView, onClose, rawData = null }) {
   const isPending = filterType === "PENDING";
+  const activeMonthKey = isPending ? selectedPendingMonth : (selectedMonth || null);
+
+  // Backlog age label for pending mode, derived from actual entity pending history and selected period
+  const backlogAgeLabel = (() => {
+    if (!isPending || !data) return null;
+    return getBacklogAgeInfo(data, activeMonthKey, rawData).label;
+  })();
 
   const despatchQty = data ? (data.despatchQty ?? (isPending ? (data.rawCur ?? data.despatchCur ?? 0) : (data.volume ?? data.cur ?? 0))) : 0;
-  const pendingQty = data ? (data.pendingQty ?? getPendingForPeriod(data, selectedPendingMonth || 'ALL')) : 0;
   
-  const dailyAvg = data ? (data.dailyAvgQty ?? 0) : 0;
+  // Resolve pending quantity for active month (or entity pending history / fallback)
+  const pendingQty = data ? (
+    data.pendingQty !== undefined
+      ? (getPendingForPeriod(data, activeMonthKey || 'ALL', rawData) || data.pendingQty)
+      : getPendingForPeriod(data, activeMonthKey || 'ALL', rawData)
+  ) : 0;
+
+  // Resolve daily average pace and clearance duration
+  const dailyAvg = data ? (data.dailyAvgQty ?? data.currentDailyRate ?? 0) : 0;
   const rawAvgPeriod = data?.avgPeriod ?? (dailyAvg > 0 && pendingQty > 0 ? (pendingQty / dailyAvg) : null);
-  const clearanceText = rawAvgPeriod != null ? formatDays(rawAvgPeriod) : getBacklogClearance(pendingQty, dailyAvg).text;
+  const clearance = getBacklogClearance(pendingQty, dailyAvg);
+  const clearanceText = rawAvgPeriod != null ? formatDays(rawAvgPeriod) : clearance.text;
 
   const trendVal = data ? (data.trend ?? data.mom ?? null) : null;
   const riskTier = data ? (data.impactTier || data.impact || (pendingQty > 0 ? getBacklogClearance(pendingQty, dailyAvg).status : 'STABLE')) : 'STABLE';
+
+  const hasData = Boolean(data && (isPending ? pendingQty > 0 : despatchQty > 0));
 
   return (
     <div
@@ -334,7 +290,7 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, se
         </div>
       </div>
 
-      {data ? (
+      {hasData ? (
         <div className="space-y-2 text-sm">
           {/* Despatch Volume */}
           <Row 
@@ -348,18 +304,27 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, se
             value={pendingQty > 0 ? formatMT(pendingQty) : '0 MT'} 
           />
 
+          {/* Backlog Age (pending mode only) */}
+          {isPending && backlogAgeLabel && (
+            <Row
+              label="Backlog Age"
+              value={backlogAgeLabel}
+              valueColor="var(--color-severity-high-text)"
+            />
+          )}
+
           {/* Avg Period of Orders */}
           <Row 
             label="Avg Order Period" 
             value={clearanceText} 
-            valueColor="#38bdf8"
+            valueColor="var(--color-accent-blue-strong)"
           />
 
           {/* MoM Trend */}
           <Row
             label="MoM Trend"
             value={trendStr(trendVal)}
-            valueColor={trendVal > 0 ? '#22c55e' : trendVal < 0 ? '#ef4444' : undefined}
+            valueColor={getTrendColor(trendVal)}
           />
 
           {/* Risk Level Badge */}
@@ -378,7 +343,7 @@ function Row({ label, value, valueColor }) {
   return (
     <div className="flex justify-between gap-6 items-center">
       <span className="text-text-muted font-medium text-xs sm:text-sm">{label}</span>
-      <span className="font-bold text-text-primary text-xs sm:text-sm" style={valueColor ? { color: valueColor } : undefined}>{value}</span>
+      <span className={`font-bold text-xs sm:text-sm ${valueColor ? '' : 'text-text-primary'}`} style={valueColor ? { color: valueColor } : undefined}>{value}</span>
     </div>
   );
 }
@@ -503,7 +468,7 @@ function resolvePeriodKey(selectedMonth, availableMonths, monthlyHistory) {
 }
 
 export default function GeoIntelligence({ salesData: propSalesData, pendingAvailableMonths = [] }) {
-  const { rawData } = useData();
+  const { rawData } = useRawData();
 
   // ── filter state ──
   const [filterState, setFilterState] = useState({
@@ -821,6 +786,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         const stateName = hs.state;
         if (!stateName || stateName.toLowerCase() === 'unknown') return;
 
+        const rawState = (rawData.states || []).find(rs => rs.state?.toLowerCase() === stateName.toLowerCase()) || {};
         const prevHistState = (prevHistorySlice?.states || []).find(phs => phs.state?.toLowerCase() === stateName.toLowerCase());
 
         let cur = hs.cur ?? hs.qty ?? 0;
@@ -839,9 +805,11 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         const displayVolume = cur;
         const trend = calculateMoM(cur, prev);
         const sharePct = (cur / (totalVolume.cur || 1)) * 100;
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName);
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName, rawState.expectedMtd || hs.expectedMtd);
 
         const stateObj = {
+          ...rawState,
+          ...hs,
           name: stateName,
           cur,
           prev,
@@ -852,7 +820,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           impactTier: severity,
           healthStatus: severity,
           healthColor: theme.color,
-          slug: hs.slug || '',
+          slug: hs.slug || rawState.slug || '',
         };
 
         states[stateName] = stateObj;
@@ -873,6 +841,11 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         if (!districts[stateName.toLowerCase()]) districts[stateName.toLowerCase()] = districts[stateName];
         if (!districts[stateName.toUpperCase()]) districts[stateName.toUpperCase()] = districts[stateName];
 
+        const rawDist = (rawData.districts || []).find(rd => 
+          (rd.district?.toLowerCase() === districtName.toLowerCase() || rd.lookupKey === (hd.lookupKey || normalizeName(districtName))) &&
+          (!stateName || rd.state?.toLowerCase() === stateName.toLowerCase())
+        ) || {};
+
         const prevHistDist = (prevHistorySlice?.districts || []).find(phd => phd.state?.toLowerCase() === stateName.toLowerCase() && phd.district?.toLowerCase() === districtName.toLowerCase());
 
         let cur = hd.cur ?? hd.qty ?? 0;
@@ -891,11 +864,13 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         const displayVolume = cur;
         const trend = calculateMoM(cur, prev);
         const distShare = (cur / (totalVolume.cur || 1)) * 100;
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName);
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName, rawDist.expectedMtd || hd.expectedMtd);
 
         const distObj = {
+          ...rawDist,
+          ...hd,
           name: districtName,
-          lookupKey: hd.lookupKey || normalizeName(districtName),
+          lookupKey: hd.lookupKey || rawDist.lookupKey || normalizeName(districtName),
           cur,
           prev,
           volume: displayVolume,
@@ -905,7 +880,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           impactTier: severity,
           healthStatus: severity,
           healthColor: theme.color,
-          slug: hd.slug || '',
+          slug: hd.slug || rawDist.slug || '',
         };
 
         districts[stateName][districtName] = distObj;
@@ -1210,21 +1185,35 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     }
     try {
       const urls = districtTopoUrl(canonicalName, slug);
+      // Pre-simplified local copy (built at build time by scripts/pre-simplify-geo.mjs).
+      // Same TopoJSON shape, already Douglas-Peucker simplified — decode and use directly.
+      const preUrl = urls.local.replace('/geo/', '/geo-simplified/');
       let topo;
+      let preSimplified = false;
       try {
-        // Try local file first
-        const localRes = await fetch(urls.local);
-        if (!localRes.ok) throw new Error(`Local ${localRes.status}`);
-        topo = await localRes.json();
-      } catch {
-        // Fallback to remote GitHub
-        const remoteRes = await fetch(urls.remote);
-        if (!remoteRes.ok) throw new Error(`HTTP ${remoteRes.status}`);
-        topo = await remoteRes.json();
+        const preRes = await fetch(preUrl);
+        if (preRes.ok) {
+          topo = await preRes.json();
+          preSimplified = true;
+        }
+      } catch { /* fall through to original + runtime simplify */ }
+
+      if (!topo) {
+        try {
+          // Try local file first
+          const localRes = await fetch(urls.local);
+          if (!localRes.ok) throw new Error(`Local ${localRes.status}`);
+          topo = await localRes.json();
+        } catch {
+          // Fallback to remote GitHub
+          const remoteRes = await fetch(urls.remote);
+          if (!remoteRes.ok) throw new Error(`HTTP ${remoteRes.status}`);
+          topo = await remoteRes.json();
+        }
       }
       const key  = Object.keys(topo.objects)[0];
       const geo  = feature(topo, topo.objects[key]);
-      const simplified = simplifyFeatureCollection(geo.features, 0.01);
+      const simplified = preSimplified ? geo.features : simplifyFeatureCollection(geo.features, 0.01);
       geoCache[canonicalName] = simplified;
       setDistrictGeo(simplified);
     } catch (e) {
@@ -2060,7 +2049,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                     setSelectedMonth(monthButtons.curMonthKey);
                   }
                 }}
-                className="text-[11px] text-text-dim hover:text-accent-blue transition-colors cursor-pointer"
+                className="text-[11px] text-text-muted hover:text-accent-blue transition-colors cursor-pointer"
               >
                 Reset
               </button>
@@ -2072,7 +2061,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                 <span className="text-[10px] font-bold uppercase text-text-muted tracking-wider">
                   Metric Type
                 </span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-bg-secondary border border-border/40 metric-toggle-container shadow-inner">
                   {[
                     { value: "DESPATCH", label: "Despatch" },
                     { value: "PENDING", label: "Pending" }
@@ -2082,10 +2071,10 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                       <button
                         key={opt.value}
                         onClick={() => setFilterState(s => ({ ...s, type: opt.value }))}
-                        className={`text-xs px-3 py-1.5 rounded-full border transition-colors duration-150 cursor-pointer flex-1 ${
+                        className={`text-xs px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider border transition-all duration-150 cursor-pointer flex-1 ${
                           active
-                            ? 'bg-accent-sky-soft text-accent-sky-strong border-accent-sky/60'
-                            : 'bg-transparent text-text-muted border-border/60 hover:text-text-primary'
+                            ? 'toggle-pill-active'
+                            : 'toggle-pill-inactive'
                         }`}
                       >
                         {opt.label}
@@ -2159,7 +2148,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                         }}
                         className={`text-xs px-2.5 py-1 rounded-full border transition-colors duration-150 cursor-pointer ${
                           active
-                            ? 'bg-green-950/30 text-green-300 border-severity-none/60'
+                            ? 'bg-severity-none-bg text-severity-none-text border-severity-none-border font-bold'
                             : 'bg-transparent text-text-muted border-border/60 hover:text-text-primary'
                         }`}
                       >
@@ -2237,7 +2226,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                     }}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span style={{ color: 'var(--color-text-muted)', minWidth: '20px' }}>#{idx + 1}</span>
+                      <span style={{ color: 'var(--color-text-muted)', minWidth: '20px' }}>{idx + 1}.</span>
                       <span className="font-semibold text-text-primary truncate" title={item.name}>{item.name}</span>
                     </div>
                     <div className="flex items-center gap-4 text-right flex-shrink-0">
@@ -2262,7 +2251,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       </div>
 
       {/* Floating tooltip */}
-      <Tooltip tooltipRef={tooltipRef} {...tooltip} filterType={filterState.type} totalPending={totalPendingVolume} selectedPendingMonth={selectedPendingMonth} isDistrictView={!!selectedState} onClose={hideTip} />
+      <Tooltip tooltipRef={tooltipRef} {...tooltip} filterType={filterState.type} totalPending={totalPendingVolume} selectedPendingMonth={selectedPendingMonth} selectedMonth={selectedMonth} pendingAvailableMonths={pendingAvailableMonths} isDistrictView={!!selectedState} onClose={hideTip} rawData={rawData} />
     </div>
   );
 }

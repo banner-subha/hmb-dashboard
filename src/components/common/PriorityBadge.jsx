@@ -1,6 +1,7 @@
 import { getSeverityTheme } from '../../utils/trendEngine';
 
 const SEVERITY_BUCKET = {
+  '#f87171': 'critical',
   '#ef4444': 'critical',
   '#f97316': 'high',
   '#eab308': 'medium',
@@ -37,11 +38,11 @@ export default function PriorityBadge({ priority, className = '' }) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '6px 12px',
+        padding: '6px 14px',
         minHeight: '32px',
         borderRadius: '10px',
-        fontSize: '12px',
-        fontWeight: 700,
+        fontSize: '12.5px',
+        fontWeight: 800,
         letterSpacing: '0.4px',
         width: 'fit-content',
         backdropFilter: 'blur(6px)',

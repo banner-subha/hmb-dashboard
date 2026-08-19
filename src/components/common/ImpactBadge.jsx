@@ -1,6 +1,7 @@
 import { getBusinessImpact, getSeverityTheme } from '../../utils/trendEngine';
 
 const SEVERITY_BUCKET = {
+  '#f87171': 'critical',
   '#ef4444': 'critical',
   '#f97316': 'high',
   '#eab308': 'medium',
@@ -42,10 +43,11 @@ export default function ImpactBadge({ cur, prev, tier, score, color, className =
         display: 'inline-flex',
         alignItems: 'center',
         gap: '6px',
-        padding: '4px 10px',
+        padding: '5px 12px',
+        marginRight: '8px',
         borderRadius: '999px',
-        fontSize: '12px',
-        fontWeight: 700,
+        fontSize: '12.5px',
+        fontWeight: 800,
         letterSpacing: '0.4px',
         backdropFilter: 'blur(6px)',
         background: theme.bg,
@@ -57,8 +59,8 @@ export default function ImpactBadge({ cur, prev, tier, score, color, className =
     >
       <span 
         style={{
-          width: '8px',
-          height: '8px',
+          width: '7px',
+          height: '7px',
           borderRadius: '999px',
           background: 'currentColor'
         }}

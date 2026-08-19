@@ -5,7 +5,7 @@ import {
   Brain, 
   AlertTriangle, 
   Target, 
-  Map, 
+  Map as MapIcon, 
   User, 
   Activity, 
   Layers,
@@ -46,11 +46,92 @@ export default function AIWarRoom() {
 
   const { intelligence } = data;
 
+  const stateShareMap = new Map((data.states || []).map(s => [s.state?.replace(/\s+/g, '').toUpperCase(), s.share || 0]));
+  const qualifiedStates = new Set(
+    (data.states || [])
+      .filter(s => (s.share || 0) >= 5)
+      .map(s => s.state?.replace(/\s+/g, '').toUpperCase())
+  );
+
+  const llmRiskMap = new Map(
+    (intelligence.dealer_risks || []).map(r => [r.dealer?.replace(/\s+/g, '').toUpperCase(), r])
+  );
+
+  const getDealerAction = (dl) => {
+    const mom = Math.abs(dl.mom || 0);
+    const drop = dl.drop || Math.max(0, (dl.prev || 0) - (dl.cur || 0));
+    const pending = dl.pendingQty || 0;
+    const behind = (dl.lossFlag || '').toUpperCase() === 'BEHIND';
+    const topProduct = (dl.products || []).sort((a, b) => (b.prev || 0) - (a.prev || 0))[0];
+    const prodName = topProduct ? (PRODUCT_LABELS[topProduct.product] || topProduct.product) : null;
+    const prodDrop = topProduct ? Math.max(0, (topProduct.prev || 0) - (topProduct.cur || 0)) : 0;
+    const hasOffset = drop > 0 && prodDrop > drop * 1.5;
+
+    if (drop < 1) {
+      return `Minor volume fluctuation of ${formatMT(drop)} (${mom.toFixed(0)}% MoM) — within normal cycle variance. Area Sales Manager to monitor this account next cycle and confirm the trend does not deepen${prodName && hasOffset ? `, noting that ${prodName} dropped ${formatMT(prodDrop)} but was offset by growth in other products` : ''}. No immediate action required unless the decline persists.`;
+    }
+
+    if (mom >= 60 || drop >= 60) {
+      if (pending > drop * 1.5) {
+        return `Critical volume collapse of ${formatMT(drop)} (${mom.toFixed(0)}% MoM) with a backlog of ${formatMT(pending)} pending. Area Sales Manager must visit within 24 hours to resolve dispatch bottlenecks${prodName && !hasOffset ? `, particularly for ${prodName} which accounts for ${formatMT(prodDrop)} of the loss` : ''}, and coordinate with Dispatch Team to clear the pending queue this week.`;
+      }
+      return `Severe decline of ${formatMT(drop)} (${mom.toFixed(0)}% MoM) signals a potential relationship or demand issue. Area Sales Manager must schedule an urgent in-person visit within 24 hours to diagnose root cause${prodName && !hasOffset ? ` — ${prodName} alone dropped ${formatMT(prodDrop)}` : ''} — and present a recovery plan by end of this week.`;
+    }
+
+    if (mom >= 30 || drop >= 30) {
+      if (behind && pending > 20) {
+        return `Significant decline of ${formatMT(drop)} (${mom.toFixed(0)}% MoM) compounded by dispatch pace running behind average${prodName && !hasOffset ? `, with ${prodName} as the primary affected product` : ''}. Regional Sales Manager to visit within 48 hours, review the ${formatMT(pending)} pending orders with the dealer, and coordinate with Dispatch Team to accelerate deliveries and stabilize the account.`;
+      }
+      return `Substantial volume drop of ${formatMT(drop)} (${mom.toFixed(0)}% MoM) requires immediate attention. Area Sales Manager to contact the dealer within 48 hours to investigate${prodName && !hasOffset ? ` — ${prodName} volume fell by ${formatMT(prodDrop)}` : ''} — identify whether the decline is order-related or fulfillment-related, and propose a recovery timeline.`;
+    }
+
+    if (pending > drop * 2 && pending > 15) {
+      return `Moderate decline of ${formatMT(drop)} (${mom.toFixed(0)}% MoM) but a significant pending backlog of ${formatMT(pending)} remains unresolved${prodName && !hasOffset ? ` (concentrated in ${prodName})` : ''}. Area Sales Manager to visit within this week, review pending orders with the dealer, and coordinate with Dispatch Team to clear the backlog before it impacts the next cycle.`;
+    }
+
+    if (behind) {
+      return `Volume declined ${formatMT(drop)} (${mom.toFixed(0)}% MoM) and dispatch pace is behind the dealer's average. Area Sales Manager to visit within this week to assess whether the slowdown is demand-driven or fulfillment-driven${prodName && !hasOffset ? `, with focus on ${prodName} which dropped ${formatMT(prodDrop)}` : ''}, and agree on a catch-up plan for next cycle.`;
+    }
+
+    return `Volume declined ${formatMT(drop)} (${mom.toFixed(0)}% MoM)${prodName && !hasOffset ? `, primarily in ${prodName} (−${formatMT(prodDrop)})` : hasOffset ? `, driven by ${prodName} (−${formatMT(prodDrop)}) but partially offset by growth in other products` : ''}. Area Sales Manager to schedule a check-in within this week to understand the root cause, review any pending fulfillment gaps, and align on actions to recover volume in the next cycle.`;
+  };
+
+  const decliningInterventions = (data.dealers || [])
+    .filter(dl => dl.cur > 0 && dl.prev > 0 && dl.cur < dl.prev)
+    .filter(dl => qualifiedStates.has(dl.state?.replace(/\s+/g, '').toUpperCase()))
+    .sort((a, b) => {
+      const sa = stateShareMap.get(a.state?.replace(/\s+/g, '').toUpperCase()) || 0;
+      const sb = stateShareMap.get(b.state?.replace(/\s+/g, '').toUpperCase()) || 0;
+      if (sb !== sa) return sb - sa;
+      return ((b.prev || 0) - (b.cur || 0)) - ((a.prev || 0) - (a.cur || 0));
+    })
+    .slice(0, 10)
+    .map(dl => {
+      const existing = llmRiskMap.get(dl.client?.replace(/\s+/g, '').toUpperCase());
+      return {
+        dealer: dl.client,
+        district: dl.district || '',
+        state: dl.state,
+        risk_type: 'DECLINING',
+        recommended_action: existing?.recommended_action || getDealerAction(dl),
+        drop_mt: Math.max(0, (dl.prev || 0) - (dl.cur || 0)),
+        mom_pct: dl.mom,
+        pendingQty: dl.pendingQty || 0,
+        currentDailyRate: dl.currentDailyRate || 0,
+        dailyAvgQty: dl.dailyAvgQty || 0,
+        lossFlag: dl.lossFlag || '',
+        impactScore: dl.impactScore || 0,
+      };
+    });
+
   const getProductSentiment = (mom_pct) => {
-    if (mom_pct < -10) return { text: 'text-severity-critical', badge: 'bg-severity-critical/10 text-severity-critical border border-severity-critical/30' };
-    if (mom_pct <= -5) return { text: 'text-severity-high',     badge: 'bg-severity-high/10 text-severity-high border border-severity-high/30' };
-    if (mom_pct > 0)   return { text: 'text-severity-none',     badge: 'bg-severity-none/10 text-severity-none border border-severity-none/30' };
-    return                    { text: 'text-text-muted',        badge: 'bg-bg-secondary text-text-secondary border border-border' };
+    if (mom_pct !== null && mom_pct !== undefined) {
+      if (mom_pct > 0)  return { text: 'text-severity-none',          badge: 'bg-severity-none/10 text-severity-none border border-severity-none/30' };
+      if (mom_pct < -10) return { text: 'text-severity-critical',     badge: 'bg-severity-critical/10 text-severity-critical border border-severity-critical/30' };
+      if (mom_pct <= -5) return { text: 'text-severity-high',         badge: 'bg-severity-high/10 text-severity-high border border-severity-high/30' };
+      return                   { text: 'text-text-muted',            badge: 'bg-bg-secondary text-text-secondary border border-border' };
+    }
+    return { text: 'text-text-muted', badge: 'bg-bg-secondary text-text-secondary border border-border' };
   };
 
   const getRiskDot = (risk_type) => {
@@ -142,14 +223,14 @@ export default function AIWarRoom() {
             )}
 
             {/* ── Dealer Risks ── */}
-            {intelligence.dealer_risks?.length > 0 && (
+            {decliningInterventions.length > 0 && (
               <m.div variants={fadeInUp} className="space-y-4">
                 <h4 className="text-sm font-extrabold text-severity-high uppercase tracking-widest flex items-center gap-2">
                   <User className="w-5 h-5" />
-                  At-Risk Dealer Interventions ({intelligence.dealer_risks.length})
+                  At-Risk Dealer Interventions ({decliningInterventions.length})
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {intelligence.dealer_risks.map((risk, idx) => {
+                  {decliningInterventions.map((risk, idx) => {
                     const s = getRiskDot(risk.risk_type);
                     return (
                       <div key={idx} className={`${CARD_RISK} space-y-3.5 border-l-4 border-l-severity-high/70`}>
@@ -163,8 +244,12 @@ export default function AIWarRoom() {
                           </span>
                         </div>
                         <div className="text-sm font-bold text-text-muted uppercase flex items-center gap-2">
-                          <Map className="w-4 h-4 shrink-0" />
-                          {risk.district}, {risk.state}
+                          <MapIcon className="w-4 h-4 shrink-0" />
+                          {[risk.district, risk.state].filter(Boolean).join(', ')}
+                        </div>
+                        <div className="text-xs font-black text-text-muted uppercase tracking-wider flex items-center gap-3">
+                          <span>Volume Drop: <span className="text-severity-high font-mono">{formatMT(risk.drop_mt)}</span></span>
+                          <span>vs Last Month: <span className="text-severity-high font-mono">{risk.mom_pct != null ? `${risk.mom_pct}%` : '—'}</span></span>
                         </div>
                         <p className="text-base text-text-secondary leading-relaxed border-t border-border pt-3.5">
                           <span className="font-extrabold text-xs text-text-muted uppercase block mb-1.5">Action Plan:</span>
@@ -181,19 +266,19 @@ export default function AIWarRoom() {
             {(intelligence.geographic_insights || intelligence.pending_order_intelligence) && (
               <m.div variants={fadeInUp} className="space-y-4 pt-3">
                 <h4 className="text-sm font-extrabold text-accent-cyan uppercase tracking-widest flex items-center gap-2">
-                  <Map className="w-5 h-5" />
-                  Regional Performance & Pending Analysis
+                  <MapIcon className="w-5 h-5" />
+                  Regional & Backlog Analysis
                 </h4>
                 <div className="grid grid-cols-1 gap-4">
                   {intelligence.geographic_insights && (
                     <div className={`${CARD_REGION} border-l-4 border-l-accent-cyan/70 hover:border-l-accent-cyan space-y-3`}>
-                      <span className="text-xs font-black text-accent-cyan uppercase tracking-wider block">Regional Performance Analysis</span>
+                      <span className="text-xs font-black text-accent-cyan uppercase tracking-wider block">Regional Breakdown</span>
                       <p className="text-base text-text-secondary leading-relaxed font-medium">{intelligence.geographic_insights}</p>
                     </div>
                   )}
                   {intelligence.pending_order_intelligence && (
                     <div className={`${CARD_REGION} border-l-4 border-l-accent-cyan/70 hover:border-l-accent-cyan space-y-3`}>
-                      <span className="text-xs font-black text-accent-cyan uppercase tracking-wider block">Fulfillment Bottlenecks & Backlog</span>
+                      <span className="text-xs font-black text-accent-cyan uppercase tracking-wider block">Order Backlog Insights</span>
                       <p className="text-base text-text-secondary leading-relaxed font-medium">{intelligence.pending_order_intelligence}</p>
                     </div>
                   )}
@@ -209,9 +294,9 @@ export default function AIWarRoom() {
             <div className="flex items-center justify-between pb-3.5 border-b border-border/30">
               <div className="flex items-center gap-2.5">
                 <span className="text-base font-black text-text-muted font-mono">02 /</span>
-                <h3 className="text-base font-extrabold text-text-primary uppercase tracking-wider">Performance Diagnostics</h3>
+                <h3 className="text-base font-extrabold text-text-primary uppercase tracking-wider">Performance Analysis</h3>
               </div>
-              <span className="text-xs font-bold text-text-muted uppercase font-mono">Root Cause Analysis</span>
+              <span className="text-xs font-bold text-text-muted uppercase font-mono">Issue Analysis</span>
             </div>
 
             {/* ── Root Cause Analysis ── */}
@@ -219,14 +304,14 @@ export default function AIWarRoom() {
               <m.div variants={fadeInUp} className="space-y-4">
                 <h4 className="text-sm font-extrabold text-severity-high uppercase tracking-widest flex items-center gap-2">
                   <Target className="w-5 h-5" />
-                  Volume Loss Root Causes
+                   Volume Loss Drivers
                 </h4>
                 {intelligence.root_cause_analysis.map((rc, idx) => (
                    <div key={idx} className={`${CARD_DIAG} border-l-4 border-l-accent-sky/70 hover:border-l-accent-sky`}>
                     <div className="flex items-center justify-between mb-3.5">
                       <span className="bg-bg-secondary border border-border text-text-secondary text-xs font-extrabold tracking-wider flex items-center gap-2 px-3 py-1.5 rounded-lg uppercase">
                         {rc.dimension === 'PRODUCT'  && <Layers className="w-3.5 h-3.5" />}
-                        {(rc.dimension === 'STATE' || rc.dimension === 'DISTRICT') && <Map className="w-3.5 h-3.5" />}
+                        {(rc.dimension === 'STATE' || rc.dimension === 'DISTRICT') && <MapIcon className="w-3.5 h-3.5" />}
                         {rc.dimension === 'DEALER'   && <User className="w-3.5 h-3.5" />}
                         {rc.dimension}
                       </span>
@@ -256,65 +341,96 @@ export default function AIWarRoom() {
               </m.div>
             )}
 
-            {/* ── Product Insights (Declining Products Only) ── */}
-            {intelligence.product_insights?.filter(i => i.trend === 'DECLINING' || (typeof i.mom_pct === 'number' && i.mom_pct < 0)).length > 0 && (
-              <m.div variants={fadeInUp} className="space-y-4">
-                <h4 className="text-sm font-extrabold text-accent-blue uppercase tracking-widest flex items-center gap-2">
-                  <Layers className="w-5 h-5" />
-                  Product Insights
-                </h4>
-                {intelligence.product_insights
-                  .filter(insight => insight.trend === 'DECLINING' || (typeof insight.mom_pct === 'number' && insight.mom_pct < 0))
-                  .map((insight, idx) => {
-                  const s = getProductSentiment(insight.mom_pct);
-                  return (
-                    <div key={idx} className={`${CARD_DEFAULT} border-l-4 border-l-accent-blue/60 hover:border-l-accent-blue space-y-4`}>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-base font-black text-text-primary block">
-                            {PRODUCT_LABELS[insight.product] || (insight.label ? insight.label.replace(/^([A-Z]+)\s*[\-\–]\s*(.+)$/, '$1 ($2)') : insight.product)}
-                          </span>
-                        </div>
-                        <span className={`text-xs font-black tracking-wider px-3 py-1.5 rounded-lg uppercase ${s.badge}`}>
-                          {insight.trend}
+            {/* ── Product Insights (Declining + Growth) ── */}
+            {intelligence.product_insights?.length > 0 && (() => {
+              const allInsights = [...intelligence.product_insights];
+              const declining = allInsights
+                .filter(i => i.mom_pct != null ? i.mom_pct < 0 : (i.trend === 'DECLINING' || i.trend === 'BEHIND'))
+                .sort((a, b) => (a.mom_pct ?? 0) - (b.mom_pct ?? 0));
+              const growth = allInsights
+                .filter(i => !(i.mom_pct != null ? i.mom_pct < 0 : (i.trend === 'DECLINING' || i.trend === 'BEHIND')))
+                .sort((a, b) => (b.mom_pct ?? 0) - (a.mom_pct ?? 0));
+
+              const renderInsightCard = (insight, idx) => {
+                const s = getProductSentiment(insight.mom_pct);
+                const isDecline = insight.mom_pct != null ? insight.mom_pct < 0 : insight.trend === 'DECLINING';
+                const borderCls = isDecline ? 'border-l-severity-high/60 hover:border-l-severity-high' : 'border-l-severity-none/60 hover:border-l-severity-none';
+                return (
+                  <div key={idx} className={`${CARD_DEFAULT} border-l-4 ${borderCls} space-y-4`}>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-base font-black text-text-primary block">
+                          {PRODUCT_LABELS[insight.product] || (insight.label ? insight.label.replace(/^([A-Z]+)\s*[\-\–]\s*(.+)$/, '$1 ($2)') : insight.product)}
                         </span>
                       </div>
-
-                      {/* Metrics */}
-                      <div className="grid grid-cols-3 gap-2 pt-3.5 border-t border-border text-center">
-                        <div className="flex flex-col items-center">
-                          <span className="text-xs text-text-muted font-extrabold uppercase tracking-wider">Volume (MT)</span>
-                          <span className="text-base font-black text-text-primary mt-1 font-mono">{formatMT(insight.cur_mt)}</span>
-                        </div>
-                        <div className="flex flex-col items-center border-x border-border">
-                          <span className="text-xs text-text-muted font-extrabold uppercase tracking-wider">MoM Change</span>
-                          <span className={`text-base font-black mt-1 flex items-center gap-1 font-mono ${s.text}`}>
-                            <MoMIndicator cur={insight.cur_mt} prev={insight.prev_mt} className="text-base font-extrabold" />
-                          </span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-xs text-text-muted font-extrabold uppercase tracking-wider">Pending (MT)</span>
-                          <span className="text-base font-black text-text-primary mt-1 font-mono">{formatMT(insight.pending_qty)}</span>
-                        </div>
-                      </div>
-
-                      {insight.primary_driver && (
-                        <div className="pt-3.5 border-t border-border">
-                          <span className="text-xs font-extrabold text-text-muted uppercase tracking-wider block mb-1.5">Primary Driver:</span>
-                          <p className="text-base text-text-secondary leading-relaxed font-medium">{insight.primary_driver}</p>
-                        </div>
-                      )}
-                      {insight.recommended_action && (
-                        <div className="pt-3.5 border-t border-border">
-                          <span className="text-xs font-extrabold text-text-muted uppercase tracking-wider block mb-1.5">Product Strategy:</span>
-                          <p className="text-base text-text-secondary leading-relaxed font-semibold">{insight.recommended_action}</p>
-                        </div>
-                      )}
+                      <span className={`text-xs font-black tracking-wider px-3 py-1.5 rounded-lg uppercase ${s.badge}`}>
+                        {insight.trend === 'DECLINING' || insight.trend === 'BEHIND' ? 'Declining' : (insight.trend === 'GROWING' || insight.trend === 'AHEAD' ? 'Growth' : (insight.trend || (isDecline ? 'Declining' : 'Growth')))}
+                      </span>
                     </div>
-                  );
-                })}
-              </m.div>
-            )}
+
+                    {/* Metrics */}
+                    <div className="grid grid-cols-3 gap-2 pt-3.5 border-t border-border text-center">
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-text-muted font-extrabold uppercase tracking-wider">Volume (MT)</span>
+                        <span className="text-base font-black text-text-primary mt-1 font-mono">{formatMT(insight.cur_mt)}</span>
+                      </div>
+                      <div className="flex flex-col items-center border-x border-border">
+                        <span className="text-xs text-text-muted font-extrabold uppercase tracking-wider">vs Last Month</span>
+                        <span className={`text-base font-black mt-1 flex items-center gap-1 font-mono ${s.text}`}>
+                          <MoMIndicator cur={insight.cur_mt} prev={insight.prev_mt} className="text-base font-extrabold" />
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-text-muted font-extrabold uppercase tracking-wider">Pending Orders (MT)</span>
+                        <span className="text-base font-black text-text-primary mt-1 font-mono">{formatMT(insight.pending_qty)}</span>
+                      </div>
+                    </div>
+
+                    {insight.primary_driver && (
+                      <div className="pt-3.5 border-t border-border">
+                        <span className="text-xs font-extrabold text-text-muted uppercase tracking-wider block mb-1.5">Primary Driver:</span>
+                        <p className="text-base text-text-secondary leading-relaxed font-medium">{insight.primary_driver}</p>
+                      </div>
+                    )}
+                    {insight.recommended_action && (
+                      <div className="pt-3.5 border-t border-border">
+                        <span className="text-xs font-extrabold text-text-muted uppercase tracking-wider block mb-1.5">Product Strategy:</span>
+                        <p className="text-base text-text-secondary leading-relaxed font-semibold">{insight.recommended_action}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              };
+
+              return (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-extrabold text-accent-blue uppercase tracking-widest flex items-center gap-2">
+                    <Layers className="w-5 h-5" />
+                    Product Insights ({allInsights.length})
+                  </h4>
+
+                  {declining.length > 0 && (
+                    <div className="space-y-4">
+                      <h5 className="text-xs font-black text-severity-high uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-severity-high" />
+                        Declining Products ({declining.length})
+                      </h5>
+                      {declining.map((insight, idx) => renderInsightCard(insight, idx))}
+                    </div>
+                  )}
+
+                  {growth.length > 0 && (
+                    <div className="space-y-4">
+                      <h5 className="text-xs font-black text-severity-none uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-severity-none" />
+                        Growth Products ({growth.length})
+                      </h5>
+                      {growth.map((insight, idx) => renderInsightCard(insight, idx))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
           </div>
         </div>

@@ -9,12 +9,13 @@ export default function CollapsibleCard({
   defaultOpen = true, 
   children, 
   className = '',
-  accentColor = null
+  accentColor = null,
+  fullHeight = false
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className={`glass-card overflow-hidden ${className}`}>
+    <div className={`glass-card overflow-hidden flex flex-col ${fullHeight ? 'h-full' : ''} ${className}`}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
         onKeyDown={(e) => {
@@ -26,11 +27,11 @@ export default function CollapsibleCard({
         tabIndex={0}
         role="button"
         aria-expanded={isOpen}
-        className="collapsible-header w-full flex items-center justify-between p-4 sm:p-5 transition-colors border-b border-border cursor-pointer select-none focus-visible:outline-accent-blue"
+        className="collapsible-header w-full flex items-center justify-between p-3.5 sm:p-4 transition-colors border-b border-border cursor-pointer select-none focus-visible:outline-accent-blue shrink-0"
         style={accentColor ? { borderLeftWidth: '3px', borderLeftColor: accentColor } : {}}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <h3 className="card-title truncate">{title}</h3>
+        <div className="flex items-center gap-2 min-w-0 pr-1 flex-1 overflow-hidden">
+          <h3 className="card-title text-sm sm:text-base font-bold text-text-primary tracking-tight truncate shrink-0">{title}</h3>
           {badge && <span className="shrink-0">{badge}</span>}
         </div>
         <m.div
@@ -49,9 +50,9 @@ export default function CollapsibleCard({
             initial="closed"
             animate="open"
             exit="closed"
-            className="overflow-hidden"
+            className={`overflow-hidden ${fullHeight ? 'flex-1 flex flex-col' : ''}`}
           >
-            <div className="p-4 sm:p-6">
+            <div className={`p-3.5 sm:p-4.5 ${fullHeight ? 'flex-1 flex flex-col justify-between' : ''}`}>
               {children}
             </div>
           </m.div>

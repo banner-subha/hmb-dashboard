@@ -1,9 +1,10 @@
-import { useData } from '../../context/DataContext';
+import { useFilterState, useDataState } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { isWestBengalUser } from '../../utils/constants';
 
 export default function FilterBar({ children }) {
-  const { filters, dispatch, filterOptions } = useData();
+  const { filters, dispatch } = useFilterState();
+  const { filterOptions } = useDataState();
   const { user } = useAuth();
   const showNorthBengal = isWestBengalUser(user, filterOptions);
 

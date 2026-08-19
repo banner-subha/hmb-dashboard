@@ -1,19 +1,42 @@
 import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useData } from '../context/DataContext';
+import { useRawData } from '../context/DataContext';
 import { useTheme } from '../context/ThemeContext';
 import { NAV_ITEMS, CLIENT_NAV_ITEMS, CATEGORY_ICONS } from '../utils/constants';
-import * as Icons from 'lucide-react';
+import {
+  LayoutDashboard,
+  Map,
+  MapPin,
+  Store,
+  Brain,
+  Activity,
+  Globe,
+  Moon,
+  Sun,
+  LogOut,
+  Menu,
+  X,
+} from 'lucide-react';
 import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
 import { backdropVariants } from '../utils/motionVariants';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import AnimatedPage from '../components/common/AnimatedPage';
 import { calculateMoM, formatTrend } from '../utils/trendEngine';
 
+const NAV_ICON_MAP = {
+  LayoutDashboard,
+  Map,
+  MapPin,
+  Store,
+  Brain,
+  Activity,
+  Globe,
+};
+
 export default function DashboardLayout() {
   const { logout, user } = useAuth();
-  const { rawData } = useData();
+  const { rawData } = useRawData();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -120,7 +143,7 @@ export default function DashboardLayout() {
             </div>
           </div>
           <button className="lg:hidden text-white ml-2" onClick={() => setSidebarOpen(false)}>
-            <Icons.X className="w-5 h-5" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -129,7 +152,7 @@ export default function DashboardLayout() {
             Intelligence
           </div>
           {navItemsToRender.map((item) => {
-            const Icon = Icons[item.icon];
+            const Icon = NAV_ICON_MAP[item.icon] || Globe;
             return (
               <NavLink
                 key={item.path}
@@ -166,15 +189,15 @@ export default function DashboardLayout() {
                 aria-label="Toggle theme"
               >
                 {theme === 'light'
-                  ? <Icons.Moon className="w-5 h-5" />
-                  : <Icons.Sun className="w-5 h-5" />}
+                  ? <Moon className="w-5 h-5" />
+                  : <Sun className="w-5 h-5" />}
               </button>
               <button
                 onClick={handleLogout}
                 className="p-2 text-sidebar-text-muted hover:text-severity-critical transition-colors rounded-lg hover:bg-severity-critical/10 shrink-0"
                 title="Logout"
               >
-                <Icons.LogOut className="w-5 h-5" />
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -190,7 +213,7 @@ export default function DashboardLayout() {
             className="lg:hidden p-2 -ml-2 mb-2 text-text-muted hover:text-text-primary rounded-lg"
             onClick={() => setSidebarOpen(true)}
           >
-            <Icons.Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5" />
           </button>
 
           <div className="border border-border/10 rounded-xl overflow-hidden shadow-sm gradient-glow-top" style={{ background: 'var(--gradient-header)' }}>
@@ -209,7 +232,7 @@ export default function DashboardLayout() {
                   draggable={false}
                 />
 
-{/* Text stack */}
+                {/* Text stack */}
                 <div className="flex flex-col gap-0.5 min-w-0">
                   {/* Eyebrow */}
                   <span className="text-xs font-semibold uppercase tracking-[0.06em] text-sidebar-text-muted">
@@ -231,13 +254,13 @@ export default function DashboardLayout() {
                     {dispatchGrowth !== null && (
                       <>
                         <span className="mx-2 text-sidebar-text-muted font-bold">|</span>
-                        <span className={`font-semibold ${dispatchGrowth >= 0 ? 'text-severity-none' : 'text-severity-critical'}`}>
+                        <span className={`text-sm sm:text-[13.5px] font-black tracking-wide ${dispatchGrowth >= 0 ? 'text-severity-none' : 'text-severity-critical'}`}>
                           {dispatchGrowth >= 0 ? '↑' : '↓'} {Math.abs(dispatchGrowth).toFixed(1)}% vs last period
                         </span>
                       </>
                     )}
-</div>
-              </div>
+                  </div>
+                </div>
               </div>
 
               {/* RIGHT SIDE — Sync status only */}
@@ -254,7 +277,7 @@ export default function DashboardLayout() {
         {/* Page Content */}
         <div className="flex-1 overflow-auto p-4 sm:p-6">
           <div className="max-w-[90rem] mx-auto space-y-6 min-h-full relative">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="popLayout">
               <AnimatedPage key={location.pathname}>
                 <Suspense fallback={
                   <div className="space-y-6">

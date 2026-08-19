@@ -219,19 +219,45 @@ export function getHistoricalDealers(rawData, filters, periodKey) {
     const mom = calculateMoM(cur, prev);
     const drop = prev - cur;
     
+    // Ensure products array has cur and prev properties for Product Contribution component
+    const products = (hd.products || []).map(p => ({
+      ...p,
+      cur: p.cur ?? p.qty ?? 0,
+      prev: prevDl?.products?.find(pr => pr.product === p.product)?.cur ?? prevDl?.products?.find(pr => pr.product === p.product)?.qty ?? 0
+    }));
+
+    // Carry over pendingQty and pace fields from main data (these don't exist in monthlyHistory)
+    const pendingQty = mainDl?.pendingQty ?? 0;
+    const pendingHistory = mainDl?.pendingHistory ?? {};
+
     return {
       ...hd,
+      products,
       avgPeriod: mainDl?.avgPeriod ?? hd.avgPeriod ?? null,
       cur,
       prev,
       mom,
-      drop
+      drop,
+      pendingQty,
+      pendingHistory,
+      dailyAvgQty: mainDl?.dailyAvgQty ?? 0,
+      currentDailyRate: mainDl?.currentDailyRate ?? 0,
+      expectedMtd: mainDl?.expectedMtd ?? 0,
+      lossFlag: mainDl?.lossFlag ?? 'NO_DATA',
+      lossDeltaPct: mainDl?.lossDeltaPct ?? 0,
     };
   });
   
   if (filters?.selectedProduct) {
     mapped = mapped.filter(d => d.cur > 0 || d.prev > 0);
   }
+
+  // Compute share % based on the sum of all dealers' cur volumes in the filtered dataset
+  const totalCur = mapped.reduce((sum, d) => sum + d.cur, 0);
+  mapped = mapped.map(d => ({
+    ...d,
+    share: totalCur > 0 ? Math.round((d.cur / totalCur) * 100) : 0
+  }));
   
   return mapped;
 }

@@ -65,18 +65,43 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
       if (selectedPendingMonth && selectedPendingMonth !== curMonthKey) {
         rawDistricts = getHistoricalDistricts(rawData, filters, selectedPendingMonth);
       }
+
+      const trendParam = searchParams.get('trend');
+      if (trendParam === 'GROWING') {
+        const sourceDistricts = rawData?.districts || data.districts || [];
+        const growing = sourceDistricts.filter(d => {
+          const mom = calculateMoM(d.cur, d.prev);
+          return mom > 0 && d.cur > 0;
+        });
+        return growing.sort((a, b) => {
+          const gainA = (a.cur || 0) - (a.prev || 0);
+          const gainB = (b.cur || 0) - (b.prev || 0);
+          return gainB - gainA;
+        });
+      }
+
       return rawDistricts;
     }
-  }, [data, rawData, metricMode, selectedPendingMonth, filters]);
+  }, [data, rawData, metricMode, selectedPendingMonth, filters, searchParams]);
 
   // Sync URL params → Context: runs only when the URL itself changes.
   useEffect(() => {
+    const trend = searchParams.get('trend');
     const state = searchParams.get('state') || null;
     const district = searchParams.get('district') || null;
     const product = searchParams.get('product') || null;
     const search = searchParams.get('search') || '';
 
     const currentUrlParamString = searchParams.toString();
+
+    if (trend === 'GROWING') {
+      if (!state && filters.selectedState) {
+        dispatch({ type: 'SET_STATE', payload: null });
+      }
+      if (!district && filters.selectedDistrict) {
+        dispatch({ type: 'SET_DISTRICT', payload: null });
+      }
+    }
 
     if (state || district || product || search) {
       if (lastSyncedParamsRef.current !== currentUrlParamString) {
@@ -95,13 +120,14 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
     const currentDistrict = searchParams.get('district') || null;
     const currentProduct = searchParams.get('product') || null;
     const currentSearch = searchParams.get('search') || '';
+    const currentTrend = searchParams.get('trend') || null;
 
     const nextState = filters.selectedState || null;
     const nextDistrict = filters.selectedDistrict || null;
     const nextProduct = filters.selectedProduct || null;
     const nextSearch = filters.searchQuery || '';
 
-    const urlHasParams = !!(currentState || currentDistrict || currentProduct || currentSearch);
+    const urlHasParams = !!(currentState || currentDistrict || currentProduct || currentSearch || currentTrend);
     const isContextPendingHydration = urlHasParams && (
       (currentState && nextState !== currentState) ||
       (currentDistrict && nextDistrict !== currentDistrict) ||
@@ -120,6 +146,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
       currentSearch !== nextSearch
     ) {
       const params = {};
+      if (currentTrend) params.trend = currentTrend;
       if (nextState) params.state = nextState;
       if (nextDistrict) params.district = nextDistrict;
       if (nextProduct) params.product = nextProduct;
@@ -240,7 +267,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
         accessorKey: 'cur',
         header: 'Vol (MT)',
         meta: { width: '12%', minWidth: '85px' },
-        cell: info => <span className="font-medium">{formatMT(info.getValue())}</span>,
+        cell: info => <span className="font-bold text-text-primary">{formatMT(info.getValue())}</span>,
       },
       {
         header: 'MoM',
@@ -276,8 +303,8 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
           const rawDeltaPct = lossDeltaPct != null ? Number(lossDeltaPct) : 0;
           const deltaPct = Math.min(300, rawDeltaPct);
           
-          if (lossFlag === 'AHEAD' || lossFlag === 'BEHIND') {
-            const isAhead = lossFlag === 'AHEAD';
+          if (lossFlag === 'AHEAD' || lossFlag === 'BEHIND' || curRate > 0 || avgQty > 0) {
+            const isAhead = lossFlag === 'AHEAD' || (lossFlag !== 'BEHIND' && curRate >= avgQty);
             const sign = isAhead ? '+' : '';
             const showPct = lossDeltaPct !== undefined ? `${isAhead ? '▲' : '▼'} ${sign}${deltaPct}%` : (isAhead ? '▲' : '▼');
             const colorClass = isAhead ? 'text-[#22c55e]' : 'text-[#ef4444]';
@@ -290,20 +317,29 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                 <span className={`text-sm font-bold ${colorClass}`}>
                   {showPct}
                 </span>
-                <span className="text-[10px] text-text-muted mt-0.5 truncate block">
+                <span className="text-[11px] font-semibold text-text-primary mt-0.5 truncate block">
                   {shortRateText}
                 </span>
               </div>
             );
           }
           
-          return <span style={{ color: 'var(--color-text-muted)' }}>—</span>;
+          return (
+            <div className="flex flex-col select-none cursor-pointer" title="0.0 MT/day vs avg 0.0 MT/day (On Track)">
+              <span className="text-sm font-bold text-text-muted">
+                0.0%
+              </span>
+              <span className="text-[11px] font-semibold text-text-primary mt-0.5 truncate block">
+                0.0 vs 0.0 MT/d
+              </span>
+            </div>
+          );
         }
       },
       {
         id: 'severity',
         header: <div className="text-left">Risk</div>,
-        meta: { width: '14%', minWidth: '100px' },
+        meta: { width: '14%', minWidth: '135px' },
         cell: info => {
           const row = info.row.original;
           const sharePct = row.share || 0;
@@ -321,6 +357,30 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
   // NOTE: Must be declared before any early returns to satisfy Rules of Hooks.
   const districts = data?.districts || [];
   const products = data?.products || [];
+
+  // Compute district-specific inactive dealers dynamically from all dealers
+  const districtInactiveDealers = useMemo(() => {
+    if (!data?.dealers) return [];
+    return (data.dealers || [])
+      .filter(dl => {
+        if (filters.selectedState) {
+          const s = filters.selectedState.replace(/\s+/g, '').toUpperCase();
+          if (!dl.state || dl.state.replace(/\s+/g, '').toUpperCase() !== s) return false;
+        }
+        if (filters.selectedDistrict) {
+          if (dl.district !== filters.selectedDistrict) return false;
+        }
+        return ((dl.cur === 0 && (dl.prev > 0 || (dl.inactivityDays || 0) > 0)) || dl.isInactive);
+      })
+      .map(dl => ({
+        client: dl.client,
+        state: dl.state,
+        district: dl.district,
+        prevVolume: dl.prev || 0,
+        products: (dl.products || []).map(p => p.product).join(', ')
+      }))
+      .sort((a, b) => (b.prevVolume || 0) - (a.prevVolume || 0));
+  }, [data?.dealers, filters.selectedState, filters.selectedDistrict]);
 
   const pendingProducts = useMemo(() => {
     const productMap = {};
@@ -470,9 +530,9 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
               <div className="hidden sm:block w-px h-5 bg-border/40 mx-0.5 shrink-0" />
 
-              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-card/40 border border-border/10 shrink-0">
+              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-secondary border border-border/40 shrink-0 metric-toggle-container shadow-inner">
                 {[
-                  { value: "DESPATCH", label: "Despatch" },
+                  { value: "DESPATCH", label: "Dispatch" },
                   { value: "PENDING", label: "Pending" }
                 ].map(opt => {
                   const active = metricMode === opt.value;
@@ -481,10 +541,10 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                       key={opt.value}
                       type="button"
                       onClick={() => setMetricMode(opt.value)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
+                      className={`px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
                         active 
-                          ? 'bg-accent-sky/20 text-accent-sky border-accent-sky/35' 
-                          : 'bg-transparent text-text-muted/60 border-transparent hover:text-text-primary'
+                          ? 'toggle-pill-active' 
+                          : 'toggle-pill-inactive'
                       }`}
                     >
                       {opt.label}
@@ -534,7 +594,6 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
               onRowClick={(row) => {
                 dispatch({ type: 'SET_STATE', payload: row.state });
                 dispatch({ type: 'SET_DISTRICT', payload: row.district });
-                navigate(`/dealers?state=${row.state}&district=${row.district}`);
               }}
             />
           </div>
@@ -551,15 +610,15 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
               >
                 <CollapsibleCard 
                   title={`Inactive Dealers in ${filters.selectedDistrict}`} 
-                  badge={<span className="badge bg-severity-critical/20 text-severity-critical">{data.intel?.inactiveDealers?.length || 0}</span>}
+                  badge={<span className="badge bg-severity-critical/20 text-severity-critical">{districtInactiveDealers.length}</span>}
                 >
-                  {(!data.intel?.inactiveDealers || data.intel.inactiveDealers.length === 0) ? (
+                  {districtInactiveDealers.length === 0 ? (
                     <div className="text-center text-text-muted py-6 text-sm">
                       No inactive dealers matching this selection.
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {data.intel.inactiveDealers.slice(0, 5).map((d, i) => (
+                      {districtInactiveDealers.slice(0, 10).map((d, i) => (
                         <div 
                           key={i} 
                           onClick={() => navigate(`/dealers?state=${d.state}&district=${d.district}&search=${d.client}`)}
@@ -586,11 +645,17 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                           </div>
                         </div>
                       ))}
-                      {data.intel.inactiveDealers.length > 5 && (
+                      {districtInactiveDealers.length > 10 && (
                         <div className="text-center text-xs text-text-muted pt-1 pb-0.5">
-                          + {data.intel.inactiveDealers.length - 5} more inactive dealers
+                          + {districtInactiveDealers.length - 10} more inactive dealers
                         </div>
                       )}
+                      <button
+                        onClick={() => navigate(`/dealers?state=${filters.selectedState || ''}&district=${filters.selectedDistrict}`)}
+                        className="btn-action-pill w-fit mx-auto mt-2 py-1 px-3.5 text-[11px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        View All Dealers in {filters.selectedDistrict} →
+                      </button>
                     </div>
                   )}
                 </CollapsibleCard>
@@ -614,10 +679,10 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
           <CollapsibleCard 
             title={
               filters.selectedDistrict 
-                ? `${metricMode === 'PENDING' ? 'Pending Product Mix' : 'Product Mix'}: ${filters.selectedDistrict}` 
+                ? `${metricMode === 'PENDING' ? 'Pending by Product' : 'Product Mix'}: ${filters.selectedDistrict}` 
                 : filters.selectedState 
-                  ? `${metricMode === 'PENDING' ? 'Pending Product Mix' : 'Product Mix'}: ${filters.selectedState}` 
-                  : `${metricMode === 'PENDING' ? 'Pending Product Mix' : 'Product Mix Performance'}`
+                  ? `${metricMode === 'PENDING' ? 'Pending by Product' : 'Product Mix'}: ${filters.selectedState}` 
+                  : `${metricMode === 'PENDING' ? 'Pending by Product' : 'Product Mix'}`
             } 
             accentColor="#f97316" 
             badge={<span className="badge bg-bg-secondary text-text-muted">{activeProducts.length}</span>}
@@ -642,7 +707,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
               <div>
                 <h4 className="text-xs font-bold text-text-muted uppercase mb-3">
-                  {metricMode === 'PENDING' ? 'Product Pending Breakdown' : 'Product MoM Breakdown'}
+                  {metricMode === 'PENDING' ? 'Product Backlog Breakdown' : 'Product vs Last Month'}
                 </h4>
                 <div className="space-y-2">
                   {[...activeProducts]

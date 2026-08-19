@@ -37,6 +37,7 @@ import {
   Cell,
   ReferenceLine,
   ReferenceArea,
+  CartesianGrid,
 } from 'recharts';
 import SeverityBadge from '../components/common/SeverityBadge';
 import ImpactBadge from '../components/common/ImpactBadge';
@@ -91,204 +92,299 @@ function getWorstImpactScore(children = []) {
 
 const cleanName = (name) => name ? String(name).split('—')[0].trim() : '';
 
+// ── Collapsible Hierarchy Tree Node Component ─────────────────────────────
+function HierarchyTreeNodeItem({ node, depth = 1 }) {
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  // Default: All nodes with children start collapsed by default
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const isProduct = node.type === 'PRODUCT';
+  const labelText = isProduct ? (PRODUCT_LABELS[node.name] || node.name) : node.name;
+
+  const toggleExpand = (e) => {
+    e.stopPropagation();
+    if (hasChildren) {
+      setIsExpanded(prev => !prev);
+    }
+  };
+
+  return (
+    <div className="space-y-1 my-1">
+      <div 
+        onClick={hasChildren ? toggleExpand : undefined}
+        className={`flex items-center justify-between gap-3 py-1 px-2 rounded-lg relative transition-colors ${
+          hasChildren ? 'cursor-pointer hover:bg-bg-secondary/60' : ''
+        } ${depth > 1 ? 'ml-3' : ''}`}
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {depth === 1 && (
+            <div className="absolute -left-3 top-0 w-3 h-1/2 border-l border-b border-border-accent rounded-bl"></div>
+          )}
+
+          {/* Collapsible arrow icon */}
+          {hasChildren ? (
+            <button 
+              type="button"
+              onClick={toggleExpand} 
+              className="p-0.5 rounded hover:bg-border/40 text-accent-blue shrink-0 transition-all cursor-pointer"
+              title={isExpanded ? "Collapse breakdown" : "Expand breakdown"}
+            >
+              {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+          ) : (
+            <span className="w-3.5 shrink-0" />
+          )}
+
+          {/* Node Type Icon */}
+          {node.type === 'DISTRICT' && <Map className="w-3.5 h-3.5 text-accent-blue z-10 shrink-0" />}
+          {node.type === 'DEALER' && <Search className="w-3.5 h-3.5 text-text-muted z-10 shrink-0" />}
+          {node.type === 'PRODUCT' && (
+            <div className={`w-1.5 h-1.5 rounded-full ${node.drop > 0 ? 'bg-accent-blue/80' : 'bg-emerald-400'} shrink-0 ml-0.5`} />
+          )}
+
+          <span 
+            className={`truncate select-none ${
+              node.type === 'DISTRICT' 
+                ? 'text-base text-text-primary font-bold' 
+                : node.type === 'DEALER' 
+                  ? 'text-sm text-text-primary font-bold' 
+                  : 'text-sm text-text-primary font-semibold'
+            }`} 
+            title={labelText}
+          >
+            {labelText}
+          </span>
+          {hasChildren && !isExpanded && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue font-bold shrink-0">
+              {node.children.length} {node.type === 'DISTRICT' ? (node.children.length === 1 ? 'dealer' : 'dealers') : (node.children.length === 1 ? 'product' : 'products')}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+          {node.drop > 0 ? (
+            <span className={`font-extrabold tracking-tight ${
+              node.type === 'DISTRICT' 
+                ? 'text-severity-critical text-lg' 
+                : node.type === 'DEALER' 
+                  ? 'text-severity-critical text-base' 
+                  : 'text-severity-critical text-sm font-bold'
+            }`}>
+              -{formatNum(node.drop)} MT
+            </span>
+          ) : node.drop < 0 ? (
+            <span className="text-emerald-400 font-extrabold text-sm">
+              +{formatNum(-node.drop)} MT
+            </span>
+          ) : (
+            <span className="text-text-muted font-bold text-sm">
+              0 MT
+            </span>
+          )}
+
+          {node.mom != null && node.mom !== 0 && (
+            <span className={`font-mono font-semibold ${
+              node.type === 'DISTRICT' 
+                ? 'text-sm text-text-muted' 
+                : node.type === 'DEALER' 
+                  ? 'text-sm text-text-muted' 
+                  : 'text-xs text-text-muted'
+            }`}>
+              ({node.mom > 0 ? `+${node.mom}` : node.mom}% MoM)
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Render children recursively when expanded */}
+      {hasChildren && isExpanded && (
+        <div className={`my-0.5 border-l-2 ${node.type === 'DISTRICT' ? 'border-accent-blue/30 ml-5 pl-2' : 'border-border/40 ml-7 pl-2 space-y-0.5'}`}>
+          {node.children.map((childNode, idx) => (
+            <HierarchyTreeNodeItem key={idx} node={childNode} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Dynamic Hierarchy Generator (dispatch alerts) ────────────────────────────
 const buildHierarchy = (alert, fullData) => {
   if (!fullData || !alert) return null;
   const level = (alert.level || alert.category || '').toUpperCase();
   const entityName = (alert.dealer || alert.district || alert.state || (alert.title ? alert.title.split(':')[0].trim() : '')).toUpperCase();
 
-  if (level === 'STATE') {
-    // Get all active declining dealers in this state (carrying top state volume, cur > 0)
-    const stateActiveDealers = (fullData.dealers || [])
-      .filter(d => d.state?.toUpperCase() === entityName && (d.cur ?? 0) > 0 && (d.cur ?? 0) < (d.prev ?? 0))
-      .sort((a, b) => (b.prev ?? 0) - (a.prev ?? 0))
-      .slice(0, 5)
-      .map(d => {
-        const impactScore = d.impactScore ?? 0;
-        const severity = getSeverityFromImpactScore(impactScore);
-        const drop = (d.prev ?? 0) - (d.cur ?? 0);
-        const dealerProducts = (d.products || [])
-          .map(p => ({
-            type: 'PRODUCT',
-            name: cleanName(p.product),
-            severity: getSeverityFromImpactScore(p.impactScore ?? 0),
-            impactScore: p.impactScore ?? 0,
-            drop: (p.prev ?? 0) - (p.cur ?? 0),
-            cur: p.cur ?? 0,
-            prev: p.prev ?? 0,
-            mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0)
-          }))
-          .filter(p => p.cur !== 0 || p.prev !== 0)
-          .sort((a, b) => b.drop - a.drop);
-
+  // Helper to build a Dealer node with its nested Product children
+  const buildDealerNode = (dl) => {
+    const impactScore = dl.impactScore ?? 0;
+    const severity = getSeverityFromImpactScore(impactScore);
+    const drop = Math.max(0, (dl.prev ?? 0) - (dl.cur ?? 0));
+    const isInactive = (dl.cur ?? 0) === 0;
+    const statusLabel = isInactive ? 'Inactive' : 'Active';
+    
+    const dealerProducts = (dl.products || [])
+      .map(p => {
+        const cur = p.cur ?? 0;
+        const prev = p.prev ?? 0;
+        const pDrop = prev - cur;
         return {
-          type: 'DEALER',
-          name: `${cleanName(d.client)} (Active)`,
-          severity,
-          impactScore,
-          drop,
-          cur: d.cur ?? 0,
-          prev: d.prev ?? 0,
-          mom: d.mom,
-          children: dealerProducts
+          type: 'PRODUCT',
+          name: cleanName(p.product),
+          severity: getSeverityFromImpactScore(p.impactScore ?? 0),
+          impactScore: p.impactScore ?? 0,
+          drop: pDrop,
+          cur,
+          prev,
+          mom: p.mom ?? calculateMoM(cur, prev)
         };
-      });
+      })
+      .filter(p => p.cur !== 0 || p.prev !== 0)
+      .sort((a, b) => b.drop - a.drop);
 
-    // Get all districts for this state, then build district→dealer→product hierarchy
-    const allDistricts = (fullData.districts || [])
+    return {
+      type: 'DEALER',
+      name: `${cleanName(dl.client)} (${statusLabel})`,
+      severity,
+      impactScore,
+      drop,
+      cur: dl.cur ?? 0,
+      prev: dl.prev ?? 0,
+      mom: dl.mom ?? calculateMoM(dl.cur ?? 0, dl.prev ?? 0),
+      children: dealerProducts
+    };
+  };
+
+  if (level === 'STATE') {
+    // State level hierarchy: STATE -> DISTRICT -> DEALER -> PRODUCT
+    const stateDistricts = (fullData.districts || [])
       .filter(d => d.state?.toUpperCase() === entityName);
 
-    const districtChildren = allDistricts
+    const districtChildren = stateDistricts
       .map(d => {
-        const impactScore = d.impactScore ?? 0;
-        const severity = getSeverityFromImpactScore(impactScore);
-        const drop = Math.max(0, (d.prev ?? 0) - (d.cur ?? 0));
+        const distImpactScore = d.impactScore ?? 0;
+        const distSeverity = getSeverityFromImpactScore(distImpactScore);
+        const distDrop = Math.max(0, (d.prev ?? 0) - (d.cur ?? 0));
 
-        // Find active declining dealers in this district (cur > 0 & cur < prev)
+        // Find ALL dealers in this district (both active declining and inactive)
         const distDealers = (fullData.dealers || [])
-          .filter(dl => dl.district?.toUpperCase() === d.district?.toUpperCase() && (dl.cur ?? 0) > 0 && (dl.cur ?? 0) < (dl.prev ?? 0))
-          .sort((a, b) => (b.prev ?? 0) - (a.prev ?? 0))
-          .map(dl => {
-            const dealerDrop = (dl.prev ?? 0) - (dl.cur ?? 0);
-            const dealerProducts = (dl.products || [])
-              .map(p => ({
-                type: 'PRODUCT',
-                name: cleanName(p.product),
-                severity: getSeverityFromImpactScore(p.impactScore ?? 0),
-                impactScore: p.impactScore ?? 0,
-                drop: (p.prev ?? 0) - (p.cur ?? 0),
-                cur: p.cur ?? 0,
-                prev: p.prev ?? 0,
-                mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0)
-              }))
-              .filter(p => p.cur !== 0 || p.prev !== 0)
-              .sort((a, b) => b.drop - a.drop);
+          .filter(dl => dl.district?.toUpperCase() === d.district?.toUpperCase() && ((dl.prev ?? 0) > (dl.cur ?? 0) || (dl.prev ?? 0) > 0 || (dl.cur ?? 0) > 0))
+          .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)))
+          .map(dl => buildDealerNode(dl));
 
-            return {
-              type: 'DEALER',
-              name: `${cleanName(dl.client)} (Active)`,
-              severity: getSeverityFromImpactScore(dl.impactScore ?? 0),
-              impactScore: dl.impactScore ?? 0,
-              drop: dealerDrop,
-              cur: dl.cur ?? 0,
-              prev: dl.prev ?? 0,
-              mom: dl.mom,
-              children: dealerProducts
-            };
-          });
-
-        // Get active products for this district
-        const distProducts = (d.products || [])
-          .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
-          .map(p => {
-            const cur = p.cur ?? 0;
-            const prev = p.prev ?? 0;
-            const drop = prev - cur;
-            return {
+        // If district has dealers, dealers are the children
+        // If district has no dealers in data, fallback to district products
+        let children = distDealers;
+        if (children.length === 0) {
+          const distProducts = (d.products || [])
+            .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
+            .map(p => ({
               type: 'PRODUCT',
               name: cleanName(p.product),
               severity: getSeverityFromImpactScore(p.impactScore ?? 0),
               impactScore: p.impactScore ?? 0,
-              drop,
-              cur,
-              prev,
-              mom: p.mom ?? calculateMoM(cur, prev)
-            };
-          })
-          .sort((a, b) => b.drop - a.drop);
+              drop: (p.prev ?? 0) - (p.cur ?? 0),
+              cur: p.cur ?? 0,
+              prev: p.prev ?? 0,
+              mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0)
+            }))
+            .sort((a, b) => b.drop - a.drop);
+          children = distProducts;
+        }
 
-        const children = [...distDealers, ...distProducts];
-        if (drop === 0 && children.length === 0) return null;
-        return { type: 'DISTRICT', name: cleanName(d.district), severity, impactScore, drop, mom: d.mom, children };
+        if (distDrop === 0 && children.length === 0) return null;
+
+        return {
+          type: 'DISTRICT',
+          name: cleanName(d.district),
+          severity: distSeverity,
+          impactScore: distImpactScore,
+          drop: distDrop,
+          cur: d.cur ?? 0,
+          prev: d.prev ?? 0,
+          mom: d.mom ?? calculateMoM(d.cur ?? 0, d.prev ?? 0),
+          children
+        };
       })
       .filter(Boolean)
       .sort((a, b) => b.drop - a.drop);
 
-    // State-level active products (aggregate)
-    const stateObj = (fullData.states || []).find(s => s.state?.toUpperCase() === entityName);
-    const stateProducts = (stateObj?.products || [])
-      .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
-      .map(p => {
-        const cur = p.cur ?? 0;
-        const prev = p.prev ?? 0;
-        const drop = prev - cur;
-        const impactScore = p.impactScore ?? 0;
-        const severity = getSeverityFromImpactScore(impactScore);
-        return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore, drop, cur, prev, mom: p.mom ?? calculateMoM(cur, prev) };
-      })
-      .sort((a, b) => b.drop - a.drop);
+    if (districtChildren.length === 0) return null;
 
-    const children = [...stateActiveDealers, ...districtChildren, ...stateProducts];
-    if (children.length === 0) return null;
-    return { type: 'STATE', name: cleanName(alert.state || entityName), children, severity: getWorstSeverity(children), impactScore: getWorstImpactScore(children) };
+    return {
+      type: 'STATE',
+      name: cleanName(alert.state || entityName),
+      children: districtChildren,
+      severity: getWorstSeverity(districtChildren),
+      impactScore: getWorstImpactScore(districtChildren)
+    };
   }
 
   if (level === 'DISTRICT') {
+    // District level hierarchy: DISTRICT -> DEALER -> PRODUCT
     const matchName = entityName.split(',')[0].trim();
-    // Show only active dealers decline (cur > 0 && cur < prev) carrying top volume
-    const dealers = (fullData.dealers || [])
-      .filter(d => d.district?.toUpperCase() === matchName && (d.cur ?? 0) > 0 && (d.cur ?? 0) < (d.prev ?? 0))
-      .sort((a, b) => (b.prev ?? 0) - (a.prev ?? 0));
-    const distObj = (fullData.districts || []).find(d => d.district?.toUpperCase() === matchName);
-    const products = (distObj?.products || [])
-      .filter(p => (p.cur ?? 0) < (p.prev ?? 0))
-      .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)));
-    if (dealers.length === 0 && products.length === 0) return null;
-    const children = [
-      ...dealers.map(d => {
-        const impactScore = d.impactScore ?? 0;
-        const severity = getSeverityFromImpactScore(impactScore);
-        const drop = (d.prev ?? 0) - (d.cur ?? 0);
-        const dealerProducts = (d.products || [])
-          .map(p => {
-            const cur = p.cur ?? 0;
-            const prev = p.prev ?? 0;
-            const drop = prev - cur;
-            return {
-              type: 'PRODUCT',
-              name: cleanName(p.product),
-              severity: getSeverityFromImpactScore(p.impactScore ?? 0),
-              impactScore: p.impactScore ?? 0,
-              drop,
-              cur,
-              prev,
-              mom: p.mom ?? calculateMoM(cur, prev)
-            };
-          })
-          .filter(p => p.cur !== 0 || p.prev !== 0)
-          .sort((a, b) => b.drop - a.drop);
+    
+    // Find all dealers in this district
+    const distDealers = (fullData.dealers || [])
+      .filter(dl => dl.district?.toUpperCase() === matchName && ((dl.prev ?? 0) > (dl.cur ?? 0) || (dl.prev ?? 0) > 0 || (dl.cur ?? 0) > 0))
+      .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)))
+      .map(dl => buildDealerNode(dl));
 
-        return { 
-          type: 'DEALER', 
-          name: `${cleanName(d.client)} (Active)`, 
-          severity, 
-          impactScore, 
-          drop, 
-          mom: d.mom,
-          children: dealerProducts
-        };
-      }),
-      ...products.map(p => {
-        const impactScore = p.impactScore ?? 0;
-        const severity = getSeverityFromImpactScore(impactScore);
-        return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore, drop: (p.prev ?? 0) - (p.cur ?? 0), mom: p.mom };
-      }),
-    ];
-    return { type: 'DISTRICT', name: cleanName(alert.district || matchName), children, severity: getWorstSeverity(children), impactScore: getWorstImpactScore(children) };
+    let children = distDealers;
+    if (children.length === 0) {
+      const distObj = (fullData.districts || []).find(d => d.district?.toUpperCase() === matchName);
+      const products = (distObj?.products || [])
+        .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
+        .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)))
+        .map(p => ({
+          type: 'PRODUCT',
+          name: cleanName(p.product),
+          severity: getSeverityFromImpactScore(p.impactScore ?? 0),
+          impactScore: p.impactScore ?? 0,
+          drop: (p.prev ?? 0) - (p.cur ?? 0),
+          cur: p.cur ?? 0,
+          prev: p.prev ?? 0,
+          mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0)
+        }));
+      children = products;
+    }
+
+    if (children.length === 0) return null;
+
+    return {
+      type: 'DISTRICT',
+      name: cleanName(alert.district || matchName),
+      children,
+      severity: getWorstSeverity(children),
+      impactScore: getWorstImpactScore(children)
+    };
   }
 
   if (level === 'DEALER') {
+    // Dealer level hierarchy: DEALER -> PRODUCT
     const dealerObj = (fullData.dealers || []).find(d => d.client?.toUpperCase() === entityName);
-    const products = (dealerObj?.products || []).filter(p => (p.cur ?? 0) < (p.prev ?? 0));
-    if (products.length === 0) return null;
-    const children = products
+    const products = (dealerObj?.products || [])
+      .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
       .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)))
-      .map(p => {
-        const impactScore = p.impactScore ?? 0;
-        const severity = getSeverityFromImpactScore(impactScore);
-        return { type: 'PRODUCT', name: cleanName(p.product), severity, impactScore, drop: (p.prev ?? 0) - (p.cur ?? 0), mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0) };
-      });
-    return { type: 'DEALER', name: cleanName(alert.dealer || entityName), children, severity: getWorstSeverity(children), impactScore: getWorstImpactScore(children) };
+      .map(p => ({
+        type: 'PRODUCT',
+        name: cleanName(p.product),
+        severity: getSeverityFromImpactScore(p.impactScore ?? 0),
+        impactScore: p.impactScore ?? 0,
+        drop: (p.prev ?? 0) - (p.cur ?? 0),
+        cur: p.cur ?? 0,
+        prev: p.prev ?? 0,
+        mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0)
+      }));
+
+    if (products.length === 0) return null;
+
+    return {
+      type: 'DEALER',
+      name: cleanName(alert.dealer || entityName),
+      children: products,
+      severity: getWorstSeverity(products),
+      impactScore: getWorstImpactScore(products)
+    };
   }
 
   return null;
@@ -1196,7 +1292,7 @@ export default function AlertIntelligence() {
                           ) : (
                             <span className="flex items-center justify-end gap-1 font-semibold">
                               <Clock className="w-3.5 h-3.5 text-text-muted" />
-                              <span style={{ color: source.pendingRisk?.backlogAgeDays >= 90 ? '#ef4444' : source.pendingRisk?.backlogAgeDays >= 60 ? '#f97316' : source.pendingRisk?.backlogAgeDays >= 30 ? '#eab308' : '#94a3b8' }}>
+                              <span style={{ color: source.pendingRisk?.backlogAgeDays >= 90 ? '#ef4444' : source.pendingRisk?.backlogAgeDays >= 60 ? '#f97316' : source.pendingRisk?.backlogAgeDays >= 30 ? '#eab308' : 'var(--color-text-secondary)' }}>
                                 {source.pendingRisk?.backlogAgeDays ?? 0} Days
                               </span>
                             </span>
@@ -1344,66 +1440,9 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode) {
                       {hierarchy.type === 'DEALER' && <Search className="w-4 h-4 text-accent-blue" />}
                       {hierarchy.name}
                     </div>
-                    {hierarchy.children.map((child, i) => (
-                      <div key={i} className="ml-4 space-y-1">
-                        <div className="flex items-center justify-between gap-4 py-1 relative pr-2">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <div className="absolute -left-4 top-0 w-4 h-1/2 border-l border-b border-border-accent rounded-bl"></div>
-                            {child.type === 'DISTRICT' && <Map className="w-3.5 h-3.5 text-text-muted z-10 bg-bg-card shrink-0" />}
-                            {child.type === 'DEALER' && <Search className="w-3.5 h-3.5 text-text-muted z-10 bg-bg-card shrink-0" />}
-                            {child.type === 'PRODUCT' && <Target className="w-3.5 h-3.5 text-text-muted z-10 bg-bg-card shrink-0" />}
-                            <span className="text-base text-text-primary font-bold truncate" title={child.name}>{child.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm shrink-0 whitespace-nowrap">
-                            {child.drop > 0 && (
-                              <span className="text-severity-critical font-bold text-base">
-                                -{formatNum(child.drop)} MT
-                              </span>
-                            )}
-                            {child.mom != null && child.mom !== 0 && (
-                              <span className="text-text-muted font-mono font-medium text-sm">
-                                ({child.mom}% MoM)
-                              </span>
-                            )}
-                          </div>
-                        </div>
 
-                        {/* Nested products (district→products or dealer→products) */}
-                        {child.children && child.children.length > 0 && (
-                          <div className="ml-8 space-y-1 my-1 border-l-2 border-accent-blue/30 pl-3.5">
-                            {child.children.map((pChild, pj) => (
-                              <div key={pj} className="flex items-center justify-between gap-4 text-xs py-0.5 text-text-muted">
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <div className={`w-1.5 h-1.5 rounded-full ${pChild.drop > 0 ? 'bg-accent-blue/70' : 'bg-emerald-400'} shrink-0`} />
-                                  <span className="font-bold text-slate-300 text-sm truncate" title={PRODUCT_LABELS[pChild.name] || pChild.name}>
-                                    {PRODUCT_LABELS[pChild.name] || pChild.name}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
-                                  {pChild.drop > 0 ? (
-                                    <span className="text-severity-critical font-bold text-sm">
-                                      -{formatNum(pChild.drop)} MT
-                                    </span>
-                                  ) : pChild.drop < 0 ? (
-                                    <span className="text-emerald-400 font-bold text-sm">
-                                      +{formatNum(-pChild.drop)} MT
-                                    </span>
-                                  ) : (
-                                    <span className="text-text-muted font-bold text-sm">
-                                      0 MT
-                                    </span>
-                                  )}
-                                  {pChild.mom != null && pChild.mom !== 0 && (
-                                    <span className={`font-mono text-xs ${pChild.mom < 0 ? 'text-text-muted' : 'text-emerald-400'}`}>
-                                      ({pChild.mom > 0 ? `+${pChild.mom}` : pChild.mom}% MoM)
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                    {hierarchy.children.map((child, idx) => (
+                      <HierarchyTreeNodeItem key={idx} node={child} depth={1} />
                     ))}
                   </div>
                 </div>
@@ -1571,12 +1610,17 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
   const historyMonths = Object.keys(pendingHistory).sort();
   const rec = generatePendingRecommendation(dealer);
 
-  // Highlight this dealer in scatter chart
-  const highlightedChartData = allRiskChartData.map(d => ({
-    ...d,
-    fill: d.dealer?.client === dealer.client ? '#ffffff' : d.fill,
-    opacity: d.dealer?.client === dealer.client ? 1 : 0.25,
-  }));
+  // Highlight this dealer in scatter chart with high-contrast, clean dots
+  const highlightedChartData = allRiskChartData.map(d => {
+    const isSelected = d.dealer?.client === dealer.client;
+    return {
+      ...d,
+      fill: isSelected ? '#ffffff' : d.fill,
+      opacity: isSelected ? 1 : 0.8,
+      z: isSelected ? 280 : d.z,
+      isSelected
+    };
+  });
 
   // Max values for chart domain
   const maxAge = Math.max(200, ...allRiskChartData.map(d => d.x));
@@ -1756,24 +1800,49 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                       <div className="flex items-center justify-center h-full text-text-muted text-xs italic">No chart data available</div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
-                        <ScatterChart margin={{ top: 20, right: 20, bottom: 25, left: 10 }}>
+                        <ScatterChart margin={{ top: 25, right: 25, bottom: 30, left: 15 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.35} />
                           {/* Risk zone backgrounds */}
-                          <ReferenceArea x1={90} x2={maxAge + 10} y1={100} y2={maxVol + 50} fill="#ef4444" fillOpacity={0.06} />
-                          <ReferenceArea x1={60} x2={90} y1={100} y2={maxVol + 50} fill="#f97316" fillOpacity={0.05} />
-                          <ReferenceArea x1={90} x2={maxAge + 10} y1={0} y2={100} fill="#f97316" fillOpacity={0.04} />
+                          <ReferenceArea x1={90} x2={maxAge + 10} y1={100} y2={maxVol + 50} fill="#ef4444" fillOpacity={0.08} />
+                          <ReferenceArea x1={60} x2={90} y1={100} y2={maxVol + 50} fill="#f97316" fillOpacity={0.06} />
+                          <ReferenceArea x1={90} x2={maxAge + 10} y1={0} y2={100} fill="#f97316" fillOpacity={0.05} />
                           <ReferenceArea x1={0} x2={60} y1={0} y2={100} fill="#3b82f6" fillOpacity={0.03} />
-                          <XAxis type="number" dataKey="x" tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} stroke="var(--color-border)" domain={[0, maxAge + 10]}
-                            label={{ value: 'Backlog Age (days)', position: 'bottom', offset: 8, fill: 'var(--color-text-muted)', fontSize: 10, fontWeight: 600 }} />
-                          <YAxis type="number" dataKey="y" tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} stroke="var(--color-border)" domain={[0, 'auto']}
-                            label={{ value: 'Pending Volume (MT)', angle: -90, position: 'insideLeft', offset: 0, fill: 'var(--color-text-muted)', fontSize: 10, fontWeight: 600 }} />
-                          <ZAxis type="number" dataKey="z" range={[30, 200]} />
+
+                          <XAxis 
+                            type="number" 
+                            dataKey="x" 
+                            tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }} 
+                            stroke="var(--color-border)" 
+                            domain={[0, maxAge + 10]}
+                            tickLine={false}
+                            label={{ value: 'Backlog Age (days)', position: 'bottom', offset: 12, fill: 'var(--color-text-muted)', fontSize: 11, fontWeight: 600 }} 
+                          />
+                          <YAxis 
+                            type="number" 
+                            dataKey="y" 
+                            tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }} 
+                            stroke="var(--color-border)" 
+                            domain={[0, 'auto']}
+                            tickLine={false}
+                            tickFormatter={(v) => `${v}`}
+                            label={{ value: 'Pending Volume (MT)', angle: -90, position: 'insideLeft', offset: -2, fill: 'var(--color-text-muted)', fontSize: 11, fontWeight: 600 }} 
+                          />
+                          <ZAxis type="number" dataKey="z" range={[50, 220]} />
                           <ChartTooltip content={<PendingChartTooltipContent />} />
-                          <ReferenceLine x={60} stroke="rgba(249,115,22,0.2)" strokeDasharray="4 4" />
-                          <ReferenceLine x={90} stroke="rgba(239,68,68,0.2)" strokeDasharray="4 4" />
-                          <ReferenceLine y={100} stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                          <Scatter data={highlightedChartData}>
+                          
+                          <ReferenceLine x={60} stroke="#f97316" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: '60d', position: 'top', fill: '#f97316', fontSize: 10, fontWeight: 600 }} />
+                          <ReferenceLine x={90} stroke="#ef4444" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: '90d', position: 'top', fill: '#ef4444', fontSize: 10, fontWeight: 700 }} />
+                          <ReferenceLine y={100} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" strokeWidth={1} label={{ value: '100 MT', position: 'right', fill: 'var(--color-text-muted)', fontSize: 10 }} />
+
+                          <Scatter data={highlightedChartData} isAnimationActive={true} animationDuration={600}>
                             {highlightedChartData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill} fillOpacity={entry.opacity ?? 1} />
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={entry.fill} 
+                                fillOpacity={entry.opacity} 
+                                stroke={entry.isSelected ? '#38bdf8' : 'none'}
+                                strokeWidth={entry.isSelected ? 3 : 0}
+                              />
                             ))}
                           </Scatter>
                         </ScatterChart>
@@ -1781,10 +1850,11 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                     )}
                   </div>
                   {/* Zone legend */}
-                  <div className="flex flex-wrap gap-3 mt-3 text-[9px] font-semibold uppercase tracking-wider">
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: 'rgba(239,68,68,0.3)' }}></span><span className="text-text-muted">Critical Zone (90d+, 100MT+)</span></span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: 'rgba(249,115,22,0.3)' }}></span><span className="text-text-muted">High Risk (60-90d)</span></span>
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: 'rgba(59,130,246,0.2)' }}></span><span className="text-text-muted">Normal (&lt;60d)</span></span>
+                  <div className="flex flex-wrap gap-4 mt-3 text-[10px] font-semibold uppercase tracking-wider items-center">
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: '#ef4444' }}></span><span className="text-text-muted">Critical Zone (90d+, 100MT+)</span></span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: '#f97316' }}></span><span className="text-text-muted">High Risk (60-90d)</span></span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full" style={{ background: '#3b82f6' }}></span><span className="text-text-muted">Normal (&lt;60d)</span></span>
+                    <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full border-2 border-sky-400" style={{ background: '#ffffff' }}></span><span className="text-text-primary font-bold">Selected Account</span></span>
                   </div>
                 </div>
               </div>
@@ -1842,7 +1912,7 @@ function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setN
                             </button>
                           </div>
                         </div>
-                        <p className="text-slate-200 leading-relaxed font-medium break-words">{note.text}</p>
+                        <p className="text-text-primary leading-relaxed font-medium break-words">{note.text}</p>
                       </div>
                     ))
                   )}

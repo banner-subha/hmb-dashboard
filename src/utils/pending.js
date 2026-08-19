@@ -59,6 +59,90 @@ export function isAgingPeriod(periodKey, availableMonths) {
   return idx >= 2; // Index 0 is current, Index 1 is ~30 days, Index 2+ is >=60 days
 }
 
+export function getBacklogAgeInfo(entity, periodKey = 'ALL', rawData = null) {
+  if (!entity) return { days: 0, label: '0 days', oldestMonth: null };
+
+  const pendingQty = getPendingForPeriod(entity, periodKey, rawData);
+  if (pendingQty <= 0) {
+    return { days: 0, label: '0 days', oldestMonth: null };
+  }
+
+  // Reference date: metadata generatedAt or current date
+  const genAt = rawData?.meta?.generatedAt || entity?.meta?.generatedAt;
+  const refDate = (genAt && !isNaN(new Date(genAt).getTime()))
+    ? new Date(genAt)
+    : new Date();
+
+  const getMonthDate = (pk) => {
+    if (!pk || pk === 'ALL') return null;
+    const parts = String(pk).split('-');
+    if (parts.length === 2) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (y && m >= 1 && m <= 12) {
+        return new Date(y, m - 1, 1);
+      }
+    }
+    return null;
+  };
+
+  // 1. Specific period filter (e.g. '2026-05')
+  if (periodKey && periodKey !== 'ALL') {
+    const mDate = getMonthDate(periodKey);
+    if (mDate) {
+      const days = Math.max(0, Math.round((refDate - mDate) / (1000 * 60 * 60 * 24)));
+      return {
+        days,
+        label: `${days} days`,
+        oldestMonth: periodKey
+      };
+    }
+  }
+
+  // 2. 'ALL' / Total Backlog mode — derive from entity.pendingHistory
+  const pendingHistory = entity.pendingHistory || {};
+  const activeMonths = Object.keys(pendingHistory)
+    .filter(m => (pendingHistory[m] || 0) > 0)
+    .sort();
+
+  if (activeMonths.length > 0) {
+    const oldestMonth = activeMonths[0];
+    const oldestDate = getMonthDate(oldestMonth);
+    const oldestDays = oldestDate
+      ? Math.max(0, Math.round((refDate - oldestDate) / (1000 * 60 * 60 * 24)))
+      : 30;
+
+    let totalVol = 0;
+    let weightedDaysSum = 0;
+    activeMonths.forEach(pk => {
+      const vol = pendingHistory[pk] || 0;
+      const d = getMonthDate(pk);
+      if (d) {
+        const days = Math.max(0, Math.round((refDate - d) / (1000 * 60 * 60 * 24)));
+        totalVol += vol;
+        weightedDaysSum += vol * days;
+      }
+    });
+
+    const avgDays = totalVol > 0 ? Math.round(weightedDaysSum / totalVol) : oldestDays;
+
+    return {
+      days: avgDays,
+      maxDays: oldestDays,
+      label: `${avgDays} days`,
+      oldestMonth
+    };
+  }
+
+  // Fallback if no pendingHistory breakdown exists, but pendingQty > 0
+  return {
+    days: 30,
+    label: '~30 days',
+    oldestMonth: null
+  };
+}
+
+
 export function getPendingAvailableMonths(rawData) {
   if (!rawData) return [];
 

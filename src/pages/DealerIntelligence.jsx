@@ -127,13 +127,19 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
       }
       
       if (statusFilter === 'ACTIVE') {
-        return rawDealers.filter(d => d.cur > 0);
+        rawDealers = rawDealers.filter(d => d.cur > 0);
       } else if (statusFilter === 'INACTIVE') {
-        return rawDealers.filter(d => d.cur === 0);
+        rawDealers = rawDealers.filter(d => d.cur === 0);
       }
+
+      const sortParam = searchParams.get('sort');
+      if (sortParam === 'avgPeriod' || sortParam === 'leadTime') {
+        rawDealers = [...rawDealers].sort((a, b) => (Number(b.avgPeriod) || 0) - (Number(a.avgPeriod) || 0));
+      }
+
       return rawDealers;
     }
-  }, [data?.dealers, rawData, statusFilter, metricMode, selectedPendingMonth, filters]);
+  }, [data?.dealers, rawData, statusFilter, metricMode, selectedPendingMonth, filters, searchParams]);
 
   // Auto-select dealer if search query isolates a single dealer
   useEffect(() => {
@@ -249,7 +255,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
         accessorKey: 'cur',
         header: 'Vol (MT)',
         meta: { width: '11%', minWidth: '80px' },
-        cell: info => <span className="font-medium whitespace-nowrap">{formatMT(info.getValue())}</span>,
+        cell: info => <span className="font-bold text-text-primary whitespace-nowrap">{formatMT(info.getValue())}</span>,
       },
       {
         header: 'MoM',
@@ -299,7 +305,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                 <span className={`text-sm font-bold ${colorClass}`}>
                   {showPct}
                 </span>
-                <span className="text-[10px] text-text-muted mt-0.5 truncate block">
+                <span className="text-[11px] font-semibold text-text-primary mt-0.5 truncate block">
                   {shortRateText}
                 </span>
               </div>
@@ -340,17 +346,22 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
   const selectedDealerProducts = useMemo(() => {
     if (!selectedDealer || !selectedDealer.products) return [];
     if (metricMode === 'DESPATCH') {
-      return selectedDealer.products.map(p => ({
-        product: p.product,
-        val: p.cur,
-        displayVal: formatMT(p.cur),
-        pct: selectedDealer.cur > 0 ? (p.cur / selectedDealer.cur) * 100 : 0
-      })).sort((a, b) => b.val - a.val);
+      const totalVolume = selectedDealer.cur ?? selectedDealer.qty ?? 0;
+      return selectedDealer.products.map(p => {
+        const val = p.cur ?? p.qty ?? p.val ?? 0;
+        return {
+          product: p.product,
+          val,
+          displayVal: formatMT(val),
+          pct: totalVolume > 0 ? (val / totalVolume) * 100 : 0
+        };
+      }).sort((a, b) => b.val - a.val);
     } else {
       const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
-      const totalDispatch = selectedDealer.cur || selectedDealer.products.reduce((sum, p) => sum + p.cur, 0);
+      const totalDispatch = (selectedDealer.cur ?? selectedDealer.qty) || selectedDealer.products.reduce((sum, p) => sum + (p.cur ?? p.qty ?? 0), 0);
       return selectedDealer.products.map(p => {
-        const share = totalDispatch > 0 ? (p.cur / totalDispatch) : (1 / selectedDealer.products.length);
+        const pVal = p.cur ?? p.qty ?? 0;
+        const share = totalDispatch > 0 ? (pVal / totalDispatch) : (1 / selectedDealer.products.length);
         const productPending = pendingQty * share;
         return {
           product: p.product,
@@ -497,9 +508,9 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               <div className="hidden sm:block w-px h-5 bg-border/40 mx-0.5 shrink-0" />
 
               {/* Despatch/Pending Toggle */}
-              <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-bg-card/40 border border-border/10 shrink-0">
+              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-secondary border border-border/40 shrink-0 metric-toggle-container shadow-inner">
                 {[
-                  { value: "DESPATCH", label: "Despatch" },
+                  { value: "DESPATCH", label: "Dispatch" },
                   { value: "PENDING", label: "Pending" }
                 ].map(opt => {
                   const active = metricMode === opt.value;
@@ -508,10 +519,10 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                       key={opt.value}
                       type="button"
                       onClick={() => setMetricMode(opt.value)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
+                      className={`px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
                         active 
-                          ? 'bg-accent-sky/20 text-accent-sky border-accent-sky/35 shadow-sm' 
-                          : 'bg-transparent text-text-muted/60 border-transparent hover:text-text-primary'
+                          ? 'toggle-pill-active' 
+                          : 'toggle-pill-inactive'
                       }`}
                     >
                       {opt.label}
@@ -560,9 +571,14 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
             </div>
 
             <DataTable 
-              key={metricMode + '-' + selectedPendingMonth + '-' + statusFilter}
+              key={metricMode + '-' + selectedPendingMonth + '-' + statusFilter + '-' + (searchParams.get('sort') || '')}
               data={filteredDealers} 
               columns={columns} 
+              defaultSort={
+                searchParams.get('sort') === 'avgPeriod' || searchParams.get('sort') === 'leadTime'
+                  ? [{ id: 'avgPeriod', desc: true }]
+                  : [{ id: metricMode === 'PENDING' ? 'pendingQty' : 'cur', desc: true }]
+              }
               onRowClick={setSelectedDealer}
             />
           </div>
@@ -572,7 +588,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
         {selectedDealer && (
           <div className="xl:col-span-4 space-y-6 min-w-0">
             <CollapsibleCard 
-              title="Dealer Intelligence" 
+              title="Dealer Profile" 
               accentColor={selectedAccentColor}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); setSelectedDealer(null); }}
@@ -592,7 +608,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-3 bg-bg-secondary rounded-lg">
                   <div className="text-xs text-text-muted mb-1">
-                    {metricMode === 'PENDING' ? 'Pending Orders' : 'Current Vol'}
+                    {metricMode === 'PENDING' ? 'Pending (MT)' : 'Dispatched (MT)'}
                   </div>
                   <div className="text-base font-bold text-text-primary">
                     {formatMT(metricMode === 'PENDING' ? getPendingForPeriod(selectedDealer, selectedPendingMonth) : selectedDealer.cur)}
@@ -601,7 +617,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
 
                 <div className="p-3 bg-bg-secondary rounded-lg">
                   <div className="text-xs text-text-muted mb-2">
-                    {metricMode === 'PENDING' ? 'Backlog Clearance' : 'Business Impact'}
+                    {metricMode === 'PENDING' ? 'Est. Clearance' : 'Impact Level'}
                   </div>
                   <div className="mt-1">
                     {metricMode === 'PENDING' ? (
@@ -622,7 +638,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                 </div>
                 <div className="p-3 bg-bg-secondary rounded-lg col-span-2 flex justify-between items-center">
                   <div className="text-xs text-text-muted">
-                    {metricMode === 'PENDING' ? 'Backlog Days' : 'MoM Trend'}
+                    {metricMode === 'PENDING' ? 'Days to Clear' : 'vs Last Month'}
                   </div>
                   {metricMode === 'PENDING' ? (
                     (() => {
@@ -648,49 +664,63 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               </div>
 
               {/* Daily Pace Benchmark vs Current Daily Rate */}
-              {selectedDealer.dailyAvgQty !== undefined && (
-                <div className="mb-6 p-4 bg-bg-secondary/60 border border-border/40 rounded-xl space-y-4 shadow-sm">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">Daily Pace Benchmark</h4>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${selectedDealer.lossFlag === 'BEHIND' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
-                      <span className={`w-2 h-2 rounded-full ${selectedDealer.lossFlag === 'BEHIND' ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
-                      {selectedDealer.lossFlag === 'BEHIND' ? 'BEHIND BENCHMARK' : 'ON TRACK'}
-                    </span>
+              {(selectedDealer.dailyAvgQty !== undefined || selectedDealer.currentDailyRate !== undefined) && (() => {
+                const dailyAvg = Number(selectedDealer.dailyAvgQty || 0);
+                const curRate = Number(selectedDealer.currentDailyRate || 0);
+                const actualMtd = selectedDealer.actualMtd ?? selectedDealer.cur ?? 0;
+                const expectedMtd = selectedDealer.expectedMtd || (dailyAvg > 0 ? dailyAvg * 10 : 0);
+                const delta = (selectedDealer.lossDelta !== undefined && selectedDealer.lossDelta !== 0)
+                  ? Number(selectedDealer.lossDelta)
+                  : (curRate - dailyAvg);
+                const isBehind = selectedDealer.lossFlag === 'BEHIND' || (curRate < dailyAvg);
+
+                return (
+                  <div className="mb-6 p-4 bg-bg-secondary/60 border border-border/40 rounded-xl space-y-4 shadow-sm">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">Daily Dispatch Target</h4>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${isBehind ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
+                        <span className={`w-2 h-2 rounded-full ${isBehind ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+                        {isBehind ? 'BEHIND TARGET' : 'ON TRACK'}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-text-muted uppercase block">Target Daily Rate</span>
+                        <div className="text-base font-extrabold text-text-primary">{formatMT(dailyAvg)}/day</div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-text-muted uppercase block">Current Daily Rate</span>
+                        <div className="text-base font-extrabold text-text-primary">{formatMT(curRate)}/day</div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-text-muted uppercase block">Expected This Month</span>
+                        <div className="text-sm font-semibold text-text-primary">{formatMT(expectedMtd)}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-text-muted uppercase block">Actual Dispatched</span>
+                        <div className="text-sm font-semibold text-text-primary">{formatMT(actualMtd)}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-2 border-t border-border/40 flex justify-between items-center text-xs">
+                      <span className="text-text-muted">Daily Gap</span>
+                      <span className={`font-bold ${delta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {delta >= 0 ? '+' : ''}{formatMT(delta)}/day
+                      </span>
+                    </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-text-muted uppercase block">Daily Avg Benchmark</span>
-                      <div className="text-base font-extrabold text-text-primary">{formatMT(selectedDealer.dailyAvgQty)}/day</div>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-text-muted uppercase block">Current Daily Rate</span>
-                      <div className="text-base font-extrabold text-text-primary">{formatMT(selectedDealer.currentDailyRate)}/day</div>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-text-muted uppercase block">Expected MTD Pace</span>
-                      <div className="text-sm font-semibold text-text-primary">{formatMT(selectedDealer.expectedMtd)}</div>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-text-muted uppercase block">Actual MTD Dispatch</span>
-                      <div className="text-sm font-semibold text-text-primary">{formatMT(selectedDealer.actualMtd)}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-2 border-t border-border/40 flex justify-between items-center text-xs">
-                    <span className="text-text-muted">Pace Variance (Delta)</span>
-                    <span className={`font-bold ${selectedDealer.lossDelta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {selectedDealer.lossDelta >= 0 ? '+' : ''}{formatMT(selectedDealer.lossDelta)}/day
-                    </span>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* AI Recommendations */}
               {aiRisk && (
                 <div className="mb-6 p-4 bg-accent-blue/10 border border-accent-blue/20 rounded-lg">
-                  <h4 className="text-xs font-bold text-accent-blue uppercase mb-2 flex items-center gap-2">
-                    🤖 AI Recommended Action
+                  <h4 className="text-xs font-bold text-accent-blue uppercase mb-2 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">🤖 AI Recommended Action</span>
+                    {selectedPendingMonth && selectedPendingMonth !== getCurMonthKey(rawData) && (
+                      <span className="text-[10px] normal-case font-normal text-text-muted">(Current Cycle Insight)</span>
+                    )}
                   </h4>
                   <p className="text-sm text-text-primary leading-relaxed">
                     {aiRisk.recommended_action}
@@ -722,7 +752,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               {selectedDealerProducts.length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold text-text-muted uppercase mb-3">
-                    {metricMode === 'PENDING' ? 'Proportional Pending Contribution' : 'Product Contribution'}
+                    {metricMode === 'PENDING' ? 'Product Backlog Share' : 'Product Mix'}
                   </h4>
                   <div className="space-y-2">
                     {selectedDealerProducts.map(p => (
