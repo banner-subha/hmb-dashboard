@@ -45,6 +45,17 @@ const CustomTooltip = ({ active, payload }) => {
   );
 };
 
+// Gradual dark-to-light blue descending spectrum for ranked volume bars
+const BLUE_DESCENDING_PALETTE = [
+  '#1D4ED8', // Deep Royal Blue (Top Volume)
+  '#2563EB', // Royal Blue
+  '#3B82F6', // Electric Blue
+  '#60A5FA', // Sky Blue
+  '#38BDF8', // Cyan Blue
+  '#7DD3FC', // Light Ice Blue
+  '#BAE6FD', // Pale Crystal Blue
+];
+
 export default function ProductBarChart({ data, height = 300 }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
@@ -83,21 +94,25 @@ export default function ProductBarChart({ data, height = 300 }) {
           height={height}
           data={chartData}
           layout="vertical"
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          barCategoryGap="20%"
+          margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--color-border)" />
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--color-border)" opacity={0.25} />
           <XAxis
             type="number"
             stroke="var(--color-text-dim)"
-            fontSize={13}
+            fontSize={12}
             tickFormatter={(val) => `${val} MT`}
           />
           <YAxis
             dataKey="product"
             type="category"
             stroke="var(--color-text-muted)"
-            fontSize={13}
-            width={60}
+            fontSize={12}
+            fontWeight={700}
+            width={48}
+            tickLine={false}
+            axisLine={false}
           />
           <Tooltip
             content={<CustomTooltip />}
@@ -106,8 +121,9 @@ export default function ProductBarChart({ data, height = 300 }) {
           />
           <Bar
             dataKey="cur_mt"
-            radius={[0, 6, 6, 0]}
-            maxBarSize={32}
+            radius={[0, 16, 16, 0]}
+            maxBarSize={24}
+            background={{ fill: 'var(--color-bg-secondary)', radius: [0, 16, 16, 0] }}
             isAnimationActive={true}
             animationDuration={600}
             animationEasing="ease-out"
@@ -115,7 +131,7 @@ export default function ProductBarChart({ data, height = 300 }) {
             {chartData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={PRODUCT_COLORS[entry.product] || '#94a3b8'}
+                fill={BLUE_DESCENDING_PALETTE[index % BLUE_DESCENDING_PALETTE.length] || PRODUCT_COLORS[entry.product] || '#3B82F6'}
               />
             ))}
           </Bar>

@@ -1110,7 +1110,7 @@ export default function AlertIntelligence() {
         </div>
 
         {/* SEGMENTED TOGGLE */}
-        <div className="flex items-center gap-1 p-1 rounded-xl w-fit bg-bg-card/40 border border-border/10 backdrop-blur-sm shrink-0">
+        <div className="flex items-center gap-1 p-1 rounded-xl w-fit bg-bg-secondary border border-border/40 metric-toggle-container shadow-inner shrink-0">
           {[
             { key: 'DISPATCH', label: 'Dispatch', icon: TrendingDown },
             { key: 'RISK', label: 'Risk', icon: ShieldAlert },
@@ -1120,10 +1120,10 @@ export default function AlertIntelligence() {
               <button
                 key={key}
                 onClick={() => setViewMode(key)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer border ${
                   isActive 
-                    ? 'bg-accent-blue/20 text-accent-blue border border-accent-blue/35 shadow-[0_0_16px_rgba(59,130,246,0.08)]' 
-                    : 'bg-transparent text-text-muted/70 border border-transparent'
+                    ? 'toggle-pill-active' 
+                    : 'toggle-pill-inactive'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />

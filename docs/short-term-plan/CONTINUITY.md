@@ -1,18 +1,19 @@
-- Goal: Apply and standardize the `Split Out CHAT IDs` native node architecture (from DO Pending Report v4) across Despatch WB Report (`4QbgfUVQbo4R5YKw`) to eliminate inter-node lookups and streamline Telegram multi-recipient dispatch.
+- Goal: Fix Behind Target pill text wrapping and alignment inside the Daily Dispatch Target box.
 - Constraints/Assumptions:
-  - Preserve 100% of formatting code, HTML/CSS layout, and math logic inside `Format Report Per State`.
-  - Maintain `TEST_MODE = true` safety invariant during test triggers.
+  - Single line horizontal pill without text wrapping or awkward empty vertical gap.
+  - Consistent across State Intelligence and Dealer Intelligence pages.
 - Key decisions:
-  - Migrated Telegram caption preparation and chat ID normalization into pre-Gotenberg `HTML to Binary` node.
-  - Replaced legacy custom JavaScript `Package Report` + `Expand Chat IDs` + `Filter Binary` with native `Split Out CHAT IDs` (`n8n-nodes-base.splitOut` typeVersion 1, `includeBinary: true`).
-  - Telegram dispatch reads `={{ $json.CHAT_IDS }}` and `={{ $json.caption }}` directly without inter-node `$('...')` lookups.
+  - Added `shrink-0 whitespace-nowrap` and `badge-theme-red` / `badge-theme-green` to the status badge in `StateIntelligence.jsx` and `DealerIntelligence.jsx`.
 - State:
   - Done:
-    - `4QbgfUVQbo4R5YKw` ((TEST)Despatch WB Report v12) updated to native `Split Out CHAT IDs` pipeline.
-    - End-to-end execution verified via Live Run #3570 in 39s (Split Out CHAT IDs: 0ms, Telegram Dispatch: 311ms).
-    - Workflow validated and active.
-  - Now: Workflow is robust, streamlined, and aligned with DO Pending v4 standard.
+    - Updated `src/pages/StateIntelligence.jsx` and `src/pages/DealerIntelligence.jsx`.
+    - Verified build via `npm run build` (success, 0 errors).
+    - Verified in browser on State Intelligence detail panel.
+    - Updated walkthrough artifact `walkthrough.md`.
+  - Now:
+    - Complete.
+  - Next:
+    - None.
 - Working set:
-  - 4QbgfUVQbo4R5YKw ((TEST)Despatch WB Report v12)
-  - UodhpXvKnQAk8Vjd (DO Pending Report v4)
-  - 5kQvT1brZG8eRJq7 (Despatch Raw MTD Aggregator)
+  - src/pages/StateIntelligence.jsx
+  - src/pages/DealerIntelligence.jsx

@@ -311,22 +311,22 @@ export default function ExecutiveOverview() {
                 {topStates.map(s => (
                   <div 
                     key={s.state} 
-                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer" 
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
                     onClick={() => navigate(`/states?state=${encodeURIComponent(s.state)}`)}
                   >
-                    <div className="flex items-center gap-4 sm:gap-5">
-                      <div className="w-[130px] min-w-[130px] flex-shrink-0 pr-1">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                      <div className="shrink-0">
                         <ImpactBadge 
                           tier={s.impactTier}
                           score={s.impactScore}
                         />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-text-primary">{s.state}</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm font-semibold text-text-primary truncate block">{s.state}</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-text-primary">{formatMT(s.cur)}</div>
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-bold text-text-primary font-mono">{formatMT(s.cur)}</div>
                       <MoMIndicator cur={s.cur} prev={s.prev} className="text-[10px]" />
                     </div>
                   </div>
@@ -346,23 +346,23 @@ export default function ExecutiveOverview() {
                 {topDistricts.map(d => (
                   <div 
                     key={d.district} 
-                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer" 
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
                     onClick={() => navigate(`/districts?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}`)}
                   >
-                    <div className="flex items-center gap-4 sm:gap-5">
-                      <div className="w-[130px] min-w-[130px] flex-shrink-0 pr-1">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                      <div className="shrink-0">
                         <ImpactBadge 
                           tier={d.impactTier}
                           score={d.impactScore}
                         />
                       </div>
-                      <div>
-                        <div className="text-sm font-semibold text-text-primary leading-none">{d.district}</div>
-                        <div className="text-xs text-text-muted mt-1">{d.state}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-text-primary leading-tight truncate">{d.district}</div>
+                        <div className="text-xs text-text-muted mt-0.5 truncate">{d.state}</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-text-primary">{formatMT(d.cur)}</div>
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-bold text-text-primary font-mono">{formatMT(d.cur)}</div>
                       <MoMIndicator cur={d.cur} prev={d.prev} className="text-[10px]" />
                     </div>
                   </div>
@@ -381,26 +381,26 @@ export default function ExecutiveOverview() {
               <div className="space-y-2.5">
                 {inactiveDealers.map((d, i) => (
                   <div key={`in-${i}`} 
-                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer" 
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
                     onClick={() => navigate(`/dealers?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}&search=${encodeURIComponent(d.client)}`)}
                   >
-                    <div>
-                      <div className="text-sm text-text-primary font-medium truncate max-w-[150px] sm:max-w-[200px]">{d.client}</div>
-                      <div className="text-xs text-text-muted mt-0.5">{d.district}, {d.state}</div>
+                    <div className="min-w-0 flex-1 pr-1">
+                      <div className="text-sm text-text-primary font-medium truncate">{d.client}</div>
+                      <div className="text-xs text-text-muted mt-0.5 truncate">{d.district}, {d.state}</div>
                     </div>
-                    <SeverityBadge severity="CRITICAL" />
+                    <SeverityBadge severity="CRITICAL" className="shrink-0" />
                   </div>
                 ))}
                 {decliningDealers.map((d, i) => (
                   <div key={`dec-${i}`} 
-                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-card border border-border/50 transition-colors hover:bg-bg-secondary cursor-pointer" 
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
                     onClick={() => navigate(`/dealers?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}&search=${encodeURIComponent(d.client)}`)}
                   >
-                    <div>
-                      <div className="text-sm text-text-primary font-medium truncate max-w-[150px] sm:max-w-[200px]">{d.client}</div>
-                      <div className="text-xs text-text-muted mt-0.5">{d.district}, {d.state}</div>
+                    <div className="min-w-0 flex-1 pr-1">
+                      <div className="text-sm text-text-primary font-medium truncate">{d.client}</div>
+                      <div className="text-xs text-text-muted mt-0.5 truncate">{d.district}, {d.state}</div>
                     </div>
-                    <SeverityBadge severity={d.impactTier || 'LOW'} />
+                    <SeverityBadge severity={d.impactTier || 'LOW'} className="shrink-0" />
                   </div>
                 ))}
               </div>
@@ -481,11 +481,11 @@ export default function ExecutiveOverview() {
                     ))}
                   </div>
 
-                  <div className="pt-2.5 border-t border-border/40 flex justify-between items-center gap-2">
-                    <span className="text-[11px] sm:text-xs text-text-muted font-medium truncate min-w-0">Generated by AI</span>
+                  <div className="pt-2.5 border-t border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-[11px] sm:text-xs text-text-muted font-medium min-w-0">Generated by AI</span>
                     <button
                       onClick={() => navigate('/war-room')}
-                      className="btn-pill-action shrink-0"
+                      className="btn-pill-action shrink-0 self-start sm:self-auto"
                     >
                       <span>See All Actions</span>
                       <ArrowRight className="w-3.5 h-3.5 shrink-0" />

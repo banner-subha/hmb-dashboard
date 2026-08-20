@@ -476,17 +476,21 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
   if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
   if (!data) return null;
 
-  // Compute accent color from frontend engine for selected state
+  // Compute accent color from frontend engine for selected state matching the Alert tag color
   const selectedAccentColor = selectedStateData 
     ? (metricMode === 'PENDING'
       ? (() => {
           const pendingQty = getPendingForPeriod(selectedStateData, selectedPendingMonth);
           const totalPending = nationalPendingTotal;
           const sharePct = getSharePctForPeriod(selectedStateData, selectedPendingMonth, totalPending);
-          return getBusinessImpact(pendingQty, 0, sharePct, 'STATE', selectedStateData.state).theme.color;
+          const { severity } = getBusinessImpact(pendingQty, 0, sharePct, 'STATE', selectedStateData.state);
+          return getSeverityTheme(severity).color;
         })()
-      : getBusinessImpact(selectedStateData.cur, selectedStateData.prev, selectedStateData.share ?? 0, 'STATE', selectedStateData.state).theme.color)
-    : '#6b7280';
+      : (() => {
+          const tier = selectedStateData.impactTier || getBusinessImpact(selectedStateData.cur, selectedStateData.prev, selectedStateData.share ?? 0, 'STATE', selectedStateData.state, selectedStateData.expectedMtd).severity || 'LOW';
+          return getSeverityTheme(tier).color;
+        })())
+    : '#3b82f6';
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -809,11 +813,17 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
                 return (
                   <div className="mb-6 p-4 bg-bg-secondary/60 border border-border/40 rounded-xl space-y-4 shadow-sm">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">Daily Dispatch Target</h4>
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${isBehind ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
-                        <span className={`w-2 h-2 rounded-full ${isBehind ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
-                        {isBehind ? 'BEHIND TARGET' : 'ON TRACK'}
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wider leading-snug">
+                        Daily Dispatch Target
+                      </h4>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold shrink-0 whitespace-nowrap shadow-xs ${
+                        isBehind 
+                          ? 'badge-theme-red' 
+                          : 'badge-theme-green'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isBehind ? 'bg-severity-critical animate-pulse' : 'bg-severity-low'}`} />
+                        <span>{isBehind ? 'BEHIND TARGET' : 'ON TRACK'}</span>
                       </span>
                     </div>
                     

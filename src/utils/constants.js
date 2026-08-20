@@ -11,15 +11,15 @@ export const PRODUCT_LABELS = {
 
 export const ALL_PRODUCTS = Object.keys(PRODUCT_LABELS);
 
-// Unified product color palette
+// Unified product color palette — Gradual Dark-to-Light Blue Spectrum
 export const PRODUCT_COLORS = {
-  IG: '#3B82F6',   // Electric Blue
-  GI: '#F97316',   // Premium Orange
-  IGG: '#A3E635',  // Neon Lime
-  HGI: '#8B5CF6',  // Violet Purple
-  P: '#10B981',    // Emerald Green
-  RS: '#EF4444',   // Rose Red
-  SS: '#22D3EE',   // Slate Cyan
+  IG: '#1D4ED8',   // Deep Royal Blue
+  GI: '#3B82F6',   // Electric Blue
+  IGG: '#60A5FA',  // Sky Blue
+  P: '#38BDF8',    // Cyan Sky Blue
+  HGI: '#818CF8',  // Indigo Periwinkle
+  RS: '#7DD3FC',   // Light Ice Blue
+  SS: '#BAE6FD',   // Pale Crystal Blue
 };
 
 import { getSeverityTheme } from './trendEngine.js';

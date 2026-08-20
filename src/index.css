@@ -1,35 +1,35 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #14161C;
-  --color-bg-primary-rgb: 20, 22, 28;
-  --color-bg-secondary: #16181E;
-  --color-bg-card: #1C1F26;
-  --color-bg-card-hover: #242730;
-  --color-bg-elevated: #20232A;
-  --color-bg-input: #1A1D24;
-  --color-border: #2A2D34;
-  --color-border-accent: #1e3a5f;
-  --color-text-primary: #E9EAEC;
-  --color-text-secondary: rgba(233, 234, 236, 0.82);
-  --color-text-muted: rgba(233, 234, 236, 0.60);
-  --color-text-dim: #4A4D54;
-  --color-accent-blue: #3b82f6;
-  --color-accent-blue-strong: #4d88ff;
-  --color-accent-blue-soft: #1e3a5f;
-  --color-accent-cyan: #4FA98C;
-  --color-accent-sky: #4EA8DE;
-  --color-accent-sky-strong: #7BC4EA;
-  --color-accent-sky-soft: #1B3A4D;
+  --color-bg-primary: #050505;
+  --color-bg-primary-rgb: 5, 5, 5;
+  --color-bg-secondary: #0A0A0A;
+  --color-bg-card: #0F0F0F;
+  --color-bg-card-hover: #161616;
+  --color-bg-elevated: #131313;
+  --color-bg-input: #0C0C0C;
+  --color-border: #232323;
+  --color-border-accent: #3A2F0E;
+  --color-text-primary: #F2F2F2;
+  --color-text-secondary: rgba(242, 242, 242, 0.82);
+  --color-text-muted: rgba(242, 242, 242, 0.60);
+  --color-text-dim: #4A4A4A;
+  --color-accent-blue: #E8B923;
+  --color-accent-blue-strong: #FFD65C;
+  --color-accent-blue-soft: #3A2F0E;
+  --color-accent-cyan: #C9A227;
+  --color-accent-sky: #D4AF37;
+  --color-accent-sky-strong: #F0C64A;
+  --color-accent-sky-soft: #241C08;
 
   /* Sidebar / header strip tokens — navy in light, charcoal in dark.
      Dark defaults live here so the generated utilities (bg-sidebar-bg,
      text-sidebar-text, etc.) match the current dark sidebar exactly. */
-  --color-sidebar-bg: #16181E;
+  --color-sidebar-bg: #0A0A0A;
   --color-sidebar-text: #FFFFFF;
   --color-sidebar-text-muted: #FFFFFF;
-  --color-sidebar-active-bg: rgba(59, 130, 246, 0.20);
-  --color-sidebar-active-icon: #3b82f6;
+  --color-sidebar-active-bg: rgba(232, 185, 35, 0.16);
+  --color-sidebar-active-icon: #E8B923;
   --color-severity-critical: #ef4444;
   --color-severity-high: #f97316;
   --color-severity-medium: #eab308;
@@ -43,22 +43,22 @@
 
 :root {
   /* Gradient palette — warm charcoal with restrained gold glow */
-  --gradient-page: radial-gradient(ellipse 100% 70% at 15% -5%, rgba(59, 130, 246, 0.10), transparent 55%),
-                   radial-gradient(ellipse 80% 60% at 85% 10%, rgba(59, 130, 246, 0.05), transparent 50%),
-                   linear-gradient(175deg, #14161C 0%, #191B21 40%, #121319 70%, #14161C 100%);
+  --gradient-page: radial-gradient(ellipse 100% 70% at 15% -5%, rgba(232, 185, 35, 0.07), transparent 55%),
+                   radial-gradient(ellipse 80% 60% at 85% 10%, rgba(232, 185, 35, 0.04), transparent 50%),
+                   linear-gradient(175deg, #050505 0%, #0A0A0A 40%, #030303 70%, #050505 100%);
 
-  --gradient-card: linear-gradient(145deg, #1C1F26 0%, #1E2129 45%, #191B21 100%);
-  --gradient-card-hover: linear-gradient(145deg, #242730 0%, #262A33 45%, #1E2129 100%);
-  --gradient-surface: linear-gradient(180deg, #16181E 0%, #1A1D24 50%, #16181E 100%);
-  --gradient-header: linear-gradient(135deg, rgba(28, 31, 38, 0.95) 0%, rgba(22, 24, 30, 0.90) 100%);
-  --gradient-accent: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  --gradient-accent-soft: linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(37, 99, 235, 0.06) 100%);
-  --gradient-accent-subtle: linear-gradient(90deg, rgba(59, 130, 246, 0.55) 0%, rgba(59, 130, 246, 0.12) 100%);
-  --gradient-glow: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12), transparent 60%);
-  --gradient-sky: linear-gradient(135deg, #4EA8DE 0%, #2E86C1 100%);
+  --gradient-card: linear-gradient(145deg, #0F0F0F 0%, #131313 45%, #0A0A0A 100%);
+  --gradient-card-hover: linear-gradient(145deg, #161616 0%, #1A1A1A 45%, #101010 100%);
+  --gradient-surface: linear-gradient(180deg, #0A0A0A 0%, #0C0C0C 50%, #0A0A0A 100%);
+  --gradient-header: linear-gradient(135deg, rgba(15, 15, 15, 0.95) 0%, rgba(10, 10, 10, 0.90) 100%);
+  --gradient-accent: linear-gradient(135deg, #E8B923 0%, #C9971A 100%);
+  --gradient-accent-soft: linear-gradient(135deg, rgba(232, 185, 35, 0.14) 0%, rgba(201, 151, 26, 0.05) 100%);
+  --gradient-accent-subtle: linear-gradient(90deg, rgba(232, 185, 35, 0.5) 0%, rgba(232, 185, 35, 0.1) 100%);
+  --gradient-glow: radial-gradient(circle at 50% 0%, rgba(232, 185, 35, 0.10), transparent 60%);
+  --gradient-sky: linear-gradient(135deg, #D4AF37 0%, #A9821E 100%);
   /* Sidebar gradient. Dark = identical to --gradient-surface (current sidebar
      appearance). Light overridden below to navy. */
-  --gradient-sidebar: linear-gradient(180deg, #16181E 0%, #1A1D24 50%, #16181E 100%);
+  --gradient-sidebar: linear-gradient(180deg, #0A0A0A 0%, #0C0C0C 50%, #0A0A0A 100%);
 
   --text-fluid-xs: clamp(0.65rem, 0.55rem + 0.25vw, 0.75rem);
   --text-fluid-sm: clamp(0.75rem, 0.7rem + 0.2vw, 0.875rem);
@@ -89,19 +89,19 @@
   --color-severity-none-text: #22c55e;
   --color-severity-none-border: rgba(34, 197, 94, 0.45);
 
-  --color-map-landmass: #1e2535;
-  --color-map-border: #475569;
-  --color-chart-tooltip-bg: #1C1F26;
-  --color-chart-tooltip-border: rgba(59, 130, 246, 0.18);
-  --color-chart-cursor: #0a0f1e;
-  --shadow-chart-tooltip: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+  --color-map-landmass: #161616;
+  --color-map-border: #3A3A3A;
+  --color-chart-tooltip-bg: #0F0F0F;
+  --color-chart-tooltip-border: rgba(232, 185, 35, 0.18);
+  --color-chart-cursor: #000000;
+  --shadow-chart-tooltip: 0 10px 30px -10px rgba(0, 0, 0, 0.85);
 
   /* Map stroke — dark default */
-  --color-map-stroke: #475569;
+  --color-map-stroke: #3A3A3A;
 
   /* AI War Room sub-card surface (dark default) */
-  --ai-card-bg: #10131a;
-  --ai-card-border: #1e2433;
+  --ai-card-bg: #0A0A0A;
+  --ai-card-border: #1C1C1C;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -190,23 +190,38 @@
 /* Light-mode component tweaks — scoped so dark rules are never edited. */
 
 /* Executive Segmented Control / Toggle Pill Styling */
+.metric-toggle-container {
+  background: #0A0A0A;
+  border-color: rgba(35, 35, 35, 0.7);
+}
+
 .toggle-pill-active {
+  background: rgba(232, 185, 35, 0.14) !important;
+  color: #E8B923 !important;
+  border: 1px solid rgba(232, 185, 35, 0.65) !important;
+  box-shadow: 0 0 12px rgba(232, 185, 35, 0.08) !important;
+}
+[data-theme="light"] .toggle-pill-active {
   background: var(--gradient-accent) !important;
   color: #FFFFFF !important;
   border-color: transparent !important;
-  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.35) !important;
+  box-shadow: 0 2px 6px rgba(29, 78, 216, 0.35) !important;
 }
 .toggle-pill-inactive {
   background: transparent !important;
-  color: var(--color-text-muted) !important;
-  border-color: transparent !important;
+  color: rgba(242, 242, 242, 0.45) !important;
+  border: 1px solid transparent !important;
 }
 .toggle-pill-inactive:hover {
-  color: var(--color-text-primary) !important;
-  background: rgba(11, 34, 64, 0.06) !important;
+  color: #F2F2F2 !important;
+  background: rgba(255, 255, 255, 0.05) !important;
 }
-[data-theme="dark"] .toggle-pill-inactive:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
+[data-theme="light"] .toggle-pill-inactive {
+  color: #475569 !important;
+}
+[data-theme="light"] .toggle-pill-inactive:hover {
+  color: #0A192F !important;
+  background: rgba(11, 34, 64, 0.06) !important;
 }
 
 /* Refined Filter Dropdowns for Light Theme */
@@ -370,12 +385,12 @@
 
 /* Action navigation pills (e.g., View District Breakdown, View All Dealers) */
 .btn-action-pill {
-  color: var(--color-accent-blue);
-  background-color: rgba(59, 130, 246, 0.10);
-  border: 1px solid rgba(59, 130, 246, 0.30);
+  color: #E8B923;
+  background-color: rgba(232, 185, 35, 0.10);
+  border: 1px solid rgba(232, 185, 35, 0.30);
 }
 .btn-action-pill:hover {
-  background-color: rgba(59, 130, 246, 0.20);
+  background-color: rgba(232, 185, 35, 0.20);
 }
 
 [data-theme="light"] .btn-action-pill {
@@ -403,16 +418,16 @@
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.18s ease-in-out;
-  background-color: rgba(59, 130, 246, 0.14);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  background-color: rgba(232, 185, 35, 0.14);
+  color: #E8B923;
+  border: 1px solid rgba(232, 185, 35, 0.35);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .btn-pill-action:hover {
-  background-color: rgba(59, 130, 246, 0.25);
-  border-color: rgba(59, 130, 246, 0.55);
-  color: #93c5fd;
+  background-color: rgba(232, 185, 35, 0.25);
+  border-color: rgba(232, 185, 35, 0.55);
+  color: #FFD65C;
   transform: translateY(-0.5px);
 }
 
@@ -485,7 +500,7 @@ path.map-path,
     @apply border border-border/80 rounded-2xl;
     background: var(--gradient-card);
     backdrop-filter: blur(16px);
-    box-shadow: 0 2px 12px rgba(20, 22, 28, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
 
   .glass-card-hover {
@@ -495,14 +510,14 @@ path.map-path,
     transition-timing-function: ease-out;
     background: var(--gradient-card);
     backdrop-filter: blur(16px);
-    box-shadow: 0 2px 12px rgba(20, 22, 28, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
   @media (hover: hover) {
     .glass-card-hover:hover {
       background: var(--gradient-card-hover);
-      border-color: rgba(59, 130, 246, 0.25);
+      border-color: rgba(232, 185, 35, 0.25);
       transform: translateY(-2px);
-      box-shadow: 0 8px 32px rgba(59, 130, 246, 0.08), 0 2px 8px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 8px 32px rgba(232, 185, 35, 0.08), 0 2px 8px rgba(0, 0, 0, 0.5);
     }
   }
 
@@ -543,7 +558,7 @@ path.map-path,
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.4), rgba(59, 130, 246, 0.2), transparent);
+    background: linear-gradient(90deg, transparent, rgba(232, 185, 35, 0.4), rgba(232, 185, 35, 0.2), transparent);
     pointer-events: none;
   }
 
@@ -558,12 +573,12 @@ path.map-path,
 
   /* Inner content panel — gradient surface for depth on top of the page gradient */
   .panel {
-    background: linear-gradient(160deg, rgba(32, 35, 42, 0.92) 0%, rgba(25, 27, 33, 0.88) 100%);
-    border: 1px solid rgba(42, 45, 52, 0.7);
+    background: linear-gradient(160deg, rgba(15, 15, 15, 0.94) 0%, rgba(8, 8, 8, 0.90) 100%);
+    border: 1px solid rgba(35, 35, 35, 0.7);
   }
   .panel-inset {
-    background: linear-gradient(180deg, rgba(26, 29, 36, 0.95) 0%, rgba(22, 24, 30, 0.90) 100%);
-    border: 1px solid rgba(42, 45, 52, 0.55);
+    background: linear-gradient(180deg, rgba(10, 10, 10, 0.96) 0%, rgba(6, 6, 6, 0.92) 100%);
+    border: 1px solid rgba(35, 35, 35, 0.55);
   }
 
   .section-header {
@@ -638,7 +653,7 @@ path.map-path,
   }
   .sidebar-link.active {
     color: #FFFFFF !important;
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.20) 0%, rgba(59, 130, 246, 0.05) 60%, transparent 100%);
+    background: linear-gradient(90deg, rgba(232, 185, 35, 0.20) 0%, rgba(232, 185, 35, 0.05) 60%, transparent 100%);
     box-shadow: inset 3.5px 0 0 var(--color-accent-blue);
   }
 
@@ -651,15 +666,15 @@ path.map-path,
     -moz-appearance: none !important;
     background-color: var(--color-bg-input) !important;
     color: var(--color-text-primary) !important;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234EA8DE' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23E8B923' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") !important;
     background-repeat: no-repeat !important;
     background-position: right 12px center !important;
     background-size: 13px !important;
     padding-right: 32px !important;
   }
   select:focus, .filter-select:focus {
-    border-color: rgba(78, 168, 222, 0.35) !important;
-    box-shadow: 0 0 0 3px rgba(78, 168, 222, 0.12) !important;
+    border-color: rgba(232, 185, 35, 0.35) !important;
+    box-shadow: 0 0 0 3px rgba(232, 185, 35, 0.12) !important;
   }
   select option, .filter-select option {
     background-color: var(--color-bg-input) !important;
@@ -671,8 +686,8 @@ path.map-path,
     background: var(--color-bg-input);
   }
   .search-input:focus {
-    border-color: rgba(59, 130, 246, 0.7);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    border-color: rgba(232, 185, 35, 0.7);
+    box-shadow: 0 0 0 3px rgba(232, 185, 35, 0.12);
   }
 
   .chart-tooltip {

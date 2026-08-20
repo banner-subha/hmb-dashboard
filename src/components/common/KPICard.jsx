@@ -1,22 +1,16 @@
-export default function KPICard({ label, value, subtitle, momDisplay, momColor, accentColor = '#3b82f6', className = '' }) {
+export default function KPICard({ 
+  label, 
+  value, 
+  subtitle, 
+  momDisplay, 
+  momColor, 
+  accentColor = '#3b82f6', 
+  lightAccentColor,
+  className = '' 
+}) {
+  const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
+  const effectiveAccent = isLight && lightAccentColor ? lightAccentColor : accentColor;
   const displayColor = momColor || '#94a3b8';
-
-  // Helper to convert hex to rgba for gradient fade
-  const hexToRgba = (hex, alpha) => {
-    const cleanHex = hex.replace('#', '');
-    const r = parseInt(cleanHex.slice(0, 2), 16);
-    const g = parseInt(cleanHex.slice(2, 4), 16);
-    const b = parseInt(cleanHex.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-
-  const gradientBg = accentColor.startsWith('#') && accentColor.length === 7
-    ? `linear-gradient(180deg, ${accentColor} 0%, ${hexToRgba(accentColor, 0.1)} 100%)`
-    : `linear-gradient(180deg, ${accentColor} 0%, rgba(59, 130, 246, 0.1) 100%)`;
-
-  const glowColor = accentColor.startsWith('#') && accentColor.length === 7
-    ? hexToRgba(accentColor, 0.08)
-    : 'rgba(59, 130, 246, 0.08)';
 
   // Format value and unit separately for clean typography
   const renderFormattedValue = () => {
@@ -57,19 +51,13 @@ export default function KPICard({ label, value, subtitle, momDisplay, momColor, 
         borderLeftWidth: '0',
       }}
     >
-      {/* Side gradient accent line on the left */}
+      {/* Crisp solid side accent line on the left */}
       <div
         className="absolute left-0 top-0 bottom-0 w-[4px]"
-        style={{ background: gradientBg }}
+        style={{ backgroundColor: effectiveAccent }}
       />
 
-      {/* Subtle left corner glow */}
-      <div
-        className="absolute top-0 left-0 w-32 h-20 pointer-events-none"
-        style={{ background: `radial-gradient(ellipse at 0% 0%, ${glowColor}, transparent 75%)` }}
-      />
-
-      <div className="stat-label mb-2 text-xs font-bold text-text-muted uppercase tracking-wider whitespace-nowrap overflow-hidden text-ellipsis">
+      <div className="stat-label mb-2 text-xs font-bold text-text-muted uppercase tracking-wide leading-snug">
         {label}
       </div>
 
@@ -77,13 +65,13 @@ export default function KPICard({ label, value, subtitle, momDisplay, momColor, 
         {renderFormattedValue()}
       </div>
 
-      <div className="text-xs sm:text-[13px] text-text-secondary mt-1 flex items-center gap-2 truncate">
+      <div className="text-xs sm:text-[13px] text-text-secondary mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-snug">
         {momDisplay && (
           <span style={{ color: displayColor }} className="text-sm sm:text-[13.5px] font-black tracking-wide whitespace-nowrap">
             {momDisplay}
           </span>
         )}
-        <span className="truncate font-semibold text-text-muted/90">{subtitle}</span>
+        <span className="font-semibold text-text-muted/90 leading-snug">{subtitle}</span>
       </div>
     </div>
   );

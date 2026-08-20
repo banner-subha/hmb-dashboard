@@ -105,7 +105,7 @@ export default function AIWarRoom() {
       if (sb !== sa) return sb - sa;
       return ((b.prev || 0) - (b.cur || 0)) - ((a.prev || 0) - (a.cur || 0));
     })
-    .slice(0, 10)
+    .slice(0, 6)
     .map(dl => {
       const existing = llmRiskMap.get(dl.client?.replace(/\s+/g, '').toUpperCase());
       return {

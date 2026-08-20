@@ -151,7 +151,7 @@ function resolveDistrict(name) {
 }
 
 // ─── Geo Visualization Layer (isolated — never mutates global state) ──────────
-const NO_DATA_COLOR = '#1e2535'; // dark-mode fallback; at draw time we read --color-map-landmass
+const NO_DATA_COLOR = '#161616'; // dark-mode fallback; at draw time we read --color-map-landmass
 const HEAT_COLORS = [
   '#D6EDFA', // Soft cyan — lowest volume
   '#A9D9F0', // Light sky — low-med volume
@@ -1659,7 +1659,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
       // Theme-aware hover colors so the light map doesn't flash a dark blob.
       const isLightTheme = document.documentElement.getAttribute('data-theme') === 'light';
-      const HOVER_NODATA_FILL = isLightTheme ? '#c4ccd6' : '#2a364a';
+      const HOVER_NODATA_FILL = isLightTheme ? '#c4ccd6' : '#232323';
       const HOVER_STROKE = isLightTheme ? 'rgba(11, 34, 64, 0.4)' : 'rgba(255, 255, 255, 0.85)';
       // Read theme-resolved map colors from CSS custom properties
       const computedStyle = getComputedStyle(document.documentElement);
@@ -1769,7 +1769,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
 
           const sel = select(event.currentTarget);
           const baseFill = getFill(d);
-          const isNoData = baseFill === noDataColor || baseFill === NO_DATA_COLOR || baseFill === '#1e2535' || baseFill === '#DCE2E8';
+          const isNoData = baseFill === noDataColor || baseFill === NO_DATA_COLOR || baseFill === '#161616' || baseFill === '#1e2535' || baseFill === '#DCE2E8';
           const c = color(baseFill);
           const hoverFill = isNoData ? HOVER_NODATA_FILL : (c ? c.brighter(0.7).toString() : baseFill);
 

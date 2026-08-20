@@ -80,29 +80,29 @@ export default function PaceTrackerCard({ data, rawData }) {
       <div className="space-y-3.5 py-0.5">
         
         {/* Top 2 Metric Comparison Blocks */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-3.5">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-3.5">
           <div className="p-3 sm:p-3.5 rounded-xl bg-bg-secondary/80 border border-border/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wider truncate">
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wide">
               <Zap className="w-4 h-4 text-accent-blue shrink-0" />
-              <span className="truncate">Shipping Per Day (Now)</span>
+              <span className="leading-tight">Shipping Per Day (Now)</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-text-primary tracking-tight leading-none mt-2">
               {formatNumber(Math.round(currentDailyRate * 10) / 10)} <span className="text-xs font-bold text-text-muted">MT/day</span>
             </div>
-            <div className="text-[11px] text-text-muted font-medium mt-1.5 truncate">
+            <div className="text-[11px] text-text-muted font-medium mt-1.5 leading-snug">
               {daysElapsed} days into this month
             </div>
           </div>
 
           <div className="p-3 sm:p-3.5 rounded-xl bg-bg-secondary/80 border border-border/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wider truncate">
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wide">
               <Target className="w-4 h-4 text-accent-sky shrink-0" />
-              <span className="truncate">Daily Target Dispatch</span>
+              <span className="leading-tight">Daily Target Dispatch</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-text-primary tracking-tight leading-none mt-2">
               {formatNumber(Math.round(targetDailyRate * 10) / 10)} <span className="text-xs font-bold text-text-muted">MT/day</span>
             </div>
-            <div className="text-[11px] text-text-muted font-medium mt-1.5 truncate">
+            <div className="text-[11px] text-text-muted font-medium mt-1.5 leading-snug">
               Based on last 3 months
             </div>
           </div>
@@ -142,10 +142,10 @@ export default function PaceTrackerCard({ data, rawData }) {
           </div>
 
           {/* Sub-row: Cycle Day & Pace Delta */}
-          <div className="flex justify-between items-center text-xs font-medium text-text-muted pt-1">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs font-medium text-text-muted pt-1">
             <span className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-text-muted" />
-              <span>Day <strong className="text-text-primary">Day {daysElapsed}</strong> of {daysInMonth} this month</span>
+              <Calendar className="w-3.5 h-3.5 text-text-muted shrink-0" />
+              <span><strong className="text-text-primary">Day {daysElapsed}</strong> of {daysInMonth} this month</span>
             </span>
             <span className={`font-bold ${paceDelta >= 0 ? 'text-severity-none' : 'text-severity-critical'}`}>
               {paceDelta >= 0 ? `+${paceDelta}` : paceDelta} MT/day {paceDelta >= 0 ? 'ahead of target' : 'behind target'}
@@ -154,21 +154,21 @@ export default function PaceTrackerCard({ data, rawData }) {
         </div>
 
         {/* Required Run Rate Box */}
-        <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-xl bg-bg-secondary/50 border border-border/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-xl bg-bg-secondary/50 border border-border/40">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-accent-blue/10 text-accent-blue shrink-0">
               <ArrowUpRight className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider">Daily Rate Needed</div>
+              <div className="text-[11px] font-bold text-text-muted uppercase tracking-wide">Daily Rate Needed</div>
               <div className="text-base sm:text-lg font-black text-text-primary mt-0.5 leading-tight">
                 {formatNumber(requiredDailyRunRate)} <span className="text-xs font-bold text-text-muted">MT/day</span>
               </div>
             </div>
           </div>
 
-          <div className="text-right">
-            <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider">Remaining Volume</div>
+          <div className="text-left sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-border/30">
+            <div className="text-[11px] font-bold text-text-muted uppercase tracking-wide">Remaining Volume</div>
             <div className="text-base sm:text-lg font-black text-text-primary font-mono mt-0.5 leading-tight">
               {formatMT(remainingVolume)}
             </div>

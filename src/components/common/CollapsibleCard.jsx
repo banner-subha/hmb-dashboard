@@ -30,9 +30,9 @@ export default function CollapsibleCard({
         className="collapsible-header w-full flex items-center justify-between p-3.5 sm:p-4 transition-colors border-b border-border cursor-pointer select-none focus-visible:outline-accent-blue shrink-0"
         style={accentColor ? { borderLeftWidth: '3px', borderLeftColor: accentColor } : {}}
       >
-        <div className="flex items-center gap-2 min-w-0 pr-1 flex-1 overflow-hidden">
-          <h3 className="card-title text-sm sm:text-base font-bold text-text-primary tracking-tight truncate shrink-0">{title}</h3>
-          {badge && <span className="shrink-0">{badge}</span>}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 min-w-0 pr-2 flex-1">
+          <h3 className="card-title text-sm sm:text-base font-bold text-text-primary tracking-tight leading-snug">{title}</h3>
+          {badge && <div className="inline-flex items-center shrink-0">{badge}</div>}
         </div>
         <m.div
           className="text-text-muted shrink-0"

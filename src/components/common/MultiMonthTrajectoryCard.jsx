@@ -220,42 +220,42 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
       <div className="space-y-4 py-1">
         
         {/* Top 3 Summary Callout Metric Blocks */}
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
+        <div className="grid grid-cols-1 xs:grid-cols-3 sm:grid-cols-3 gap-2.5 sm:gap-3.5">
           <div className="p-3 sm:p-3.5 rounded-xl bg-bg-secondary/80 border border-border/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-text-muted uppercase tracking-wider truncate">
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wide">
               <Award className="w-3.5 h-3.5 text-accent-blue shrink-0" />
-              <span className="truncate">Best Month</span>
+              <span className="leading-tight">Best Month</span>
             </div>
-            <div className="text-base sm:text-lg lg:text-xl font-black text-text-primary tracking-tight leading-tight mt-1.5 truncate">
+            <div className="text-base sm:text-lg lg:text-xl font-black text-text-primary tracking-tight leading-tight mt-1.5 break-words">
               {stats.peakMonth}
             </div>
-            <div className="text-xs text-text-muted font-mono font-bold truncate mt-1">
+            <div className="text-xs text-text-muted font-mono font-bold mt-1 break-words">
               {formatMT(stats.peakVolume)}
             </div>
           </div>
 
           <div className="p-3 sm:p-3.5 rounded-xl bg-bg-secondary/80 border border-border/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-text-muted uppercase tracking-wider truncate">
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wide">
               <Activity className="w-3.5 h-3.5 text-accent-sky shrink-0" />
-              <span className="truncate">Monthly Average</span>
+              <span className="leading-tight">Monthly Average</span>
             </div>
-            <div className="text-base sm:text-lg lg:text-xl font-black text-text-primary tracking-tight leading-tight mt-1.5 truncate">
+            <div className="text-base sm:text-lg lg:text-xl font-black text-text-primary tracking-tight leading-tight mt-1.5 break-words">
               {formatMT(stats.avgMonthly)}
             </div>
-            <div className="text-xs text-text-muted font-medium truncate mt-1">
+            <div className="text-xs text-text-muted font-medium mt-1 leading-snug">
               Based on Jan–Jul
             </div>
           </div>
 
           <div className="p-3 sm:p-3.5 rounded-xl bg-bg-secondary/80 border border-border/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-text-muted uppercase tracking-wider truncate">
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wide">
               <Calendar className="w-3.5 h-3.5 text-accent-blue shrink-0" />
-              <span className="truncate">August So Far</span>
+              <span className="leading-tight">August So Far</span>
             </div>
-            <div className="text-base sm:text-lg lg:text-xl font-black text-text-primary tracking-tight leading-tight mt-1.5 truncate">
+            <div className="text-base sm:text-lg lg:text-xl font-black text-text-primary tracking-tight leading-tight mt-1.5 break-words">
               {formatMT(data?.totalCur || 6949.53)}
             </div>
-            <div className="text-xs text-text-muted font-medium truncate mt-1">
+            <div className="text-xs text-text-muted font-medium mt-1 leading-snug">
               Ongoing this month
             </div>
           </div>
@@ -263,11 +263,11 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
 
         {/* Dual-Layer Composed Bar & Trendline Chart with Refined Slim Bar Width */}
         <div className="p-3.5 sm:p-4 rounded-xl bg-bg-secondary/60 border border-border/50 shadow-xs space-y-2 flex-1 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-xs sm:text-[13px]">
-            <span className="font-extrabold text-text-primary uppercase tracking-wider">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-[13px]">
+            <span className="font-extrabold text-text-primary uppercase tracking-wide">
               2026 Monthly Dispatch Run-Rate (MT)
             </span>
-            <div className="flex items-center gap-3.5 text-xs text-text-muted font-medium">
+            <div className="flex items-center gap-3.5 text-xs text-text-muted font-medium shrink-0">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-xs bg-accent-blue inline-block shadow-xs" />
                 <span>Monthly MT</span>
@@ -347,14 +347,14 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
           </div>
 
           {/* Quarterly Trajectory Velocity Strip to Align Gap with Right Column */}
-          <div className="grid grid-cols-2 gap-2.5 p-2.5 sm:p-3 rounded-xl bg-bg-secondary/70 border border-border/40 text-xs">
-            <div className="flex items-center justify-between">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-xl bg-bg-secondary/70 border border-border/40 text-xs">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-text-muted font-medium">Q1 Monthly Average:</span>
-              <span className="font-bold font-mono text-text-primary">{formatMT(stats.q1Avg)}</span>
+              <span className="font-bold font-mono text-text-primary shrink-0">{formatMT(stats.q1Avg)}</span>
             </div>
-            <div className="flex items-center justify-between border-l border-border/30 pl-3">
+            <div className="flex items-center justify-between gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 sm:border-l border-border/30 sm:pl-3">
               <span className="text-text-muted font-medium">Q2 Monthly Average:</span>
-              <span className="font-bold font-mono text-text-primary flex items-center gap-1">
+              <span className="font-bold font-mono text-text-primary flex items-center gap-1.5 shrink-0">
                 <span>{formatMT(stats.q2Avg)}</span>
                 <span className="text-[10.5px] text-severity-none font-bold">+{stats.q2Growth}%</span>
               </span>
@@ -363,13 +363,13 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
         </div>
 
         {/* Footer Deep-Link with Uniform Theme Pill Style */}
-        <div className="pt-3 border-t border-border/40 flex justify-between items-center gap-2">
-          <span className="text-xs text-text-muted font-medium truncate min-w-0">
+        <div className="pt-3 border-t border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <span className="text-xs text-text-muted font-medium min-w-0">
             Jan–Aug 2026 Monthly Dispatch Summary
           </span>
           <button
             onClick={() => navigate('/geo')}
-            className="btn-pill-action shrink-0"
+            className="btn-pill-action shrink-0 self-start sm:self-auto"
           >
             <span>View on Map</span>
             <ArrowRight className="w-3.5 h-3.5 shrink-0" />

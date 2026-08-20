@@ -57,7 +57,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
       <button
         onClick={() => table.previousPage()}
         disabled={!table.getCanPreviousPage()}
-        className="px-4 py-2 rounded-lg border border-border bg-bg-card hover:bg-bg-card-hover disabled:opacity-40 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium"
+        className="px-3.5 py-1.5 rounded-lg border border-border/60 bg-bg-card hover:bg-bg-card-hover hover:text-text-primary disabled:opacity-40 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium text-xs sm:text-sm"
       >
         Previous
       </button>
@@ -71,14 +71,15 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
           i === totalPages - 1 || 
           (i >= currentPage - 1 && i <= currentPage + 1)
         ) {
+          const isActive = currentPage === i;
           return (
             <button
               key={i}
               onClick={() => table.setPageIndex(i)}
-              className={`px-3.5 py-2 rounded-lg font-bold border transition-colors cursor-pointer text-sm ${
-                currentPage === i
-                  ? 'bg-accent-sky border-accent-sky text-white'
-                  : 'border-border bg-bg-card hover:bg-bg-card-hover text-text-muted'
+              className={`px-3 py-1.5 rounded-lg font-bold border transition-all cursor-pointer text-xs sm:text-sm min-w-[32px] sm:min-w-[36px] flex items-center justify-center ${
+                isActive
+                  ? 'toggle-pill-active'
+                  : 'border-border/60 bg-bg-card hover:bg-bg-card-hover hover:text-text-primary text-text-muted'
               }`}
             >
               {i + 1}
@@ -99,7 +100,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
       <button
         onClick={() => table.nextPage()}
         disabled={!table.getCanNextPage()}
-        className="px-4 py-2 rounded-lg border border-border bg-bg-card hover:bg-bg-card-hover disabled:opacity-40 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium"
+        className="px-3.5 py-1.5 rounded-lg border border-border/60 bg-bg-card hover:bg-bg-card-hover hover:text-text-primary disabled:opacity-40 disabled:hover:bg-bg-card transition-colors cursor-pointer disabled:cursor-not-allowed font-medium text-xs sm:text-sm"
       >
         Next
       </button>

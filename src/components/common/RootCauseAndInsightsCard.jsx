@@ -92,27 +92,27 @@ export default function RootCauseAndInsightsCard({
       <div className="space-y-3.5 py-0.5">
         
         {/* Compact Segmented Switcher */}
-        <div className="flex rounded-lg bg-bg-secondary/90 p-0.5 border border-border/50 gap-1 shadow-xs">
+        <div className="flex flex-wrap sm:flex-nowrap rounded-xl bg-bg-secondary p-1 border border-border/40 gap-1 metric-toggle-container shadow-inner">
           <button
             onClick={() => setActiveTab('ROOT_CAUSES')}
-            className={`flex-1 py-1 px-2.5 rounded-md text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            className={`flex-1 py-1.5 px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap border ${
               activeTab === 'ROOT_CAUSES'
-                ? 'bg-accent-blue text-white shadow-xs'
-                : 'text-text-muted hover:text-text-primary hover:bg-bg-card'
+                ? 'toggle-pill-active'
+                : 'toggle-pill-inactive'
             }`}
           >
-            <ShieldAlert className="w-3 h-3 shrink-0" />
+            <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
             <span>Issues Found ({causes.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('PRODUCT_INSIGHTS')}
-            className={`flex-1 py-1 px-2.5 rounded-md text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+            className={`flex-1 py-1.5 px-3 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap border ${
               activeTab === 'PRODUCT_INSIGHTS'
-                ? 'bg-accent-blue text-white shadow-xs'
-                : 'text-text-muted hover:text-text-primary hover:bg-bg-card'
+                ? 'toggle-pill-active'
+                : 'toggle-pill-inactive'
             }`}
           >
-            <Package className="w-3 h-3 shrink-0" />
+            <Package className="w-3.5 h-3.5 shrink-0" />
             <span>By Product ({products.length})</span>
           </button>
         </div>
@@ -122,7 +122,7 @@ export default function RootCauseAndInsightsCard({
           <div className="space-y-3.5 flex-1">
             {/* Section 1A: Root Cause Dimensions */}
             <div className="space-y-2.5">
-              <div className="flex items-center justify-between text-[12.5px] sm:text-[13px] font-extrabold text-text-primary uppercase tracking-wider">
+              <div className="flex flex-wrap items-center justify-between gap-1 text-[12.5px] sm:text-[13px] font-extrabold text-text-primary uppercase tracking-wide">
                 <span className="flex items-center gap-1.5">
                   <ShieldAlert className="w-4 h-4 text-accent-blue" />
                   <span>Issue Breakdown</span>
@@ -138,7 +138,7 @@ export default function RootCauseAndInsightsCard({
                   >
                     <div className="flex items-center justify-between gap-2">
                       {rc.dimension && (
-                        <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md shadow-xs badge-theme-blue">
+                        <span className="text-[11px] font-black uppercase tracking-wide px-2.5 py-0.5 rounded-md shadow-xs badge-theme-blue">
                           {rc.dimension}
                         </span>
                       )}
@@ -161,7 +161,7 @@ export default function RootCauseAndInsightsCard({
 
             {/* Section 1B: At-Risk Dealer Interventions from AI War Room */}
             <div className="space-y-2.5 pt-2 border-t border-border/40">
-              <div className="flex items-center justify-between text-[12.5px] sm:text-[13px] font-extrabold text-text-primary uppercase tracking-wider">
+              <div className="flex flex-wrap items-center justify-between gap-1 text-[12.5px] sm:text-[13px] font-extrabold text-text-primary uppercase tracking-wide">
                 <span className="flex items-center gap-1.5">
                   <User className="w-4 h-4 text-severity-critical" />
                   <span>Dealers Needing Urgent Attention</span>
@@ -177,7 +177,7 @@ export default function RootCauseAndInsightsCard({
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-sm sm:text-[14px] font-bold text-text-primary">{dRisk.dealer}</span>
-                      <span className="text-[10.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-xs badge-theme-red">
+                      <span className="text-[10.5px] font-black uppercase tracking-wide px-2 py-0.5 rounded-md shadow-xs badge-theme-red">
                         {dRisk.risk_type}
                       </span>
                     </div>
@@ -200,7 +200,7 @@ export default function RootCauseAndInsightsCard({
         {activeTab === 'PRODUCT_INSIGHTS' && (
           <div className="space-y-3 flex-1">
             <div className="space-y-2.5">
-              <div className="flex items-center justify-between text-[12.5px] sm:text-[13px] font-extrabold text-text-primary uppercase tracking-wider">
+              <div className="flex flex-wrap items-center justify-between gap-1 text-[12.5px] sm:text-[13px] font-extrabold text-text-primary uppercase tracking-wide">
                 <span className="flex items-center gap-1.5">
                   <Package className="w-4 h-4 text-accent-sky" />
                   <span>Volume Drivers by Product</span>
@@ -254,11 +254,11 @@ export default function RootCauseAndInsightsCard({
         )}
 
         {/* Footer Deep-Link to AI Insights & Actions */}
-        <div className="pt-2.5 border-t border-border/40 flex justify-between items-center gap-2">
-          <span className="text-[11px] sm:text-xs text-text-muted font-medium truncate min-w-0">AI Analysis Engine</span>
+        <div className="pt-2.5 border-t border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <span className="text-[11px] sm:text-xs text-text-muted font-medium min-w-0">AI Analysis Engine</span>
           <button
             onClick={() => navigate('/war-room')}
-            className="btn-pill-action shrink-0"
+            className="btn-pill-action shrink-0 self-start sm:self-auto"
           >
             <span>See Full Analysis</span>
             <ArrowRight className="w-3.5 h-3.5 shrink-0" />

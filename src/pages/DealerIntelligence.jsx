@@ -676,11 +676,17 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
 
                 return (
                   <div className="mb-6 p-4 bg-bg-secondary/60 border border-border/40 rounded-xl space-y-4 shadow-sm">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">Daily Dispatch Target</h4>
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${isBehind ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-green-500/10 text-green-500 border border-green-500/20'}`}>
-                        <span className={`w-2 h-2 rounded-full ${isBehind ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
-                        {isBehind ? 'BEHIND TARGET' : 'ON TRACK'}
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wider leading-snug">
+                        Daily Dispatch Target
+                      </h4>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold shrink-0 whitespace-nowrap shadow-xs ${
+                        isBehind 
+                          ? 'badge-theme-red' 
+                          : 'badge-theme-green'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isBehind ? 'bg-severity-critical animate-pulse' : 'bg-severity-low'}`} />
+                        <span>{isBehind ? 'BEHIND TARGET' : 'ON TRACK'}</span>
                       </span>
                     </div>
                     
