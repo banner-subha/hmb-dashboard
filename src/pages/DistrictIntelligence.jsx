@@ -3,6 +3,7 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import FilterBar from '../components/common/FilterBar';
+import SearchInput from '../components/common/SearchInput';
 import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import RiskScatterPlot from '../components/charts/RiskScatterPlot';
@@ -14,7 +15,7 @@ import SkeletonLoader from '../components/common/SkeletonLoader';
 import { MapPin } from 'lucide-react';
 import { AnimatePresence, m } from 'framer-motion';
 import ShareDonutChart from '../components/charts/ShareDonutChart';
-import { PRODUCT_COLORS, PRODUCT_LABELS, isWestBengalUser } from '../utils/constants';
+import { PRODUCT_COLORS, PRODUCT_LABELS, getProductFullName, isWestBengalUser } from '../utils/constants';
 import { getPendingForPeriod, getBacklogClearance, getSharePctForPeriod, getPendingAvailableMonths } from '../utils/pending';
 import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalDistricts } from '../utils/despatch';
 
@@ -49,9 +50,10 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
   const filteredDistricts = useMemo(() => {
     if (!data) return [];
+    let list = [];
     if (metricMode === 'PENDING') {
       const rawDistricts = data.districts || [];
-      return [...rawDistricts]
+      list = [...rawDistricts]
         .map(d => ({
           ...d,
           activePendingVal: getPendingForPeriod(d, selectedPendingMonth)
@@ -73,15 +75,25 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
           const mom = calculateMoM(d.cur, d.prev);
           return mom > 0 && d.cur > 0;
         });
-        return growing.sort((a, b) => {
+        list = growing.sort((a, b) => {
           const gainA = (a.cur || 0) - (a.prev || 0);
           const gainB = (b.cur || 0) - (b.prev || 0);
           return gainB - gainA;
         });
+      } else {
+        list = rawDistricts;
       }
-
-      return rawDistricts;
     }
+
+    if (filters.searchQuery) {
+      const q = filters.searchQuery.trim().toLowerCase();
+      list = list.filter(d => 
+        d.district?.toLowerCase().includes(q) || 
+        d.state?.toLowerCase().includes(q)
+      );
+    }
+
+    return list;
   }, [data, rawData, metricMode, selectedPendingMonth, filters, searchParams]);
 
   // Sync URL params → Context: runs only when the URL itself changes.
@@ -94,22 +106,9 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
     const currentUrlParamString = searchParams.toString();
 
-    if (trend === 'GROWING') {
-      if (!state && filters.selectedState) {
-        dispatch({ type: 'SET_STATE', payload: null });
-      }
-      if (!district && filters.selectedDistrict) {
-        dispatch({ type: 'SET_DISTRICT', payload: null });
-      }
-    }
-
-    if (state || district || product || search) {
-      if (lastSyncedParamsRef.current !== currentUrlParamString) {
-        lastSyncedParamsRef.current = currentUrlParamString;
-        dispatch({ type: 'SYNC_FILTERS', payload: { state, district, product, search } });
-      }
-    } else {
+    if (lastSyncedParamsRef.current !== currentUrlParamString) {
       lastSyncedParamsRef.current = currentUrlParamString;
+      dispatch({ type: 'SYNC_FILTERS', payload: { state, district, product, search } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -167,9 +166,18 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
           meta: { width: '25%', minWidth: '130px' },
           cell: info => {
             const row = info.row.original;
+            const val = String(info.getValue() ?? '');
+            const isPlaceholder = val === '0' || val.toUpperCase() === 'VERBAL';
             return (
               <div className="flex flex-col">
-                <span className="font-medium leading-tight">{info.getValue()}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium leading-tight">{val}</span>
+                  {isPlaceholder && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25 tracking-wide">
+                      {val === '0' ? 'Unassigned / Pending' : 'Verbal Order'}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] text-text-muted tracking-wide uppercase mt-0.5">{row.state}</span>
               </div>
             );
@@ -255,9 +263,18 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
         meta: { width: '20%', minWidth: '120px' },
         cell: info => {
           const row = info.row.original;
+          const val = String(info.getValue() ?? '');
+          const isPlaceholder = val === '0' || val.toUpperCase() === 'VERBAL';
           return (
             <div className="flex flex-col">
-              <span className="font-medium leading-tight">{info.getValue()}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium leading-tight">{val}</span>
+                {isPlaceholder && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25 tracking-wide">
+                    {val === '0' ? 'Unassigned / Pending' : 'Verbal Order'}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] text-text-muted tracking-wide uppercase mt-0.5">{row.state}</span>
             </div>
           );
@@ -441,7 +458,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
         <div className="flex items-center gap-3">
           <MapPin className="w-7 h-7 text-accent-blue" />
           <h2 className="text-3xl font-extrabold text-text-primary">
-            {metricMode === 'PENDING' ? 'District Pending Orders' : 'District Performance'}
+            {metricMode === 'PENDING' ? 'District Pending Orders' : 'District Overview'}
           </h2>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -467,10 +484,10 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pb-3.5 border-b border-border/40 w-full">
               <select
                 className="filter-select text-xs py-1.5 px-3 w-[115px] sm:w-[130px] shrink-0"
-                value={filters.selectedState || (filterOptions.states.length === 1 ? filterOptions.states[0] : '')}
+                value={filters.selectedState || ''}
                 onChange={(e) => dispatch({ type: 'SET_STATE', payload: e.target.value || null })}
               >
-                {filterOptions.states.length !== 1 && <option value="">All States</option>}
+                <option value="">All States</option>
                 {filterOptions.states.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
@@ -484,7 +501,9 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                 >
                   <option value="">All Districts</option>
                   {filterOptions.districts.map(d => (
-                    <option key={d} value={d}>{d}</option>
+                    <option key={d} value={d}>
+                      {d === '0' ? '0 (Unassigned / Pending)' : (d === 'VERBAL' ? 'VERBAL (Verbal Orders)' : d)}
+                    </option>
                   ))}
                 </select>
               )}
@@ -530,7 +549,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
               <div className="hidden sm:block w-px h-5 bg-border/40 mx-0.5 shrink-0" />
 
-              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-secondary border border-border/40 shrink-0 metric-toggle-container shadow-inner">
+              <div className="flex items-center gap-1 p-1 rounded-full bg-transparent border border-border/40 shrink-0 metric-toggle-container">
                 {[
                   { value: "DESPATCH", label: "Dispatch" },
                   { value: "PENDING", label: "Pending" }
@@ -541,7 +560,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                       key={opt.value}
                       type="button"
                       onClick={() => setMetricMode(opt.value)}
-                      className={`px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
+                      className={`px-3.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
                         active 
                           ? 'toggle-pill-active' 
                           : 'toggle-pill-inactive'
@@ -584,6 +603,11 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                   ))
                 )}
               </select>
+
+              {/* District Search Input directly inline */}
+              <div className="shrink-0 w-[150px] sm:w-[180px]">
+                <SearchInput placeholder="Search district name..." />
+              </div>
             </div>
 
             <DataTable 
@@ -727,9 +751,11 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
                           <div className="flex items-center gap-2">
                             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: PRODUCT_COLORS[p.product] || '#6b7280' }} />
                             <span className="font-bold text-text-primary">{p.product}</span>
-                            <span className="text-xs text-text-muted hidden sm:inline ml-1">
-                              {PRODUCT_LABELS[p.product]?.split('–')[1]?.trim() || p.label || p.product}
-                            </span>
+                            {getProductFullName(p.product) && (
+                              <span className="text-xs text-text-muted hidden sm:inline ml-1">
+                                ({getProductFullName(p.product)})
+                              </span>
+                            )}
                           </div>
                           <div className="flex gap-4 items-center">
                             <span className="text-text-muted text-right font-medium">

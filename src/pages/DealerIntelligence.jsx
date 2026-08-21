@@ -36,13 +36,9 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
 
     const currentUrlParamString = searchParams.toString();
 
-    if (state || district || product || search) {
-      if (lastSyncedParamsRef.current !== currentUrlParamString) {
-        lastSyncedParamsRef.current = currentUrlParamString;
-        dispatch({ type: 'SYNC_FILTERS', payload: { state, district, product, search } });
-      }
-    } else {
+    if (lastSyncedParamsRef.current !== currentUrlParamString) {
       lastSyncedParamsRef.current = currentUrlParamString;
+      dispatch({ type: 'SYNC_FILTERS', payload: { state, district, product, search } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -155,17 +151,37 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
           accessorKey: 'client',
           header: 'Dealer Name',
           meta: { width: '30%', minWidth: '130px' },
-          cell: info => (
-            <span className="font-bold text-sm sm:text-[15px] text-text-primary whitespace-normal break-words leading-tight" title={info.getValue()}>
-              {info.getValue()}
-            </span>
-          ),
+          cell: info => {
+            const val = String(info.getValue() ?? '');
+            const isPlaceholder = val === '0' || val.toUpperCase() === 'VERBAL';
+            return (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-bold text-sm sm:text-[15px] text-text-primary whitespace-normal break-words leading-tight" title={val}>
+                  {val}
+                </span>
+                {isPlaceholder && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25 tracking-wide">
+                    {val === '0' ? 'Pending Placeholder' : 'Verbal Order'}
+                  </span>
+                )}
+              </div>
+            );
+          },
         },
         {
           accessorKey: 'district',
           header: 'Location',
           meta: { width: '20%', minWidth: '100px' },
-          cell: info => <span className="text-text-muted text-xs sm:text-[13px] font-medium truncate inline-block w-full" title={`${info.getValue()}, ${info.row.original.state}`}>{info.getValue()}, {info.row.original.state}</span>,
+          cell: info => {
+            const dVal = String(info.getValue() ?? '');
+            const isDistPlaceholder = dVal === '0' || dVal.toUpperCase() === 'VERBAL';
+            const displayDist = isDistPlaceholder ? `${dVal} (${dVal === '0' ? 'Unassigned' : 'Verbal'})` : dVal;
+            return (
+              <span className="text-text-muted text-xs sm:text-[13px] font-medium truncate inline-block w-full" title={`${dVal}, ${info.row.original.state}`}>
+                {displayDist}, {info.row.original.state}
+              </span>
+            );
+          },
         },
         {
           id: 'pendingQty',
@@ -239,17 +255,37 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
         accessorKey: 'client',
         header: 'Dealer',
         meta: { width: '28%', minWidth: '120px' },
-        cell: info => (
-          <span className="font-bold text-sm sm:text-[15px] text-text-primary whitespace-normal break-words leading-tight" title={info.getValue()}>
-            {info.getValue()}
-          </span>
-        ),
+        cell: info => {
+          const val = String(info.getValue() ?? '');
+          const isPlaceholder = val === '0' || val.toUpperCase() === 'VERBAL';
+          return (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-bold text-sm sm:text-[15px] text-text-primary whitespace-normal break-words leading-tight" title={val}>
+                {val}
+              </span>
+              {isPlaceholder && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25 tracking-wide">
+                  {val === '0' ? 'Pending Placeholder' : 'Verbal Order'}
+                </span>
+              )}
+            </div>
+          );
+        },
       },
       {
         accessorKey: 'district',
         header: 'Location',
         meta: { width: '18%', minWidth: '90px' },
-        cell: info => <span className="text-text-muted text-xs sm:text-[13px] font-medium truncate inline-block w-full" title={`${info.getValue()}, ${info.row.original.state}`}>{info.getValue()}, {info.row.original.state}</span>,
+        cell: info => {
+          const dVal = String(info.getValue() ?? '');
+          const isDistPlaceholder = dVal === '0' || dVal.toUpperCase() === 'VERBAL';
+          const displayDist = isDistPlaceholder ? `${dVal} (${dVal === '0' ? 'Unassigned' : 'Verbal'})` : dVal;
+          return (
+            <span className="text-text-muted text-xs sm:text-[13px] font-medium truncate inline-block w-full" title={`${dVal}, ${info.row.original.state}`}>
+              {displayDist}, {info.row.original.state}
+            </span>
+          );
+        },
       },
       {
         accessorKey: 'cur',
@@ -321,9 +357,62 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
         meta: { width: '11%', minWidth: '80px' },
         cell: info => {
           const row = info.row.original;
-          const isInactive = row.isInactive || row.cur === 0;
-          const statusLabel = isInactive ? 'Inactive' : (row.impactTier === 'LOW' || row.impactTier === 'NONE') ? 'Growing' : 'Declining';
-          const theme = isInactive ? getSeverityTheme('CRITICAL') : getSeverityTheme(row.impactTier);
+          const cur = row.cur ?? 0;
+          const prev = row.prev ?? 0;
+          const isInactive = row.isInactive || cur === 0;
+          const mom = row.mom != null ? row.mom : calculateMoM(cur, prev);
+
+          let statusLabel = 'Growing';
+          let theme = {
+            color: '#22c55e',
+            bg: 'rgba(34,197,94,0.12)',
+            border: 'rgba(34,197,94,0.45)'
+          };
+
+          if (isInactive) {
+            statusLabel = 'Inactive';
+            theme = {
+              color: '#ef4444',
+              bg: 'rgba(239,68,68,0.12)',
+              border: 'rgba(239,68,68,0.45)'
+            };
+          } else if (mom > 0 || cur > prev) {
+            statusLabel = 'Growing';
+            theme = {
+              color: '#22c55e',
+              bg: 'rgba(34,197,94,0.12)',
+              border: 'rgba(34,197,94,0.45)'
+            };
+          } else if (mom === 0 && cur === prev) {
+            statusLabel = 'Stable';
+            theme = {
+              color: '#38bdf8',
+              bg: 'rgba(56,189,248,0.12)',
+              border: 'rgba(56,189,248,0.45)'
+            };
+          } else {
+            statusLabel = 'Declining';
+            const drop = prev - cur;
+            if (mom <= -30 || drop >= 100) {
+              theme = {
+                color: '#ef4444',
+                bg: 'rgba(239,68,68,0.12)',
+                border: 'rgba(239,68,68,0.45)'
+              };
+            } else if (mom <= -15 || drop >= 50) {
+              theme = {
+                color: '#f97316',
+                bg: 'rgba(249,115,22,0.12)',
+                border: 'rgba(249,115,22,0.45)'
+              };
+            } else {
+              theme = {
+                color: '#eab308',
+                bg: 'rgba(234,179,8,0.12)',
+                border: 'rgba(234,179,8,0.45)'
+              };
+            }
+          }
 
           return (
             <div 
@@ -402,7 +491,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4 mb-4">
         <h2 className="text-3xl font-extrabold text-text-primary flex items-center gap-3">
           <Store className="w-7 h-7 text-accent-blue" />
-          Dealer Performance
+          Dealer Network
         </h2>
       </div>
  
@@ -443,10 +532,10 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               {/* State Select */}
               <select
                 className="filter-select text-xs py-1.5 px-3 w-[115px] sm:w-[130px] shrink-0"
-                value={filters.selectedState || (filterOptions.states.length === 1 ? filterOptions.states[0] : '')}
+                value={filters.selectedState || ''}
                 onChange={(e) => dispatch({ type: 'SET_STATE', payload: e.target.value || null })}
               >
-                {filterOptions.states.length !== 1 && <option value="">All States</option>}
+                <option value="">All States</option>
                 {filterOptions.states.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
@@ -461,7 +550,9 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                 >
                   <option value="">All Districts</option>
                   {filterOptions.districts.map(d => (
-                    <option key={d} value={d}>{d}</option>
+                    <option key={d} value={d}>
+                      {d === '0' ? '0 (Unassigned / Pending)' : (d === 'VERBAL' ? 'VERBAL (Verbal Orders)' : d)}
+                    </option>
                   ))}
                 </select>
               )}
@@ -508,7 +599,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               <div className="hidden sm:block w-px h-5 bg-border/40 mx-0.5 shrink-0" />
 
               {/* Despatch/Pending Toggle */}
-              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-secondary border border-border/40 shrink-0 metric-toggle-container shadow-inner">
+              <div className="flex items-center gap-1 p-1 rounded-full bg-transparent border border-border/40 shrink-0 metric-toggle-container">
                 {[
                   { value: "DESPATCH", label: "Dispatch" },
                   { value: "PENDING", label: "Pending" }
@@ -519,7 +610,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                       key={opt.value}
                       type="button"
                       onClick={() => setMetricMode(opt.value)}
-                      className={`px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
+                      className={`px-3.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
                         active 
                           ? 'toggle-pill-active' 
                           : 'toggle-pill-inactive'
@@ -630,6 +721,8 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                       })()
                     ) : (
                       <ImpactBadge 
+                        cur={selectedDealer.cur}
+                        prev={selectedDealer.prev}
                         tier={selectedDealer.impactTier}
                         score={selectedDealer.impactScore}
                       />

@@ -223,12 +223,26 @@ function RequireAdminRoute({ children }) {
   return children;
 }
 
+// Background Geo Data Prefetcher
+function GeoPrefetcher() {
+  const { rawData } = useRawData();
+  React.useEffect(() => {
+    if (rawData) {
+      if (typeof window !== 'undefined' && 'fetch' in window) {
+        fetch('/geo/india_state.geojson', { priority: 'low' }).catch(() => {});
+      }
+    }
+  }, [rawData]);
+  return null;
+}
+
 function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
       <AuthProvider>
         <DataProvider>
+          <GeoPrefetcher />
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />

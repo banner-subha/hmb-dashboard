@@ -109,6 +109,15 @@ export default function DashboardLayout() {
     return mom;
   }, [rawData]);
 
+  // Dynamically resolve active tab title matching current route
+  const currentTabTitle = useMemo(() => {
+    const currentNav = navItemsToRender.find(item => {
+      if (item.path === '/') return location.pathname === '/';
+      return location.pathname.startsWith(item.path);
+    });
+    return currentNav ? currentNav.label : 'Executive Overview';
+  }, [location.pathname, navItemsToRender]);
+
   return (
     <LazyMotion features={domAnimation}>
       <div className="flex h-screen overflow-hidden bg-bg-primary text-text-primary">
@@ -128,12 +137,12 @@ export default function DashboardLayout() {
 
         {/* Sidebar */}
         <aside 
-          className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-border transition-transform duration-300 lg:static lg:translate-x-0 flex-shrink-0 ${
+          className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-[var(--color-sidebar-border)] transition-transform duration-300 lg:static lg:translate-x-0 flex-shrink-0 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
           style={{ background: 'var(--gradient-sidebar)' }}
         >
-        <div className="flex items-center justify-between h-16 px-5 border-b border-border">
+        <div className="flex items-center justify-between h-16 px-5 border-b border-[var(--color-sidebar-border)]">
           <div className="flex items-center gap-3 min-w-0">
             {/* Accent bar */}
             <div className="w-1 h-8 rounded-full shrink-0" style={{ background: 'var(--gradient-accent)' }} />
@@ -169,7 +178,7 @@ export default function DashboardLayout() {
           })}
         </div>
 
-        <div className="absolute bottom-0 w-full px-4 py-3.5 border-t border-border" style={{ background: 'var(--color-sidebar-bg)' }}>
+        <div className="absolute bottom-0 w-full px-4 py-3.5 border-t border-[var(--color-sidebar-border)]" style={{ background: 'var(--color-sidebar-bg)' }}>
           <div className="flex items-center justify-between px-2">
             <div className="flex flex-col gap-0.5 min-w-0 pr-2">
               <span className="text-sm font-semibold text-sidebar-text truncate" title={user?.name || user?.username}>
@@ -241,7 +250,7 @@ export default function DashboardLayout() {
 
                   {/* Title */}
                   <h1 className="text-2xl font-semibold text-sidebar-text leading-tight m-0">
-                    Executive Dashboard
+                    {currentTabTitle}
                   </h1>
 
                   {/* Meta row */}
@@ -275,9 +284,9 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-4 sm:p-6">
+        <div className="flex-1 overflow-auto p-4 sm:p-6" style={{ overscrollBehavior: 'contain' }}>
           <div className="max-w-[90rem] mx-auto space-y-6 min-h-full relative">
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode="wait">
               <AnimatedPage key={location.pathname}>
                 <Suspense fallback={
                   <div className="space-y-6">

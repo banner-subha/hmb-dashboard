@@ -1,5 +1,6 @@
 import { getBusinessImpact } from '../utils/trendEngine.js';
 import { isRealState, normalizeStateName } from '../utils/constants.js';
+import { normalizeDistrict } from '../utils/districtNormalizer.js';
 
 let DATA_URL = 'https://hubydueitefxxxrbpnjk.supabase.co/storage/v1/object/public/dashboard-data/latest.json';
 
@@ -7,8 +8,10 @@ function normalizeAndMergeStates(statesList) {
   if (!statesList || !Array.isArray(statesList)) return statesList;
   const map = {};
   statesList.forEach(s => {
-    if (!s || !s.state) return;
-    const normState = normalizeStateName(s.state);
+    if (!s) return;
+    const rawName = s.state || s.geoKey || (s.geoSlug ? normalizeStateName(s.geoSlug) : null);
+    if (!rawName) return;
+    const normState = normalizeStateName(rawName);
     if (!map[normState]) {
       map[normState] = {
         ...s,
@@ -33,13 +36,15 @@ function normalizeAndMergeDistricts(districtsList, curElapsedDays = 30) {
   const map = {};
 
   districtsList.forEach(d => {
-    if (!d || !d.district || !d.state) return;
+    if (!d || d.district == null || String(d.district).trim() === '' || !d.state) return;
 
     const normState = normalizeStateName(d.state);
-    const normDistrict = d.district.trim().toUpperCase();
+    const normDistrict = normalizeDistrict(d.district, normState);
+    if (!normDistrict) return;
 
     // Skip data entry errors where state name was entered into district column (e.g. UTTARPRADESH, ASSAM)
-    if (isRealState(normDistrict)) return;
+    // Never skip valid placeholders '0' and 'VERBAL'
+    if (normDistrict !== '0' && normDistrict !== 'VERBAL' && isRealState(normDistrict)) return;
 
     const key = `${normState}||${normDistrict}`;
 
@@ -143,19 +148,32 @@ function normalizeAndMergeDistricts(districtsList, curElapsedDays = 30) {
   });
 }
 
-function cleanData(data) {
+export function cleanData(data) {
   if (!data) return data;
-  const isKnown = (name) => name && name.toLowerCase() !== 'unknown' && name.toLowerCase() !== 'nan';
+  const isKnown = (name) => name != null && String(name).trim() !== '' && String(name).toLowerCase() !== 'unknown' && String(name).toLowerCase() !== 'nan';
 
-  // Normalize state names across entities
+  // Normalize state and district/dealer names across entities
   if (data.districts) {
-    data.districts.forEach(d => { if (d && d.state) d.state = normalizeStateName(d.state); });
+    data.districts.forEach(d => {
+      if (d && d.state) d.state = normalizeStateName(d.state);
+      if (d && d.district != null) d.district = normalizeDistrict(d.district, d.state);
+    });
   }
   if (data.dealers) {
-    data.dealers.forEach(dl => { if (dl && dl.state) dl.state = normalizeStateName(dl.state); });
+    data.dealers.forEach(dl => {
+      if (dl && dl.state) dl.state = normalizeStateName(dl.state);
+      if (dl && dl.district != null) dl.district = normalizeDistrict(dl.district, dl.state);
+      if (dl && dl.client != null) dl.client = String(dl.client).trim() === '0.0' ? '0' : String(dl.client).trim();
+    });
   }
 
   if (data.states) {
+    data.states.forEach(s => {
+      if (s) {
+        const rawState = s.state || s.geoKey || (s.geoSlug ? normalizeStateName(s.geoSlug) : null);
+        if (rawState) s.state = normalizeStateName(rawState);
+      }
+    });
     data.states = normalizeAndMergeStates(data.states).filter(s => isKnown(s.state) && isRealState(s.state));
   }
   if (data.districts) {
@@ -168,27 +186,50 @@ function cleanData(data) {
     Object.keys(data.monthlyHistory).forEach(key => {
       const hist = data.monthlyHistory[key];
       if (hist.states) {
-        hist.states = hist.states.filter(s => isKnown(s.state) && isRealState(s.state));
+        hist.states.forEach(s => { if (s && s.state) s.state = normalizeStateName(s.state); });
+        hist.states = normalizeAndMergeStates(hist.states).filter(s => isKnown(s.state) && isRealState(s.state));
       }
       if (hist.districts) {
+        hist.districts.forEach(d => {
+          if (d && d.state) d.state = normalizeStateName(d.state);
+          if (d && d.district != null) d.district = normalizeDistrict(d.district, d.state);
+        });
         hist.districts = normalizeAndMergeDistricts(hist.districts).filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
       }
       if (hist.dealers) {
+        hist.dealers.forEach(dl => {
+          if (dl && dl.state) dl.state = normalizeStateName(dl.state);
+          if (dl && dl.district != null) dl.district = normalizeDistrict(dl.district, dl.state);
+          if (dl && dl.client != null) dl.client = String(dl.client).trim() === '0.0' ? '0' : String(dl.client).trim();
+        });
         hist.dealers = hist.dealers.filter(dl => isKnown(dl.state) && isRealState(dl.state) && isKnown(dl.district) && isKnown(dl.client));
       }
     });
   }
   if (data.intel) {
     if (data.intel.scoredStates) {
+      data.intel.scoredStates.forEach(s => { if (s && s.state) s.state = normalizeStateName(s.state); });
       data.intel.scoredStates = data.intel.scoredStates.filter(s => isKnown(s.state) && isRealState(s.state));
     }
     if (data.intel.scoredDistricts) {
+      data.intel.scoredDistricts.forEach(d => {
+        if (d && d.state) d.state = normalizeStateName(d.state);
+        if (d && d.district != null) d.district = normalizeDistrict(d.district, d.state);
+      });
       data.intel.scoredDistricts = data.intel.scoredDistricts.filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
     }
     if (data.intel.scoredDealers) {
+      data.intel.scoredDealers.forEach(dl => {
+        if (dl && dl.state) dl.state = normalizeStateName(dl.state);
+        if (dl && dl.district != null) dl.district = normalizeDistrict(dl.district, dl.state);
+      });
       data.intel.scoredDealers = data.intel.scoredDealers.filter(dl => isKnown(dl.state) && isRealState(dl.state) && isKnown(dl.district) && isKnown(dl.client));
     }
     if (data.intel.inactiveDealers) {
+      data.intel.inactiveDealers.forEach(dl => {
+        if (dl && dl.state) dl.state = normalizeStateName(dl.state);
+        if (dl && dl.district != null) dl.district = normalizeDistrict(dl.district, dl.state);
+      });
       data.intel.inactiveDealers = data.intel.inactiveDealers.filter(dl => isKnown(dl.state) && isRealState(dl.state) && isKnown(dl.district) && isKnown(dl.client));
     }
   }

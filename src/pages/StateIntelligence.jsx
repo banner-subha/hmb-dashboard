@@ -61,22 +61,9 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
     const currentUrlParamString = searchParams.toString();
 
-    if (trend === 'GROWING') {
-      if (!state && filters.selectedState) {
-        dispatch({ type: 'SET_STATE', payload: null });
-      }
-      if (!district && filters.selectedDistrict) {
-        dispatch({ type: 'SET_DISTRICT', payload: null });
-      }
-    }
-
-    if (state || district || product || search) {
-      if (lastSyncedParamsRef.current !== currentUrlParamString) {
-        lastSyncedParamsRef.current = currentUrlParamString;
-        dispatch({ type: 'SYNC_FILTERS', payload: { state, district, product, search } });
-      }
-    } else {
+    if (lastSyncedParamsRef.current !== currentUrlParamString) {
       lastSyncedParamsRef.current = currentUrlParamString;
+      dispatch({ type: 'SYNC_FILTERS', payload: { state, district, product, search } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -384,12 +371,17 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
     });
   }, [selectedStateData, selectedPendingMonth]);
 
-  // Compute top pending dealers for the selected state (highest → lowest)
+  // Compute top pending dealers for the selected state/district (highest → lowest)
   const topPendingDealers = useMemo(() => {
     if (!selectedStateData || !data?.dealers) return [];
     const stateNorm = selectedStateData.state?.replace(/\s+/g, '').toUpperCase();
+    const districtNorm = filters.selectedDistrict ? filters.selectedDistrict.replace(/\s+/g, '').toUpperCase() : null;
     return (data.dealers || [])
-      .filter(dl => dl.state?.replace(/\s+/g, '').toUpperCase() === stateNorm)
+      .filter(dl => {
+        const matchState = dl.state?.replace(/\s+/g, '').toUpperCase() === stateNorm;
+        const matchDistrict = !districtNorm || (dl.district?.replace(/\s+/g, '').toUpperCase() === districtNorm);
+        return matchState && matchDistrict;
+      })
       .map(dl => ({
         client: dl.client,
         state: dl.state,
@@ -399,7 +391,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       }))
       .filter(dl => dl.pendingQty > 0)
       .sort((a, b) => b.pendingQty - a.pendingQty);
-  }, [selectedStateData, data?.dealers, selectedPendingMonth]);
+  }, [selectedStateData, data?.dealers, selectedPendingMonth, filters.selectedDistrict]);
 
   // Compute multi-month historical dispatch trend for selected state
   const stateMonthlyTrend = useMemo(() => {
@@ -447,15 +439,18 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
     return trend;
   }, [selectedStateData, rawData]);
 
-  // Compute state-specific inactive dealers dynamically from all dealers
+  // Compute state/district-specific inactive dealers dynamically from all dealers
   const stateInactiveDealers = useMemo(() => {
     if (!selectedStateData || !data?.dealers) return [];
     const stateNorm = selectedStateData.state?.replace(/\s+/g, '').toUpperCase();
+    const districtNorm = filters.selectedDistrict ? filters.selectedDistrict.replace(/\s+/g, '').toUpperCase() : null;
     return (data.dealers || [])
-      .filter(dl => 
-        dl.state?.replace(/\s+/g, '').toUpperCase() === stateNorm && 
-        ((dl.cur === 0 && (dl.prev > 0 || (dl.inactivityDays || 0) > 0)) || dl.isInactive)
-      )
+      .filter(dl => {
+        const matchState = dl.state?.replace(/\s+/g, '').toUpperCase() === stateNorm;
+        const matchDistrict = !districtNorm || (dl.district?.replace(/\s+/g, '').toUpperCase() === districtNorm);
+        const isInactive = ((dl.cur === 0 && (dl.prev > 0 || (dl.inactivityDays || 0) > 0)) || dl.isInactive);
+        return matchState && matchDistrict && isInactive;
+      })
       .map(dl => ({
         client: dl.client,
         state: dl.state,
@@ -464,7 +459,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         products: (dl.products || []).map(p => p.product).join(', ')
       }))
       .sort((a, b) => (b.prevVolume || 0) - (a.prevVolume || 0));
-  }, [selectedStateData, data?.dealers]);
+  }, [selectedStateData, data?.dealers, filters.selectedDistrict]);
 
   if (loading) return (
     <div className="space-y-6">
@@ -523,10 +518,10 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
             <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-border/40">
               <select
                 className="filter-select w-full sm:w-[140px]"
-                value={filters.selectedState || (filterOptions.states.length === 1 ? filterOptions.states[0] : '')}
+                value={filters.selectedState || ''}
                 onChange={(e) => dispatch({ type: 'SET_STATE', payload: e.target.value || null })}
               >
-                {filterOptions.states.length !== 1 && <option value="">All States</option>}
+                <option value="">All States</option>
                 {filterOptions.states.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
@@ -540,7 +535,9 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                 >
                   <option value="">All Districts</option>
                   {filterOptions.districts.map(d => (
-                    <option key={d} value={d}>{d}</option>
+                    <option key={d} value={d}>
+                      {d === '0' ? '0 (Unassigned / Pending)' : (d === 'VERBAL' ? 'VERBAL (Verbal Orders)' : d)}
+                    </option>
                   ))}
                 </select>
               )}
@@ -567,7 +564,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
               <div className="hidden sm:block w-px h-5 bg-border/40 mx-1 flex-shrink-0" />
 
-              <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-secondary border border-border/40 shrink-0 metric-toggle-container shadow-inner">
+              <div className="flex items-center gap-1 p-1 rounded-full bg-transparent border border-border/40 shrink-0 metric-toggle-container">
                 {[
                   { value: "DESPATCH", label: "Dispatch" },
                   { value: "PENDING", label: "Pending" }
@@ -577,7 +574,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                     <button
                       key={opt.value}
                       onClick={() => setMetricMode(opt.value)}
-                      className={`px-3 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
+                      className={`px-3.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
                         active 
                           ? 'toggle-pill-active' 
                           : 'toggle-pill-inactive'
@@ -634,12 +631,12 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
           {/* Conditional: Top Pending Dealers (Pending mode) OR Inactive Dealers (Despatch mode) */}
           {selectedStateData && metricMode === 'PENDING' && (
           <CollapsibleCard 
-            title={`Top Pending Dealers in ${selectedStateData.state}`} 
+            title={`Top Pending Dealers in ${filters.selectedDistrict || selectedStateData.state}`} 
             badge={<span className="badge bg-amber-500/20 text-amber-400">{topPendingDealers.length}</span>}
           >
             {topPendingDealers.length === 0 ? (
               <div className="text-center text-text-muted py-6 text-sm">
-                No dealers with pending orders in this state.
+                No dealers with pending orders in {filters.selectedDistrict ? 'this district' : 'this state'}.
               </div>
             ) : (
               <div className="space-y-2">
@@ -680,10 +677,16 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                   </div>
                 )}
                 <button
-                  onClick={() => navigate(`/districts?state=${selectedStateData.state}`)}
+                  onClick={() => {
+                    if (filters.selectedDistrict) {
+                      navigate(`/dealers?state=${selectedStateData.state}&district=${filters.selectedDistrict}`);
+                    } else {
+                      navigate(`/districts?state=${selectedStateData.state}`);
+                    }
+                  }}
                   className="btn-action-pill w-fit mx-auto mt-2.5 py-1 px-3.5 text-[11px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  View District Breakdown →
+                  {filters.selectedDistrict ? `View All Dealers in ${filters.selectedDistrict} →` : 'View District Breakdown →'}
                 </button>
               </div>
             )}
@@ -692,12 +695,12 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
           {selectedStateData && metricMode === 'DESPATCH' && (
             <CollapsibleCard 
-              title={`Inactive Dealers in ${selectedStateData.state}`} 
+              title={`Inactive Dealers in ${filters.selectedDistrict || selectedStateData.state}`} 
               badge={<span className="badge bg-severity-critical/20 text-severity-critical">{stateInactiveDealers.length}</span>}
             >
               {stateInactiveDealers.length === 0 ? (
                 <div className="text-center text-text-muted py-6 text-sm">
-                  No inactive dealers in this state.
+                  No inactive dealers in {filters.selectedDistrict ? 'this district' : 'this state'}.
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -734,10 +737,16 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                     </div>
                   )}
                   <button
-                    onClick={() => navigate(`/districts?state=${selectedStateData.state}`)}
+                    onClick={() => {
+                      if (filters.selectedDistrict) {
+                        navigate(`/dealers?state=${selectedStateData.state}&district=${filters.selectedDistrict}`);
+                      } else {
+                        navigate(`/districts?state=${selectedStateData.state}`);
+                      }
+                    }}
                     className="btn-action-pill w-fit mx-auto mt-2.5 py-1 px-3.5 text-[11px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    View District Breakdown →
+                    {filters.selectedDistrict ? `View All Dealers in ${filters.selectedDistrict} →` : 'View District Breakdown →'}
                   </button>
                 </div>
               )}

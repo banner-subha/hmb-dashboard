@@ -2,6 +2,7 @@ import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Cell } fro
 import { calculateMoM, getTrendColor, formatTrend, getSeverityTheme } from '../../utils/trendEngine';
 import { useMemo, useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { useChartVisible } from '../../hooks/useChartVisible';
 import { formatMT } from '../../utils/formatters';
 
 const CustomTooltip = ({ active, payload }) => {
@@ -54,6 +55,7 @@ const CustomTooltip = ({ active, payload }) => {
 export default function RiskScatterPlot({ data, height = 300 }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
+  const isVisible = useChartVisible(containerRef);
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -67,7 +69,7 @@ export default function RiskScatterPlot({ data, height = 300 }) {
         ...item,
         volume: item.cur,
         impactScore: item.impactScore || 0,
-        name: item.client || item.district || item.state,
+        name: (item.client != null && String(item.client).trim() !== '') ? String(item.client) : ((item.district != null && String(item.district).trim() !== '') ? String(item.district) : item.state),
         _mom: mom,
         _severity: severity,
         _trendColor: trendColor,
@@ -106,7 +108,7 @@ export default function RiskScatterPlot({ data, height = 300 }) {
             domain={[0, 100]}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: 'var(--color-border)' }} isAnimationActive={false} />
-          <Scatter data={chartData} name="Impact" isAnimationActive={true} animationDuration={700} animationEasing="ease-out">
+          <Scatter data={chartData} name="Impact" isAnimationActive={isVisible} animationDuration={500} animationEasing="ease-out">
             {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry._severity.color} />
             ))}

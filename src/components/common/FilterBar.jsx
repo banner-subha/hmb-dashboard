@@ -1,21 +1,42 @@
+import { memo, useCallback } from 'react';
 import { useFilterState, useDataState } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { isWestBengalUser } from '../../utils/constants';
 
-export default function FilterBar({ children }) {
+const FilterBar = memo(function FilterBar({ children }) {
   const { filters, dispatch } = useFilterState();
   const { filterOptions } = useDataState();
   const { user } = useAuth();
   const showNorthBengal = isWestBengalUser(user, filterOptions);
 
+  const handleStateChange = useCallback((e) => {
+    dispatch({ type: 'SET_STATE', payload: e.target.value || null });
+  }, [dispatch]);
+
+  const handleDistrictChange = useCallback((e) => {
+    dispatch({ type: 'SET_DISTRICT', payload: e.target.value || null });
+  }, [dispatch]);
+
+  const handleProductChange = useCallback((e) => {
+    dispatch({ type: 'SET_PRODUCT', payload: e.target.value || null });
+  }, [dispatch]);
+
+  const handleToggleNorthBengal = useCallback(() => {
+    dispatch({ type: 'TOGGLE_NORTH_BENGAL' });
+  }, [dispatch]);
+
+  const handleReset = useCallback(() => {
+    dispatch({ type: 'RESET' });
+  }, [dispatch]);
+
   return (
     <div className="glass-card p-5 flex flex-wrap items-center gap-2 mb-5">
       <select
         className="filter-select w-full sm:w-[140px]"
-        value={filters.selectedState || (filterOptions.states.length === 1 ? filterOptions.states[0] : '')}
-        onChange={(e) => dispatch({ type: 'SET_STATE', payload: e.target.value || null })}
+        value={filters.selectedState || ''}
+        onChange={handleStateChange}
       >
-        {filterOptions.states.length !== 1 && <option value="">All States</option>}
+        <option value="">All States</option>
         {filterOptions.states.map(s => (
           <option key={s} value={s}>{s}</option>
         ))}
@@ -25,11 +46,13 @@ export default function FilterBar({ children }) {
         <select
           className="filter-select w-full sm:w-[140px]"
           value={filters.selectedDistrict || ''}
-          onChange={(e) => dispatch({ type: 'SET_DISTRICT', payload: e.target.value || null })}
+          onChange={handleDistrictChange}
         >
           <option value="">All Districts</option>
           {filterOptions.districts.map(d => (
-            <option key={d} value={d}>{d}</option>
+            <option key={d} value={d}>
+              {d === '0' ? '0 (Unassigned / Pending)' : (d === 'VERBAL' ? 'VERBAL (Verbal Orders)' : d)}
+            </option>
           ))}
         </select>
       )}
@@ -37,7 +60,7 @@ export default function FilterBar({ children }) {
       <select
         className="filter-select w-full sm:w-[140px]"
         value={filters.selectedProduct || ''}
-        onChange={(e) => dispatch({ type: 'SET_PRODUCT', payload: e.target.value || null })}
+        onChange={handleProductChange}
       >
         <option value="">All Products</option>
         {filterOptions.products.map(p => (
@@ -49,7 +72,7 @@ export default function FilterBar({ children }) {
       {showNorthBengal && (
         <button
           type="button"
-          onClick={() => dispatch({ type: 'TOGGLE_NORTH_BENGAL' })}
+          onClick={handleToggleNorthBengal}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 border ${
             filters.isNorthBengal
               ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
@@ -66,7 +89,7 @@ export default function FilterBar({ children }) {
 
       {(filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.searchQuery || (user?.role === 'client' && filters.isNorthBengal)) && (
         <button
-          onClick={() => dispatch({ type: 'RESET' })}
+          onClick={handleReset}
           className="text-[11px] text-text-muted hover:text-text-primary underline underline-offset-2 transition-colors px-1 cursor-pointer whitespace-nowrap"
         >
           Clear
@@ -74,4 +97,6 @@ export default function FilterBar({ children }) {
       )}
     </div>
   );
-}
+});
+
+export default FilterBar;

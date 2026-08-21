@@ -1,5 +1,6 @@
-import { calculateMoM } from './trendEngine';
-import { isRealState } from './constants';
+import { calculateMoM, getBusinessImpact } from './trendEngine.js';
+import { isRealState } from './constants.js';
+import { normalizeDistrict } from './districtNormalizer.js';
 
 /**
  * Returns the active current month's key (e.g. "2026-07").
@@ -82,6 +83,9 @@ export function getHistoricalStates(rawData, filters, periodKey) {
       prev,
       mom,
       drop,
+      expectedMtd: mainState?.expectedMtd ?? 0,
+      dailyAvgQty: mainState?.dailyAvgQty ?? 0,
+      currentDailyRate: mainState?.currentDailyRate ?? 0,
     };
   });
   
@@ -92,10 +96,18 @@ export function getHistoricalStates(rawData, filters, periodKey) {
   
   // Compute share % based on the sum of all states' cur volumes in the filtered dataset
   const totalCur = mapped.reduce((sum, s) => sum + s.cur, 0);
-  mapped = mapped.map(st => ({
-    ...st,
-    share: totalCur > 0 ? Math.round((st.cur / totalCur) * 100) : 0
-  }));
+  mapped = mapped.map(st => {
+    const share = totalCur > 0 ? Math.round((st.cur / totalCur) * 100) : 0;
+    const { severity, impactScore } = getBusinessImpact(st.cur, st.prev, share, 'STATE', st.state, st.expectedMtd);
+    return {
+      ...st,
+      share,
+      impactScore,
+      severity,
+      impactTier: severity,
+      healthStatus: severity,
+    };
+  });
   
   return mapped;
 }
@@ -121,15 +133,16 @@ export function getHistoricalDistricts(rawData, filters, periodKey) {
   
   // 2. Filter by selectedDistrict
   if (filters?.selectedDistrict) {
-    const d = filters.selectedDistrict;
-    districts = districts.filter(dist => dist.district === d);
+    const d = normalizeDistrict(filters.selectedDistrict).toUpperCase();
+    districts = districts.filter(dist => normalizeDistrict(dist.district).toUpperCase() === d);
   }
   
   // 3. Map and compute
   let mapped = districts.map(hd => {
-    const key = hd.state + '_' + hd.district;
-    const prevDist = prevHistorySlice?.districts?.find(pd => (pd.state + '_' + pd.district).toLowerCase() === key.toLowerCase());
-    const mainDist = rawData.districts?.find(pd => (pd.state + '_' + pd.district).toLowerCase() === key.toLowerCase());
+    const normDist = normalizeDistrict(hd.district, hd.state);
+    const key = (hd.state + '_' + normDist).toLowerCase();
+    const prevDist = prevHistorySlice?.districts?.find(pd => (pd.state + '_' + normalizeDistrict(pd.district, pd.state)).toLowerCase() === key);
+    const mainDist = rawData.districts?.find(pd => (pd.state + '_' + normalizeDistrict(pd.district, pd.state)).toLowerCase() === key);
     
     let cur = hd.cur ?? hd.qty ?? 0;
     let prev = prevDist ? (prevDist.cur ?? prevDist.qty ?? 0) : 0;
@@ -145,11 +158,15 @@ export function getHistoricalDistricts(rawData, filters, periodKey) {
     
     return {
       ...hd,
+      district: normDist,
       avgPeriod: mainDist?.avgPeriod ?? hd.avgPeriod ?? null,
       cur,
       prev,
       mom,
-      drop
+      drop,
+      expectedMtd: mainDist?.expectedMtd ?? 0,
+      dailyAvgQty: mainDist?.dailyAvgQty ?? 0,
+      currentDailyRate: mainDist?.currentDailyRate ?? 0,
     };
   });
   
@@ -158,10 +175,18 @@ export function getHistoricalDistricts(rawData, filters, periodKey) {
   }
   
   const totalCur = mapped.reduce((sum, d) => sum + d.cur, 0);
-  mapped = mapped.map(d => ({
-    ...d,
-    share: totalCur > 0 ? Math.round((d.cur / totalCur) * 100) : 0
-  }));
+  mapped = mapped.map(dist => {
+    const share = totalCur > 0 ? Math.round((dist.cur / totalCur) * 100) : 0;
+    const { severity, impactScore } = getBusinessImpact(dist.cur, dist.prev, share, 'DISTRICT', dist.state, dist.expectedMtd);
+    return {
+      ...dist,
+      share,
+      impactScore,
+      severity,
+      impactTier: severity,
+      healthStatus: severity,
+    };
+  });
   
   return mapped;
 }
@@ -187,8 +212,8 @@ export function getHistoricalDealers(rawData, filters, periodKey) {
   
   // 2. Filter by selectedDistrict
   if (filters?.selectedDistrict) {
-    const d = filters.selectedDistrict;
-    dealers = dealers.filter(dl => dl.district === d);
+    const d = normalizeDistrict(filters.selectedDistrict).toUpperCase();
+    dealers = dealers.filter(dl => normalizeDistrict(dl.district).toUpperCase() === d);
   }
   
   // 3. Filter by search query
@@ -254,10 +279,31 @@ export function getHistoricalDealers(rawData, filters, periodKey) {
 
   // Compute share % based on the sum of all dealers' cur volumes in the filtered dataset
   const totalCur = mapped.reduce((sum, d) => sum + d.cur, 0);
-  mapped = mapped.map(d => ({
-    ...d,
-    share: totalCur > 0 ? Math.round((d.cur / totalCur) * 100) : 0
-  }));
+  mapped = mapped.map(dl => {
+    const share = totalCur > 0 ? Math.round((dl.cur / totalCur) * 100) : 0;
+    const { severity, impactScore } = getBusinessImpact(dl.cur, dl.prev, share, 'DEALER', dl.client, dl.expectedMtd);
+    const isInactive = dl.cur === 0;
+    let operationalStatus = 'Growing';
+    if (isInactive) {
+      operationalStatus = 'Inactive';
+    } else if (dl.mom > 0 || dl.cur > dl.prev) {
+      operationalStatus = 'Growing';
+    } else if (dl.mom === 0 && dl.cur === dl.prev) {
+      operationalStatus = 'Stable';
+    } else {
+      operationalStatus = 'Declining';
+    }
+    return {
+      ...dl,
+      share,
+      impactScore,
+      severity,
+      impactTier: severity,
+      healthStatus: severity,
+      operationalStatus,
+      isInactive
+    };
+  });
   
   return mapped;
 }

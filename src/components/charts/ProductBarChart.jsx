@@ -3,6 +3,7 @@ import { calculateMoM, getBusinessImpact, getTrendColor, formatTrend } from '../
 import { PRODUCT_COLORS, PRODUCT_LABELS } from '../../utils/constants';
 import { useMemo, useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { useChartVisible } from '../../hooks/useChartVisible';
 import { formatMT } from '../../utils/formatters';
 import ImpactBadge from '../common/ImpactBadge';
 
@@ -12,13 +13,12 @@ const CustomTooltip = ({ active, payload }) => {
   const data = payload[0].payload;
   const trendColor = data._trendColor;
   const trendDisplay = data._trendDisplay;
-  const name = PRODUCT_LABELS[data.product]?.split('–')[1]?.trim() || data.label || data.product;
+  const fullLabel = PRODUCT_LABELS[data.product] || data.label || data.product;
 
   return (
     <div className="chart-tooltip p-3.5 min-w-[220px] space-y-2.5">
       <p className="font-bold text-text-primary text-sm leading-tight">
-        {data.product}
-        <span className="text-text-muted font-normal ml-1 text-xs">({name})</span>
+        {fullLabel}
       </p>
 
       {/* Impact badge — uses global ImpactBadge, same shape/color as alerts */}
@@ -59,6 +59,7 @@ const BLUE_DESCENDING_PALETTE = [
 export default function ProductBarChart({ data, height = 300 }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
+  const isVisible = useChartVisible(containerRef);
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -124,8 +125,8 @@ export default function ProductBarChart({ data, height = 300 }) {
             radius={[0, 16, 16, 0]}
             maxBarSize={24}
             background={{ fill: 'var(--color-bg-secondary)', radius: [0, 16, 16, 0] }}
-            isAnimationActive={true}
-            animationDuration={600}
+            isAnimationActive={isVisible}
+            animationDuration={500}
             animationEasing="ease-out"
           >
             {chartData.map((entry, index) => (

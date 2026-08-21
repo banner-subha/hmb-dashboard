@@ -1,18 +1,20 @@
 import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
-import { PRODUCT_COLORS } from '../../utils/constants';
+import { PRODUCT_COLORS, PRODUCT_LABELS } from '../../utils/constants';
 import { useMemo, useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { useChartVisible } from '../../hooks/useChartVisible';
 import { formatMT } from '../../utils/formatters';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     const productName = data.name || data.product;
+    const displayName = PRODUCT_LABELS[productName] || productName;
     const prodColor = PRODUCT_COLORS[productName] || '#94a3b8';
     return (
       <div className="chart-tooltip p-3">
         <p className="font-bold text-text-primary text-sm mb-1">
-          {productName} {data.isFallback && ' (Prev Period)'}
+          {displayName} {data.isFallback && ' (Prev Period)'}
         </p>
         <div className="text-xs">
           <div className="flex justify-between gap-4 mb-1">
@@ -33,6 +35,7 @@ const CustomTooltip = ({ active, payload }) => {
 export default function ShareDonutChart({ data, dataKey = "cur", nameKey = "product", height = 300 }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
+  const isVisible = useChartVisible(containerRef);
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -80,8 +83,8 @@ export default function ShareDonutChart({ data, dataKey = "cur", nameKey = "prod
             paddingAngle={2}
             dataKey="value"
             stroke="none"
-            isAnimationActive={true}
-            animationDuration={700}
+            isAnimationActive={isVisible}
+            animationDuration={500}
             animationEasing="ease-out"
           >
             {chartData.map((entry, index) => {

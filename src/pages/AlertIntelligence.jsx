@@ -45,6 +45,7 @@ import MoMIndicator from '../components/common/MoMIndicator';
 import { calculateMoM, getBusinessImpact, getSeverityFromImpactScore, getSeverityTheme } from '../utils/trendEngine';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 import { PRODUCT_LABELS } from '../utils/constants';
+import { normalizeDistrict } from '../utils/districtNormalizer';
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : fallback);
@@ -92,11 +93,45 @@ function getWorstImpactScore(children = []) {
 
 const cleanName = (name) => name ? String(name).split('—')[0].trim() : '';
 
+// ── Entity Pending Orders helper for Dispatch mode ───────────────────────────
+function getEntityPendingOrders(row, fullData) {
+  if (!row || !fullData) return 0;
+  const source = row._source;
+  const level = row.level;
+  const name = (row.entityName || '').trim().toUpperCase();
+
+  if (level === 'DEALER') {
+    if (source?.pendingQty !== undefined) return source.pendingQty;
+    if (source?.data?.pendingQty !== undefined) return source.data.pendingQty;
+    const dl = (fullData.dealers || []).find(d => (d.client || '').trim().toUpperCase() === name);
+    return dl?.pendingQty ?? 0;
+  }
+  if (level === 'DISTRICT') {
+    const dist = (fullData.districts || []).find(d => (d.district || '').trim().toUpperCase() === name);
+    return dist?.pendingQty ?? 0;
+  }
+  if (level === 'STATE') {
+    const st = (fullData.states || []).find(s => (s.state || '').trim().toUpperCase() === name);
+    return st?.pendingQty ?? 0;
+  }
+  if (level === 'PRODUCT') {
+    const pr = (fullData.products || []).find(p => (p.product || '').trim().toUpperCase() === name);
+    return pr?.pendingQty ?? 0;
+  }
+  return source?.pendingQty ?? source?.data?.pendingQty ?? 0;
+}
+
 // ── Collapsible Hierarchy Tree Node Component ─────────────────────────────
 function HierarchyTreeNodeItem({ node, depth = 1 }) {
   const hasChildren = Array.isArray(node.children) && node.children.length > 0;
-  // Default: All nodes with children start collapsed by default
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Initialize and sync isExpanded from node.autoExpand
+  const [isExpanded, setIsExpanded] = useState(Boolean(node.autoExpand));
+
+  useEffect(() => {
+    if (node.autoExpand !== undefined) {
+      setIsExpanded(Boolean(node.autoExpand));
+    }
+  }, [node.autoExpand]);
 
   const isProduct = node.type === 'PRODUCT';
   const labelText = isProduct ? (PRODUCT_LABELS[node.name] || node.name) : node.name;
@@ -209,19 +244,27 @@ function HierarchyTreeNodeItem({ node, depth = 1 }) {
 }
 
 // ── Dynamic Hierarchy Generator (dispatch alerts) ────────────────────────────
-const buildHierarchy = (alert, fullData) => {
+const buildHierarchy = (alert, fullData, searchQuery = '') => {
   if (!fullData || !alert) return null;
   const level = (alert.level || alert.category || '').toUpperCase();
-  const entityName = (alert.dealer || alert.district || alert.state || (alert.title ? alert.title.split(':')[0].trim() : '')).toUpperCase();
+  const rawEntityName = (alert.dealer || alert.client || alert.district || alert.state || (alert.title ? alert.title.split(':')[0].trim() : '') || '').trim();
+  const entityName = rawEntityName.toUpperCase();
+  const query = (searchQuery || '').trim().toLowerCase();
 
   // Helper to build a Dealer node with its nested Product children
-  const buildDealerNode = (dl) => {
+  const buildDealerNode = (dl, parentAutoExpand = false) => {
     const impactScore = dl.impactScore ?? 0;
-    const severity = getSeverityFromImpactScore(impactScore);
-    const drop = Math.max(0, (dl.prev ?? 0) - (dl.cur ?? 0));
+    const severity = dl.severity || dl.healthStatus || dl.impactTier || getSeverityFromImpactScore(impactScore);
+    const drop = dl.drop ?? Math.max(0, (dl.prev ?? 0) - (dl.cur ?? 0));
     const isInactive = (dl.cur ?? 0) === 0;
     const statusLabel = isInactive ? 'Inactive' : 'Active';
     
+    const isDealerMatch = query ? (
+      (dl.client || '').toLowerCase().includes(query) ||
+      (dl.district || '').toLowerCase().includes(query) ||
+      (dl.state || '').toLowerCase().includes(query)
+    ) : false;
+
     const dealerProducts = (dl.products || [])
       .map(p => {
         const cur = p.cur ?? 0;
@@ -229,7 +272,7 @@ const buildHierarchy = (alert, fullData) => {
         const pDrop = prev - cur;
         return {
           type: 'PRODUCT',
-          name: cleanName(p.product),
+          name: cleanName(typeof p === 'string' ? p : (p.product || p.name || '')),
           severity: getSeverityFromImpactScore(p.impactScore ?? 0),
           impactScore: p.impactScore ?? 0,
           drop: pDrop,
@@ -241,6 +284,8 @@ const buildHierarchy = (alert, fullData) => {
       .filter(p => p.cur !== 0 || p.prev !== 0)
       .sort((a, b) => b.drop - a.drop);
 
+    const autoExpand = Boolean(isDealerMatch || parentAutoExpand || (query.length > 0));
+
     return {
       type: 'DEALER',
       name: `${cleanName(dl.client)} (${statusLabel})`,
@@ -250,14 +295,17 @@ const buildHierarchy = (alert, fullData) => {
       cur: dl.cur ?? 0,
       prev: dl.prev ?? 0,
       mom: dl.mom ?? calculateMoM(dl.cur ?? 0, dl.prev ?? 0),
-      children: dealerProducts
+      children: dealerProducts,
+      autoExpand,
+      isMatch: isDealerMatch
     };
   };
 
   if (level === 'STATE') {
     // State level hierarchy: STATE -> DISTRICT -> DEALER -> PRODUCT
+    const stateNorm = entityName.replace(/\s+/g, '');
     const stateDistricts = (fullData.districts || [])
-      .filter(d => d.state?.toUpperCase() === entityName);
+      .filter(d => d.state && d.state.replace(/\s+/g, '').toUpperCase() === stateNorm);
 
     const districtChildren = stateDistricts
       .map(d => {
@@ -265,11 +313,28 @@ const buildHierarchy = (alert, fullData) => {
         const distSeverity = getSeverityFromImpactScore(distImpactScore);
         const distDrop = Math.max(0, (d.prev ?? 0) - (d.cur ?? 0));
 
+        const dNorm = normalizeDistrict(d.district).toUpperCase();
         // Find ALL dealers in this district (both active declining and inactive)
-        const distDealers = (fullData.dealers || [])
-          .filter(dl => dl.district?.toUpperCase() === d.district?.toUpperCase() && ((dl.prev ?? 0) > (dl.cur ?? 0) || (dl.prev ?? 0) > 0 || (dl.cur ?? 0) > 0))
+        let distDealers = (fullData.dealers || [])
+          .filter(dl => {
+            const dlNorm = normalizeDistrict(dl.district).toUpperCase();
+            return (dlNorm === dNorm || dl.district?.toUpperCase() === d.district?.toUpperCase()) && 
+                   ((dl.prev ?? 0) > (dl.cur ?? 0) || (dl.prev ?? 0) > 0 || (dl.cur ?? 0) > 0);
+          })
           .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)))
-          .map(dl => buildDealerNode(dl));
+          .map(dl => buildDealerNode(dl, query.length > 0));
+
+        // When a search query is active, filter precisely to matching dealer(s) in this district
+        const hasMatchingDealer = query && distDealers.some(dl => dl.isMatch || (dl.name || '').toLowerCase().includes(query));
+        const isDistNameMatch = query && (d.district || '').toLowerCase().includes(query);
+
+        if (query) {
+          if (hasMatchingDealer) {
+            distDealers = distDealers.filter(dl => dl.isMatch || (dl.name || '').toLowerCase().includes(query));
+          } else if (!isDistNameMatch) {
+            return null; // Omit non-matching districts when searching
+          }
+        }
 
         // If district has dealers, dealers are the children
         // If district has no dealers in data, fallback to district products
@@ -302,7 +367,8 @@ const buildHierarchy = (alert, fullData) => {
           cur: d.cur ?? 0,
           prev: d.prev ?? 0,
           mom: d.mom ?? calculateMoM(d.cur ?? 0, d.prev ?? 0),
-          children
+          children,
+          autoExpand: Boolean(query.length > 0)
         };
       })
       .filter(Boolean)
@@ -315,23 +381,39 @@ const buildHierarchy = (alert, fullData) => {
       name: cleanName(alert.state || entityName),
       children: districtChildren,
       severity: getWorstSeverity(districtChildren),
-      impactScore: getWorstImpactScore(districtChildren)
+      impactScore: getWorstImpactScore(districtChildren),
+      autoExpand: Boolean(query.length > 0)
     };
   }
 
   if (level === 'DISTRICT') {
     // District level hierarchy: DISTRICT -> DEALER -> PRODUCT
-    const matchName = entityName.split(',')[0].trim();
+    const rawMatch = rawEntityName.split(',')[0].trim();
+    const matchNorm = normalizeDistrict(rawMatch).toUpperCase();
     
     // Find all dealers in this district
-    const distDealers = (fullData.dealers || [])
-      .filter(dl => dl.district?.toUpperCase() === matchName && ((dl.prev ?? 0) > (dl.cur ?? 0) || (dl.prev ?? 0) > 0 || (dl.cur ?? 0) > 0))
+    let distDealers = (fullData.dealers || [])
+      .filter(dl => {
+        const dlNorm = normalizeDistrict(dl.district).toUpperCase();
+        return (dlNorm === matchNorm || dl.district?.toUpperCase() === rawMatch.toUpperCase()) && 
+               ((dl.prev ?? 0) > (dl.cur ?? 0) || (dl.prev ?? 0) > 0 || (dl.cur ?? 0) > 0);
+      })
       .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)))
-      .map(dl => buildDealerNode(dl));
+      .map(dl => buildDealerNode(dl, query.length > 0));
+
+    if (query) {
+      const hasMatchingDealer = distDealers.some(dl => dl.isMatch || (dl.name || '').toLowerCase().includes(query));
+      if (hasMatchingDealer) {
+        distDealers = distDealers.filter(dl => dl.isMatch || (dl.name || '').toLowerCase().includes(query));
+      }
+    }
 
     let children = distDealers;
     if (children.length === 0) {
-      const distObj = (fullData.districts || []).find(d => d.district?.toUpperCase() === matchName);
+      const distObj = (fullData.districts || []).find(d => {
+        const dNorm = normalizeDistrict(d.district).toUpperCase();
+        return dNorm === matchNorm || d.district?.toUpperCase() === rawMatch.toUpperCase();
+      });
       const products = (distObj?.products || [])
         .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
         .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)))
@@ -352,38 +434,11 @@ const buildHierarchy = (alert, fullData) => {
 
     return {
       type: 'DISTRICT',
-      name: cleanName(alert.district || matchName),
+      name: cleanName(alert.district || rawMatch),
       children,
       severity: getWorstSeverity(children),
-      impactScore: getWorstImpactScore(children)
-    };
-  }
-
-  if (level === 'DEALER') {
-    // Dealer level hierarchy: DEALER -> PRODUCT
-    const dealerObj = (fullData.dealers || []).find(d => d.client?.toUpperCase() === entityName);
-    const products = (dealerObj?.products || [])
-      .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
-      .sort((a, b) => ((b.prev ?? 0) - (b.cur ?? 0)) - ((a.prev ?? 0) - (a.cur ?? 0)))
-      .map(p => ({
-        type: 'PRODUCT',
-        name: cleanName(p.product),
-        severity: getSeverityFromImpactScore(p.impactScore ?? 0),
-        impactScore: p.impactScore ?? 0,
-        drop: (p.prev ?? 0) - (p.cur ?? 0),
-        cur: p.cur ?? 0,
-        prev: p.prev ?? 0,
-        mom: p.mom ?? calculateMoM(p.cur ?? 0, p.prev ?? 0)
-      }));
-
-    if (products.length === 0) return null;
-
-    return {
-      type: 'DEALER',
-      name: cleanName(alert.dealer || entityName),
-      children: products,
-      severity: getWorstSeverity(products),
-      impactScore: getWorstImpactScore(products)
+      impactScore: getWorstImpactScore(children),
+      autoExpand: Boolean(query.length > 0)
     };
   }
 
@@ -637,7 +692,7 @@ export default function AlertIntelligence() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 200);
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -648,12 +703,6 @@ export default function AlertIntelligence() {
   const [selectedState, setSelectedState] = useState('ALL');
   const [selectedProduct, setSelectedProduct] = useState('ALL');
   const [expandedRows, setExpandedRows] = useState(new Set());
-
-  // Reset pagination and expansions on filter / mode changes
-  useEffect(() => {
-    setCurrentPage(1);
-    setExpandedRows(new Set());
-  }, [selectedState, dispatchSeverityFilter, riskSeverityFilter, debouncedSearchQuery, selectedLevel, selectedProduct, viewMode]);
 
   // ── Dealer notes (absorbed from RiskExplorer) ──────────────────────────────
   const [dealerNotes, setDealerNotes] = useState({});
@@ -691,7 +740,6 @@ export default function AlertIntelligence() {
         const level = (alert.level || alert.category || '').toUpperCase();
         const stateName = (alert.state || '').toUpperCase();
         const districtName = (alert.district || '').toUpperCase();
-        const dealerName = (alert.dealer || '').toUpperCase();
         let products = [];
         if (level === 'STATE' && stateName) {
           const stateObj = (rawData.states || []).find(s => s.state?.toUpperCase() === stateName);
@@ -699,9 +747,6 @@ export default function AlertIntelligence() {
         } else if (level === 'DISTRICT' && districtName) {
           const distObj = (rawData.districts || []).find(d => d.district?.toUpperCase() === districtName && d.state?.toUpperCase() === stateName);
           products = distObj?.products || [];
-        } else if (level === 'DEALER' && dealerName) {
-          const dealerObj = (rawData.dealers || []).find(d => d.client?.toUpperCase() === dealerName);
-          products = dealerObj?.products || [];
         } else if (level === 'OVERALL') {
           products = rawData.products || [];
         }
@@ -723,9 +768,33 @@ export default function AlertIntelligence() {
   // Responsive alerts list for counts (applies all filters EXCEPT selectedSeverity)
   const filteredAlertsForCounts = useMemo(() => {
     return alerts.filter((alert) => {
-      const query = debouncedSearchQuery.toLowerCase();
-      const searchable = `${alert.dealer || ''} ${alert.district || ''} ${alert.state || ''} ${alert.products || alert.product || ''} ${alert.reason || alert.title || ''}`.toLowerCase();
-      if (debouncedSearchQuery && !searchable.includes(query)) return false;
+      const query = (debouncedSearchQuery || '').trim().toLowerCase();
+      if (query) {
+        const searchable = `${alert.dealer || alert.client || ''} ${alert.district || ''} ${alert.state || ''} ${alert.products || alert.product || ''} ${alert.reason || alert.title || ''}`.toLowerCase();
+        let matchesQuery = searchable.includes(query);
+
+        if (!matchesQuery) {
+          const level = (alert.level || alert.category || '').toUpperCase();
+          const alertState = (alert.state || alert.data?.state || '').toUpperCase();
+          const alertDist = (alert.district || alert.data?.district || '').toUpperCase();
+          const normDist = normalizeDistrict(alertDist).toUpperCase();
+
+          const hasDealerMatch = (rawData?.dealers || []).some(dl => {
+            if (!dl.client?.toLowerCase().includes(query)) return false;
+            if (level === 'STATE') {
+              return (dl.state || '').toUpperCase() === alertState;
+            }
+            if (level === 'DISTRICT') {
+              const dlDistNorm = normalizeDistrict(dl.district).toUpperCase();
+              return dlDistNorm === normDist || (dl.district || '').toUpperCase() === alertDist;
+            }
+            return false;
+          });
+          if (hasDealerMatch) matchesQuery = true;
+        }
+
+        if (!matchesQuery) return false;
+      }
 
       const level = alert.level || alert.category || 'OVERALL';
       if (selectedLevel !== 'ALL' && level.toUpperCase() !== selectedLevel) return false;
@@ -741,7 +810,7 @@ export default function AlertIntelligence() {
       }
       return true;
     });
-  }, [alerts, debouncedSearchQuery, selectedLevel, selectedState, selectedProduct]);
+  }, [alerts, rawData, debouncedSearchQuery, selectedLevel, selectedState, selectedProduct]);
 
   // Counts update dynamically based on filteredAlertsForCounts
   const dispatchCounts = useMemo(() => {
@@ -749,7 +818,7 @@ export default function AlertIntelligence() {
     filteredAlertsForCounts.forEach(alert => {
       const originalIdx = alert._originalIdx;
       const precomputed = alertSeverityMap[originalIdx];
-      const severity = precomputed?.severity || 'LOW';
+      const severity = precomputed?.severity || alert.severity || 'LOW';
       if (severity === 'CRITICAL') c.critical++;
       else if (severity === 'HIGH') c.high++;
       else if (severity === 'MEDIUM') c.medium++;
@@ -788,9 +857,9 @@ export default function AlertIntelligence() {
   // Responsive risk list for counts (applies state and search query filters only, NOT severity)
   const filteredDealersForCounts = useMemo(() => {
     return processedDealers.filter(d => {
-      const query = debouncedSearchQuery.toLowerCase();
+      const query = (debouncedSearchQuery || '').trim().toLowerCase();
       const searchable = `${d.client || ''} ${d.district || ''} ${d.state || ''}`.toLowerCase();
-      if (debouncedSearchQuery && !searchable.includes(query)) return false;
+      if (query && !searchable.includes(query)) return false;
       if (selectedState !== 'ALL' && d.state !== selectedState) return false;
       return true;
     });
@@ -843,11 +912,35 @@ export default function AlertIntelligence() {
   const filteredAlerts = useMemo(() => {
     if (viewMode === 'RISK') return [];
     return alerts.filter((alert, originalIdx) => {
-      const query = debouncedSearchQuery.toLowerCase();
-      const searchable = `${alert.dealer || ''} ${alert.district || ''} ${alert.state || ''} ${alert.products || alert.product || ''} ${alert.reason || alert.title || ''}`.toLowerCase();
-      if (debouncedSearchQuery && !searchable.includes(query)) return false;
+      const query = (debouncedSearchQuery || '').trim().toLowerCase();
+      if (query) {
+        const searchable = `${alert.dealer || alert.client || ''} ${alert.district || ''} ${alert.state || ''} ${alert.products || alert.product || ''} ${alert.reason || alert.title || ''}`.toLowerCase();
+        let matchesQuery = searchable.includes(query);
 
-      const derivedSev = alertSeverityMap[originalIdx]?.severity || 'LOW';
+        if (!matchesQuery) {
+          const level = (alert.level || alert.category || '').toUpperCase();
+          const alertState = (alert.state || alert.data?.state || '').toUpperCase();
+          const alertDist = (alert.district || alert.data?.district || '').toUpperCase();
+          const normDist = normalizeDistrict(alertDist).toUpperCase();
+
+          const hasDealerMatch = (rawData?.dealers || []).some(dl => {
+            if (!dl.client?.toLowerCase().includes(query)) return false;
+            if (level === 'STATE') {
+              return (dl.state || '').toUpperCase() === alertState;
+            }
+            if (level === 'DISTRICT') {
+              const dlDistNorm = normalizeDistrict(dl.district).toUpperCase();
+              return dlDistNorm === normDist || (dl.district || '').toUpperCase() === alertDist;
+            }
+            return false;
+          });
+          if (hasDealerMatch) matchesQuery = true;
+        }
+
+        if (!matchesQuery) return false;
+      }
+
+      const derivedSev = alertSeverityMap[originalIdx]?.severity || alert.severity || 'LOW';
       if (dispatchSeverityFilter !== 'ALL' && derivedSev !== dispatchSeverityFilter) return false;
 
       const level = alert.level || alert.category || 'OVERALL';
@@ -864,15 +957,15 @@ export default function AlertIntelligence() {
       }
       return true;
     });
-  }, [alerts, debouncedSearchQuery, dispatchSeverityFilter, selectedLevel, selectedState, selectedProduct, alertSeverityMap, viewMode]);
+  }, [alerts, rawData, debouncedSearchQuery, dispatchSeverityFilter, selectedLevel, selectedState, selectedProduct, alertSeverityMap, viewMode]);
 
   // ── Filtered risk dealers (uses riskSeverityFilter ONLY) ───────────────────
   const filteredDealers = useMemo(() => {
     if (viewMode === 'DISPATCH') return [];
     return processedDealers.filter(d => {
-      const query = debouncedSearchQuery.toLowerCase();
+      const query = (debouncedSearchQuery || '').trim().toLowerCase();
       const searchable = `${d.client || ''} ${d.district || ''} ${d.state || ''}`.toLowerCase();
-      if (debouncedSearchQuery && !searchable.includes(query)) return false;
+      if (query && !searchable.includes(query)) return false;
 
       if (selectedState !== 'ALL' && d.state !== selectedState) return false;
 
@@ -955,6 +1048,20 @@ export default function AlertIntelligence() {
     return unifiedRows.slice(startIndex, startIndex + pageSize);
   }, [unifiedRows, currentPage, viewMode]);
 
+  // Auto-expand rows when search query is active so hierarchy is immediately visible
+  useEffect(() => {
+    setCurrentPage(1);
+    if (debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2) {
+      const indices = new Set();
+      for (let i = 0; i < Math.min(25, paginatedRows.length); i++) {
+        indices.add(i);
+      }
+      setExpandedRows(indices);
+    } else {
+      setExpandedRows(new Set());
+    }
+  }, [debouncedSearchQuery, selectedState, dispatchSeverityFilter, riskSeverityFilter, selectedLevel, selectedProduct, viewMode, paginatedRows.length]);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
@@ -986,131 +1093,109 @@ export default function AlertIntelligence() {
         <div>
           <h2 className="text-4xl font-extrabold text-text-primary flex items-center gap-3 mb-2">
             <Activity className="w-7 h-7 text-accent-blue" />
-            Alert Intelligence
+            Alerts & Risks
           </h2>
         </div>
       </div>
 
-      {/* ROW CONTAINING KPI CHIPS (LEFT) AND SEGMENTED TOGGLE (RIGHT) */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 w-full">
-        {/* KPI CHIPS — ADAPTIVE */}
-        <div className="flex flex-wrap gap-3 items-center">
-        {/* Active Count */}
-        <div
-          className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all"
-          style={{
-            background: 'rgba(59,130,246,0.07)',
-            borderColor: 'rgba(59,130,246,0.2)',
-            boxShadow: '0 0 16px rgba(59,130,246,0.06)',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-accent-blue/70 uppercase tracking-widest mb-0.5">
+      {/* ROW CONTAINING KPI PILLS (LEFT) AND SEGMENTED TOGGLE (RIGHT) */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 w-full">
+        {/* KPI PILLS — BUSINESS GRADE COMPACT PILL DESIGN */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Total Active Pill */}
+          <div
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full border kpi-pill-total text-xs shadow-xs"
+          >
+            <Activity className="w-3.5 h-3.5 text-accent-blue" />
+            <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
               {viewMode === 'DISPATCH' ? 'Dispatch Alerts' : 'At-Risk Dealers'}
             </span>
-            <span className="text-2xl font-extrabold text-text-primary leading-none">{totalActive}</span>
+            <span className="font-extrabold text-xs px-2 py-0.5 rounded-full kpi-count-total">
+              {totalActive}
+            </span>
           </div>
-          <Activity className="w-5 h-5 text-accent-blue/40" />
-        </div>
 
-        {/* Severity chips — adapt per view mode */}
-        {viewMode === 'DISPATCH' && (
-          <>
-            {/* Critical */}
-            <button
-              onClick={() => setDispatchSeverityFilter(dispatchSeverityFilter === 'CRITICAL' ? 'ALL' : 'CRITICAL')}
-              className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all hover:scale-[1.02]"
-              style={{
-                background: dispatchSeverityFilter === 'CRITICAL' ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.12)',
-                borderColor: dispatchSeverityFilter === 'CRITICAL' ? 'rgba(239,68,68,0.6)' : 'rgba(239,68,68,0.35)',
-                boxShadow: dispatchSeverityFilter === 'CRITICAL' ? '0 0 20px rgba(239,68,68,0.15)' : '0 0 10px rgba(239,68,68,0.05)',
-                backdropFilter: 'blur(8px)',
-              }}
-            >
-              <div className="flex flex-col text-left">
-                <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(239,68,68,0.7)' }}>Critical</span>
-                <span className="text-2xl font-extrabold text-text-primary leading-none">
+          {/* Severity Pills — adapt per view mode */}
+          {viewMode === 'DISPATCH' ? (
+            <>
+              {/* Critical */}
+              <button
+                onClick={() => setDispatchSeverityFilter(dispatchSeverityFilter === 'CRITICAL' ? 'ALL' : 'CRITICAL')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
+                  dispatchSeverityFilter === 'CRITICAL'
+                    ? 'kpi-pill-critical-active'
+                    : 'kpi-pill-critical'
+                }`}
+              >
+                <div className="w-2 h-2 rounded-full bg-severity-critical animate-pulse-subtle"></div>
+                <span className="text-[11px] uppercase tracking-wider font-bold">Critical</span>
+                <span className="font-extrabold text-xs px-1.5 py-0.5 rounded-full kpi-count-critical">
                   {dispatchCounts.critical}
                 </span>
-              </div>
-              <div className="w-2.5 h-2.5 rounded-full bg-severity-critical animate-pulse-subtle"></div>
-            </button>
+              </button>
 
-            {/* High */}
-            <button
-              onClick={() => setDispatchSeverityFilter(dispatchSeverityFilter === 'HIGH' ? 'ALL' : 'HIGH')}
-              className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all hover:scale-[1.02]"
-              style={{
-                background: dispatchSeverityFilter === 'HIGH' ? 'rgba(249,115,22,0.18)' : 'rgba(249,115,22,0.12)',
-                borderColor: dispatchSeverityFilter === 'HIGH' ? 'rgba(249,115,22,0.6)' : 'rgba(249,115,22,0.35)',
-                boxShadow: dispatchSeverityFilter === 'HIGH' ? '0 0 20px rgba(249,115,22,0.12)' : '0 0 10px rgba(249,115,22,0.04)',
-                backdropFilter: 'blur(8px)',
-              }}
-            >
-              <div className="flex flex-col text-left">
-                <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(249,115,22,0.7)' }}>High</span>
-                <span className="text-2xl font-extrabold text-text-primary leading-none">
+              {/* High */}
+              <button
+                onClick={() => setDispatchSeverityFilter(dispatchSeverityFilter === 'HIGH' ? 'ALL' : 'HIGH')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
+                  dispatchSeverityFilter === 'HIGH'
+                    ? 'kpi-pill-high-active'
+                    : 'kpi-pill-high'
+                }`}
+              >
+                <div className="w-2 h-2 rounded-full bg-[#f97316]"></div>
+                <span className="text-[11px] uppercase tracking-wider font-bold">High</span>
+                <span className="font-extrabold text-xs px-1.5 py-0.5 rounded-full kpi-count-high">
                   {dispatchCounts.high}
                 </span>
-              </div>
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#f97316' }}></div>
-            </button>
+              </button>
 
-            {/* Moderate (dispatch-relevant) */}
-            <button
-              onClick={() => setDispatchSeverityFilter(dispatchSeverityFilter === 'MEDIUM' ? 'ALL' : 'MEDIUM')}
-              className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all hover:scale-[1.02]"
-              style={{
-                background: dispatchSeverityFilter === 'MEDIUM' ? 'rgba(234,179,8,0.18)' : 'rgba(234,179,8,0.12)',
-                borderColor: dispatchSeverityFilter === 'MEDIUM' ? 'rgba(234,179,8,0.6)' : 'rgba(234,179,8,0.35)',
-                boxShadow: dispatchSeverityFilter === 'MEDIUM' ? '0 0 20px rgba(234,179,8,0.12)' : '0 0 10px rgba(234,179,8,0.04)',
-                backdropFilter: 'blur(8px)',
-              }}
-            >
-              <div className="flex flex-col text-left">
-                <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(234,179,8,0.7)' }}>Moderate</span>
-                <span className="text-2xl font-extrabold text-text-primary leading-none">
+              {/* Moderate */}
+              <button
+                onClick={() => setDispatchSeverityFilter(dispatchSeverityFilter === 'MEDIUM' ? 'ALL' : 'MEDIUM')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
+                  dispatchSeverityFilter === 'MEDIUM'
+                    ? 'kpi-pill-medium-active'
+                    : 'kpi-pill-medium'
+                }`}
+              >
+                <div className="w-2 h-2 rounded-full bg-[#eab308]"></div>
+                <span className="text-[11px] uppercase tracking-wider font-bold">Moderate</span>
+                <span className="font-extrabold text-xs px-1.5 py-0.5 rounded-full kpi-count-medium">
                   {dispatchCounts.medium}
                 </span>
-              </div>
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#eab308' }}></div>
-            </button>
-          </>
-        )}
-
-        {/* Risk-only: show Critical/High/Moderate chips — uses riskSeverityFilter */}
-        {viewMode === 'RISK' && (
-          <>
-            {[
-              { key: 'CRITICAL', label: 'Critical', color: '#ef4444', count: riskCounts.critical },
-              { key: 'HIGH', label: 'High', color: '#f97316', count: riskCounts.high },
-              { key: 'MEDIUM', label: 'Moderate', color: '#eab308', count: riskCounts.medium },
-            ].map(cfg => (
-              <button
-                key={cfg.key}
-                onClick={() => setRiskSeverityFilter(riskSeverityFilter === cfg.key ? 'ALL' : cfg.key)}
-                className="flex items-center gap-4 px-7 py-3 rounded-xl border transition-all hover:scale-[1.02]"
-                style={{
-                  background: riskSeverityFilter === cfg.key ? `${cfg.color}30` : `${cfg.color}1e`,
-                  borderColor: riskSeverityFilter === cfg.key ? `${cfg.color}99` : `${cfg.color}59`,
-                  boxShadow: riskSeverityFilter === cfg.key ? `0 0 20px ${cfg.color}26` : `0 0 10px ${cfg.color}0d`,
-                  backdropFilter: 'blur(8px)',
-                }}
-              >
-                <div className="flex flex-col text-left">
-                  <span className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: `${cfg.color}b3` }}>{cfg.label}</span>
-                  <span className="text-2xl font-extrabold text-text-primary leading-none">{cfg.count}</span>
-                </div>
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: cfg.color }}></div>
               </button>
-            ))}
-          </>
-        )}
+            </>
+          ) : (
+            <>
+              {[
+                { key: 'CRITICAL', label: 'Critical', dotColor: '#ef4444', count: riskCounts.critical, activeClass: 'kpi-pill-critical-active', inactiveClass: 'kpi-pill-critical', countClass: 'kpi-count-critical' },
+                { key: 'HIGH', label: 'High', dotColor: '#f97316', count: riskCounts.high, activeClass: 'kpi-pill-high-active', inactiveClass: 'kpi-pill-high', countClass: 'kpi-count-high' },
+                { key: 'MEDIUM', label: 'Moderate', dotColor: '#eab308', count: riskCounts.medium, activeClass: 'kpi-pill-medium-active', inactiveClass: 'kpi-pill-medium', countClass: 'kpi-count-medium' },
+              ].map(cfg => {
+                const isActive = riskSeverityFilter === cfg.key;
+                return (
+                  <button
+                    key={cfg.key}
+                    onClick={() => setRiskSeverityFilter(isActive ? 'ALL' : cfg.key)}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
+                      isActive ? cfg.activeClass : cfg.inactiveClass
+                    }`}
+                  >
+                    <div className="w-2 h-2 rounded-full" style={{ background: cfg.dotColor }}></div>
+                    <span className="text-[11px] uppercase tracking-wider font-bold">{cfg.label}</span>
+                    <span className={`font-extrabold text-xs px-1.5 py-0.5 rounded-full ${cfg.countClass}`}>
+                      {cfg.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </>
+          )}
         </div>
 
         {/* SEGMENTED TOGGLE */}
-        <div className="flex items-center gap-1 p-1 rounded-xl w-fit bg-bg-secondary border border-border/40 metric-toggle-container shadow-inner shrink-0">
+        <div className="flex items-center gap-1 p-1 rounded-full bg-bg-secondary border border-border/40 metric-toggle-container shadow-inner shrink-0">
           {[
             { key: 'DISPATCH', label: 'Dispatch', icon: TrendingDown },
             { key: 'RISK', label: 'Risk', icon: ShieldAlert },
@@ -1120,7 +1205,7 @@ export default function AlertIntelligence() {
               <button
                 key={key}
                 onClick={() => setViewMode(key)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer border ${
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer border ${
                   isActive 
                     ? 'toggle-pill-active' 
                     : 'toggle-pill-inactive'
@@ -1215,7 +1300,7 @@ export default function AlertIntelligence() {
         </div>
 
         {/* TABLE */}
-        <div className="overflow-x-auto relative">
+        <div className="overflow-x-auto relative" style={{ contentVisibility: 'auto', containIntrinsicSize: '0 600px' }}>
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-10 bg-bg-secondary/95 backdrop-blur-sm border-b border-border shadow-sm">
               <tr className="text-xs uppercase tracking-wider text-text-muted">
@@ -1225,12 +1310,13 @@ export default function AlertIntelligence() {
                 <th className="p-4 font-bold">Entity</th>
                 <th className="p-4 font-bold text-right">{viewMode === 'RISK' ? 'Backlog Age' : 'MoM %'}</th>
                 <th className="p-4 font-bold text-right hidden md:table-cell">{viewMode === 'RISK' ? 'Pending Vol' : 'MT Loss'}</th>
+                <th className="p-4 font-bold text-right">{viewMode === 'RISK' ? 'Est. Clearance' : 'Pending Orders'}</th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-border/30">
               {paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-text-muted">
+                  <td colSpan={7} className="p-12 text-center text-text-muted">
                     <AlertTriangle className="w-8 h-8 mx-auto mb-3 opacity-20" />
                     No alerts match the selected filters.
                   </td>
@@ -1246,7 +1332,7 @@ export default function AlertIntelligence() {
                       {/* MAIN ROW */}
                       <tr 
                         onClick={() => toggleRow(idx)}
-                        className={`hover:bg-bg-secondary/60 cursor-pointer transition-colors group ${isExpanded ? 'bg-bg-secondary/40' : ''}`}
+                        className={`table-row-separator hover:bg-bg-secondary/60 cursor-pointer transition-colors group ${isExpanded ? 'bg-bg-secondary/40' : ''}`}
                       >
                         <td className="p-4 text-text-muted text-center">
                           {isExpanded ? <ChevronDown className="w-4 h-4 mx-auto text-accent-blue" /> : <ChevronRight className="w-4 h-4 mx-auto group-hover:text-text-primary transition-colors" />}
@@ -1283,15 +1369,15 @@ export default function AlertIntelligence() {
                             (() => {
                               const rawMom = source.data?.mom ?? source.mom;
                               if (rawMom != null) {
-                                const color = rawMom < 0 ? '#ef4444' : rawMom > 0 ? '#22c55e' : '#6b7280';
-                                const icon = rawMom < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : rawMom > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />;
-                                return <span style={{ color }} className="flex items-center justify-end gap-1 font-semibold">{icon}{rawMom > 0 ? '+' : ''}{rawMom}%</span>;
+                                const color = rawMom < 0 ? '#ef4444' : rawMom > 0 ? '#22c55e' : '#9ca3af';
+                                const icon = rawMom < 0 ? <TrendingDown className="w-4 h-4" /> : rawMom > 0 ? <TrendingUp className="w-4 h-4" /> : <Minus className="w-4 h-4" />;
+                                return <span style={{ color }} className="flex items-center justify-end gap-1 font-extrabold text-sm font-mono">{icon}{rawMom > 0 ? '+' : ''}{rawMom}%</span>;
                               }
-                              return <MoMIndicator cur={source.data?.cur ?? source.cur} prev={source.data?.prev ?? source.prev} />;
+                              return <MoMIndicator cur={source.data?.cur ?? source.cur} prev={source.data?.prev ?? source.prev} className="font-extrabold text-sm" />;
                             })()
                           ) : (
-                            <span className="flex items-center justify-end gap-1 font-semibold">
-                              <Clock className="w-3.5 h-3.5 text-text-muted" />
+                            <span className="flex items-center justify-end gap-1 font-extrabold text-sm font-mono">
+                              <Clock className="w-4 h-4 text-text-muted" />
                               <span style={{ color: source.pendingRisk?.backlogAgeDays >= 90 ? '#ef4444' : source.pendingRisk?.backlogAgeDays >= 60 ? '#f97316' : source.pendingRisk?.backlogAgeDays >= 30 ? '#eab308' : 'var(--color-text-secondary)' }}>
                                 {source.pendingRisk?.backlogAgeDays ?? 0} Days
                               </span>
@@ -1300,19 +1386,67 @@ export default function AlertIntelligence() {
                         </td>
 
                         {/* MT LOSS / PENDING VOLUME */}
-                        <td className="p-4 text-right text-text-secondary whitespace-nowrap hidden md:table-cell">
-                          {isDispatch
-                            ? (source.drop ? formatNum(source.drop) : (source.data?.drop ? formatNum(source.data.drop) : '-'))
-                            : <span className="font-semibold text-text-primary">{formatNum(source.pendingQty)} MT</span>
-                          }
+                        <td className="p-4 text-right whitespace-nowrap hidden md:table-cell">
+                          {isDispatch ? (
+                            <span className="mt-loss-val font-mono text-sm font-bold">
+                              {source.drop ? formatNum(source.drop) : (source.data?.drop ? formatNum(source.data.drop) : '-')}
+                            </span>
+                          ) : (
+                            <span className="mt-loss-val font-mono text-sm font-bold">
+                              {formatNum(source.pendingQty)} MT
+                            </span>
+                          )}
+                        </td>
+
+                        {/* PENDING ORDERS / EST. CLEARANCE */}
+                        <td className="p-4 text-right whitespace-nowrap">
+                          {isDispatch ? (
+                            (() => {
+                              const pendingQty = getEntityPendingOrders(row, data);
+                              if (!pendingQty || pendingQty <= 0) {
+                                return <span className="text-text-muted font-medium text-sm">—</span>;
+                              }
+                              return (
+                                <span className="pending-orders-val font-mono text-sm font-bold">
+                                  {formatNum(pendingQty)} MT
+                                </span>
+                              );
+                            })()
+                          ) : (
+                            (() => {
+                              const cur = source.cur ?? 0;
+                              const pending = source.pendingQty ?? 0;
+                              const days = source.pendingRisk?.clearanceDays;
+                              if (cur === 0 && pending > 0) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold clearance-stuck">
+                                    Stuck (0 MT/d)
+                                  </span>
+                                );
+                              }
+                              if (days == null || isNaN(days)) {
+                                return <span className="text-text-muted font-medium text-sm">—</span>;
+                              }
+                              if (days >= 90) {
+                                return <span className="clearance-crit font-mono text-sm font-bold">{days} Days</span>;
+                              }
+                              if (days >= 60) {
+                                return <span className="clearance-high font-mono text-sm font-bold">{days} Days</span>;
+                              }
+                              if (days >= 30) {
+                                return <span className="clearance-med font-mono text-sm font-bold">{days} Days</span>;
+                              }
+                              return <span className="clearance-good font-mono text-sm font-bold">{days} Days</span>;
+                            })()
+                          )}
                         </td>
                       </tr>
 
                       {/* EXPANDED DETAIL */}
                       {isExpanded && (
                         isDispatch
-                          ? renderDispatchDetail(source, row._originalIdx, data, viewMode)
-                          : renderRiskDetail(source, allRiskChartData, dealerNotes, noteTexts, setNoteTexts, handleSaveNote, handleDeleteNote, data, viewMode)
+                          ? renderDispatchDetail(source, row._originalIdx, data, viewMode, rawData, debouncedSearchQuery)
+                          : renderRiskDetail(source, allRiskChartData, dealerNotes, noteTexts, setNoteTexts, handleSaveNote, handleDeleteNote, data, viewMode, rawData)
                       )}
                     </React.Fragment>
                   );
@@ -1329,27 +1463,30 @@ export default function AlertIntelligence() {
 // ═════════════════════════════════════════════════════════════════════════════
 // DISPATCH EXPANDED ROW
 // ═════════════════════════════════════════════════════════════════════════════
-function renderDispatchDetail(alert, originalIdx, data, viewMode) {
-  const hierarchy = buildHierarchy(alert, data);
+function renderDispatchDetail(alert, originalIdx, data, viewMode, rawData, searchQuery = '') {
+  const fullData = rawData || data;
+  const hierarchy = buildHierarchy(alert, fullData, searchQuery);
   const rec = generateRecommendation(alert);
 
   const level = (alert.level || alert.category || '').toUpperCase();
-  const entityName = (alert.dealer || alert.district || alert.state || (alert.title ? alert.title.split(':')[0].trim() : '')).toUpperCase();
+  const rawEntity = alert.dealer || alert.district || alert.state || (alert.title ? alert.title.split(':')[0].trim() : '') || '';
+  const entityName = rawEntity.toUpperCase();
   const matchName = level === 'DISTRICT' ? entityName.split(',')[0].trim() : entityName;
+  const normMatch = normalizeDistrict(matchName).toUpperCase();
 
   const targetStateName = alert.state || alert.data?.state || (level === 'STATE' ? (alert.entity || alert.title?.split(':')[0]?.trim() || entityName) : (
-    (data?.districts || []).find(d => d.district?.toUpperCase() === matchName)?.state ||
-    (data?.dealers || []).find(d => d.district?.toUpperCase() === matchName || d.client?.toUpperCase() === entityName)?.state || ''
+    (fullData?.districts || []).find(d => normalizeDistrict(d.district).toUpperCase() === normMatch || d.district?.toUpperCase() === matchName)?.state ||
+    (fullData?.dealers || []).find(d => normalizeDistrict(d.district).toUpperCase() === normMatch || d.client?.toUpperCase() === entityName)?.state || ''
   ));
   const cleanStateName = targetStateName ? targetStateName.trim() : '';
 
   // Find active declining dealers in state/district carrying top volume (cur > 0)
   const maxDealers = level === 'STATE' ? 10 : 3;
-  const decliningDealers = (data?.dealers || [])
+  const decliningDealers = (fullData?.dealers || [])
     .filter(d => {
       const match = level === 'STATE' 
-        ? d.state?.toUpperCase() === entityName
-        : d.district?.toUpperCase() === matchName;
+        ? (d.state && d.state.replace(/\s+/g, '').toUpperCase() === entityName.replace(/\s+/g, ''))
+        : (normalizeDistrict(d.district).toUpperCase() === normMatch || d.district?.toUpperCase() === matchName);
       return match && (d.cur ?? 0) > 0 && (d.cur ?? 0) < (d.prev ?? 0);
     })
     .map(d => {
@@ -1385,7 +1522,7 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode) {
   // Find active products in state/district (both declining and growing)
   let productBreakdown = [];
   if (level === 'STATE') {
-    const stateObj = (data?.states || []).find(s => s.state?.toUpperCase() === entityName);
+    const stateObj = (fullData?.states || []).find(s => s.state && s.state.replace(/\s+/g, '').toUpperCase() === entityName.replace(/\s+/g, ''));
     productBreakdown = (stateObj?.products || [])
       .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
       .map(p => ({
@@ -1397,7 +1534,7 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode) {
       }))
       .sort((a, b) => b.drop - a.drop);
   } else if (level === 'DISTRICT') {
-    const distObj = (data?.districts || []).find(d => d.district?.toUpperCase() === matchName);
+    const distObj = (fullData?.districts || []).find(d => normalizeDistrict(d.district).toUpperCase() === normMatch || d.district?.toUpperCase() === matchName);
     productBreakdown = (distObj?.products || [])
       .filter(p => (p.cur ?? 0) !== 0 || (p.prev ?? 0) !== 0)
       .map(p => ({
@@ -1412,7 +1549,7 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode) {
 
   return (
     <tr className="bg-bg-primary/40 shadow-inner overflow-hidden transition-all duration-300">
-      <td colSpan={viewMode === 'RISK' ? 6 : 7} className="p-0 border-b border-border/50">
+      <td colSpan={7} className="p-0 border-b border-border/50">
         <div className="p-4 md:p-6 md:pl-14 border-l-2 border-accent-blue ml-5 my-2 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* LEFT COLUMN */}
@@ -1601,7 +1738,8 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode) {
 // ═════════════════════════════════════════════════════════════════════════════
 // RISK DEALER EXPANDED ROW — Pending Order Focused
 // ═════════════════════════════════════════════════════════════════════════════
-function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setNoteTexts, handleSaveNote, handleDeleteNote, data, viewMode) {
+function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setNoteTexts, handleSaveNote, handleDeleteNote, data, viewMode, rawData) {
+  const fullData = rawData || data;
   const theme = getRiskColor(dealer.severity);
   const notes = dealerNotes[dealer.client] || [];
   const noteText = noteTexts[dealer.client] || '';

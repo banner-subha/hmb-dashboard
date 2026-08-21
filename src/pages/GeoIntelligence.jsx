@@ -2061,7 +2061,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                 <span className="text-[10px] font-bold uppercase text-text-muted tracking-wider">
                   Metric Type
                 </span>
-                <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-bg-secondary border border-border/40 metric-toggle-container shadow-inner">
+                <div className="flex items-center gap-1 p-1 rounded-full bg-transparent border border-border/40 metric-toggle-container">
                   {[
                     { value: "DESPATCH", label: "Despatch" },
                     { value: "PENDING", label: "Pending" }
@@ -2071,7 +2071,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                       <button
                         key={opt.value}
                         onClick={() => setFilterState(s => ({ ...s, type: opt.value }))}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider border transition-all duration-150 cursor-pointer flex-1 ${
+                        className={`text-xs px-3.5 py-1.5 rounded-full font-bold uppercase tracking-wider border transition-all duration-150 cursor-pointer flex-1 ${
                           active
                             ? 'toggle-pill-active'
                             : 'toggle-pill-inactive'
@@ -2146,10 +2146,10 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                             return { ...s, item: newItem };
                           });
                         }}
-                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors duration-150 cursor-pointer ${
+                        className={`text-[13px] font-extrabold px-3 py-1 rounded-full border transition-all duration-150 cursor-pointer tracking-wide ${
                           active
-                            ? 'bg-severity-none-bg text-severity-none-text border-severity-none-border font-bold'
-                            : 'bg-transparent text-text-muted border-border/60 hover:text-text-primary'
+                            ? 'toggle-pill-active font-extrabold'
+                            : 'toggle-pill-inactive border-border/60 hover:border-border font-bold'
                         }`}
                       >
                         {prod}
@@ -2191,7 +2191,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           <div className="rounded-xl border p-4 flex-1 flex flex-col overflow-hidden min-h-[200px] panel">
             <div className="flex items-center justify-between mb-3 flex-shrink-0">
               <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted">
-                {selectedState ? `${selectedState.toUpperCase()} DISTRICTS` : 'State Performance'}
+                {selectedState ? `${selectedState.toUpperCase()} DISTRICTS` : 'State Overview'}
               </span>
               {selectedState && (
                 <button

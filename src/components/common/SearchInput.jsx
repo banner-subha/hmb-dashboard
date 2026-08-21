@@ -22,7 +22,7 @@ export default function SearchInput({ placeholder = "Search dealers, districts..
 
     timerRef.current = setTimeout(() => {
       dispatch({ type: 'SET_SEARCH', payload: val });
-    }, 200);
+    }, 300);
   };
 
   const handleClear = () => {

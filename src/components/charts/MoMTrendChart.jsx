@@ -2,6 +2,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'rec
 import { calculateMoM } from '../../utils/trendEngine';
 import { useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { useChartVisible } from '../../hooks/useChartVisible';
 import { formatNumber } from '../../utils/formatters';
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -38,6 +39,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function MoMTrendChart({ data, nameKey = "name", height = 300 }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
+  const isVisible = useChartVisible(containerRef);
 
   if (!data || data.length === 0) {
     return <div className="flex items-center justify-center h-full text-text-muted text-sm">No data available</div>;
@@ -57,8 +59,8 @@ export default function MoMTrendChart({ data, nameKey = "name", height = 300 }) 
           <YAxis stroke="var(--color-text-dim)" fontSize={12} tickFormatter={(val) => `${val}`} />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--color-chart-cursor)' }} isAnimationActive={false} />
           <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--color-text-muted)', paddingTop: '12px' }} />
-          <Bar dataKey="prev" name="Previous" fill="var(--color-text-dim)" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={true} animationDuration={500} animationEasing="ease-out" />
-          <Bar dataKey="cur" name="Current" fill="var(--color-accent-blue)" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={true} animationDuration={600} animationEasing="ease-out" />
+          <Bar dataKey="prev" name="Previous" fill="var(--color-text-dim)" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={isVisible} animationDuration={450} animationEasing="ease-out" />
+          <Bar dataKey="cur" name="Current" fill="var(--color-accent-blue)" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={isVisible} animationDuration={500} animationEasing="ease-out" />
         </BarChart>
       )}
     </div>

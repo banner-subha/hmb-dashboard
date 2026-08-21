@@ -3,6 +3,7 @@ import { SEVERITY_CONFIG } from '../../utils/constants';
 import { getBusinessImpact } from '../../utils/trendEngine';
 import { useMemo, useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { useChartVisible } from '../../hooks/useChartVisible';
 import { ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const CustomTooltip = ({ active, payload }) => {
@@ -28,6 +29,7 @@ const CustomTooltip = ({ active, payload }) => {
 export default function AlertSeverityChart({ alerts, height = 210 }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
+  const isVisible = useChartVisible(containerRef);
 
   const chartData = useMemo(() => {
     if (!alerts || alerts.length === 0) return [];
@@ -68,8 +70,8 @@ export default function AlertSeverityChart({ alerts, height = 210 }) {
               paddingAngle={3}
               dataKey="value"
               stroke="none"
-              isAnimationActive={true}
-              animationDuration={700}
+              isAnimationActive={isVisible}
+              animationDuration={500}
               animationEasing="ease-out"
             >
               {chartData.map((entry, index) => (

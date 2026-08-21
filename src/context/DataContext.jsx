@@ -3,7 +3,7 @@ import { dataService } from '../services/dataService';
 import { calculateMoM, formatTrend, getTrendColor, getBusinessImpact } from '../utils/trendEngine';
 import { isRealState, NORTH_BENGAL_DISTRICTS, getExpandedStatesSet } from '../utils/constants';
 import { useAuth } from './AuthContext';
-import { getNormalizedDistrictSet, matchesAssignedDistrict } from '../utils/districtNormalizer';
+import { getNormalizedDistrictSet, matchesAssignedDistrict, normalizeDistrict } from '../utils/districtNormalizer';
 import { syncClientUsers } from '../data/clientRegistry';
 
 const DataContext = createContext(null);
@@ -61,8 +61,8 @@ function processData(rawData, filters, user) {
   if (!rawData) return null;
   let { states = [], districts = [], dealers = [], alerts = [] } = rawData;
   states = states.filter(st => st && isRealState(st.state));
-  districts = districts.filter(d => d && isRealState(d.state));
-  dealers = dealers.filter(dl => dl && isRealState(dl.state));
+  districts = districts.filter(d => d && isRealState(d.state) && d.district != null && String(d.district).trim() !== '');
+  dealers = dealers.filter(dl => dl && isRealState(dl.state) && dl.district != null && String(dl.district).trim() !== '' && dl.client != null && String(dl.client).trim() !== '');
 
   // 0. User / Role Scope Filtering (KRM/KRO Client Locks)
   if (filters.isNorthBengal) {
@@ -118,11 +118,12 @@ function processData(rawData, filters, user) {
     alerts = alerts.filter(a => !a.data?.state || a.data.state.replace(/\s+/g, '').toUpperCase() === s);
   }
   if (filters.selectedDistrict) {
-    const d = filters.selectedDistrict;
-    districts = districts.filter(dist => dist.district === d);
-    dealers = dealers.filter(dl => dl.district === d);
+    const d = normalizeDistrict(filters.selectedDistrict);
+    const dUpper = d.toUpperCase();
+    districts = districts.filter(dist => normalizeDistrict(dist.district).toUpperCase() === dUpper);
+    dealers = dealers.filter(dl => normalizeDistrict(dl.district).toUpperCase() === dUpper);
     
-    const targetDist = rawData.districts?.find(dist => dist.district === d);
+    const targetDist = rawData.districts?.find(dist => normalizeDistrict(dist.district).toUpperCase() === dUpper);
     if (targetDist) {
       states = states.filter(st => st.state === targetDist.state).map(st => ({
         ...st,
@@ -177,6 +178,10 @@ function processData(rawData, filters, user) {
   }
   if (filters.searchQuery) {
     const q = filters.searchQuery.toLowerCase();
+    districts = districts.filter(d =>
+      d.district?.toLowerCase().includes(q) ||
+      d.state?.toLowerCase().includes(q)
+    );
     dealers = dealers.filter(dl =>
       dl.client?.toLowerCase().includes(q) ||
       dl.district?.toLowerCase().includes(q) ||
@@ -543,10 +548,8 @@ export function DataProvider({ children }) {
 
   // Overall (unfiltered) data for Executive Overview and AI War Room
   const overallData = useMemo(() => {
-    const isFiltered = filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.selectedSeverity || filters.searchQuery;
-    if (!isFiltered) return filteredData;
     return processData(rawData, initialFilters, user);
-  }, [rawData, filters, user, filteredData]);
+  }, [rawData, user]);
 
   // Unique options for filter dropdowns
   const filterOptions = useMemo(() => {
@@ -554,9 +557,9 @@ export function DataProvider({ children }) {
 
     let baseStates = (rawData.states || []).filter(st => st && isRealState(st.state));
     let baseDistricts = [
-      ...(rawData.districts || []).map(d => ({ state: d.state, district: d.district })),
-      ...(rawData.dealers || []).map(d => ({ state: d.state, district: d.district }))
-    ].filter(d => d.district && String(d.district).toLowerCase() !== 'nan' && String(d.district).trim() !== '' && isRealState(d.state));
+      ...(rawData.districts || []).map(d => ({ state: d.state, district: normalizeDistrict(d.district, d.state) })),
+      ...(rawData.dealers || []).map(d => ({ state: d.state, district: normalizeDistrict(d.district, d.state) }))
+    ].filter(d => d.district && isRealState(d.state));
 
     if (filters.isNorthBengal) {
       const nbSet = getNormalizedDistrictSet(NORTH_BENGAL_DISTRICTS);
@@ -603,25 +606,29 @@ export function DataProvider({ children }) {
       districts: [...new Set(baseDistricts
         .filter(d => !filters.selectedState || (d.state && d.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase()))
         .map(d => d.district)
-      )].sort(),
+      )].sort((a, b) => {
+        // Keep '0' and 'VERBAL' grouped logically or at top/bottom
+        if (a === '0') return -1;
+        if (b === '0') return 1;
+        if (a === 'VERBAL') return -1;
+        if (b === 'VERBAL') return 1;
+        return a.localeCompare(b);
+      }),
       products: (rawData.products || []).map(p => p.product),
       severities: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'],
     };
   }, [rawData, filters.selectedState, filters.isNorthBengal, user]);
 
-  // Auto-default selectedState for client users when scoped to a single state or when state is unselected
+  // Validate selectedState against available states if a state is currently selected
   useEffect(() => {
-    if (user && user.role === 'client' && filterOptions.states.length > 0) {
+    if (filters.selectedState && filterOptions.states.length > 0) {
       const currentSelectedUpper = (filters.selectedState || '').replace(/\s+/g, '').toUpperCase();
       const availableUpper = filterOptions.states.map(s => s.replace(/\s+/g, '').toUpperCase());
-      
-      if (!filters.selectedState || !availableUpper.includes(currentSelectedUpper)) {
-        if (filterOptions.states.length === 1) {
-          dispatch({ type: 'SET_STATE', payload: filterOptions.states[0] });
-        }
+      if (!availableUpper.includes(currentSelectedUpper)) {
+        dispatch({ type: 'SET_STATE', payload: null });
       }
     }
-  }, [user, filterOptions.states, filters.selectedState]);
+  }, [filterOptions.states, filters.selectedState]);
 
   const rawValue = useMemo(
     () => ({ rawData, loading, error, refresh }),

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 export function useDebouncedResize(ref, delay = 150) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const timeoutRef = useRef(null);
+  const isFirstMeasure = useRef(true);
   
   useEffect(() => {
     if (!ref.current) return;
@@ -14,6 +15,15 @@ export function useDebouncedResize(ref, delay = 150) {
       const { width, height } = entries[0].contentRect;
       const roundedWidth = Math.floor(width);
       const roundedHeight = Math.floor(height);
+      
+      // First observation: set immediately for instant chart render
+      if (isFirstMeasure.current) {
+        isFirstMeasure.current = false;
+        requestAnimationFrame(() => {
+          setDimensions({ width: roundedWidth, height: roundedHeight });
+        });
+        return;
+      }
       
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       

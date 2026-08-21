@@ -11,6 +11,13 @@ export const PRODUCT_LABELS = {
 
 export const ALL_PRODUCTS = Object.keys(PRODUCT_LABELS);
 
+export const getProductFullName = (code) => {
+  if (!code) return '';
+  const label = PRODUCT_LABELS[code] || code;
+  const match = label.match(/\(([^)]+)\)/);
+  return match ? match[1] : label;
+};
+
 // Unified product color palette — Gradual Dark-to-Light Blue Spectrum
 export const PRODUCT_COLORS = {
   IG: '#1D4ED8',   // Deep Royal Blue
@@ -49,18 +56,18 @@ export const CATEGORY_ICONS = {
 // Navigation items — Business-Friendly Labels
 export const NAV_ITEMS = [
   { path: '/',          label: 'Executive Overview', icon: 'LayoutDashboard' },
-  { path: '/states',    label: 'State Performance', icon: 'Map' },
-  { path: '/districts', label: 'District Performance', icon: 'MapPin' },
-  { path: '/dealers',   label: 'Dealer Performance', icon: 'Store' },
+  { path: '/states',    label: 'State Overview', icon: 'Map' },
+  { path: '/districts', label: 'District Overview', icon: 'MapPin' },
+  { path: '/dealers',   label: 'Dealer Network', icon: 'Store' },
   { path: '/war-room',  label: 'AI Insights & Actions', icon: 'Brain' },
-  { path: '/alerts',    label: 'Alerts & Risk', icon: 'Activity' },
+  { path: '/alerts',    label: 'Alerts & Risks', icon: 'Activity' },
   { path: '/geo',       label: 'Geographic View', icon: 'Globe' },
 ];
 
 export const CLIENT_NAV_ITEMS = [
-  { path: '/states',    label: 'State Performance', icon: 'Map' },
-  { path: '/districts', label: 'District Performance', icon: 'MapPin' },
-  { path: '/dealers',   label: 'Dealer Performance', icon: 'Store' },
+  { path: '/states',    label: 'State Overview', icon: 'Map' },
+  { path: '/districts', label: 'District Overview', icon: 'MapPin' },
+  { path: '/dealers',   label: 'Dealer Network', icon: 'Store' },
 ];
 
 export const NORTH_BENGAL_DISTRICTS = [
@@ -125,21 +132,62 @@ export const VALID_INDIAN_STATES = new Set([
   'pondicherry'
 ]);
 
-// State alias mapping for mislabeled raw CSV/database entries
+// State alias mapping for mislabeled raw CSV/database entries and geoSlugs
 export const STATE_ALIASES = {
   'HAILAKANDI': 'Assam',
   'UTTARPRADESH': 'Uttar Pradesh',
+  'UTTAR PRADESH': 'Uttar Pradesh',
+  'WESTBENGAL': 'West Bengal',
+  'WEST BENGAL': 'West Bengal',
   'UP': 'Uttar Pradesh',
   'WB': 'West Bengal',
   'MP': 'Madhya Pradesh',
+  'MADHYAPRADESH': 'Madhya Pradesh',
+  'MADHYA PRADESH': 'Madhya Pradesh',
   'AP': 'Andhra Pradesh',
+  'ANDHRAPRADESH': 'Andhra Pradesh',
+  'ANDHRA PRADESH': 'Andhra Pradesh',
   'ODISHA': 'Orissa',
+  'ORISSA': 'Orissa',
+  'ORRISA': 'Orissa',
+  'JHARKHAND': 'Jharkhand',
+  'BIHAR': 'Bihar',
+  'ASSAM': 'Assam',
+  'TRIPURA': 'Tripura',
+  'RAJASTHAN': 'Rajasthan',
+  'MANIPUR': 'Manipur',
+  'CHHATTISGARH': 'Chhattisgarh',
+  'ARUNACHALPRADESH': 'Arunachal Pradesh',
+  'ARUNACHAL PRADESH': 'Arunachal Pradesh',
+  'MEGHALAYA': 'Meghalaya',
+  'MIZORAM': 'Mizoram',
+  'NAGALAND': 'Nagaland',
+  'SIKKIM': 'Sikkim',
+  'GUJARAT': 'Gujarat',
+  'MAHARASHTRA': 'Maharashtra',
+  'PUNJAB': 'Punjab',
+  'HARYANA': 'Haryana',
+  'DELHI': 'Delhi',
+  'KERALA': 'Kerala',
+  'TAMIL NADU': 'Tamil Nadu',
+  'TAMILNADU': 'Tamil Nadu',
+  'KARNATAKA': 'Karnataka',
+  'TELANGANA': 'Telangana',
+  'GOA': 'Goa',
+  'HIMACHAL PRADESH': 'Himachal Pradesh',
+  'HIMACHALPRADESH': 'Himachal Pradesh',
+  'UTTARAKHAND': 'Uttaranchal',
+  'UTTARANCHAL': 'Uttaranchal',
+  'JAMMU & KASHMIR': 'Jammu & Kashmir',
+  'JAMMU AND KASHMIR': 'Jammu & Kashmir',
+  'LADAKH': 'Ladakh',
 };
 
 export function normalizeStateName(name) {
   if (!name || typeof name !== 'string') return name;
+  const stripped = name.trim().toUpperCase().replace(/\s+/g, '');
   const upper = name.trim().toUpperCase();
-  return STATE_ALIASES[upper] || name.trim();
+  return STATE_ALIASES[stripped] || STATE_ALIASES[upper] || name.trim();
 }
 
 export function isRealState(name) {

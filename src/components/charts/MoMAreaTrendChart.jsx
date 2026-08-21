@@ -1,6 +1,7 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { useChartVisible } from '../../hooks/useChartVisible';
 import { formatNumber } from '../../utils/formatters';
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -86,6 +87,7 @@ const GradientCursor = (props) => {
 export default function MoMAreaTrendChart({ data, nameKey = "monthLabel", dataKey = "volume", height = 200, accentColor = "#3b82f6" }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
+  const isVisible = useChartVisible(containerRef);
 
   const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
 
@@ -163,8 +165,8 @@ export default function MoMAreaTrendChart({ data, nameKey = "monthLabel", dataKe
             fill={`url(#${gradientId})`}
             dot={{ r: 3.5, fill: effectiveStroke }}
             activeDot={{ r: 6, fill: effectiveStroke }}
-            isAnimationActive={true}
-            animationDuration={800}
+            isAnimationActive={isVisible}
+            animationDuration={500}
           />
         </AreaChart>
       )}

@@ -9,17 +9,16 @@ import { useState, memo } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
-const TableRow = memo(function TableRow({ row, idx, onRowClick }) {
+const TableRow = memo(function TableRow({ row, onRowClick }) {
   return (
     <tr 
       onClick={() => onRowClick && onRowClick(row.original)}
-      className={`animate-fade-in transition-colors bg-bg-card hover:bg-bg-card-hover ${onRowClick ? 'cursor-pointer' : ''}`}
-      style={{ animationDelay: `${Math.min(idx * 20, 200)}ms`, animationFillMode: 'both' }}
+      className={`table-row-separator transition-colors bg-bg-card hover:bg-bg-card-hover group ${onRowClick ? 'cursor-pointer' : ''}`}
     >
       {row.getVisibleCells().map((cell, index) => (
         <td 
           key={cell.id} 
-          className={`px-2.5 sm:px-3 py-3 ${index === 0 ? 'sticky left-0 z-10 bg-inherit shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] font-semibold' : ''}`}
+          className={`px-2.5 sm:px-3 py-3.5 table-cell-separator ${index === 0 ? 'sticky left-0 z-10 bg-bg-card group-hover:bg-bg-card-hover shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] font-semibold' : ''}`}
           style={{ 
             width: cell.column.columnDef.meta?.width,
             minWidth: cell.column.columnDef.meta?.minWidth,
@@ -31,6 +30,9 @@ const TableRow = memo(function TableRow({ row, idx, onRowClick }) {
       ))}
     </tr>
   );
+}, (prevProps, nextProps) => {
+  return prevProps.row.original === nextProps.row.original &&
+         prevProps.onRowClick === nextProps.onRowClick;
 });
 
 export default function DataTable({ data, columns, onRowClick, pageSize = 15, renderHeader, defaultSort = [] }) {
@@ -178,15 +180,15 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
       {renderHeader && renderHeader(paginationControls)}
 
       <div className="w-full overflow-x-auto rounded-xl border border-border bg-bg-card shadow-sm">
-        <table className="w-full text-[14.5px] text-left">
+        <table className="w-full text-[14.5px] text-left border-collapse">
           <thead className="text-[12.5px] font-semibold text-text-muted bg-bg-secondary border-b border-border">
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
+              <tr key={headerGroup.id} className="border-b border-border">
                 {headerGroup.headers.map((header, index) => {
                   return (
                     <th 
                       key={header.id} 
-                      className={`px-2.5 sm:px-3 py-3 font-bold tracking-wider whitespace-nowrap cursor-pointer select-none hover:bg-bg-card-hover transition-colors ${index === 0 ? 'sticky left-0 z-20 bg-bg-secondary shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]' : ''}`}
+                      className={`px-2.5 sm:px-3 py-3 font-bold tracking-wider whitespace-nowrap cursor-pointer select-none hover:bg-bg-card-hover transition-colors border-b border-border ${index === 0 ? 'sticky left-0 z-20 bg-bg-secondary shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)]' : ''}`}
                       onClick={header.column.getToggleSortingHandler()}
                       style={{ 
                         width: header.column.columnDef.meta?.width,
@@ -216,10 +218,10 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-border/80">
+          <tbody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row, idx) => (
-                <TableRow key={row.id} row={row} idx={idx} onRowClick={onRowClick} />
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id} row={row} onRowClick={onRowClick} />
               ))
             ) : (
               <tr>
