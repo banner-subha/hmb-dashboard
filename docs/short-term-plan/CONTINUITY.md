@@ -1,37 +1,26 @@
-- Goal (incl. success criteria): Fix mobile sidebar/drawer layout in PulseBoard to guarantee pinned footer (Admin/logout) and internal nav scrolling across all aspect ratios and dynamic viewport heights.
+- Goal (incl. success criteria): Fix mobile sidebar/drawer layout, Alerts & Risks toggle container stretch, and Order Fulfillment Velocity card mobile responsiveness across all aspect ratios and dynamic viewport heights.
 - Constraints/Assumptions:
   - 3-part flex column structure (header shrink-0, nav flex-1 overflow-y-auto min-h-0, footer shrink-0 mt-auto border-t).
-  - Dynamic viewport height support with `h-screen h-dvh`.
+  - Dynamic viewport height support using pure `h-dvh` without `h-screen` conflict.
   - Zero fixed pixel height hacks.
+  - Preserve all business logic and performance optimization guidelines.
 - Key decisions:
-  - Updated `<aside>` in `src/layouts/DashboardLayout.jsx` with `flex flex-col h-screen h-dvh`.
-  - Converted title bar to `<header className="shrink-0 ...">`.
-  - Converted nav list to `<nav className="flex-1 overflow-y-auto min-h-0 ...">`, removing legacy `calc(100vh-8rem)`.
-  - Converted admin/logout section to `<footer className="shrink-0 mt-auto ...">`, removing `absolute bottom-0`.
+  - Updated `<aside>` and outer container in `src/layouts/DashboardLayout.jsx` to use pure `h-dvh`, eliminating 100vh height override on mobile browser viewports.
+  - Added `pb-12 sm:pb-6` bottom padding on main scroll container in `DashboardLayout.jsx` to guarantee ample scroll clearance for footer action buttons.
+  - Fixed toggle container stretching in `src/pages/AlertIntelligence.jsx` by adding `self-start lg:self-auto w-fit`.
+  - Optimized `src/components/common/OrderFulfillmentVelocityCard.jsx` with responsive 2-column metric cards and compact typography to fit modern smartphone screen ratios without overflowing.
 - State:
   - Done:
-    - Restructured sidebar to 3-part flex column in `src/layouts/DashboardLayout.jsx`.
-    - Verified clean build (`npm run build`).
+    - Replaced `h-screen h-dvh` with `h-dvh` in `src/layouts/DashboardLayout.jsx`.
+    - Added `pb-12` bottom scroll padding in `src/layouts/DashboardLayout.jsx`.
+    - Fixed Dispatch/Risk toggle outer pill in `src/pages/AlertIntelligence.jsx`.
+    - Responsive layout and typography tuning for `OrderFulfillmentVelocityCard.jsx`.
+    - Verified clean production build (`npm run build`).
   - Now:
-    - Mobile sidebar layout fix complete.
+    - Complete and ready for verification.
   - Next:
-    - User testing across mobile device viewports.
+    - User testing across mobile screen aspect ratios.
 - Working set (files/ids/commands):
-  - [src/context/DataContext.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/context/DataContext.jsx)
   - [src/layouts/DashboardLayout.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/layouts/DashboardLayout.jsx)
-  - [src/components/common/AnimatedPage.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/AnimatedPage.jsx)
-  - [src/utils/motionVariants.js](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/utils/motionVariants.js)
-  - [src/index.css](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/index.css)
-  - [src/hooks/useChartVisible.js](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/hooks/useChartVisible.js)
-  - [src/hooks/useDebouncedResize.js](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/hooks/useDebouncedResize.js)
-  - [src/components/charts/ShareDonutChart.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/charts/ShareDonutChart.jsx)
-  - [src/components/charts/MoMAreaTrendChart.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/charts/MoMAreaTrendChart.jsx)
-  - [src/components/charts/RiskScatterPlot.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/charts/RiskScatterPlot.jsx)
-  - [src/components/charts/ProductBarChart.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/charts/ProductBarChart.jsx)
-  - [src/components/charts/MoMTrendChart.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/charts/MoMTrendChart.jsx)
-  - [src/components/charts/AlertSeverityChart.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/charts/AlertSeverityChart.jsx)
-  - [src/components/common/DataTable.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/DataTable.jsx)
-  - [src/components/common/SearchInput.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/SearchInput.jsx)
-  - [src/components/common/FilterBar.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/FilterBar.jsx)
   - [src/pages/AlertIntelligence.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/pages/AlertIntelligence.jsx)
-  - [src/App.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/App.jsx)
+  - [src/components/common/OrderFulfillmentVelocityCard.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/OrderFulfillmentVelocityCard.jsx)

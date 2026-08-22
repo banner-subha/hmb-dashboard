@@ -1195,7 +1195,7 @@ export default function AlertIntelligence() {
         </div>
 
         {/* SEGMENTED TOGGLE */}
-        <div className="flex items-center gap-1 p-1 rounded-full bg-bg-secondary border border-border/40 metric-toggle-container shadow-inner shrink-0">
+        <div className="flex items-center gap-1 p-1 rounded-full bg-bg-secondary border border-border/40 metric-toggle-container shadow-inner shrink-0 self-start lg:self-auto w-fit">
           {[
             { key: 'DISPATCH', label: 'Dispatch', icon: TrendingDown },
             { key: 'RISK', label: 'Risk', icon: ShieldAlert },

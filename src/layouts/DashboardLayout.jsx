@@ -120,7 +120,7 @@ export default function DashboardLayout() {
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className="flex h-screen h-dvh overflow-hidden bg-bg-primary text-text-primary">
+      <div className="flex h-dvh overflow-hidden bg-bg-primary text-text-primary">
         {/* Mobile sidebar overlay */}
         <AnimatePresence>
           {sidebarOpen && (
@@ -137,7 +137,7 @@ export default function DashboardLayout() {
 
         {/* Sidebar */}
         <aside 
-          className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col h-screen h-dvh border-r border-[var(--color-sidebar-border)] transition-transform duration-300 lg:static lg:h-full lg:translate-x-0 flex-shrink-0 ${
+          className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col h-dvh border-r border-[var(--color-sidebar-border)] transition-transform duration-300 lg:static lg:h-full lg:translate-x-0 flex-shrink-0 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
           style={{ background: 'var(--gradient-sidebar)' }}
@@ -292,7 +292,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-4 sm:p-6" style={{ overscrollBehavior: 'contain' }}>
+        <div className="flex-1 overflow-auto p-4 pb-12 sm:p-6" style={{ overscrollBehavior: 'contain' }}>
           <div className="max-w-[90rem] mx-auto space-y-6 min-h-full relative">
             <AnimatePresence mode="wait">
               <AnimatedPage key={location.pathname}>

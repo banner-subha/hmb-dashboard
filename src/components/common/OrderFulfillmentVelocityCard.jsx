@@ -101,57 +101,57 @@ export default function OrderFulfillmentVelocityCard({ data, rawData, title = "D
       }
       accentColor="#3b82f6"
     >
-      <div className="space-y-3.5 py-0.5">
+      <div className="space-y-3 sm:space-y-3.5 py-0.5">
         
         {/* Top 2 Metric Cards: Avg Lead Time & Fulfillment Rate */}
-        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-3.5">
-          <div className="p-3 sm:p-3.5 rounded-xl bg-bg-secondary/80 border border-border/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wide">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3.5">
+          <div className="p-2.5 sm:p-3.5 rounded-xl bg-bg-secondary/80 border border-border/60 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center gap-1.5 text-[10.5px] sm:text-xs font-bold text-text-muted uppercase tracking-wide">
               <Clock className="w-3.5 h-3.5 text-accent-blue shrink-0" />
-              <span className="leading-tight">Avg Delivery Time</span>
+              <span className="leading-tight truncate">Avg Delivery</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-text-primary tracking-tight leading-none mt-2">
+            <div className="text-lg sm:text-2xl font-black text-text-primary tracking-tight leading-none mt-1.5 sm:mt-2">
               {formatDays(avgPeriod)}
             </div>
-            <div className="text-[11px] text-text-muted font-medium mt-1.5 leading-snug">
-              From order to dispatch
+            <div className="text-[10px] sm:text-[11px] text-text-muted font-medium mt-1 sm:mt-1.5 leading-snug truncate">
+              Order to dispatch
             </div>
           </div>
 
-          <div className="p-3 sm:p-3.5 rounded-xl bg-bg-secondary/80 border border-border/60 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wide">
+          <div className="p-2.5 sm:p-3.5 rounded-xl bg-bg-secondary/80 border border-border/60 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center gap-1.5 text-[10.5px] sm:text-xs font-bold text-text-muted uppercase tracking-wide">
               <Zap className="w-3.5 h-3.5 text-accent-blue shrink-0" />
-              <span className="leading-tight">Orders Cleared</span>
+              <span className="leading-tight truncate">Orders Cleared</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-text-primary tracking-tight leading-none mt-2">
-              {fulfillmentRate}% <span className="text-xs font-bold text-text-muted">Cleared</span>
+            <div className="text-lg sm:text-2xl font-black text-text-primary tracking-tight leading-none mt-1.5 sm:mt-2">
+              {fulfillmentRate}% <span className="text-[10px] sm:text-xs font-bold text-text-muted">Cleared</span>
             </div>
-            <div className="text-[11px] text-text-muted font-medium mt-1.5 leading-snug break-words">
-              {formatMT(totalCur)} shipped of {formatMT(totalBookedOrders)} ordered
+            <div className="text-[10px] sm:text-[11px] text-text-muted font-medium mt-1 sm:mt-1.5 leading-snug truncate">
+              {formatMT(totalCur)} of {formatMT(totalBookedOrders)}
             </div>
           </div>
         </div>
 
         {/* Product-Wise Turnaround Speed & Clearance (All 6 Product Lines) */}
-        <div className="p-3 sm:p-3.5 rounded-xl bg-bg-secondary/60 border border-border/50 space-y-2 shadow-xs">
+        <div className="p-2.5 sm:p-3.5 rounded-xl bg-bg-secondary/60 border border-border/50 space-y-1.5 sm:space-y-2 shadow-xs">
           <div className="flex justify-between items-center text-xs gap-2">
-            <span className="font-bold text-text-primary uppercase tracking-wide">Delivery Time by Product</span>
-            <span className="text-[11px] font-semibold text-text-muted shrink-0">% Cleared</span>
+            <span className="font-bold text-text-primary uppercase tracking-wide text-[11px] sm:text-xs">Delivery Time by Product</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-text-muted shrink-0">% Cleared</span>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1 sm:space-y-1.5">
             {productVelocity.map(p => {
               const color = PRODUCT_COLORS[p.product] || '#3b82f6';
               return (
                 <div key={p.product} className="space-y-0.5">
                   <div className="flex justify-between items-center text-xs gap-2">
-                    <div className="flex items-center gap-2 font-semibold text-text-primary min-w-0">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <span className="truncate" title={p.label}>{p.label}</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 font-semibold text-text-primary min-w-0">
+                      <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                      <span className="truncate text-[11px] sm:text-xs" title={p.label}>{p.label}</span>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-                      <span className="text-[11px] text-text-muted font-medium whitespace-nowrap">{p.leadDays} days avg</span>
-                      <span className="font-bold font-mono text-xs text-text-primary w-9 text-right">{p.fulfillmentRate}%</span>
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+                      <span className="text-[10px] sm:text-[11px] text-text-muted font-medium whitespace-nowrap">{p.leadDays}d avg</span>
+                      <span className="font-bold font-mono text-[11px] sm:text-xs text-text-primary w-8 sm:w-9 text-right">{p.fulfillmentRate}%</span>
                     </div>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-bg-primary/80 overflow-hidden border border-border/40">
@@ -170,14 +170,14 @@ export default function OrderFulfillmentVelocityCard({ data, rawData, title = "D
         </div>
 
         {/* Bottom Commercial Metric & Uniform Theme Action Pill Button */}
-        <div className="pt-2.5 border-t border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="text-xs text-text-muted font-medium min-w-0">
-            Avg per Dealer: <strong className="text-text-primary">{avgVolumePerDealer} MT</strong> ({activeDealerCount} active)
+        <div className="pt-2 sm:pt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
+          <div className="text-[11px] sm:text-xs text-text-muted font-medium min-w-0 truncate">
+            Avg / Dealer: <strong className="text-text-primary">{avgVolumePerDealer} MT</strong> ({activeDealerCount} active)
           </div>
 
           <button
             onClick={handleNavigateLeadTimes}
-            className="btn-pill-action shrink-0 self-start sm:self-auto"
+            className="btn-pill-action shrink-0 text-xs py-1 px-2.5 sm:px-3"
           >
             <span>Delivery Details</span>
             <ArrowRight className="w-3.5 h-3.5 shrink-0" />
