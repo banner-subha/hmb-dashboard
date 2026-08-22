@@ -120,7 +120,7 @@ export default function DashboardLayout() {
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className="flex h-screen overflow-hidden bg-bg-primary text-text-primary">
+      <div className="flex h-screen h-dvh overflow-hidden bg-bg-primary text-text-primary">
         {/* Mobile sidebar overlay */}
         <AnimatePresence>
           {sidebarOpen && (
@@ -137,81 +137,89 @@ export default function DashboardLayout() {
 
         {/* Sidebar */}
         <aside 
-          className={`fixed inset-y-0 left-0 z-50 w-64 border-r border-[var(--color-sidebar-border)] transition-transform duration-300 lg:static lg:translate-x-0 flex-shrink-0 ${
+          className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col h-screen h-dvh border-r border-[var(--color-sidebar-border)] transition-transform duration-300 lg:static lg:h-full lg:translate-x-0 flex-shrink-0 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
           style={{ background: 'var(--gradient-sidebar)' }}
         >
-        <div className="flex items-center justify-between h-16 px-5 border-b border-[var(--color-sidebar-border)]">
-          <div className="flex items-center gap-3 min-w-0">
-            {/* Accent bar */}
-            <div className="w-1 h-8 rounded-full shrink-0" style={{ background: 'var(--gradient-accent)' }} />
-            <div className="flex flex-col leading-tight min-w-0">
-              <span className="text-base font-extrabold tracking-tight gradient-text truncate">HMB Ispat</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/80 truncate">Intelligence Platform</span>
+          {/* Header */}
+          <header className="flex items-center justify-between h-16 px-5 border-b border-[var(--color-sidebar-border)] shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Accent bar */}
+              <div className="w-1 h-8 rounded-full shrink-0" style={{ background: 'var(--gradient-accent)' }} />
+              <div className="flex flex-col leading-tight min-w-0">
+                <span className="text-base font-extrabold tracking-tight gradient-text truncate">HMB Ispat</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/80 truncate">Intelligence Platform</span>
+              </div>
             </div>
-          </div>
-          <button className="lg:hidden text-white ml-2" onClick={() => setSidebarOpen(false)}>
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+            <button 
+              className="lg:hidden text-white ml-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors" 
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close sidebar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </header>
 
-        <div className="p-4 space-y-0.5 overflow-y-auto h-[calc(100vh-8rem)]">
-          <div className="text-xs font-bold text-white uppercase tracking-wider mb-3 px-2 mt-4">
-            Intelligence
-          </div>
-          {navItemsToRender.map((item) => {
-            const Icon = NAV_ICON_MAP[item.icon] || Globe;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) => 
-                  `sidebar-link ${isActive ? 'active' : ''}`
-                }
-                onClick={() => setSidebarOpen(false)}
-              >
-                <Icon className="w-5 h-5 shrink-0" />
-                <span className="truncate">{item.label}</span>
-              </NavLink>
-            );
-          })}
-        </div>
+          {/* Navigation Items (Scrollable flex child) */}
+          <nav className="flex-1 overflow-y-auto min-h-0 p-4 space-y-0.5">
+            <div className="text-xs font-bold text-white uppercase tracking-wider mb-3 px-2 mt-4">
+              Intelligence
+            </div>
+            {navItemsToRender.map((item) => {
+              const Icon = NAV_ICON_MAP[item.icon] || Globe;
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) => 
+                    `sidebar-link ${isActive ? 'active' : ''}`
+                  }
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <Icon className="w-5 h-5 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
 
-        <div className="absolute bottom-0 w-full px-4 py-3.5 border-t border-[var(--color-sidebar-border)]" style={{ background: 'var(--color-sidebar-bg)' }}>
-          <div className="flex items-center justify-between px-2">
-            <div className="flex flex-col gap-0.5 min-w-0 pr-2">
-              <span className="text-sm font-semibold text-sidebar-text truncate" title={user?.name || user?.username}>
-                {user?.name || user?.username}
-              </span>
-              <span className="text-xs text-sidebar-text-muted truncate">
-                {user?.role === 'client'
-                  ? `${user?.kroRole || 'Client View'}${user?.states ? ` (${Array.isArray(user.states) ? user.states.join(', ') : user.states})` : ''}`
-                  : 'Administrator'}
-              </span>
+          {/* Footer (Pinned to bottom) */}
+          <footer className="shrink-0 mt-auto w-full px-4 py-3.5 border-t border-[var(--color-sidebar-border)]" style={{ background: 'var(--color-sidebar-bg)' }}>
+            <div className="flex items-center justify-between px-2">
+              <div className="flex flex-col gap-0.5 min-w-0 pr-2">
+                <span className="text-sm font-semibold text-sidebar-text truncate" title={user?.name || user?.username}>
+                  {user?.name || user?.username}
+                </span>
+                <span className="text-xs text-sidebar-text-muted truncate">
+                  {user?.role === 'client'
+                    ? `${user?.kroRole || 'Client View'}${user?.states ? ` (${Array.isArray(user.states) ? user.states.join(', ') : user.states})` : ''}`
+                    : 'Administrator'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 text-sidebar-text-muted hover:text-sidebar-text transition-colors rounded-lg hover:bg-white/10"
+                  title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+                  aria-label="Toggle theme"
+                >
+                  {theme === 'light'
+                    ? <Moon className="w-5 h-5" />
+                    : <Sun className="w-5 h-5" />}
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-sidebar-text-muted hover:text-severity-critical transition-colors rounded-lg hover:bg-severity-critical/10 shrink-0"
+                  title="Logout"
+                  aria-label="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={toggleTheme}
-                className="p-2 text-sidebar-text-muted hover:text-sidebar-text transition-colors rounded-lg hover:bg-white/10"
-                title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
-                aria-label="Toggle theme"
-              >
-                {theme === 'light'
-                  ? <Moon className="w-5 h-5" />
-                  : <Sun className="w-5 h-5" />}
-              </button>
-              <button
-                onClick={handleLogout}
-                className="p-2 text-sidebar-text-muted hover:text-severity-critical transition-colors rounded-lg hover:bg-severity-critical/10 shrink-0"
-                title="Logout"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
+          </footer>
+        </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">

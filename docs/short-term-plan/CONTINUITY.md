@@ -1,22 +1,21 @@
-- Goal (incl. success criteria): Complete full dashboard performance optimization for 60fps smooth scrolling, instant tab switching, fast initial load, and stutter-free chart animations.
+- Goal (incl. success criteria): Fix mobile sidebar/drawer layout in PulseBoard to guarantee pinned footer (Admin/logout) and internal nav scrolling across all aspect ratios and dynamic viewport heights.
 - Constraints/Assumptions:
-  - Preserve dark/light theme glassmorphism aesthetic without heavy CSS backdrop filters.
-  - Zero disruption to data processing algorithms or existing business calculations.
+  - 3-part flex column structure (header shrink-0, nav flex-1 overflow-y-auto min-h-0, footer shrink-0 mt-auto border-t).
+  - Dynamic viewport height support with `h-screen h-dvh`.
+  - Zero fixed pixel height hacks.
 - Key decisions:
-  - Optimized DataContext memoization by decoupling `overallData` from `filteredData`.
-  - Switched `AnimatePresence` to `mode="wait"` and tightened `motionVariants` timings.
-  - Replaced `backdrop-filter: blur(16px)` and `background-attachment: fixed` in `src/index.css` with hardware-accelerated gradients and pseudo-elements.
-  - Created `useChartVisible` IntersectionObserver hook and updated all charts (`ShareDonutChart`, `MoMAreaTrendChart`, `RiskScatterPlot`, `ProductBarChart`, `MoMTrendChart`, `AlertSeverityChart`).
-  - Added custom `memo` comparator for `TableRow` in `DataTable.jsx`.
-  - Added background GeoJSON prefetching in `App.jsx`.
+  - Updated `<aside>` in `src/layouts/DashboardLayout.jsx` with `flex flex-col h-screen h-dvh`.
+  - Converted title bar to `<header className="shrink-0 ...">`.
+  - Converted nav list to `<nav className="flex-1 overflow-y-auto min-h-0 ...">`, removing legacy `calc(100vh-8rem)`.
+  - Converted admin/logout section to `<footer className="shrink-0 mt-auto ...">`, removing `absolute bottom-0`.
 - State:
   - Done:
-    - Implemented master optimization plan across all target files.
-    - Verified production build compiles successfully in under 2 seconds (`npm run build`).
+    - Restructured sidebar to 3-part flex column in `src/layouts/DashboardLayout.jsx`.
+    - Verified clean build (`npm run build`).
   - Now:
-    - Optimization complete and verified.
+    - Mobile sidebar layout fix complete.
   - Next:
-    - User testing and feedback.
+    - User testing across mobile device viewports.
 - Working set (files/ids/commands):
   - [src/context/DataContext.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/context/DataContext.jsx)
   - [src/layouts/DashboardLayout.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/layouts/DashboardLayout.jsx)
