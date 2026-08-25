@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { AnimatePresence, m } from 'framer-motion';
 import { collapseVariants } from '../../utils/motionVariants';
 
-export default function CollapsibleCard({ 
+function CollapsibleCard({ 
   title, 
   badge = null, 
   defaultOpen = true, 
@@ -61,3 +61,5 @@ export default function CollapsibleCard({
     </div>
   );
 }
+
+export default React.memo(CollapsibleCard);

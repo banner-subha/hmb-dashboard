@@ -1,7 +1,7 @@
+import React, { useMemo, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import { calculateMoM, getBusinessImpact, getTrendColor, formatTrend } from '../../utils/trendEngine';
 import { PRODUCT_COLORS, PRODUCT_LABELS } from '../../utils/constants';
-import { useMemo, useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 import { useChartVisible } from '../../hooks/useChartVisible';
 import { formatMT } from '../../utils/formatters';
@@ -56,7 +56,7 @@ const BLUE_DESCENDING_PALETTE = [
   '#BAE6FD', // Pale Crystal Blue
 ];
 
-export default function ProductBarChart({ data, height = 300 }) {
+function ProductBarChart({ data, height = 300 }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
   const isVisible = useChartVisible(containerRef);
@@ -88,7 +88,7 @@ export default function ProductBarChart({ data, height = 300 }) {
   }
 
   return (
-    <div ref={containerRef} className="animate-fade-in" style={{ height: `${height}px`, width: '100%' }}>
+    <div ref={containerRef} style={{ height: `${height}px`, width: '100%' }}>
       {width > 0 && (
         <BarChart
           width={width}
@@ -141,3 +141,5 @@ export default function ProductBarChart({ data, height = 300 }) {
     </div>
   );
 }
+
+export default React.memo(ProductBarChart);

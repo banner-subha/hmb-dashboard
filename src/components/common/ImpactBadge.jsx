@@ -1,3 +1,4 @@
+import React from 'react';
 import { getBusinessImpact, getSeverityTheme } from '../../utils/trendEngine';
 
 const SEVERITY_BUCKET = {
@@ -19,7 +20,7 @@ const SEVERITY_BUCKET = {
  *   color     — fallback color (only used if cur/prev not provided and tier resolves to a known color)
  *   className — optional CSS class
  */
-export default function ImpactBadge({ cur, prev, tier, score, color, className = '' }) {
+function ImpactBadge({ cur, prev, tier, score, color, className = '' }) {
   let theme;
 
   // Prefer frontend calculation from raw values
@@ -49,7 +50,6 @@ export default function ImpactBadge({ cur, prev, tier, score, color, className =
         fontSize: '12.5px',
         fontWeight: 800,
         letterSpacing: '0.4px',
-        backdropFilter: 'blur(6px)',
         background: theme.bg,
         border: `1px solid ${theme.border}`,
         color: theme.color,
@@ -69,3 +69,5 @@ export default function ImpactBadge({ cur, prev, tier, score, color, className =
     </div>
   );
 }
+
+export default React.memo(ImpactBadge);

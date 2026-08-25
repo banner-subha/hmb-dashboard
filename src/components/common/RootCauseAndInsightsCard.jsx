@@ -6,7 +6,7 @@ import MoMIndicator from './MoMIndicator';
 import { AlertCircle, Package, ArrowRight, ShieldAlert, User, Truck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export default function RootCauseAndInsightsCard({ 
+function RootCauseAndInsightsCard({ 
   rootCauses = [], 
   productInsights = [], 
   productsData = [], 
@@ -16,29 +16,31 @@ export default function RootCauseAndInsightsCard({
   const navigate = useNavigate();
 
   const causes = rootCauses || [];
-  const risks = (dealerRisks && dealerRisks.length > 0) ? dealerRisks.slice(0, 3) : [
-    {
-      dealer: "Ramesh Traders",
-      district: "KOLKATA",
-      state: "WEST BENGAL",
-      risk_type: "INACTIVE",
-      recommended_action: "RSM to call within 24 hours — confirm pipeline and reactivation plan"
-    },
-    {
-      dealer: "Gupta Iron Works",
-      district: "RANCHI",
-      state: "JHARKHAND",
-      risk_type: "INACTIVE",
-      recommended_action: "ASM site visit this week — assess competitor switching risk"
-    },
-    {
-      dealer: "Patna Steel Depot",
-      district: "PATNA",
-      state: "BIHAR",
-      risk_type: "INACTIVE",
-      recommended_action: "Immediate call by Bihar RSM — check credit/payment terms"
-    }
-  ];
+  const risks = useMemo(() => {
+    return (dealerRisks && dealerRisks.length > 0) ? dealerRisks.slice(0, 3) : [
+      {
+        dealer: "Ramesh Traders",
+        district: "KOLKATA",
+        state: "WEST BENGAL",
+        risk_type: "INACTIVE",
+        recommended_action: "RSM to call within 24 hours — confirm pipeline and reactivation plan"
+      },
+      {
+        dealer: "Gupta Iron Works",
+        district: "RANCHI",
+        state: "JHARKHAND",
+        risk_type: "INACTIVE",
+        recommended_action: "ASM site visit this week — assess competitor switching risk"
+      },
+      {
+        dealer: "Patna Steel Depot",
+        district: "PATNA",
+        state: "BIHAR",
+        risk_type: "INACTIVE",
+        recommended_action: "Immediate call by Bihar RSM — check credit/payment terms"
+      }
+    ];
+  }, [dealerRisks]);
 
   // Build full products list combining product_insights with all 6 product lines
   const products = useMemo(() => {
@@ -269,3 +271,5 @@ export default function RootCauseAndInsightsCard({
     </CollapsibleCard>
   );
 }
+
+export default React.memo(RootCauseAndInsightsCard);

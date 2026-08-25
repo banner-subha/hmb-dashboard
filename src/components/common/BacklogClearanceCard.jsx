@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import CollapsibleCard from './CollapsibleCard';
 import { formatMT, formatDays } from '../../utils/formatters';
 import { PRODUCT_COLORS, PRODUCT_LABELS } from '../../utils/constants';
 import { Clock, Layers } from 'lucide-react';
 
-export default function BacklogClearanceCard({ data }) {
+const STANDARD_PRODUCTS = ['IG', 'GI', 'IGG', 'P', 'SS', 'RS'];
+
+function BacklogClearanceCard({ data }) {
   if (!data) return null;
 
   const pendingTotal = data.pendingTotal || 0;
@@ -15,31 +17,31 @@ export default function BacklogClearanceCard({ data }) {
   const clearanceDays = dailyAvg > 0 ? (pendingTotal / dailyAvg) : 0;
   const backlogLoadRatio = (dailyAvg * 30 > 0) ? Math.round((pendingTotal / (dailyAvg * 30)) * 100) / 100 : 0;
   
-  // Standard 6 product codes
-  const standardProducts = ['IG', 'GI', 'IGG', 'P', 'SS', 'RS'];
-  const backlogMap = new Map();
-  
-  products.forEach(p => {
-    const code = p.product?.toUpperCase();
-    const qty = p.pendingQty || p.pending_qty || 0;
-    backlogMap.set(code, {
-      product: code,
-      label: PRODUCT_LABELS[code] || p.label || code,
-      pendingQty: qty
-    });
-  });
-
   // Ensure all 6 products are displayed
-  const all6Products = standardProducts.map(code => {
-    const existing = backlogMap.get(code);
-    const qty = existing ? existing.pendingQty : 0;
-    return {
-      product: code,
-      label: PRODUCT_LABELS[code] || code,
-      pendingQty: qty,
-      shareOfBacklog: pendingTotal > 0 ? Math.round((qty / pendingTotal) * 100) : 0
-    };
-  }).sort((a, b) => b.pendingQty - a.pendingQty);
+  const all6Products = useMemo(() => {
+    const backlogMap = new Map();
+    
+    products.forEach(p => {
+      const code = p.product?.toUpperCase();
+      const qty = p.pendingQty || p.pending_qty || 0;
+      backlogMap.set(code, {
+        product: code,
+        label: PRODUCT_LABELS[code] || p.label || code,
+        pendingQty: qty
+      });
+    });
+
+    return STANDARD_PRODUCTS.map(code => {
+      const existing = backlogMap.get(code);
+      const qty = existing ? existing.pendingQty : 0;
+      return {
+        product: code,
+        label: PRODUCT_LABELS[code] || code,
+        pendingQty: qty,
+        shareOfBacklog: pendingTotal > 0 ? Math.round((qty / pendingTotal) * 100) : 0
+      };
+    }).sort((a, b) => b.pendingQty - a.pendingQty);
+  }, [products, pendingTotal]);
 
   return (
     <CollapsibleCard 
@@ -68,7 +70,7 @@ export default function BacklogClearanceCard({ data }) {
           </div>
           <div className="text-left sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-border/30">
             <div className="text-xs font-bold text-text-muted uppercase tracking-wide">Daily Shipping Capacity</div>
-            <div className="text-base sm:text-lg font-black text-text-secondary font-mono mt-0.5">{formatMT(dailyAvg)} / day</div>
+            <div className="text-base sm:text-lg font-black text-secondary font-mono mt-0.5">{formatMT(dailyAvg)} / day</div>
           </div>
         </div>
 
@@ -134,3 +136,5 @@ export default function BacklogClearanceCard({ data }) {
     </CollapsibleCard>
   );
 }
+
+export default React.memo(BacklogClearanceCard);

@@ -521,6 +521,7 @@ path.map-path,
     @apply border border-border/80 rounded-2xl;
     background: var(--gradient-card);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    contain: content;
   }
 
   .glass-card-hover {
@@ -530,6 +531,7 @@ path.map-path,
     transition-timing-function: ease-out;
     background: var(--gradient-card);
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    contain: content;
   }
   @media (hover: hover) {
     .glass-card-hover:hover {
@@ -728,11 +730,9 @@ path.map-path,
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out both;
-    will-change: opacity;
   }
   .animate-slide-up {
     animation: slideUp 0.3s ease-out both;
-    will-change: opacity, transform;
   }
   .animate-pulse-subtle {
     animation: pulseSub 2s ease-in-out infinite;

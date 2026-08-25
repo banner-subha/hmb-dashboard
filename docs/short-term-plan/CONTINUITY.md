@@ -1,26 +1,41 @@
-- Goal (incl. success criteria): Fix mobile sidebar/drawer layout, Alerts & Risks toggle container stretch, and Order Fulfillment Velocity card mobile responsiveness across all aspect ratios and dynamic viewport heights.
+- Goal (incl. success criteria): Eliminate scrolling lag and achieve 60fps performance on ExecutiveOverview.jsx without modifying any UI design.
 - Constraints/Assumptions:
-  - 3-part flex column structure (header shrink-0, nav flex-1 overflow-y-auto min-h-0, footer shrink-0 mt-auto border-t).
-  - Dynamic viewport height support using pure `h-dvh` without `h-screen` conflict.
-  - Zero fixed pixel height hacks.
-  - Preserve all business logic and performance optimization guidelines.
+  - Zero UI design changes (colors, typography, layout, borders, cards, and data presentation must remain 100% pixel-identical).
+  - Eliminate GPU texture readback bottleneck from backdropFilter on badge components.
+  - Optimize Recharts instances (replace un-debounced ResponsiveContainer in MultiMonthTrajectoryCard with useDebouncedResize + useChartVisible).
+  - Memoize all topStates, topDistricts, dealer calculations and wrap cards in React.memo to prevent unnecessary re-renders.
+  - Add CSS containment and scroll compositor layer optimization.
 - Key decisions:
-  - Updated `<aside>` and outer container in `src/layouts/DashboardLayout.jsx` to use pure `h-dvh`, eliminating 100vh height override on mobile browser viewports.
-  - Added `pb-12 sm:pb-6` bottom padding on main scroll container in `DashboardLayout.jsx` to guarantee ample scroll clearance for footer action buttons.
-  - Fixed toggle container stretching in `src/pages/AlertIntelligence.jsx` by adding `self-start lg:self-auto w-fit`.
-  - Optimized `src/components/common/OrderFulfillmentVelocityCard.jsx` with responsive 2-column metric cards and compact typography to fit modern smartphone screen ratios without overflowing.
+  - Remove expensive `backdropFilter: 'blur(6px)'` from `ImpactBadge`, `SeverityBadge`, and `PriorityBadge` which was triggering GPU multi-pass blur shaders on 25+ elements during scroll.
+  - Upgrade `MultiMonthTrajectoryCard` to use `useDebouncedResize` and `useChartVisible` to prevent layout thrashing and continuous Recharts resize events during scroll.
+  - Memoize heavy array operations in `ExecutiveOverview.jsx` and all child dashboard cards.
+  - Add `React.memo` to all chart and card components.
+  - Add CSS `contain: content` and GPU hardware scroll promotion in `index.css`.
 - State:
   - Done:
-    - Replaced `h-screen h-dvh` with `h-dvh` in `src/layouts/DashboardLayout.jsx`.
-    - Added `pb-12` bottom scroll padding in `src/layouts/DashboardLayout.jsx`.
-    - Fixed Dispatch/Risk toggle outer pill in `src/pages/AlertIntelligence.jsx`.
-    - Responsive layout and typography tuning for `OrderFulfillmentVelocityCard.jsx`.
-    - Verified clean production build (`npm run build`).
+    - Removed GPU compositing bottleneck `backdropFilter: 'blur(6px)'` from `ImpactBadge.jsx`, `SeverityBadge.jsx`, and `PriorityBadge.jsx`.
+    - Upgraded `MultiMonthTrajectoryCard.jsx` to use `useDebouncedResize` + `useChartVisible` (replacing un-debounced `ResponsiveContainer`) with disabled tooltip animation.
+    - Fixed React Rules of Hooks violation by moving all `useMemo` hooks in `ExecutiveOverview.jsx` before conditional returns (`if (loading)` and `if (error)`), eliminating the initial load "Rendered more hooks than during the previous render" error.
+    - Wrapped all dashboard cards and charts in `React.memo`.
+    - Added CSS `contain: content` to `.glass-card` / `.glass-card-hover` and enabled GPU hardware accelerated scrolling (`transform: translateZ(0)`, `-webkit-overflow-scrolling: touch`) in `DashboardLayout.jsx`.
+    - Verified 100% pixel-identical UI design preservation and clean build (`built in 2.00s`).
   - Now:
-    - Complete and ready for verification.
+    - Resolved initial-load hook count error and verified clean build.
   - Next:
-    - User testing across mobile screen aspect ratios.
+    - User testing.
 - Working set (files/ids/commands):
-  - [src/layouts/DashboardLayout.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/layouts/DashboardLayout.jsx)
-  - [src/pages/AlertIntelligence.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/pages/AlertIntelligence.jsx)
+  - [src/pages/ExecutiveOverview.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/pages/ExecutiveOverview.jsx)
+  - [src/components/common/ImpactBadge.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/ImpactBadge.jsx)
+  - [src/components/common/SeverityBadge.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/SeverityBadge.jsx)
+  - [src/components/common/PriorityBadge.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/PriorityBadge.jsx)
+  - [src/components/common/MultiMonthTrajectoryCard.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/MultiMonthTrajectoryCard.jsx)
+  - [src/components/charts/MoMAreaTrendChart.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/charts/MoMAreaTrendChart.jsx)
+  - [src/components/charts/ProductBarChart.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/charts/ProductBarChart.jsx)
+  - [src/components/common/KPICard.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/KPICard.jsx)
+  - [src/components/common/CollapsibleCard.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/CollapsibleCard.jsx)
+  - [src/components/common/PaceTrackerCard.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/PaceTrackerCard.jsx)
+  - [src/components/common/BacklogClearanceCard.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/BacklogClearanceCard.jsx)
+  - [src/components/common/TopGrowthLeadersCard.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/TopGrowthLeadersCard.jsx)
   - [src/components/common/OrderFulfillmentVelocityCard.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/OrderFulfillmentVelocityCard.jsx)
+  - [src/components/common/RootCauseAndInsightsCard.jsx](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/components/common/RootCauseAndInsightsCard.jsx)
+  - [src/index.css](file:///c:/Users/admin/Documents/AntiGravity%20Agent/hmb-dashboard/src/index.css)

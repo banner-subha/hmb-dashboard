@@ -3,7 +3,7 @@ import CollapsibleCard from './CollapsibleCard';
 import { formatMT, formatNumber } from '../../utils/formatters';
 import { TrendingUp, TrendingDown, Target, Zap, Calendar, ArrowUpRight } from 'lucide-react';
 
-export default function PaceTrackerCard({ data, rawData }) {
+function PaceTrackerCard({ data, rawData }) {
   if (!data) return null;
 
   const totalCur = data.totalCur || 0;
@@ -182,3 +182,5 @@ export default function PaceTrackerCard({ data, rawData }) {
     </CollapsibleCard>
   );
 }
+
+export default React.memo(PaceTrackerCard);

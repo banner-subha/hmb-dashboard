@@ -1,3 +1,4 @@
+import React from 'react';
 import { getSeverityTheme } from '../../utils/trendEngine';
 
 // Map a severity hue to a 5-bucket id used by CSS light-mode overrides.
@@ -11,7 +12,7 @@ const SEVERITY_BUCKET = {
   '#6b7280': 'low',
 };
 
-export default function SeverityBadge({ severity, color, className = '' }) {
+function SeverityBadge({ severity, color, className = '' }) {
   const theme = getSeverityTheme(severity);
 
   // Allow manual color override if provided, else use theme
@@ -32,7 +33,6 @@ export default function SeverityBadge({ severity, color, className = '' }) {
         fontSize: '12.5px',
         fontWeight: 800,
         letterSpacing: '0.4px',
-        backdropFilter: 'blur(6px)',
         background: theme.bg,
         border: `1px solid ${theme.border}`,
         color: displayColor,
@@ -54,3 +54,5 @@ export default function SeverityBadge({ severity, color, className = '' }) {
     </div>
   );
 }
+
+export default React.memo(SeverityBadge);

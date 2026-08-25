@@ -27,11 +27,12 @@ export default function ExecutiveOverview() {
   const data = overallData || filteredData;
   const navigate = useNavigate();
 
+  const { totalCur = 0, totalPrev = 0, products = [], states = [], districts = [], dealers = [], alerts = [], intelligence = {}, alertCount = 0, intel = {} } = data || {};
+
   // Root cause findings derived from backend intelligence + product insights
-  // NOTE: Must be declared before any early returns to satisfy Rules of Hooks.
   const rootCauses = useMemo(() => {
-    const intelligence = data?.intelligence;
-    if (!intelligence) {
+    const intelData = data?.intelligence;
+    if (!intelData) {
       return [
         {
           dimension: "PRODUCT",
@@ -48,19 +49,19 @@ export default function ExecutiveOverview() {
       ];
     }
 
-    if (Array.isArray(intelligence.root_cause_analysis) && intelligence.root_cause_analysis.length > 0) {
-      return intelligence.root_cause_analysis;
+    if (Array.isArray(intelData.root_cause_analysis) && intelData.root_cause_analysis.length > 0) {
+      return intelData.root_cause_analysis;
     }
 
     const causes = [];
-    const products = data.products || [];
-    const states = data.states || [];
+    const prods = data?.products || [];
+    const sts = data?.states || [];
 
-    const totalDecline = products
+    const totalDecline = prods
       .filter(p => (p.prev || 0) > (p.cur || 0))
       .reduce((sum, p) => sum + ((p.prev || 0) - (p.cur || 0)), 0);
 
-    const biggestProductDrop = [...products]
+    const biggestProductDrop = [...prods]
       .sort((a, b) => ((b.prev || 0) - (b.cur || 0)) - ((a.prev || 0) - (a.cur || 0)))
       .find(p => (p.prev || 0) > (p.cur || 0));
 
@@ -76,7 +77,7 @@ export default function ExecutiveOverview() {
       });
     }
 
-    const biggestStateDrop = [...states]
+    const biggestStateDrop = [...sts]
       .sort((a, b) => ((b.prev || 0) - (b.cur || 0)) - ((a.prev || 0) - (a.cur || 0)))
       .find(s => (s.prev || 0) > (s.cur || 0));
 
@@ -103,7 +104,6 @@ export default function ExecutiveOverview() {
   }, [data]);
 
   // National volume trend across all historical months for MoMAreaTrendChart
-  // NOTE: Must be declared before any early returns to satisfy Rules of Hooks.
   const nationalMonthlyTrend = useMemo(() => {
     const months = rawData?.availableMonths || [];
     if (!months || months.length === 0) return [];
@@ -118,7 +118,7 @@ export default function ExecutiveOverview() {
     const trend = [];
 
     sortedMonths.forEach(m => {
-      const hist = rawData.monthlyHistory?.[m.key || m.periodKey];
+      const hist = rawData?.monthlyHistory?.[m.key || m.periodKey];
       if (!hist) return;
       const vol = (hist.states || []).reduce((acc, s) => acc + (s.cur ?? s.qty ?? 0), 0);
       const mom = prevVol > 0 ? ((vol - prevVol) / prevVol) * 100 : 0;
@@ -135,6 +135,63 @@ export default function ExecutiveOverview() {
 
     return trend;
   }, [rawData]);
+
+  const { totalMoM, totalTrendDisplay, totalTrendColor } = useMemo(() => {
+    const mom = calculateMoM(totalCur, totalPrev);
+    return {
+      totalMoM: mom,
+      totalTrendDisplay: formatTrend(mom),
+      totalTrendColor: getTrendColor(mom)
+    };
+  }, [totalCur, totalPrev]);
+
+  const topStates = useMemo(() => {
+    return [...(states || [])]
+      .filter(s => {
+        const drop = (s.prev || 0) - (s.cur || 0);
+        const mom = calculateMoM(s.cur, s.prev);
+        return drop > 0 || mom < 0;
+      })
+      .sort((a, b) => {
+        const scoreA = a.impactScore !== undefined ? a.impactScore : ((a.prev || 0) - (a.cur || 0));
+        const scoreB = b.impactScore !== undefined ? b.impactScore : ((b.prev || 0) - (b.cur || 0));
+        return scoreB - scoreA;
+      })
+      .slice(0, 5);
+  }, [states]);
+
+  const topDistricts = useMemo(() => {
+    return [...(districts || [])]
+      .filter(d => {
+        const drop = (d.prev || 0) - (d.cur || 0);
+        const mom = calculateMoM(d.cur, d.prev);
+        return drop > 0 || mom < 0;
+      })
+      .sort((a, b) => {
+        const scoreA = a.impactScore !== undefined ? a.impactScore : ((a.prev || 0) - (a.cur || 0));
+        const scoreB = b.impactScore !== undefined ? b.impactScore : ((b.prev || 0) - (b.cur || 0));
+        return scoreB - scoreA;
+      })
+      .slice(0, 5);
+  }, [districts]);
+
+  const inactiveDealers = useMemo(() => {
+    return [...(dealers || [])].filter(d => {
+      return d.cur === 0 && (d.prev > 0 || (d.inactivityDays || 0) > 0);
+    }).sort((a, b) => {
+      return (b.prev || 0) - (a.prev || 0);
+    }).slice(0, 3);
+  }, [dealers]);
+
+  const decliningDealers = useMemo(() => {
+    return [...(dealers || [])].filter(d => {
+      return d.cur > 0 && d.prev > d.cur;
+    }).sort((a, b) => {
+      const scoreA = a.impactScore !== undefined ? a.impactScore : ((a.prev || 0) - (a.cur || 0));
+      const scoreB = b.impactScore !== undefined ? b.impactScore : ((b.prev || 0) - (b.cur || 0));
+      return scoreB - scoreA;
+    }).slice(0, 3);
+  }, [dealers]);
 
   if (loading) return (
     <div className="space-y-6">
@@ -164,52 +221,6 @@ export default function ExecutiveOverview() {
   );
 
   if (!data) return null;
-
-  const { totalCur, totalPrev, products, states, districts, dealers, alerts, intelligence, alertCount, intel } = data;
-
-  const totalMoM = calculateMoM(totalCur, totalPrev);
-  const totalTrendDisplay = formatTrend(totalMoM);
-  const totalTrendColor = getTrendColor(totalMoM);
-
-  const topStates = [...(states || [])]
-    .filter(s => {
-      const drop = (s.prev || 0) - (s.cur || 0);
-      const mom = calculateMoM(s.cur, s.prev);
-      return drop > 0 || mom < 0;
-    })
-    .sort((a, b) => {
-      const scoreA = a.impactScore !== undefined ? a.impactScore : ((a.prev || 0) - (a.cur || 0));
-      const scoreB = b.impactScore !== undefined ? b.impactScore : ((b.prev || 0) - (b.cur || 0));
-      return scoreB - scoreA;
-    })
-    .slice(0, 5);
-
-  const topDistricts = [...(districts || [])]
-    .filter(d => {
-      const drop = (d.prev || 0) - (d.cur || 0);
-      const mom = calculateMoM(d.cur, d.prev);
-      return drop > 0 || mom < 0;
-    })
-    .sort((a, b) => {
-      const scoreA = a.impactScore !== undefined ? a.impactScore : ((a.prev || 0) - (a.cur || 0));
-      const scoreB = b.impactScore !== undefined ? b.impactScore : ((b.prev || 0) - (b.cur || 0));
-      return scoreB - scoreA;
-    })
-    .slice(0, 5);
-
-  const inactiveDealers = [...(dealers || [])].filter(d => {
-    return d.cur === 0 && (d.prev > 0 || (d.inactivityDays || 0) > 0);
-  }).sort((a, b) => {
-    return (b.prev || 0) - (a.prev || 0);
-  }).slice(0, 3);
-
-  const decliningDealers = [...(dealers || [])].filter(d => {
-    return d.cur > 0 && d.prev > d.cur;
-  }).sort((a, b) => {
-    const scoreA = a.impactScore !== undefined ? a.impactScore : ((a.prev || 0) - (a.cur || 0));
-    const scoreB = b.impactScore !== undefined ? b.impactScore : ((b.prev || 0) - (b.cur || 0));
-    return scoreB - scoreA;
-  }).slice(0, 3);
 
   return (
     <div className="space-y-6">

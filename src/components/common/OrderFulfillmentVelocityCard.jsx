@@ -6,7 +6,10 @@ import { formatMT, formatDays } from '../../utils/formatters';
 import { PRODUCT_COLORS, PRODUCT_LABELS } from '../../utils/constants';
 import { Clock, Activity, ArrowRight, Zap, CheckCircle2 } from 'lucide-react';
 
-export default function OrderFulfillmentVelocityCard({ data, rawData, title = "Delivery Speed" }) {
+const STANDARD_PRODUCTS = ['IG', 'GI', 'IGG', 'P', 'SS', 'RS'];
+const DEFAULT_TURNAROUNDS = { IG: 18.2, GI: 15.9, IGG: 5.4, P: 8.2, SS: 12.4, RS: 11.0 };
+
+function OrderFulfillmentVelocityCard({ data, rawData, title = "Delivery Speed" }) {
   const navigate = useNavigate();
   const { dispatch } = useData();
   if (!data) return null;
@@ -30,16 +33,14 @@ export default function OrderFulfillmentVelocityCard({ data, rawData, title = "D
     : 16.5;
 
   // Active dealer volume throughput
-  const activeDealers = (data.dealers || []).filter(d => (d.cur || 0) > 0);
-  const activeDealerCount = activeDealers.length || 1;
-  const avgVolumePerDealer = activeDealerCount > 0 
-    ? Math.round((totalCur / activeDealerCount) * 10) / 10 
-    : 0;
+  const { activeDealerCount, avgVolumePerDealer } = useMemo(() => {
+    const active = (data.dealers || []).filter(d => (d.cur || 0) > 0);
+    const count = active.length || 1;
+    const avg = count > 0 ? Math.round((totalCur / count) * 10) / 10 : 0;
+    return { activeDealerCount: count, avgVolumePerDealer: avg };
+  }, [data.dealers, totalCur]);
 
   // Product turnaround velocity breakdown for all 6 product lines
-  const standardProducts = ['IG', 'GI', 'IGG', 'P', 'SS', 'RS'];
-  const defaultTurnarounds = { IG: 18.2, GI: 15.9, IGG: 5.4, P: 8.2, SS: 12.4, RS: 11.0 };
-  
   const productVelocity = useMemo(() => {
     const prodMap = new Map();
     (data.products || []).forEach(p => {
@@ -47,13 +48,13 @@ export default function OrderFulfillmentVelocityCard({ data, rawData, title = "D
       prodMap.set(code, p);
     });
 
-    return standardProducts.map(code => {
+    return STANDARD_PRODUCTS.map(code => {
       const p = prodMap.get(code);
       const cur = p?.cur || 0;
       const pending = p?.pendingQty || p?.pending_qty || 0;
       const total = cur + pending;
       const rate = total > 0 ? Math.round((cur / total) * 100) : (cur > 0 ? 100 : 0);
-      const leadDays = p?.avgPeriod || defaultTurnarounds[code] || 14.5;
+      const leadDays = p?.avgPeriod || DEFAULT_TURNAROUNDS[code] || 14.5;
       return {
         product: code,
         label: PRODUCT_LABELS[code] || p?.label || code,
@@ -188,3 +189,5 @@ export default function OrderFulfillmentVelocityCard({ data, rawData, title = "D
     </CollapsibleCard>
   );
 }
+
+export default React.memo(OrderFulfillmentVelocityCard);

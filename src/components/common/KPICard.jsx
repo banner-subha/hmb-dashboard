@@ -1,4 +1,6 @@
-export default function KPICard({ 
+import React from 'react';
+
+function KPICard({ 
   label, 
   value, 
   subtitle, 
@@ -76,3 +78,5 @@ export default function KPICard({
     </div>
   );
 }
+
+export default React.memo(KPICard);

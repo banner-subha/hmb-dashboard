@@ -1,5 +1,5 @@
+import React, { useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 import { useChartVisible } from '../../hooks/useChartVisible';
 import { formatNumber } from '../../utils/formatters';
@@ -11,7 +11,7 @@ const CustomTooltip = ({ active, payload, label }) => {
     const mom = item.mom;
 
     return (
-      <div className="chart-tooltip p-3 bg-bg-card border border-border/80 rounded-xl shadow-xl backdrop-blur-md">
+      <div className="chart-tooltip p-3 bg-bg-card border border-border/80 rounded-xl shadow-xl">
         <p className="font-bold text-text-primary text-xs mb-1.5">{label || item.monthLabel}</p>
         <div className="space-y-1 text-xs">
           <div className="flex justify-between items-center gap-4">
@@ -84,7 +84,7 @@ const GradientCursor = (props) => {
   );
 };
 
-export default function MoMAreaTrendChart({ data, nameKey = "monthLabel", dataKey = "volume", height = 200, accentColor = "#3b82f6" }) {
+function MoMAreaTrendChart({ data, nameKey = "monthLabel", dataKey = "volume", height = 200, accentColor = "#3b82f6" }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
   const isVisible = useChartVisible(containerRef);
@@ -113,7 +113,7 @@ export default function MoMAreaTrendChart({ data, nameKey = "monthLabel", dataKe
   const gradientId = `areaGradient-${effectiveStroke.replace('#', '')}`;
 
   return (
-    <div ref={containerRef} className="animate-fade-in w-full" style={{ height: `${height}px` }}>
+    <div ref={containerRef} className="w-full" style={{ height: `${height}px` }}>
       {width > 0 && (
         <AreaChart
           width={width}
@@ -173,3 +173,5 @@ export default function MoMAreaTrendChart({ data, nameKey = "monthLabel", dataKe
     </div>
   );
 }
+
+export default React.memo(MoMAreaTrendChart);

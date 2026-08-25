@@ -1,7 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ResponsiveContainer, 
   ComposedChart, 
   Bar, 
   Line, 
@@ -14,6 +13,8 @@ import {
 import CollapsibleCard from './CollapsibleCard';
 import { formatMT } from '../../utils/formatters';
 import { Award, Calendar, ArrowRight, Activity, TrendingUp, Compass } from 'lucide-react';
+import { useDebouncedResize } from '../../hooks/useDebouncedResize';
+import { useChartVisible } from '../../hooks/useChartVisible';
 
 const MONTH_NAMES = {
   '2026-01': 'Jan',
@@ -26,8 +27,11 @@ const MONTH_NAMES = {
   '2026-08': 'Aug (MTD)'
 };
 
-export default function MultiMonthTrajectoryCard({ rawData, data }) {
+function MultiMonthTrajectoryCard({ rawData, data }) {
   const navigate = useNavigate();
+  const chartContainerRef = useRef(null);
+  const { width } = useDebouncedResize(chartContainerRef, 150);
+  const isVisible = useChartVisible(chartContainerRef);
 
   const chartData = useMemo(() => {
     const monthlyHistory = rawData?.monthlyHistory || {};
@@ -158,7 +162,7 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
 
   // Custom Distinct & Visible Gradient Cursor Line
   const GradientCursor = (props) => {
-    const { points, x, width, height, top = 8, bottom } = props;
+    const { points, x, width: itemWidth, height: itemHeight, top = 8, bottom } = props;
     let posX = null;
     let startY = 8;
     let endY = 270;
@@ -170,11 +174,11 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
     } else if (points && points.length === 1) {
       posX = points[0].x;
       startY = top;
-      endY = bottom !== undefined ? bottom : (height ? top + height : 270);
+      endY = bottom !== undefined ? bottom : (itemHeight ? top + itemHeight : 270);
     } else if (x !== undefined && x !== null) {
-      posX = width ? x + width / 2 : x;
+      posX = itemWidth ? x + itemWidth / 2 : x;
       startY = top;
-      endY = bottom !== undefined ? bottom : (height ? top + height : 270);
+      endY = bottom !== undefined ? bottom : (itemHeight ? top + itemHeight : 270);
     }
 
     if (posX === null || posX === undefined || isNaN(posX)) return null;
@@ -279,9 +283,9 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
             </div>
           </div>
 
-          <div className="h-[280px] sm:h-[310px] lg:h-[330px] w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 12, right: 10, left: -18, bottom: 4 }}>
+          <div ref={chartContainerRef} className="h-[280px] sm:h-[310px] lg:h-[330px] w-full pt-2">
+            {width > 0 && (
+              <ComposedChart width={width} height={310} data={chartData} margin={{ top: 12, right: 10, left: -18, bottom: 4 }}>
                 <defs>
                   <linearGradient id="macroCursorGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#ffffff" stopOpacity={0.08} />
@@ -312,7 +316,7 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
                   axisLine={false}
                   tickFormatter={(val) => `${Math.round(val / 1000)}k`}
                 />
-                <Tooltip content={<CustomTooltip />} cursor={<GradientCursor />} />
+                <Tooltip content={<CustomTooltip />} cursor={<GradientCursor />} isAnimationActive={false} />
                 
                 {/* 7-Month Average Benchmark Line */}
                 <ReferenceLine 
@@ -323,7 +327,13 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
                 />
 
                 {/* Refined Slim Monthly Volume Bars */}
-                <Bar dataKey="volume" radius={[4, 4, 0, 0]} maxBarSize={22}>
+                <Bar 
+                  dataKey="volume" 
+                  radius={[4, 4, 0, 0]} 
+                  maxBarSize={22}
+                  isAnimationActive={isVisible}
+                  animationDuration={500}
+                >
                   {chartData.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
@@ -341,9 +351,11 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
                   strokeWidth={2.5} 
                   dot={{ r: 3.5, fill: '#3b82f6', strokeWidth: 1.5, stroke: '#ffffff' }}
                   activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2.5 }}
+                  isAnimationActive={isVisible}
+                  animationDuration={500}
                 />
               </ComposedChart>
-            </ResponsiveContainer>
+            )}
           </div>
 
           {/* Quarterly Trajectory Velocity Strip to Align Gap with Right Column */}
@@ -380,3 +392,5 @@ export default function MultiMonthTrajectoryCard({ rawData, data }) {
     </CollapsibleCard>
   );
 }
+
+export default React.memo(MultiMonthTrajectoryCard);

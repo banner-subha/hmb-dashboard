@@ -292,7 +292,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-4 pb-12 sm:p-6" style={{ overscrollBehavior: 'contain' }}>
+        <div className="flex-1 overflow-auto p-4 pb-12 sm:p-6" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)' }}>
           <div className="max-w-[90rem] mx-auto space-y-6 min-h-full relative">
             <AnimatePresence mode="wait">
               <AnimatedPage key={location.pathname}>

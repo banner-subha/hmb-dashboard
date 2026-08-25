@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 import CollapsibleCard from './CollapsibleCard';
@@ -7,30 +7,36 @@ import MoMIndicator from './MoMIndicator';
 import { calculateMoM } from '../../utils/trendEngine';
 import { TrendingUp, MapPin, ChevronRight, ArrowRight } from 'lucide-react';
 
-export default function TopGrowthLeadersCard({ intel }) {
+function TopGrowthLeadersCard({ intel }) {
   const navigate = useNavigate();
   const { dispatch } = useData();
   const [activeTab, setActiveTab] = useState('states');
 
   // Filter all growing states and districts (mom > 0 and cur > 0)
-  const allGrowingStates = (intel?.scoredStates || [])
-    .filter(s => {
-      const mom = calculateMoM(s.cur, s.prev);
-      return mom > 0 && s.cur > 0;
-    })
-    .sort((a, b) => (b.cur - b.prev) - (a.cur - a.prev));
+  const allGrowingStates = useMemo(() => {
+    return (intel?.scoredStates || [])
+      .filter(s => {
+        const mom = calculateMoM(s.cur, s.prev);
+        return mom > 0 && s.cur > 0;
+      })
+      .sort((a, b) => (b.cur - b.prev) - (a.cur - a.prev));
+  }, [intel?.scoredStates]);
 
-  const allGrowingDistricts = (intel?.scoredDistricts || [])
-    .filter(d => {
-      const mom = calculateMoM(d.cur, d.prev);
-      return mom > 0 && d.cur > 0;
-    })
-    .sort((a, b) => (b.cur - b.prev) - (a.cur - a.prev));
+  const allGrowingDistricts = useMemo(() => {
+    return (intel?.scoredDistricts || [])
+      .filter(d => {
+        const mom = calculateMoM(d.cur, d.prev);
+        return mom > 0 && d.cur > 0;
+      })
+      .sort((a, b) => (b.cur - b.prev) - (a.cur - a.prev));
+  }, [intel?.scoredDistricts]);
 
   // Show up to max 6 inside the card
-  const displayedList = activeTab === 'states' 
-    ? allGrowingStates.slice(0, 6) 
-    : allGrowingDistricts.slice(0, 6);
+  const displayedList = useMemo(() => {
+    return activeTab === 'states' 
+      ? allGrowingStates.slice(0, 6) 
+      : allGrowingDistricts.slice(0, 6);
+  }, [activeTab, allGrowingStates, allGrowingDistricts]);
 
   const totalGrowingCount = activeTab === 'states' ? allGrowingStates.length : allGrowingDistricts.length;
 
@@ -159,3 +165,5 @@ export default function TopGrowthLeadersCard({ intel }) {
     </CollapsibleCard>
   );
 }
+
+export default React.memo(TopGrowthLeadersCard);

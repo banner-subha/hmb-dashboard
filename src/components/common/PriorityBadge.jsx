@@ -1,3 +1,4 @@
+import React from 'react';
 import { getSeverityTheme } from '../../utils/trendEngine';
 
 const SEVERITY_BUCKET = {
@@ -14,7 +15,7 @@ const SEVERITY_BUCKET = {
  * PriorityBadge — renders action priority using trendEngine-derived colors.
  * Maps IMMEDIATE/CRITICAL/HIGH/MEDIUM/LOW to the centralized severity theme.
  */
-export default function PriorityBadge({ priority, className = '' }) {
+function PriorityBadge({ priority, className = '' }) {
   const s = (priority || '').toString().trim().toUpperCase();
   
   // Map priority labels to severity levels for color derivation
@@ -45,7 +46,6 @@ export default function PriorityBadge({ priority, className = '' }) {
         fontWeight: 800,
         letterSpacing: '0.4px',
         width: 'fit-content',
-        backdropFilter: 'blur(6px)',
         background: bg,
         border: `1px solid ${border}`,
         color: color,
@@ -56,3 +56,5 @@ export default function PriorityBadge({ priority, className = '' }) {
     </div>
   );
 }
+
+export default React.memo(PriorityBadge);
