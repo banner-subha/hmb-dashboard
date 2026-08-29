@@ -4,7 +4,6 @@ import { getBusinessImpact } from '../../utils/trendEngine';
 import { useMemo, useRef } from 'react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 import { useChartVisible } from '../../hooks/useChartVisible';
-import { ShieldAlert, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -47,10 +46,6 @@ export default function AlertSeverityChart({ alerts, height = 210 }) {
       value: counts[severity]
     })).sort((a, b) => order[a.name] - order[b.name]);
   }, [alerts]);
-
-  const totalAlerts = useMemo(() => {
-    return chartData.reduce((sum, item) => sum + item.value, 0);
-  }, [chartData]);
 
   if (!alerts || alerts.length === 0) {
     return <div className="flex items-center justify-center h-full text-text-muted text-xs py-8">No active alerts recorded</div>;

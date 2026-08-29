@@ -1,4 +1,3 @@
-import React from 'react';
 import { getBusinessImpact } from '../../utils/trendEngine';
 
 const SEVERITY_BUCKET = {

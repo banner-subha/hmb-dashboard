@@ -6,7 +6,7 @@
 // NO backend visual fields are trusted.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { calculateMoM, getBusinessImpact } from './trendEngine';
+import { getBusinessImpact } from './trendEngine';
 
 /**
  * Derive severity metadata for any entity that has cur/prev (or mom).

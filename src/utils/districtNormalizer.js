@@ -18,7 +18,7 @@ export function toTitleCase(str) {
   return s
     .toLowerCase()
     .replace(/\s+/g, ' ')
-    .replace(/(^|[\s\-\/\.])([a-z])/g, (_, boundary, char) => boundary + char.toUpperCase());
+    .replace(/(^|[\s\-/.])([a-z])/g, (_, boundary, char) => boundary + char.toUpperCase());
 }
 
 /**
@@ -260,7 +260,6 @@ export function normalizeDistrictCandidates(distName) {
   const rawUpper = s.toUpperCase();
 
   const candidates = new Set([upper, rawUpper]);
-  const slug = distSlug(s);
 
   Object.keys(CANONICAL_DISTRICTS).forEach(aliasSlug => {
     if (CANONICAL_DISTRICTS[aliasSlug] === canonical) {

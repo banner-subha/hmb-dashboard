@@ -1,4 +1,4 @@
-import { calculateMoM, getBusinessImpact } from './trendEngine.js';
+import { getBusinessImpact } from './trendEngine.js';
 
 const stateTestCases = [
   { name: 'Large state declining −16%', cur: 9376, prev: 11173, sharePct: 35.0, level: 'STATE' },

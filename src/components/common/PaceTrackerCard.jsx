@@ -4,32 +4,33 @@ import { formatMT, formatNumber } from '../../utils/formatters';
 import { TrendingUp, TrendingDown, Target, Zap, Calendar, ArrowUpRight } from 'lucide-react';
 
 function PaceTrackerCard({ data, rawData }) {
-  if (!data) return null;
+  const totalCur = data?.totalCur || 0;
 
-  const totalCur = data.totalCur || 0;
-  
   // Calculate accurate calendar cycle days
   const now = new Date();
   const calendarDay = now.getDate() || 14;
   const daysInMonth = (rawData?.meta?.daysInCurMonth) || new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() || 31;
-  const daysElapsed = (rawData?.meta?.curElapsedDays && rawData.meta.curElapsedDays > 0) 
-    ? rawData.meta.curElapsedDays 
+  const daysElapsed = (rawData?.meta?.curElapsedDays && rawData.meta.curElapsedDays > 0)
+    ? rawData.meta.curElapsedDays
     : calendarDay;
   const daysRemaining = Math.max(1, daysInMonth - daysElapsed);
 
-  // Calculate daily rates
-  const currentDailyRate = data.currentDailyRate || (daysElapsed > 0 ? (totalCur / daysElapsed) : 0);
-  const targetDailyRate = data.dailyAvgQty || (rawData?.meta?.targetDailyRate) || (data.operationalContext?.overall_performance?.daily_avg_qty) || 712.63;
+  // Current month key (dynamic — never hardcode a period key)
+  const curMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // Calculate daily rates (honest 0 when baseline is missing — never fabricate)
+  const currentDailyRate = data?.currentDailyRate || (daysElapsed > 0 ? (totalCur / daysElapsed) : 0);
+  const targetDailyRate = data?.dailyAvgQty || (rawData?.meta?.targetDailyRate) || (data?.operationalContext?.overall_performance?.daily_avg_qty) || 0;
 
   // Predict full-month target from historical months / daily average pace
   const predictedMonthTarget = useMemo(() => {
-    if (data.expectedMtd && data.expectedMtd > 0) return data.expectedMtd;
-    if (data.predicted_full_month_target_mt && data.predicted_full_month_target_mt > 0) return data.predicted_full_month_target_mt;
-    if (data.targetTotal && data.targetTotal > 0) return data.targetTotal;
+    if (data?.expectedMtd && data.expectedMtd > 0) return data.expectedMtd;
+    if (data?.predicted_full_month_target_mt && data.predicted_full_month_target_mt > 0) return data.predicted_full_month_target_mt;
+    if (data?.targetTotal && data.targetTotal > 0) return data.targetTotal;
     if (rawData?.meta?.expectedMtd && rawData.meta.expectedMtd > 0) return rawData.meta.expectedMtd;
 
     const pastMonths = Object.entries(rawData?.monthlyHistory || {})
-      .filter(([k]) => k !== '2026-08')
+      .filter(([k]) => k !== curMonthKey)
       .map(([, v]) => (v.states || []).reduce((sum, s) => sum + (s.cur || s.qty || 0), 0))
       .filter(v => v > 1000);
 
@@ -39,8 +40,10 @@ function PaceTrackerCard({ data, rawData }) {
       if (avg > 0) return Math.round(avg * 100) / 100;
     }
 
-    return Math.round(targetDailyRate * daysInMonth * 100) / 100;
-  }, [data, rawData, targetDailyRate, daysInMonth]);
+    return targetDailyRate > 0 ? Math.round(targetDailyRate * daysInMonth * 100) / 100 : 0;
+  }, [data, rawData, targetDailyRate, daysInMonth, curMonthKey]);
+
+  if (!data) return null;
 
   // Target deficit & required run rate to hit monthly goal
   const remainingVolume = Math.max(0, predictedMonthTarget - totalCur);
@@ -100,10 +103,10 @@ function PaceTrackerCard({ data, rawData }) {
               <span className="leading-tight">Daily Target Dispatch</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-text-primary tracking-tight leading-none mt-2">
-              {formatNumber(Math.round(targetDailyRate * 10) / 10)} <span className="text-xs font-bold text-text-muted">MT/day</span>
+              {targetDailyRate > 0 ? formatNumber(Math.round(targetDailyRate * 10) / 10) : '—'} <span className="text-xs font-bold text-text-muted">MT/day</span>
             </div>
             <div className="text-[11px] text-text-muted font-medium mt-1.5 leading-snug">
-              Based on last 3 months
+              {targetDailyRate > 0 ? 'YTD daily average pace' : 'Baseline unavailable'}
             </div>
           </div>
         </div>
@@ -125,7 +128,7 @@ function PaceTrackerCard({ data, rawData }) {
               <div className="text-base sm:text-lg font-black text-text-primary font-mono">{formatMT(totalCur)}</div>
             </div>
             <div className="text-right space-y-0.5">
-              <div className="text-[11px] font-semibold text-text-muted uppercase">Month Target</div>
+              <div className="text-[11px] font-semibold text-text-muted uppercase" title="Predicted from the last 3 closed months — no official sales target is configured">Month Target (Predicted)</div>
               <div className="text-base sm:text-lg font-black text-text-secondary font-mono">{formatMT(predictedMonthTarget)}</div>
             </div>
           </div>

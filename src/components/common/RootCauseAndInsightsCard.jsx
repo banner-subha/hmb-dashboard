@@ -3,7 +3,7 @@ import CollapsibleCard from './CollapsibleCard';
 import { formatMT } from '../../utils/formatters';
 import { PRODUCT_LABELS, PRODUCT_COLORS } from '../../utils/constants';
 import MoMIndicator from './MoMIndicator';
-import { AlertCircle, Package, ArrowRight, ShieldAlert, User, Truck } from 'lucide-react';
+import { Package, ArrowRight, ShieldAlert, User, Truck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 function RootCauseAndInsightsCard({ 

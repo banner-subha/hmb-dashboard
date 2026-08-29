@@ -283,7 +283,7 @@ export function getHistoricalDealers(rawData, filters, periodKey) {
     const share = totalCur > 0 ? Math.round((dl.cur / totalCur) * 100) : 0;
     const { severity, impactScore } = getBusinessImpact(dl.cur, dl.prev, share, 'DEALER', dl.client, dl.expectedMtd);
     const isInactive = dl.cur === 0;
-    let operationalStatus = 'Growing';
+    let operationalStatus;
     if (isInactive) {
       operationalStatus = 'Inactive';
     } else if (dl.mom > 0 || dl.cur > dl.prev) {

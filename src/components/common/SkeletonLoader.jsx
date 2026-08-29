@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function SkeletonLoader({ variant = 'card', count = 1, className = '' }) {
   const Skeletons = Array.from({ length: count }).map((_, i) => {
     switch (variant) {

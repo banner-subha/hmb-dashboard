@@ -18,7 +18,6 @@ import {
   Clock,
   MapPin,
   Info,
-  X,
   Trash2,
   Package,
   Timer,
@@ -40,7 +39,6 @@ import {
   CartesianGrid,
 } from 'recharts';
 import SeverityBadge from '../components/common/SeverityBadge';
-import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { calculateMoM, getBusinessImpact, getSeverityFromImpactScore, getSeverityTheme } from '../utils/trendEngine';
 import SkeletonLoader from '../components/common/SkeletonLoader';
@@ -49,10 +47,6 @@ import { normalizeDistrict } from '../utils/districtNormalizer';
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 const formatNum = (num, fallback = '-') => (typeof num === 'number' ? num.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : fallback);
-
-function getImpactScoreColor(score) {
-  return getSeverityTheme(getSeverityFromImpactScore(score)).color;
-}
 
 // ── Business Priority helpers ────────────────────────────────────────────────
 const BUSINESS_PRIORITY = {
@@ -510,7 +504,7 @@ function computePendingRiskScore(dealer) {
   const pendingMonths = historyMonths.length;
 
   // 1. BACKLOG AGE (30% weight) — days since oldest pending order month
-  let backlogAgeDays = 0;
+  let backlogAgeDays;
   let oldestMonth = null;
   if (historyMonths.length > 0) {
     oldestMonth = historyMonths[0];
@@ -520,7 +514,7 @@ function computePendingRiskScore(dealer) {
     backlogAgeDays = 30; // assume ~1 month if no history
   }
   // Score: 0-30d = 0-40, 31-60d = 40-75, 61-90d = 75-100, 90d+ = 100
-  let ageScore = 0;
+  let ageScore;
   if (backlogAgeDays >= 90) ageScore = 100;
   else if (backlogAgeDays >= 60) ageScore = 75 + ((backlogAgeDays - 60) / 30) * 25;
   else if (backlogAgeDays >= 30) ageScore = 40 + ((backlogAgeDays - 30) / 30) * 35;
@@ -528,8 +522,8 @@ function computePendingRiskScore(dealer) {
 
   // 2. CLEARANCE RUNWAY (40% weight) — days to clear backlog at current dispatch rate
   const dailyRate = dealer.currentDailyRate ?? dealer.dailyAvgQty ?? 0;
-  let clearanceDays = 999;
-  let runwayScore = 0;
+  let clearanceDays;
+  let runwayScore;
   
   if (dailyRate <= 0) {
     clearanceDays = 999;
@@ -545,7 +539,7 @@ function computePendingRiskScore(dealer) {
 
   // 3. STRATEGIC CLIENT VOLUME WEIGHT (30% weight) — size/importance of the dealer
   const dailyAvg = dealer.dailyAvgQty ?? 0;
-  let clientVolumeWeightScore = 0;
+  let clientVolumeWeightScore;
   // Score: 0-5 MT/d = 0-30, 5-20 MT/d = 30-70, 20-50 MT/d = 70-100, 50+ MT/d = 100
   if (dailyAvg >= 50) clientVolumeWeightScore = 100;
   else if (dailyAvg >= 20) clientVolumeWeightScore = 70 + ((dailyAvg - 20) / 30) * 30;
@@ -645,29 +639,6 @@ const PendingChartTooltipContent = ({ active, payload }) => {
             <span className="text-text-secondary">Priority:</span>
             <span className="font-bold" style={{ color: getRiskColor(d.pendingRisk?.severity || 'LOW').hex }}>{getBusinessPriority(d.pendingRisk?.severity || 'LOW').label}</span>
           </div>
-        </div>
-      </div>
-    );
-  }
-  return null;
-};
-
-// ── Legacy scatter tooltip (for dispatch expanded detail) ────────────────────
-const MiniChartTooltipContent = ({ active, payload }) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload;
-    const d = data.dealer;
-    if (!d) return null;
-    return (
-      <div className="glass-card p-2 border border-border/85 text-[10px] shadow-xl min-w-[160px] bg-bg-secondary">
-        <div className="font-bold text-text-primary mb-1 truncate">{d.client}</div>
-        <div className="flex justify-between">
-          <span className="text-text-secondary">Drop:</span>
-          <span className="font-semibold text-text-primary">{data.y}%</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-text-secondary">Inactive:</span>
-          <span className="font-semibold text-text-primary">{data.x} Days</span>
         </div>
       </div>
     );
@@ -1066,7 +1037,7 @@ export default function AlertIntelligence() {
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
   if (loading) return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-4">
         <SkeletonLoader variant="kpi" count={1} className="w-48 h-16" />
         <div className="flex gap-3">
@@ -1086,7 +1057,7 @@ export default function AlertIntelligence() {
     : (riskCounts.critical + riskCounts.high + riskCounts.medium + riskCounts.low);
 
   return (
-    <div className="animate-fade-in max-w-6xl mx-auto space-y-6">
+    <div className="animate-fade-in w-full space-y-6">
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border pb-4">
@@ -1739,7 +1710,6 @@ function renderDispatchDetail(alert, originalIdx, data, viewMode, rawData, searc
 // RISK DEALER EXPANDED ROW — Pending Order Focused
 // ═════════════════════════════════════════════════════════════════════════════
 function renderRiskDetail(dealer, allRiskChartData, dealerNotes, noteTexts, setNoteTexts, handleSaveNote, handleDeleteNote, data, viewMode, rawData) {
-  const fullData = rawData || data;
   const theme = getRiskColor(dealer.severity);
   const notes = dealerNotes[dealer.client] || [];
   const noteText = noteTexts[dealer.client] || '';

@@ -1,14 +1,14 @@
 import React from 'react';
 
-function KPICard({ 
-  label, 
-  value, 
-  subtitle, 
-  momDisplay, 
-  momColor, 
-  accentColor = '#3b82f6', 
+function KPICard({
+  label,
+  value,
+  subtitle,
+  momDisplay,
+  momColor,
+  accentColor = '#3b82f6',
   lightAccentColor,
-  className = '' 
+  className = ''
 }) {
   const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
   const effectiveAccent = isLight && lightAccentColor ? lightAccentColor : accentColor;
@@ -22,8 +22,8 @@ function KPICard({
       const num = match[1];
       const unit = match[2];
       const numFontSize = num.length > 8
-        ? 'text-2xl sm:text-3xl lg:text-[2.2rem] xl:text-[2.5rem] font-black'
-        : 'text-3xl sm:text-4xl lg:text-[2.65rem] font-black';
+        ? 'text-2xl sm:text-3xl lg:text-[2.35rem] xl:text-[2.6rem] font-black'
+        : 'text-3xl sm:text-4xl lg:text-[2.85rem] xl:text-[3.05rem] font-black';
 
       return (
         <div className="flex items-baseline gap-1.5 whitespace-nowrap overflow-hidden">
@@ -40,7 +40,7 @@ function KPICard({
     }
 
     return (
-      <div className="text-2xl sm:text-3xl lg:text-[2.25rem] font-black text-text-primary leading-none whitespace-nowrap overflow-hidden text-ellipsis">
+      <div className="text-2xl sm:text-3xl lg:text-[2.45rem] font-black text-text-primary leading-none whitespace-nowrap overflow-hidden text-ellipsis">
         {valStr}
       </div>
     );
@@ -59,7 +59,7 @@ function KPICard({
         style={{ backgroundColor: effectiveAccent }}
       />
 
-      <div className="stat-label mb-2 text-xs font-bold text-text-muted uppercase tracking-wide leading-snug">
+      <div className="stat-label mb-2 text-xs sm:text-[13px] font-bold text-text-muted uppercase tracking-wide leading-snug">
         {label}
       </div>
 

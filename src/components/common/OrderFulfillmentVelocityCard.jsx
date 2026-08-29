@@ -9,41 +9,40 @@ import { Clock, Activity, ArrowRight, Zap, CheckCircle2 } from 'lucide-react';
 const STANDARD_PRODUCTS = ['IG', 'GI', 'IGG', 'P', 'SS', 'RS'];
 const DEFAULT_TURNAROUNDS = { IG: 18.2, GI: 15.9, IGG: 5.4, P: 8.2, SS: 12.4, RS: 11.0 };
 
-function OrderFulfillmentVelocityCard({ data, rawData, title = "Delivery Speed" }) {
+function OrderFulfillmentVelocityCard({ data, title = "Delivery Speed" }) {
   const navigate = useNavigate();
   const { dispatch } = useData();
-  if (!data) return null;
 
-  const totalCur = data.totalCur || 0;
-  const pendingTotal = data.pendingTotal || 0;
+  const totalCur = data?.totalCur || 0;
+  const pendingTotal = data?.pendingTotal || 0;
   const totalBookedOrders = totalCur + pendingTotal;
-  
+
   // Fulfillment conversion rate
-  const fulfillmentRate = totalBookedOrders > 0 
-    ? Math.round((totalCur / totalBookedOrders) * 100) 
+  const fulfillmentRate = totalBookedOrders > 0
+    ? Math.round((totalCur / totalBookedOrders) * 100)
     : 0;
 
-  // Average order lead time turnaround
-  const avgPeriod = data.avgPeriod != null
+  // Average order lead time turnaround (null = unknown, never fabricate)
+  const avgPeriod = data?.avgPeriod != null
     ? data.avgPeriod
-    : data.meta?.avgPeriod != null
+    : data?.meta?.avgPeriod != null
     ? data.meta.avgPeriod
-    : data.operationalContext?.overall_performance?.avg_period != null
+    : data?.operationalContext?.overall_performance?.avg_period != null
     ? data.operationalContext.overall_performance.avg_period
-    : 16.5;
+    : null;
 
   // Active dealer volume throughput
   const { activeDealerCount, avgVolumePerDealer } = useMemo(() => {
-    const active = (data.dealers || []).filter(d => (d.cur || 0) > 0);
+    const active = (data?.dealers || []).filter(d => (d.cur || 0) > 0);
     const count = active.length || 1;
     const avg = count > 0 ? Math.round((totalCur / count) * 10) / 10 : 0;
     return { activeDealerCount: count, avgVolumePerDealer: avg };
-  }, [data.dealers, totalCur]);
+  }, [data?.dealers, totalCur]);
 
   // Product turnaround velocity breakdown for all 6 product lines
   const productVelocity = useMemo(() => {
     const prodMap = new Map();
-    (data.products || []).forEach(p => {
+    (data?.products || []).forEach(p => {
       const code = p.product?.toUpperCase();
       prodMap.set(code, p);
     });
@@ -64,15 +63,26 @@ function OrderFulfillmentVelocityCard({ data, rawData, title = "Delivery Speed" 
         leadDays
       };
     }).sort((a, b) => b.cur - a.cur);
-  }, [data.products]);
+  }, [data?.products]);
+
+  if (!data) return null;
+
+  // Canonical dispatch-vs-order gap from the intelligence layer (falls back to
+  // the locally derived ratio for legacy payloads).
+  const gapPct = data?.intel?.dispatchOrderGapPct != null
+    ? data.intel.dispatchOrderGapPct
+    : (totalBookedOrders > 0 ? Math.round((pendingTotal / totalBookedOrders) * 100) : 0);
+  const gapBottleneck = data?.intel?.hasDispatchBottleneck ?? gapPct >= 35;
 
   // Velocity status badge with universal badge-theme class
-  let velocityBadge = {
-    text: `${avgPeriod}-Day Delivery Cycle`,
-    bgClass: 'badge-theme-blue',
-    icon: <Clock className="w-3 h-3" />
-  };
-  if (avgPeriod <= 14) {
+  let velocityBadge;
+  if (avgPeriod == null) {
+    velocityBadge = {
+      text: 'Lead Time Unavailable',
+      bgClass: 'badge-theme-blue',
+      icon: <Clock className="w-3 h-3" />
+    };
+  } else if (avgPeriod <= 14) {
     velocityBadge = {
       text: 'Fast Cycle',
       bgClass: 'badge-theme-green',
@@ -83,6 +93,12 @@ function OrderFulfillmentVelocityCard({ data, rawData, title = "Delivery Speed" 
       text: 'Bottleneck',
       bgClass: 'badge-theme-red',
       icon: <Activity className="w-3 h-3" />
+    };
+  } else {
+    velocityBadge = {
+      text: `${avgPeriod}-Day Delivery Cycle`,
+      bgClass: 'badge-theme-blue',
+      icon: <Clock className="w-3 h-3" />
     };
   }
 
@@ -112,7 +128,7 @@ function OrderFulfillmentVelocityCard({ data, rawData, title = "Delivery Speed" 
               <span className="leading-tight truncate">Avg Delivery</span>
             </div>
             <div className="text-lg sm:text-2xl font-black text-text-primary tracking-tight leading-none mt-1.5 sm:mt-2">
-              {formatDays(avgPeriod)}
+              {avgPeriod != null ? formatDays(avgPeriod) : '—'}
             </div>
             <div className="text-[10px] sm:text-[11px] text-text-muted font-medium mt-1 sm:mt-1.5 leading-snug truncate">
               Order to dispatch
@@ -128,10 +144,20 @@ function OrderFulfillmentVelocityCard({ data, rawData, title = "Delivery Speed" 
               {fulfillmentRate}% <span className="text-[10px] sm:text-xs font-bold text-text-muted">Cleared</span>
             </div>
             <div className="text-[10px] sm:text-[11px] text-text-muted font-medium mt-1 sm:mt-1.5 leading-snug truncate">
-              {formatMT(totalCur)} of {formatMT(totalBookedOrders)}
+              {formatMT(totalCur)} of {formatMT(totalBookedOrders)} · {gapPct}% unfulfilled
             </div>
           </div>
         </div>
+
+        {/* Order-vs-Dispatch Gap Banner */}
+        {gapBottleneck && pendingTotal > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-severity-critical/10 border border-severity-critical/30">
+            <Activity className="w-4 h-4 text-severity-critical shrink-0" />
+            <span className="text-[12px] sm:text-[13px] font-semibold text-text-primary leading-snug">
+              {gapPct}% of booked orders still await dispatch — fulfillment, not demand, is the constraint.
+            </span>
+          </div>
+        )}
 
         {/* Product-Wise Turnaround Speed & Clearance (All 6 Product Lines) */}
         <div className="p-2.5 sm:p-3.5 rounded-xl bg-bg-secondary/60 border border-border/50 space-y-1.5 sm:space-y-2 shadow-xs">

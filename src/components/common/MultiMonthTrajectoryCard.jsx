@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import CollapsibleCard from './CollapsibleCard';
 import { formatMT } from '../../utils/formatters';
-import { Award, Calendar, ArrowRight, Activity, TrendingUp, Compass } from 'lucide-react';
+import { Award, Calendar, ArrowRight, Activity } from 'lucide-react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 import { useChartVisible } from '../../hooks/useChartVisible';
 

@@ -45,15 +45,17 @@ const CustomTooltip = ({ active, payload }) => {
   );
 };
 
-// Gradual dark-to-light blue descending spectrum for ranked volume bars
+// Gradual dark-to-light blue descending spectrum for ranked volume bars.
+// Deepened so every rank stays clearly visible on light (white) surfaces
+// while still reading on the dark slate cards.
 const BLUE_DESCENDING_PALETTE = [
-  '#1D4ED8', // Deep Royal Blue (Top Volume)
+  '#1E40AF', // Deep Royal Blue (Top Volume)
   '#2563EB', // Royal Blue
   '#3B82F6', // Electric Blue
   '#60A5FA', // Sky Blue
-  '#38BDF8', // Cyan Blue
-  '#7DD3FC', // Light Ice Blue
-  '#BAE6FD', // Pale Crystal Blue
+  '#0EA5E9', // Cyan Blue
+  '#06B6D4', // Teal Cyan
+  '#38BDF8', // Crystal Blue
 ];
 
 function ProductBarChart({ data, height = 300 }) {

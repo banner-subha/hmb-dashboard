@@ -18,15 +18,16 @@ export const getProductFullName = (code) => {
   return match ? match[1] : label;
 };
 
-// Unified product color palette — Gradual Dark-to-Light Blue Spectrum
+// Unified product color palette — Blue spectrum tuned to stay visible on
+// BOTH themes (deep enough for white cards, bright enough for slate cards).
 export const PRODUCT_COLORS = {
   IG: '#1D4ED8',   // Deep Royal Blue
   GI: '#3B82F6',   // Electric Blue
   IGG: '#60A5FA',  // Sky Blue
-  P: '#38BDF8',    // Cyan Sky Blue
+  P: '#0EA5E9',    // Cyan Sky Blue
   HGI: '#818CF8',  // Indigo Periwinkle
-  RS: '#7DD3FC',   // Light Ice Blue
-  SS: '#BAE6FD',   // Pale Crystal Blue
+  RS: '#06B6D4',   // Teal Cyan
+  SS: '#38BDF8',   // Crystal Blue
 };
 
 import { getSeverityTheme } from './trendEngine.js';

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { select } from 'd3-selection';
 import 'd3-transition';
 import { scaleLinear } from 'd3-scale';
@@ -9,14 +10,13 @@ import { geoMercator, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import { simplifyFeatureCollection } from '../utils/geoSimplify';
 import {
-  ArrowLeft, TrendingUp, TrendingDown, Minus,
+  ArrowLeft,
   AlertTriangle, MapPin, BarChart2, Loader2, ZoomIn, ZoomOut, RotateCcw, X,
 } from 'lucide-react';
 
 const STATE_GEO_URL = '/geo/india_state.geojson';
 
 const geoCache = {};
-const projectionCache = {};
 
 const districtTopoUrl = (stateName, slug) => {
   let activeSlug = slug || stateName
@@ -170,18 +170,8 @@ const HEAT_LABELS = [
 // ─── Map dimensions ───────────────────────────────────────────────────────────
 const STATE_W = 900;
 const STATE_H = 700;
-const DIST_W = 950;
-const DIST_H = 750;
 const INDIA_CENTER = [82.8, 22.5];
 const INDIA_SCALE  = 1050;
-
-// Build a Mercator projection fitted to the SVG viewport
-function makeProjection(center = INDIA_CENTER, scale = INDIA_SCALE, w = STATE_W, h = STATE_H) {
-  return geoMercator()
-    .center(center)
-    .scale(scale)
-    .translate([w / 2, h / 2]);
-}
 
 // ─── Utility: normalise name for fuzzy matching ───────────────────────────────
 function norm(s = '') {
@@ -190,23 +180,57 @@ function norm(s = '') {
   return key;
 }
 
-const normKey = (value = "") => {
-  return String(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .replace(/paraganas|paragans|pargans|paragnas|prgs/g, "parganas");
-};
+// Theme-aware fill/hover colors — resolved lazily (only when drawing or on an
+// interaction), shared by the D3 draw pass and the React touch handlers so
+// mouse and touch always use the exact same palette.
+function getThemeMapColors() {
+  const isLightTheme = document.documentElement.getAttribute('data-theme') === 'light';
+  const computedStyle = getComputedStyle(document.documentElement);
+  return {
+    hoverNoDataFill: isLightTheme ? '#c4ccd6' : '#232323',
+    hoverStroke: isLightTheme ? 'rgba(11, 34, 64, 0.4)' : 'rgba(255, 255, 255, 0.85)',
+    noDataColor: computedStyle.getPropertyValue('--color-map-landmass').trim() || NO_DATA_COLOR,
+    mapStroke: computedStyle.getPropertyValue('--color-map-stroke').trim() || '#475569',
+  };
+}
 
-import { calculateMoM, getTrendColor as _getTrendColor, formatTrend, getBusinessImpact } from '../utils/trendEngine';
+// Resolves the base fill color for a map feature. Shared by the D3 draw pass and
+// the React touch handlers so fill logic stays identical between mouse and touch.
+function getMapFill(d, ctx) {
+  const { selectedState, districtMap, stateMap, heatMap, filterType, heatColorScale, noDataColor } = ctx;
+  const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || '';
+  const normTopo = selectedState ? resolveDistrict(topoName) : normalizeKey(topoName);
+  const entry = selectedState
+    ? districtMap[normTopo]
+    : (stateMap[normTopo] || Object.values(stateMap).find(s => normalizeKey(s.geoKey) === normTopo));
+  if (entry) {
+    const heatKey = selectedState ? normTopo : norm(topoName);
+    if (filterType === 'PENDING') {
+      const pendingQty = heatMap[heatKey]?.geoHeatScore ?? entry.volume ?? entry.cur ?? entry.pendingQty ?? 0;
+      if (pendingQty > 0) {
+        return heatColorScale(pendingQty);
+      }
+    } else {
+      const curVol = entry.cur ?? entry.volume ?? 0;
+      if (curVol > 0) {
+        const score = heatMap[heatKey]?.geoHeatScore ?? curVol;
+        if (score > 0) {
+          return heatColorScale(score);
+        }
+      }
+    }
+  }
+  return noDataColor;
+}
+
+import { calculateMoM, getBusinessImpact } from '../utils/trendEngine';
 import { useRawData } from '../context/DataContext';
-import ImpactBadge from '../components/common/ImpactBadge';
 import SeverityBadge from '../components/common/SeverityBadge';
-import { getSeverityMeta } from '../utils/severity';
 import { formatMT, formatNumber, formatDays } from '../utils/formatters';
-import { getPendingForPeriod, getTotalPendingForPeriod, getSharePctForPeriod, getBacklogClearance, isAgingPeriod, getBacklogAgeInfo } from '../utils/pending';
+import { getPendingForPeriod, getTotalPendingForPeriod, getSharePctForPeriod, getBacklogClearance, getBacklogAgeInfo } from '../utils/pending';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function getTrendColor(t, cur, prev) {
+function getTrendColor(t) {
   if (t == null) return undefined;
   const num = typeof t === 'number' ? t : parseFloat(String(t).replace(/[^0-9.-]/g, ''));
   if (isNaN(num) || num === 0) return undefined;
@@ -226,7 +250,7 @@ function trendStr(t) {
 
 
 // ─── Tooltip (fixed-positioned, follows mouse/touch) ────────────────────────────────
-function Tooltip({ tooltipRef, visible, name, data, filterType, totalPending, selectedPendingMonth, selectedMonth, pendingAvailableMonths = [], isDistrictView, onClose, rawData = null }) {
+function Tooltip({ tooltipRef, visible, name, data, filterType, selectedPendingMonth, selectedMonth, isDistrictView, onClose, rawData = null }) {
   const isPending = filterType === "PENDING";
   const activeMonthKey = isPending ? selectedPendingMonth : (selectedMonth || null);
 
@@ -365,33 +389,6 @@ function Legend({ colors = HEAT_COLORS, labels = HEAT_LABELS }) {
     </div>
   );
 }
-
-// ─── Ranked entry row ─────────────────────────────────────────────────────────
-function RankRow({ rank, name, volume, trend, cur, prev, isTop }) {
-  return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-bg-card transition-colors">
-      <span className={`w-5 h-5 shrink-0 rounded-full text-[10px] font-bold flex items-center justify-center ${
-        isTop ? 'bg-severity-none/15 text-severity-none' : 'bg-severity-critical/15 text-severity-critical'
-      }`}>
-        {rank}
-      </span>
-      <span className="flex-1 text-xs text-text-secondary truncate">{name}</span>
-      <span className="text-xs font-semibold text-text-primary shrink-0">
-        {formatNumber(volume)}
-      </span>
-      {trend != null && (
-        <span className="text-[10px] shrink-0 font-bold" style={{ color: getTrendColor(trend, cur, prev) }}>
-          {trendStr(trend)}
-        </span>
-      )}
-    </div>
-  );
-}
-
-const capitalizeWord = (str) => {
-  if (!str) return "";
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 function parseMonthKey(periodStr) {
@@ -657,8 +654,8 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       }
     }
 
-    let totalCur = 0;
-    let totalPrev = 0;
+    let totalCur;
+    let totalPrev;
     
     const statesList = (rawData.states || []).filter(s => s.state && s.state.toLowerCase() !== 'unknown');
     totalCur = statesList.reduce((sum, s) => sum + (s.cur || 0), 0);
@@ -1048,11 +1045,6 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     }
   }, []);
 
-  const applyTransform = useCallback(() => {
-    if (transformRafRef.current) return;
-    transformRafRef.current = requestAnimationFrame(writeTransformNow);
-  }, [writeTransformNow]);
-
   // Flush any pending transform on unmount to avoid stray rAF writes.
   useEffect(() => () => {
     if (transformRafRef.current) cancelAnimationFrame(transformRafRef.current);
@@ -1114,7 +1106,6 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         // Track sub-cities for display
         if (!m[key]._subCities) m[key]._subCities = [m[key].name];
         m[key]._subCities.push(name);
-        m[key].name = m[key].name; // keep first name as primary
       } else {
         m[key] = { ...district, name };
         if (district.pendingHistory) {
@@ -1521,30 +1512,39 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     });
   }, []);
 
+  const moveTipRafRef = useRef(null);
   const moveTip = useCallback((e) => {
     if (!tooltipRef.current) return;
     const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? e.changedTouches?.[0]?.clientX;
     const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY;
     if (clientX == null || clientY == null) return;
 
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const tw = tooltipRef.current.offsetWidth || 240;
-    const th = tooltipRef.current.offsetHeight || 180;
+    // Coalesce to one transform write per animation frame — pointermove can fire
+    // far more often than the display refreshes (60fps target).
+    if (moveTipRafRef.current) return;
+    moveTipRafRef.current = requestAnimationFrame(() => {
+      moveTipRafRef.current = null;
+      if (!tooltipRef.current) return;
 
-    let left = clientX + 16;
-    let top = clientY - 12;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const tw = tooltipRef.current.offsetWidth || 240;
+      const th = tooltipRef.current.offsetHeight || 180;
 
-    if (vw < 768) {
-      left = Math.max(12, Math.min(vw - tw - 12, clientX - tw / 2));
-      top = clientY - th - 20;
-      if (top < 12) top = clientY + 24;
-    } else {
-      if (left + tw > vw) left = clientX - tw - 12;
-      if (top + th > vh) top = Math.max(8, vh - th - 12);
-    }
+      let left = clientX + 16;
+      let top = clientY - 12;
 
-    tooltipRef.current.style.transform = `translate3d(${Math.max(8, left)}px, ${Math.max(8, top)}px, 0)`;
+      if (vw < 768) {
+        left = Math.max(12, Math.min(vw - tw - 12, clientX - tw / 2));
+        top = clientY - th - 20;
+        if (top < 12) top = clientY + 24;
+      } else {
+        if (left + tw > vw) left = clientX - tw - 12;
+        if (top + th > vh) top = Math.max(8, vh - th - 12);
+      }
+
+      tooltipRef.current.style.transform = `translate3d(${Math.max(8, left)}px, ${Math.max(8, top)}px, 0)`;
+    });
   }, []);
 
   const hideTip = useCallback(() => {
@@ -1658,40 +1658,20 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       const g = select(gRef.current);
 
       // Theme-aware hover colors so the light map doesn't flash a dark blob.
-      const isLightTheme = document.documentElement.getAttribute('data-theme') === 'light';
-      const HOVER_NODATA_FILL = isLightTheme ? '#c4ccd6' : '#232323';
-      const HOVER_STROKE = isLightTheme ? 'rgba(11, 34, 64, 0.4)' : 'rgba(255, 255, 255, 0.85)';
-      // Read theme-resolved map colors from CSS custom properties
-      const computedStyle = getComputedStyle(document.documentElement);
-      const noDataColor = computedStyle.getPropertyValue('--color-map-landmass').trim() || NO_DATA_COLOR;
-      const mapStroke = computedStyle.getPropertyValue('--color-map-stroke').trim() || '#475569';
+      // Fill/color resolution lives in the shared module-level helpers so the
+      // touch handlers (React scope) resolve identically to this D3 draw pass.
+      const { hoverNoDataFill: HOVER_NODATA_FILL, hoverStroke: HOVER_STROKE, noDataColor, mapStroke } = getThemeMapColors();
 
       // Helper to resolve fill color for a datum
-      const getFill = (d) => {
-        const topoName = d.properties?.ST_NM || d.properties?.state_name || d.properties?.NAME || d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || '';
-        const normTopo = selectedState ? resolveDistrict(topoName) : normalizeKey(topoName);
-        const entry = selectedState
-          ? normalizedDistrictDataMap[normTopo]
-          : (normalizedStateDataMap[normTopo] || Object.values(normalizedStateDataMap).find(s => normalizeKey(s.geoKey) === normTopo));
-        if (entry) {
-          const heatKey = selectedState ? normTopo : norm(topoName);
-          if (filterState.type === 'PENDING') {
-            const pendingQty = geoHeatMap[heatKey]?.geoHeatScore ?? entry.volume ?? entry.cur ?? entry.pendingQty ?? 0;
-            if (pendingQty > 0) {
-              return heatColorScale(pendingQty);
-            }
-          } else {
-            const curVol = entry.cur ?? entry.volume ?? 0;
-            if (curVol > 0) {
-              const score = geoHeatMap[heatKey]?.geoHeatScore ?? curVol;
-              if (score > 0) {
-                return heatColorScale(score);
-              }
-            }
-          }
-        }
-        return noDataColor;
-      };
+      const getFill = (d) => getMapFill(d, {
+        selectedState,
+        districtMap: normalizedDistrictDataMap,
+        stateMap: normalizedStateDataMap,
+        heatMap: geoHeatMap,
+        filterType: filterState.type,
+        heatColorScale,
+        noDataColor,
+      });
 
       // 1. Bind data — interrupt any in-flight transitions on exit paths
       const paths = g.selectAll('path.map-path').data(activeFeatures);
@@ -1824,15 +1804,6 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       {/* Header section with theme bottom border */}
       <div className="flex items-center justify-between gap-4 pb-4 mb-5 border-b border-border flex-wrap">
         <div className="flex items-center gap-3">
-          {selectedState && (
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-1.5 text-sm px-3.5 py-1.5 rounded-lg border border-border text-text-muted hover:border-accent-blue transition-colors cursor-pointer bg-bg-card shadow-sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to India
-            </button>
-          )}
           <h2 className="text-2xl lg:text-3xl font-black tracking-tight text-text-primary flex items-center gap-2.5">
             <MapPin className="w-7 h-7 text-accent-blue" />
             {selectedState ? selectedState : 'Regional Sales Distribution'}
@@ -1848,6 +1819,24 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
           ref={mapContainerRef}
           className="rounded-xl border border-border overflow-hidden relative flex-1 w-full min-h-[420px] sm:min-h-[520px] lg:min-h-[760px] xl:min-h-[820px] panel shadow-md"
         >
+          {/* Floating back control — always in view when the map is in view */}
+          {selectedState && (
+            <button
+              onClick={handleBack}
+              className="absolute top-3 left-3 z-30 flex items-center gap-1.5 text-[13px] font-bold px-3.5 py-2 rounded-lg cursor-pointer backdrop-blur-md transition-colors"
+              style={{
+                background: 'rgba(var(--color-bg-primary-rgb), 0.82)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-secondary)',
+                boxShadow: 'var(--shadow-card)',
+              }}
+              title="Return to India map"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to India
+            </button>
+          )}
+
           {/* Loading state */}
           {(geoLoading || distLoading) && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3"
@@ -1936,16 +1925,26 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
                 ? normalizedDistrictDataMap[normTopo]
                 : (normalizedStateDataMap[normTopo] || Object.values(normalizedStateDataMap).find(s => normalizeKey(s.geoKey) === normTopo));
 
+              const mapColors = getThemeMapColors();
+              const fillCtx = {
+                selectedState: isSel,
+                districtMap: normalizedDistrictDataMap,
+                stateMap: normalizedStateDataMap,
+                heatMap: geoHeatMap,
+                filterType: filterState.type,
+                heatColorScale,
+                noDataColor: mapColors.noDataColor,
+              };
               const sel = select(path);
-              const baseFill = getFill(feature);
-              const isNoData = baseFill === noDataColor || baseFill === NO_DATA_COLOR || baseFill === '#1e2535' || baseFill === '#DCE2E8';
+              const baseFill = getMapFill(feature, fillCtx);
+              const isNoData = baseFill === mapColors.noDataColor || baseFill === NO_DATA_COLOR || baseFill === '#1e2535' || baseFill === '#DCE2E8';
               const c = color(baseFill);
-              const hoverFill = isNoData ? HOVER_NODATA_FILL : (c ? c.brighter(0.7).toString() : baseFill);
+              const hoverFill = isNoData ? mapColors.hoverNoDataFill : (c ? c.brighter(0.7).toString() : baseFill);
 
               sel.interrupt('hover')
                 .transition('hover').duration(100).ease(easeQuadOut)
                 .attr('fill', hoverFill)
-                .attr('stroke', HOVER_STROKE)
+                .attr('stroke', mapColors.hoverStroke)
                 .attr('stroke-width', isSel ? 1.2 : 1.8)
                 .style('opacity', 0.9);
 
@@ -1961,12 +1960,21 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
               if (path) {
                 const pathIdx = Array.from(path.parentNode.children).indexOf(path);
                 const feature = activeFeatures?.[pathIdx];
-                const baseFill = feature ? getFill(feature) : noDataColor;
+                const mapColors = getThemeMapColors();
+                const baseFill = feature ? getMapFill(feature, {
+                  selectedState: selectedStateRef.current,
+                  districtMap: normalizedDistrictDataMap,
+                  stateMap: normalizedStateDataMap,
+                  heatMap: geoHeatMap,
+                  filterType: filterState.type,
+                  heatColorScale,
+                  noDataColor: mapColors.noDataColor,
+                }) : mapColors.noDataColor;
                 const sel = select(path);
                 sel.interrupt('hover')
                   .transition('hover').duration(200).ease(easeQuadOut)
                   .attr('fill', baseFill)
-                  .attr('stroke', mapStroke)
+                  .attr('stroke', mapColors.mapStroke)
                   .attr('stroke-width', selectedStateRef.current ? 0.5 : 0.8)
                   .style('opacity', 1);
                 touchedPathRef.current = null;
@@ -2250,8 +2258,13 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         </div>
       </div>
 
-      {/* Floating tooltip */}
-      <Tooltip tooltipRef={tooltipRef} {...tooltip} filterType={filterState.type} totalPending={totalPendingVolume} selectedPendingMonth={selectedPendingMonth} selectedMonth={selectedMonth} pendingAvailableMonths={pendingAvailableMonths} isDistrictView={!!selectedState} onClose={hideTip} rawData={rawData} />
+      {/* Floating tooltip — portaled to <body> so its position:fixed tracks the
+          cursor against the viewport even though the layout scroll container
+          has a transform (translateZ(0)) that would otherwise re-anchor it. */}
+      {createPortal(
+        <Tooltip tooltipRef={tooltipRef} {...tooltip} filterType={filterState.type} totalPending={totalPendingVolume} selectedPendingMonth={selectedPendingMonth} selectedMonth={selectedMonth} pendingAvailableMonths={pendingAvailableMonths} isDistrictView={!!selectedState} onClose={hideTip} rawData={rawData} />,
+        document.body
+      )}
     </div>
   );
 }

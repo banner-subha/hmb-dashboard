@@ -2,7 +2,6 @@ import { useMemo, useEffect, useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import FilterBar from '../components/common/FilterBar';
 import SearchInput from '../components/common/SearchInput';
 import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
@@ -16,8 +15,9 @@ import { MapPin } from 'lucide-react';
 import { AnimatePresence, m } from 'framer-motion';
 import ShareDonutChart from '../components/charts/ShareDonutChart';
 import { PRODUCT_COLORS, PRODUCT_LABELS, getProductFullName, isWestBengalUser } from '../utils/constants';
-import { getPendingForPeriod, getBacklogClearance, getSharePctForPeriod, getPendingAvailableMonths } from '../utils/pending';
+import { getPendingForPeriod, getBacklogClearance } from '../utils/pending';
 import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalDistricts } from '../utils/despatch';
+import { AGING_BUCKETS, getEntityAging, agingTotal } from '../utils/backlogAging';
 
 export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
   const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
@@ -50,7 +50,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
   const filteredDistricts = useMemo(() => {
     if (!data) return [];
-    let list = [];
+    let list;
     if (metricMode === 'PENDING') {
       const rawDistricts = data.districts || [];
       list = [...rawDistricts]
@@ -98,7 +98,6 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
   // Sync URL params → Context: runs only when the URL itself changes.
   useEffect(() => {
-    const trend = searchParams.get('trend');
     const state = searchParams.get('state') || null;
     const district = searchParams.get('district') || null;
     const product = searchParams.get('product') || null;
@@ -158,6 +157,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
   }, [filters.selectedState, filters.selectedDistrict, filters.selectedProduct, filters.searchQuery, searchParams, setSearchParams]);
 
   const columns = useMemo(() => {
+    const dataAsOf = data?.meta?.dataAsOfDate || null;
     if (metricMode === 'PENDING') {
       return [
         {
@@ -191,7 +191,27 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
           cell: info => {
             const row = info.row.original;
             const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
-            return <span className="font-medium text-[13px]">{formatMT(pendingQty)}</span>;
+            if (selectedPendingMonth !== 'ALL' || pendingQty <= 0) {
+              return <span className="font-medium text-[13px]">{formatMT(pendingQty)}</span>;
+            }
+            const { aging } = getEntityAging(row, dataAsOf);
+            const aTotal = agingTotal(aging);
+            if (aTotal <= 0) return <span className="font-medium text-[13px]">{formatMT(pendingQty)}</span>;
+            return (
+              <div className="flex flex-col gap-1">
+                <span className="font-medium text-[13px]">{formatMT(pendingQty)}</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex w-14 h-1.5 rounded-full overflow-hidden border border-border/40 shrink-0 bg-bg-primary/60" title="Backlog age profile">
+                    {AGING_BUCKETS.map(b => (aging[b.key] > 0 ? (
+                      <div key={b.key} className={`h-full ${b.colorClass}`} style={{ width: `${(aging[b.key] / aTotal) * 100}%` }} title={`${b.fullLabel}: ${formatMT(aging[b.key])} MT`} />
+                    ) : null))}
+                  </div>
+                  {row.oldestPendingDate && (
+                    <span className="text-[9px] text-text-muted whitespace-nowrap">oldest {row.oldestPendingDate.slice(5).replace('-', '/')}</span>
+                  )}
+                </div>
+              </div>
+            );
           },
         },
         {
@@ -372,7 +392,6 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
   }, [metricMode, selectedPendingMonth, data]);
 
   // NOTE: Must be declared before any early returns to satisfy Rules of Hooks.
-  const districts = data?.districts || [];
   const products = data?.products || [];
 
   // Compute district-specific inactive dealers dynamically from all dealers
@@ -448,8 +467,6 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
   );
   if (error) return <div className="text-center text-severity-critical py-12">Error: {error}</div>;
   if (!data) return null;
-
-  const hasFilters = !!(filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.searchQuery);
 
   return (
     <div className="animate-fade-in space-y-6">

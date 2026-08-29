@@ -1,4 +1,3 @@
-import { getBusinessImpact } from '../utils/trendEngine.js';
 import { isRealState, normalizeStateName } from '../utils/constants.js';
 import { normalizeDistrict } from '../utils/districtNormalizer.js';
 
@@ -20,10 +19,17 @@ function normalizeAndMergeStates(statesList) {
         prev: 0,
         expectedMtd: 0,
         dailyAvgQty: 0,
+        pendingAge: s.pendingAge ? { d0_30: 0, d31_60: 0, d61_90: 0, d90plus: 0, unknown: 0 } : undefined,
       };
     }
     map[normState].cur = Math.round((map[normState].cur + (s.cur || 0)) * 100) / 100;
     map[normState].prev = Math.round((map[normState].prev + (s.prev || 0)) * 100) / 100;
+    if (s.pendingAge && map[normState].pendingAge) {
+      Object.keys(s.pendingAge).forEach(k => { map[normState].pendingAge[k] = Math.round(((map[normState].pendingAge[k] || 0) + (s.pendingAge[k] || 0)) * 100) / 100; });
+    }
+    if (s.oldestPendingDate && (!map[normState].oldestPendingDate || s.oldestPendingDate < map[normState].oldestPendingDate)) {
+      map[normState].oldestPendingDate = s.oldestPendingDate;
+    }
     if (s.expectedMtd) map[normState].expectedMtd = Math.round((map[normState].expectedMtd + (s.expectedMtd || 0)) * 100) / 100;
     if (s.dailyAvgQty) map[normState].dailyAvgQty = Math.round((map[normState].dailyAvgQty + (s.dailyAvgQty || 0)) * 100) / 100;
     if (s.avgPeriod != null && map[normState].avgPeriod == null) map[normState].avgPeriod = s.avgPeriod;
@@ -31,7 +37,7 @@ function normalizeAndMergeStates(statesList) {
   return Object.values(map);
 }
 
-function normalizeAndMergeDistricts(districtsList, curElapsedDays = 30) {
+function normalizeAndMergeDistricts(districtsList) {
   if (!districtsList || !Array.isArray(districtsList)) return districtsList;
   const map = {};
 
@@ -59,6 +65,7 @@ function normalizeAndMergeDistricts(districtsList, curElapsedDays = 30) {
         dailyAvgQty: 0,
         currentDailyRate: 0,
         pendingQty: 0,
+        pendingAge: d.pendingAge ? { d0_30: 0, d31_60: 0, d61_90: 0, d90plus: 0, unknown: 0 } : undefined,
         products: [],
       };
     }
@@ -66,6 +73,12 @@ function normalizeAndMergeDistricts(districtsList, curElapsedDays = 30) {
     const existing = map[key];
     existing.cur = Math.round((existing.cur + (d.cur || 0)) * 100) / 100;
     existing.prev = Math.round((existing.prev + (d.prev || 0)) * 100) / 100;
+    if (d.pendingAge && existing.pendingAge) {
+      Object.keys(d.pendingAge).forEach(k => { existing.pendingAge[k] = Math.round(((existing.pendingAge[k] || 0) + (d.pendingAge[k] || 0)) * 100) / 100; });
+    }
+    if (d.oldestPendingDate && (!existing.oldestPendingDate || d.oldestPendingDate < existing.oldestPendingDate)) {
+      existing.oldestPendingDate = d.oldestPendingDate;
+    }
     if (d.expectedMtd) existing.expectedMtd = Math.round((existing.expectedMtd + (d.expectedMtd || 0)) * 100) / 100;
     if (d.dailyAvgQty) existing.dailyAvgQty = Math.round((existing.dailyAvgQty + (d.dailyAvgQty || 0)) * 100) / 100;
     if (d.currentDailyRate) existing.currentDailyRate = Math.round((existing.currentDailyRate + (d.currentDailyRate || 0)) * 100) / 100;
@@ -177,7 +190,7 @@ export function cleanData(data) {
     data.states = normalizeAndMergeStates(data.states).filter(s => isKnown(s.state) && isRealState(s.state));
   }
   if (data.districts) {
-    data.districts = normalizeAndMergeDistricts(data.districts, data.meta?.curElapsedDays || 30).filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
+    data.districts = normalizeAndMergeDistricts(data.districts).filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
   }
   if (data.dealers) {
     data.dealers = data.dealers.filter(dl => isKnown(dl.state) && isRealState(dl.state) && isKnown(dl.district) && isKnown(dl.client));
@@ -194,8 +207,7 @@ export function cleanData(data) {
           if (d && d.state) d.state = normalizeStateName(d.state);
           if (d && d.district != null) d.district = normalizeDistrict(d.district, d.state);
         });
-        hist.districts = normalizeAndMergeDistricts(hist.districts).filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));
-      }
+        hist.districts = normalizeAndMergeDistricts(hist.districts).filter(d => isKnown(d.state) && isRealState(d.state) && isKnown(d.district));      }
       if (hist.dealers) {
         hist.dealers.forEach(dl => {
           if (dl && dl.state) dl.state = normalizeStateName(dl.state);
@@ -327,7 +339,6 @@ export function cleanData(data) {
   // ── Fallback avgPeriod and pace fields for districts ──
   if (data.states && data.districts) {
     const stateAvgMap = new Map(data.states.map(s => [s.state, s.avgPeriod]));
-    const stateDailyAvgMap = new Map(data.states.map(s => [s.state, s.dailyAvgQty]));
 
     data.districts.forEach(d => {
       // 1. Lead time fallback from state if missing
@@ -480,82 +491,6 @@ export function cleanData(data) {
     data.hasAlert = realAlertsCount > 0;
   }
 
-  if (data.intelligence && (!data.intelligence.product_insights || data.intelligence.product_insights.length === 0)) {
-    data.intelligence.product_insights = [
-      {
-        "product": "SS",
-        "label": "SS – Structurals & Sections",
-        "cur_mt": 282,
-        "prev_mt": 362,
-        "mom_pct": -22.1,
-        "share_pct": 10,
-        "pending_qty": 185.5,
-        "trend": "DECLINING",
-        "primary_driver": "Supply allocation shortfall at raw material source.",
-        "impact_mt": 80,
-        "pct_of_total_decline": 31,
-        "recommended_action": "Regional Sales Manager to negotiate fresh allocations with prime mills this week."
-      },
-      {
-        "product": "HGI",
-        "label": "HGI – Heavy Galvanised Iron",
-        "cur_mt": 150,
-        "prev_mt": 184.5,
-        "mom_pct": -18.7,
-        "share_pct": 5,
-        "pending_qty": 92.4,
-        "trend": "DECLINING",
-        "primary_driver": "Monsoon transport logistics constraints in West Bengal.",
-        "impact_mt": 34.5,
-        "pct_of_total_decline": 13,
-        "recommended_action": "Dispatch Team to arrange multi-axle logistics by Saturday."
-      },
-      {
-        "product": "GI",
-        "label": "GI – Galvanised Iron",
-        "cur_mt": 625,
-        "prev_mt": 580,
-        "mom_pct": 7.8,
-        "share_pct": 22,
-        "pending_qty": 45.2,
-        "trend": "GROWING",
-        "primary_driver": "Strong agricultural fencing demand in Bihar.",
-        "impact_mt": 45,
-        "pct_of_total_decline": 0,
-        "recommended_action": "Area Sales Manager to increase credit limits for top-3 Bihar accounts."
-      }
-    ];
-  }
-
-  if (data.intelligence && (!data.intelligence.root_cause_analysis || data.intelligence.root_cause_analysis.length === 0)) {
-    data.intelligence.root_cause_analysis = [
-      {
-        "dimension": "PRODUCT",
-        "finding": "SS segment supply allocation shortfall — 80 MT volume loss from 362 to 282 MT",
-        "impact_mt": 80,
-        "pct_of_total_decline": 31
-      },
-      {
-        "dimension": "STATE",
-        "finding": "West Bengal region dropped 147 MT due to inactive dealers and HGI product weakness",
-        "impact_mt": 147,
-        "pct_of_total_decline": 58
-      },
-      {
-        "dimension": "DISTRICT",
-        "finding": "Kolkata & Murshidabad districts account for primary drop with key accounts inactive",
-        "impact_mt": 70,
-        "pct_of_total_decline": 28
-      },
-      {
-        "dimension": "DEALER",
-        "finding": "HGI dealer churn in regional corridor — top accounts combined loss of 48 MT",
-        "impact_mt": 48,
-        "pct_of_total_decline": 19
-      }
-    ];
-  }
-
   return data;
 }
 
@@ -600,15 +535,15 @@ class DataService {
       if (needsRewrite && elapsedDays) {
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         let endDay = elapsedDays;
-        let monthName = 'Jul';
-        let yearNum = 2026;
+        let monthName = monthNames[new Date().getMonth()];
+        let yearNum = new Date().getFullYear();
         const asOfStr = cleanedData.dataAsOfDate || cleanedData.meta?.dataAsOfDate;
         if (asOfStr) {
           const parts = asOfStr.split('-');
           if (parts.length === 3) {
-            yearNum = parseInt(parts[0], 10) || 2026;
-            const mIdx = (parseInt(parts[1], 10) || 7) - 1;
-            monthName = monthNames[mIdx] || 'Jul';
+            yearNum = parseInt(parts[0], 10) || yearNum;
+            const mIdx = (parseInt(parts[1], 10) || 1) - 1;
+            monthName = monthNames[mIdx] || monthName;
             endDay = parseInt(parts[2], 10) || elapsedDays;
           }
         }
@@ -637,7 +572,7 @@ class DataService {
         if (localRes.ok) {
           const contentType = localRes.headers.get('content-type') || '';
           if (contentType.includes('text/html')) {
-            throw new Error('Local fallback returned HTML (Netlify CLI redirect)');
+            throw new Error('Local fallback returned HTML (Netlify CLI redirect)', { cause: err });
           }
           const localData = await localRes.json();
           const cleanedLocal = cleanData(localData);

@@ -30,7 +30,7 @@ const FilterBar = memo(function FilterBar({ children }) {
   }, [dispatch]);
 
   return (
-    <div className="glass-card p-5 flex flex-wrap items-center gap-2 mb-5">
+    <div className="glass-card p-3.5 sm:p-4 flex flex-wrap items-center gap-2 sm:gap-2.5 mb-5">
       <select
         className="filter-select w-full sm:w-[140px]"
         value={filters.selectedState || ''}
@@ -73,14 +73,14 @@ const FilterBar = memo(function FilterBar({ children }) {
         <button
           type="button"
           onClick={handleToggleNorthBengal}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 border ${
+          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 border ${
             filters.isNorthBengal
-              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm'
-              : 'bg-bg-tertiary/60 text-text-secondary border-border/40 hover:border-border'
+              ? 'bg-severity-none/15 text-severity-none border-severity-none/40'
+              : 'bg-bg-tertiary/60 text-text-secondary border-border/40 hover:border-border-accent'
           }`}
           title="Filter North Bengal Districts (Darjeeling, Jalpaiguri, Coochbehar, etc.)"
         >
-          <span className={`w-2 h-2 rounded-full ${filters.isNorthBengal ? 'bg-emerald-400 animate-pulse' : 'bg-text-muted/40'}`} />
+          <span className={`w-2 h-2 rounded-full ${filters.isNorthBengal ? 'bg-severity-none' : 'bg-text-muted/40'}`} />
           North Bengal
         </button>
       )}
@@ -90,9 +90,9 @@ const FilterBar = memo(function FilterBar({ children }) {
       {(filters.selectedState || filters.selectedDistrict || filters.selectedProduct || filters.searchQuery || (user?.role === 'client' && filters.isNorthBengal)) && (
         <button
           onClick={handleReset}
-          className="text-[11px] text-text-muted hover:text-text-primary underline underline-offset-2 transition-colors px-1 cursor-pointer whitespace-nowrap"
+          className="ml-auto text-[11px] font-semibold text-text-muted hover:text-text-primary px-2.5 py-1 rounded-full border border-transparent hover:border-border transition-colors cursor-pointer whitespace-nowrap"
         >
-          Clear
+          Clear filters
         </button>
       )}
     </div>

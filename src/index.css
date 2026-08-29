@@ -1,36 +1,57 @@
 @import "tailwindcss";
 
-@theme {
-  --color-bg-primary: #050505;
-  --color-bg-primary-rgb: 5, 5, 5;
-  --color-bg-secondary: #0A0A0A;
-  --color-bg-card: #0F0F0F;
-  --color-bg-card-hover: #161616;
-  --color-bg-elevated: #131313;
-  --color-bg-input: #0C0C0C;
-  --color-border: #232323;
-  --color-border-accent: #1e3a5f;
-  --color-text-primary: #F2F2F2;
-  --color-text-secondary: rgba(242, 242, 242, 0.82);
-  --color-text-muted: rgba(242, 242, 242, 0.60);
-  --color-text-dim: #4A4A4A;
-  --color-accent-blue: #3B82F6;
-  --color-accent-blue-strong: #60A5FA;
-  --color-accent-blue-soft: #1E3A5F;
-  --color-accent-cyan: #38BDF8;
-  --color-accent-sky: #38BDF8;
-  --color-accent-sky-strong: #7DD3FC;
-  --color-accent-sky-soft: #1B3A4D;
+/* ═══════════════════════════════════════════════════════════════════════════════
+   HMB PULSEBOARD — "REFINED SLATE & AZURE" THEME
+   ─────────────────────────────────────────────────────────────────────────────
+   Design language: modern executive elegance. Deep blue-slate surfaces (dark),
+   porcelain slate (light), one azure accent family, hairline borders, soft
+   neutral shadows. No glow effects anywhere — depth comes from surface layering
+   and border contrast, never from colored shadow bloom.
 
-  /* Sidebar / header strip tokens — navy in light, charcoal in dark.
-     Dark defaults live here so the generated utilities (bg-sidebar-bg,
-     text-sidebar-text, etc.) match the current dark sidebar exactly. */
-  --color-sidebar-bg: #0A0A0A;
+   Architecture:
+   • @theme      → Tailwind utility tokens (names are API: never rename)
+   • :root       → dark runtime vars (gradients, shadows, per-part tints)
+   • [data-theme="light"] → light overrides ONLY (dark stays untouched)
+   • Components  → token-driven so both themes self-adapt with minimal overrides
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* ── Core surfaces (dark defaults — light overrides below) ── */
+  --color-bg-primary: #0B0F17;
+  --color-bg-primary-rgb: 11, 15, 23;
+  --color-bg-secondary: #0E141D;
+  --color-bg-tertiary: #121927;
+  --color-bg-card: #111827;
+  --color-bg-card-hover: #172136;
+  --color-bg-elevated: #151D2C;
+  --color-bg-input: #0D131D;
+  --color-border: #212D40;
+  --color-border-accent: #31486B;
+
+  /* ── Text ramp ── */
+  --color-text-primary: #EBF1FA;
+  --color-text-secondary: #B9C5D9;
+  --color-text-muted: #8090A8;
+  --color-text-dim: #5A6A85;
+
+  /* ── Azure accent family ── */
+  --color-accent-blue: #4E8FF7;
+  --color-accent-blue-strong: #79ACFF;
+  --color-accent-blue-soft: #1C2E4D;
+  --color-accent-cyan: #55BEF0;
+  --color-accent-sky: #55BEF0;
+  --color-accent-sky-strong: #8AD4F7;
+  --color-accent-sky-soft: #17334A;
+
+  /* ── Sidebar strip — deep slate in dark, navy in light ── */
+  --color-sidebar-bg: #0C121C;
   --color-sidebar-text: #FFFFFF;
-  --color-sidebar-text-muted: #FFFFFF;
-  --color-sidebar-active-bg: rgba(59, 130, 246, 0.18);
-  --color-sidebar-active-icon: #3B82F6;
-  --color-sidebar-border: #232323;
+  --color-sidebar-text-muted: #A9B6CC;
+  --color-sidebar-active-bg: rgba(78, 143, 247, 0.14);
+  --color-sidebar-active-icon: #6FA5FF;
+  --color-sidebar-border: #1D2839;
+
+  /* ── Severity (hues are contract with trendEngine — never change) ── */
   --color-severity-critical: #ef4444;
   --color-severity-high: #f97316;
   --color-severity-medium: #eab308;
@@ -39,28 +60,33 @@
   --color-risk-high: #ef4444;
   --color-risk-medium: #f97316;
   --color-risk-low: #22c55e;
+
   --font-family-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 :root {
-  /* Gradient palette — sleek dark charcoal with ambient blue glow */
-  --gradient-page: radial-gradient(ellipse 100% 70% at 15% -5%, rgba(59, 130, 246, 0.08), transparent 55%),
-                   radial-gradient(ellipse 80% 60% at 85% 10%, rgba(59, 130, 246, 0.04), transparent 50%),
-                   linear-gradient(175deg, #050505 0%, #0A0A0A 40%, #030303 70%, #050505 100%);
+  /* ── Flat, elegant gradients — tonal shifts only, no radial bloom ── */
+  --gradient-page: linear-gradient(180deg, #0D1220 0%, #0B0F17 38%, #090D14 100%);
+  --gradient-card: linear-gradient(180deg, #121A2A 0%, #101725 100%);
+  --gradient-card-hover: linear-gradient(180deg, #152032 0%, #121A2A 100%);
+  --gradient-surface: linear-gradient(180deg, #0E141D 0%, #0C111A 100%);
+  --gradient-header: linear-gradient(135deg, #121C30 0%, #0D1626 100%);
+  --gradient-accent: linear-gradient(135deg, #4E8FF7 0%, #2563EB 100%);
+  --gradient-accent-soft: linear-gradient(135deg, rgba(78, 143, 247, 0.13) 0%, rgba(37, 99, 235, 0.04) 100%);
+  --gradient-accent-subtle: linear-gradient(90deg, rgba(78, 143, 247, 0.5) 0%, rgba(78, 143, 247, 0.1) 100%);
+  --gradient-glow: linear-gradient(180deg, rgba(78, 143, 247, 0.05) 0%, transparent 100%);
+  --gradient-sky: linear-gradient(135deg, #55BEF0 0%, #2563EB 100%);
+  --gradient-sidebar: linear-gradient(180deg, #0D1320 0%, #0B101A 100%);
 
-  --gradient-card: linear-gradient(145deg, #0F0F0F 0%, #131313 45%, #0A0A0A 100%);
-  --gradient-card-hover: linear-gradient(145deg, #161616 0%, #1A1A1A 45%, #101010 100%);
-  --gradient-surface: linear-gradient(180deg, #0A0A0A 0%, #0C0C0C 50%, #0A0A0A 100%);
-  --gradient-header: linear-gradient(135deg, rgba(15, 15, 15, 0.95) 0%, rgba(10, 10, 10, 0.90) 100%);
-  --gradient-accent: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
-  --gradient-accent-soft: linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(29, 78, 216, 0.05) 100%);
-  --gradient-accent-subtle: linear-gradient(90deg, rgba(59, 130, 246, 0.5) 0%, rgba(59, 130, 246, 0.1) 100%);
-  --gradient-glow: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12), transparent 60%);
-  --gradient-sky: linear-gradient(135deg, #38BDF8 0%, #1D4ED8 100%);
-  /* Sidebar gradient. Dark = identical to --gradient-surface (current sidebar
-     appearance). Light overridden below to navy. */
-  --gradient-sidebar: linear-gradient(180deg, #0A0A0A 0%, #0C0C0C 50%, #0A0A0A 100%);
+  /* ── Neutral shadows (never tinted — no glow) ── */
+  --shadow-card: 0 1px 2px rgba(3, 7, 14, 0.4), 0 8px 24px rgba(3, 7, 14, 0.32);
+  --shadow-card-hover: 0 2px 4px rgba(3, 7, 14, 0.4), 0 12px 32px rgba(3, 7, 14, 0.42);
+  --shadow-pill: 0 1px 3px rgba(3, 7, 14, 0.35);
+  --shadow-chart-tooltip: 0 8px 24px rgba(3, 7, 14, 0.6);
+  --card-hover-border: rgba(78, 143, 247, 0.42);
+  --ring-focus: rgba(78, 143, 247, 0.16);
 
+  /* ── Fluid type scale ── */
   --text-fluid-xs: clamp(0.65rem, 0.55rem + 0.25vw, 0.75rem);
   --text-fluid-sm: clamp(0.75rem, 0.7rem + 0.2vw, 0.875rem);
   --text-fluid-base: clamp(0.875rem, 0.8rem + 0.25vw, 1rem);
@@ -71,9 +97,7 @@
   --text-fluid-4xl: clamp(1.75rem, 1.5rem + 1vw, 2.75rem);
   --text-fluid-5xl: clamp(2rem, 1.7rem + 1.2vw, 3.5rem);
 
-  /* Dark-mode defaults for tokens that also have light overrides below.
-     These MUST live before [data-theme="light"] so the light block wins
-     the cascade (same specificity → last rule wins). */
+  /* ── Severity surfaces (dark defaults) ── */
   --color-severity-critical-bg: rgba(239, 68, 68, 0.12);
   --color-severity-critical-text: #ef4444;
   --color-severity-critical-border: rgba(239, 68, 68, 0.45);
@@ -84,78 +108,93 @@
   --color-severity-medium-text: #eab308;
   --color-severity-medium-border: rgba(234, 179, 8, 0.45);
   --color-severity-low-bg: rgba(107, 114, 128, 0.12);
-  --color-severity-low-text: #6b7280;
+  --color-severity-low-text: #8B95A6;
   --color-severity-low-border: rgba(107, 114, 128, 0.45);
   --color-severity-none-bg: rgba(34, 197, 94, 0.12);
   --color-severity-none-text: #22c55e;
   --color-severity-none-border: rgba(34, 197, 94, 0.45);
 
-  --color-map-landmass: #161616;
-  --color-map-border: #3A3A3A;
-  --color-chart-tooltip-bg: #0F0F0F;
-  --color-chart-tooltip-border: rgba(59, 130, 246, 0.25);
-  --color-chart-cursor: #000000;
-  --shadow-chart-tooltip: 0 10px 30px -10px rgba(0, 0, 0, 0.85);
+  /* ── Map + chart chrome ── */
+  --color-map-landmass: #151E30;
+  --color-map-border: #33425C;
+  --color-map-stroke: #33425C;
+  --color-chart-tooltip-bg: #131B2B;
+  --color-chart-tooltip-border: rgba(78, 143, 247, 0.28);
+  --color-chart-cursor: rgba(235, 241, 250, 0.045);
 
-  /* Map stroke — dark default */
-  --color-map-stroke: #3A3A3A;
+  /* ── AI War Room sub-card surface ── */
+  --ai-card-bg: #0E1523;
+  --ai-card-border: #1D2839;
 
-  /* AI War Room sub-card surface (dark default) */
-  --ai-card-bg: #0A0A0A;
-  --ai-card-border: #1C1C1C;
+  /* ── Key Directive summary card — deeper inset surface (dark) ── */
+  --directive-shell: #0B111D;
+  --directive-bg: linear-gradient(120deg, #0C1322 0%, #090E19 55%, #070A12 100%);
+  --directive-edge: rgba(78, 143, 247, 0.35);
+
+  /* ── Select chevron (theme-tinted) ── */
+  --select-chevron: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%236FA5FF' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   CORPORATE NAVY LIGHT — second theme.
-   Every value here is an OVERRIDE; dark defaults (above) are untouched, so
-   dark mode stays pixel-identical. Activated by <html data-theme="light">.
+   PORCELAIN SLATE LIGHT — override layer only. Dark defaults above stay put.
+   Activated by <html data-theme="light">.
    ═══════════════════════════════════════════════════════════════════════════════ */
 [data-theme="light"] {
-  /* Content surfaces — light steel-gray */
-  --color-bg-primary: #EEF1F4;
-  --color-bg-primary-rgb: 238, 241, 244;
-  --color-bg-secondary: #E4E8ED;
+  /* ── Core surfaces ── */
+  --color-bg-primary: #F2F4F8;
+  --color-bg-primary-rgb: 242, 244, 248;
+  --color-bg-secondary: #EBEEF4;
+  --color-bg-tertiary: #F5F7FB;
   --color-bg-card: #FFFFFF;
-  --color-bg-card-hover: #F7F9FB;
+  --color-bg-card-hover: #F8FAFD;
   --color-bg-elevated: #FFFFFF;
   --color-bg-input: #FFFFFF;
-  --color-border: #D3D9E0;
-  --color-border-accent: #B8CCE0;
+  --color-border: #DFE5EF;
+  --color-border-accent: #C2D1E8;
 
-  /* Text — navy & dark slate for high contrast legibility on light cards */
-  --color-text-primary: #0A192F;
-  --color-text-secondary: #1E293B;
-  --color-text-muted: #334155;
-  --color-text-dim: #475569;
+  /* ── Text ramp — deep navy-slate ── */
+  --color-text-primary: #111B2E;
+  --color-text-secondary: #38465F;
+  --color-text-muted: #62708A;
+  --color-text-dim: #8290AC;
 
-  /* Accents — rich, high-contrast darker royal blue for sharp readability in light mode */
-  --color-accent-blue: #1D4ED8;
-  --color-accent-blue-strong: #1E40AF;
-  --color-accent-blue-soft: #EBF3FC;
-  --color-accent-sky: #0369A1;
-  --color-accent-sky-strong: #075985;
-  --color-accent-cyan: #0E7490;
+  /* ── Accent — royal azure tuned for white surfaces ── */
+  --color-accent-blue: #1D5BD8;
+  --color-accent-blue-strong: #1744A6;
+  --color-accent-blue-soft: #EAF1FC;
+  --color-accent-cyan: #0778AE;
+  --color-accent-sky: #0778AE;
+  --color-accent-sky-strong: #055E8C;
+  --color-accent-sky-soft: #E3F2FB;
 
-  /* Sidebar / header strip — stays navy in light mode */
-  --color-sidebar-bg: #0B2240;
+  /* ── Sidebar stays a navy brand strip ── */
+  --color-sidebar-bg: #0F1D33;
   --color-sidebar-text: #FFFFFF;
-  --color-sidebar-text-muted: #FFFFFF;
-  --color-sidebar-active-bg: rgba(29, 78, 216, 0.22);
-  --color-sidebar-active-icon: #3B82F6;
-  --color-sidebar-border: rgba(56, 189, 248, 0.28);
+  --color-sidebar-text-muted: #A8BAD4;
+  --color-sidebar-active-bg: rgba(111, 165, 255, 0.16);
+  --color-sidebar-active-icon: #7FB3FF;
+  --color-sidebar-border: rgba(151, 180, 224, 0.20);
 
-  /* Gradients — light equivalents (dark --gradient-* untouched) */
-  --gradient-page: linear-gradient(175deg, #EEF1F4 0%, #F2F4F7 50%, #EEF1F4 100%);
-  --gradient-card: linear-gradient(145deg, #FFFFFF 0%, #FBFCFD 100%);
-  --gradient-card-hover: linear-gradient(145deg, #F7F9FB 0%, #FFFFFF 100%);
-  --gradient-header: linear-gradient(135deg, #0B2240 0%, #0E2A4D 100%);
-  --gradient-accent: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
-  --gradient-accent-soft: linear-gradient(135deg, rgba(29, 78, 216, 0.14) 0%, rgba(29, 78, 216, 0.05) 100%);
-  --gradient-glow: radial-gradient(circle at 50% 0%, rgba(29, 78, 216, 0.08), transparent 60%);
-  --gradient-sidebar: linear-gradient(180deg, #0B2240 0%, #0E2A4D 100%);
+  /* ── Gradients — porcelain, flat ── */
+  --gradient-page: linear-gradient(180deg, #F4F6FA 0%, #F1F3F8 55%, #EFF2F7 100%);
+  --gradient-card: linear-gradient(180deg, #FFFFFF 0%, #FDFEFF 100%);
+  --gradient-card-hover: linear-gradient(180deg, #F8FAFD 0%, #FFFFFF 100%);
+  --gradient-surface: linear-gradient(180deg, #EBEEF4 0%, #E9EDF3 100%);
+  --gradient-header: linear-gradient(135deg, #0F1D33 0%, #13274A 100%);
+  --gradient-accent: linear-gradient(135deg, #2E6BE6 0%, #1D4FC4 100%);
+  --gradient-accent-soft: linear-gradient(135deg, rgba(29, 91, 216, 0.10) 0%, rgba(29, 91, 216, 0.03) 100%);
+  --gradient-glow: linear-gradient(180deg, rgba(29, 91, 216, 0.04) 0%, transparent 100%);
+  --gradient-sidebar: linear-gradient(180deg, #10213B 0%, #0D1A2F 100%);
 
-  /* Severity badge surfaces — pale tinted bg + dark-toned text on white cards.
-     Hues stay the same (red/orange/amber/gray/green). */
+  /* ── Neutral shadows ── */
+  --shadow-card: 0 1px 2px rgba(17, 27, 46, 0.04), 0 4px 16px rgba(17, 27, 46, 0.05);
+  --shadow-card-hover: 0 2px 6px rgba(17, 27, 46, 0.06), 0 10px 28px rgba(17, 27, 46, 0.09);
+  --shadow-pill: 0 1px 2px rgba(17, 27, 46, 0.10);
+  --shadow-chart-tooltip: 0 8px 24px rgba(17, 27, 46, 0.12);
+  --card-hover-border: rgba(29, 91, 216, 0.38);
+  --ring-focus: rgba(29, 91, 216, 0.14);
+
+  /* ── Severity surfaces — pale tints + darkened text for white cards ── */
   --color-severity-critical-bg: #FCEBEB;
   --color-severity-critical-text: #791F1F;
   --color-severity-critical-border: rgba(121, 31, 31, 0.25);
@@ -172,116 +211,468 @@
   --color-severity-none-text: #256029;
   --color-severity-none-border: rgba(37, 96, 41, 0.25);
 
-  /* Map base landmass fill + tooltip — light variants */
+  /* ── Map + chart chrome ── */
   --color-map-landmass: #DCE2E8;
-  --color-map-border: #475569;
+  --color-map-border: #64748B;
+  --color-map-stroke: #7488A6;
   --color-chart-tooltip-bg: #FFFFFF;
-  --color-chart-tooltip-border: rgba(78, 155, 224, 0.35);
-  --color-chart-cursor: rgba(11, 34, 64, 0.06);
-  --shadow-chart-tooltip: 0 10px 30px -10px rgba(11, 34, 64, 0.25);
+  --color-chart-tooltip-border: rgba(29, 91, 216, 0.28);
+  --color-chart-cursor: rgba(17, 27, 46, 0.05);
 
-  /* Map stroke — light variant */
-  --color-map-stroke: #475569;
-
-  /* AI War Room sub-card surface — light */
+  /* ── AI War Room sub-card surface ── */
   --ai-card-bg: #FFFFFF;
-  --ai-card-border: #D3D9E0;
+  --ai-card-border: #E2E8F2;
+
+  /* ── Key Directive summary card — deeper steel surface (light) ── */
+  --directive-shell: #F2F5FA;
+  --directive-bg: linear-gradient(120deg, #E2EAF5 0%, #E9EFF8 60%, #EEF3FA 100%);
+  --directive-edge: rgba(29, 91, 216, 0.40);
+
+  --select-chevron: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%231D5BD8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   BASE LAYER
+   ═══════════════════════════════════════════════════════════════════════════════ */
+@layer base {
+  body {
+    @apply bg-bg-primary text-text-primary font-sans antialiased;
+    margin: 0;
+    min-height: 100vh;
+    background: var(--gradient-page);
+    contain: layout style;
+  }
 
-/* Light-mode component tweaks — scoped so dark rules are never edited. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: var(--gradient-page);
+    pointer-events: none;
+  }
 
-/* Executive Segmented Control / Toggle Pill Styling */
-.metric-toggle-container {
-  background: transparent !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 9999px !important;
-  box-shadow: none !important;
-}
+  /* Keyboard users get a crisp ring; mouse users see none of it */
+  *:focus {
+    outline: none !important;
+  }
+  *:focus-visible {
+    outline: 2px solid var(--color-accent-blue) !important;
+    outline-offset: 2px;
+  }
 
-.toggle-pill-active {
-  background: rgba(59, 130, 246, 0.15) !important;
-  color: #60A5FA !important;
-  border: 1px solid rgba(59, 130, 246, 0.60) !important;
-  border-radius: 9999px !important;
-  box-shadow: none !important;
-  font-weight: 700 !important;
-}
-[data-theme="light"] .toggle-pill-active {
-  background: rgba(37, 99, 235, 0.10) !important;
-  color: #1D4ED8 !important;
-  border: 1px solid #2563EB !important;
-  border-radius: 9999px !important;
-  box-shadow: none !important;
-  font-weight: 700 !important;
-}
-.toggle-pill-inactive {
-  background: transparent !important;
-  color: rgba(242, 242, 242, 0.60) !important;
-  border: 1px solid transparent !important;
-  border-radius: 9999px !important;
-  box-shadow: none !important;
-}
-.toggle-pill-inactive:hover {
-  color: #FFFFFF !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-}
-[data-theme="light"] .toggle-pill-inactive {
-  color: #64748B !important;
-}
-[data-theme="light"] .toggle-pill-inactive:hover {
-  color: #0F172A !important;
-  background: rgba(15, 23, 42, 0.05) !important;
-}
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-dim);
+  }
 
-/* Refined Filter Dropdowns for Light Theme */
-[data-theme="light"] select, 
-[data-theme="light"] .filter-select {
-  background-color: #FFFFFF !important;
-  border-color: #CBD5E1 !important;
-  color: #0A192F !important;
-  font-weight: 600 !important;
-  box-shadow: 0 1px 3px rgba(11, 34, 64, 0.06) !important;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%231D6FB8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") !important;
+  html { font-variant-numeric: tabular-nums; }
 }
 
-[data-theme="light"] select:hover,
-[data-theme="light"] .filter-select:hover {
-  border-color: #4E9BE0 !important;
-  box-shadow: 0 2px 6px rgba(78, 155, 224, 0.15) !important;
+/* ═══════════════════════════════════════════════════════════════════════════════
+   COMPONENT LAYER
+   ═══════════════════════════════════════════════════════════════════════════════ */
+@layer components {
+  /* ── Cards — layered slate surfaces, hairline borders, neutral shadow ── */
+  .glass-card {
+    @apply border rounded-2xl;
+    border-color: var(--color-border);
+    background: var(--gradient-card);
+    box-shadow: var(--shadow-card);
+    contain: content;
+  }
+
+  .glass-card-hover {
+    @apply border rounded-2xl;
+    border-color: var(--color-border);
+    background: var(--gradient-card);
+    box-shadow: var(--shadow-card);
+    transition-property: transform, border-color, box-shadow, background;
+    transition-duration: 200ms;
+    transition-timing-function: ease-out;
+    contain: content;
+  }
+  @media (hover: hover) {
+    .glass-card-hover:hover {
+      background: var(--gradient-card-hover);
+      border-color: var(--card-hover-border);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-card-hover);
+    }
+  }
+
+  .gradient-border {
+    position: relative;
+    background: var(--gradient-card);
+  }
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--gradient-accent);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0.35;
+  }
+
+  .gradient-text {
+    @apply font-bold;
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Hairline top edge — a crisp 1px accent rule, not a bloom */
+  .gradient-glow-top {
+    position: relative;
+    overflow: hidden;
+  }
+  .gradient-glow-top::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--card-hover-border), transparent);
+    pointer-events: none;
+  }
+
+  .collapsible-header {
+    background: var(--color-bg-secondary);
+  }
+  @media (hover: hover) {
+    .collapsible-header:hover {
+      background: var(--color-bg-tertiary);
+    }
+  }
+
+  /* ── Inner panels (Geo Intelligence) — token-driven, self-adapting ── */
+  .panel {
+    background: var(--gradient-card);
+    border: 1px solid var(--color-border);
+  }
+  .panel-inset {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+  }
+
+  /* ── Typography helpers ── */
+  .section-header {
+    @apply text-xs font-bold text-text-muted uppercase tracking-wider mb-4 pb-2 border-b border-border;
+  }
+
+  .kpi-value {
+    @apply font-extrabold text-text-primary leading-none;
+    font-size: var(--text-fluid-3xl);
+  }
+
+  .card-title {
+    @apply font-bold text-text-primary tracking-wide;
+    font-size: var(--text-fluid-lg);
+  }
+
+  .stat-label {
+    @apply font-bold text-text-muted uppercase tracking-wider;
+    font-size: var(--text-fluid-xs);
+  }
+
+  /* ── Badges — tinted fills, 1px borders, no shadow bloom ── */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold tracking-wide;
+  }
+
+  .badge-critical {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold tracking-wide;
+    color: var(--color-severity-critical-text);
+    background: var(--color-severity-critical-bg);
+    border: 1px solid var(--color-severity-critical-border);
+  }
+  .badge-immediate {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold tracking-wide;
+    color: var(--color-severity-critical-text);
+    background: var(--color-severity-critical-bg);
+    border: 1px solid var(--color-severity-critical-border);
+  }
+  .badge-high {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold tracking-wide;
+    color: var(--color-severity-high-text);
+    background: var(--color-severity-high-bg);
+    border: 1px solid var(--color-severity-high-border);
+  }
+  .badge-medium {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold tracking-wide;
+    color: var(--color-severity-medium-text);
+    background: var(--color-severity-medium-bg);
+    border: 1px solid var(--color-severity-medium-border);
+  }
+  .badge-low {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold tracking-wide;
+    color: var(--color-severity-low-text);
+    background: var(--color-severity-low-bg);
+    border: 1px solid var(--color-severity-low-border);
+  }
+  .badge-none {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold tracking-wide;
+    color: var(--color-severity-none-text);
+    background: var(--color-severity-none-bg);
+    border: 1px solid var(--color-severity-none-border);
+  }
+
+  /* Dark theme severity text ramp (kept explicit for badge classes above) */
+  [data-theme="dark"] {
+    --color-severity-critical: #ef4444;
+    --color-severity-critical-text: #ef4444;
+    --color-severity-critical-bg: rgba(239, 68, 68, 0.12);
+    --color-severity-critical-border: rgba(239, 68, 68, 0.45);
+  }
+
+  /* ── Sidebar navigation — refined pill + inset indicator bar ── */
+  .sidebar-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    margin: 2px 8px;
+    border-radius: 10px;
+    font-size: 1.02rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    transition: color 150ms ease, background-color 150ms ease;
+    color: var(--color-sidebar-text-muted) !important;
+  }
+  .sidebar-link:hover {
+    color: #FFFFFF !important;
+    background: rgba(235, 241, 250, 0.07);
+  }
+  .sidebar-link.active {
+    color: #FFFFFF !important;
+    font-weight: 600;
+    background: var(--color-sidebar-active-bg);
+  }
+  .sidebar-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 22%;
+    bottom: 22%;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--color-sidebar-active-icon);
+  }
+  .sidebar-link.active svg {
+    color: var(--color-sidebar-active-icon);
+  }
+
+  /* ── Selects — clean fields with theme-tinted chevron ── */
+  select, .filter-select {
+    @apply border rounded-xl px-4 py-2 text-[13px] text-text-primary cursor-pointer;
+    border-color: var(--color-border) !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-color: var(--color-bg-input) !important;
+    color: var(--color-text-primary) !important;
+    background-image: var(--select-chevron) !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 13px !important;
+    padding-right: 32px !important;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  select:hover, .filter-select:hover {
+    border-color: var(--color-border-accent) !important;
+  }
+  select:focus, .filter-select:focus {
+    border-color: var(--color-accent-blue) !important;
+    box-shadow: 0 0 0 3px var(--ring-focus) !important;
+    outline: none !important;
+  }
+  select option, .filter-select option {
+    background-color: var(--color-bg-elevated) !important;
+    color: var(--color-text-primary) !important;
+  }
+
+  /* ── Search inputs ── */
+  .search-input {
+    @apply bg-bg-input border border-border rounded-xl pl-10 pr-4 py-2.5 text-[15px] text-text-primary placeholder-text-muted focus:outline-none transition-all w-full;
+    background: var(--color-bg-input);
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  }
+  .search-input:hover {
+    border-color: var(--color-border-accent);
+  }
+  .search-input:focus {
+    border-color: var(--color-accent-blue);
+    box-shadow: 0 0 0 3px var(--ring-focus);
+  }
+
+  /* ── Segmented control (metric toggle) — track + raised active pill ── */
+  .metric-toggle-container {
+    background: var(--color-bg-tertiary) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 9999px !important;
+    box-shadow: none !important;
+  }
+
+  .toggle-pill-active {
+    background: var(--color-bg-card) !important;
+    color: var(--color-accent-blue) !important;
+    border: 1px solid var(--color-border-accent) !important;
+    border-radius: 9999px !important;
+    box-shadow: var(--shadow-pill) !important;
+    font-weight: 700 !important;
+  }
+  .toggle-pill-inactive {
+    background: transparent !important;
+    color: var(--color-text-muted) !important;
+    border: 1px solid transparent !important;
+    border-radius: 9999px !important;
+    box-shadow: none !important;
+  }
+  .toggle-pill-inactive:hover {
+    color: var(--color-text-primary) !important;
+    background: var(--color-bg-tertiary) !important;
+  }
+
+  /* ── Chart tooltip — crisp surface card ── */
+  .chart-tooltip {
+    background: var(--color-chart-tooltip-bg);
+    border: 1px solid var(--color-chart-tooltip-border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-chart-tooltip);
+    transition: opacity 0.15s ease;
+    will-change: transform, opacity;
+  }
+  .map-tooltip-container {
+    will-change: transform, opacity;
+  }
+
+  /* ── Action pills ── */
+  .btn-action-pill {
+    color: var(--color-accent-blue);
+    background-color: var(--color-accent-blue-soft);
+    border: 1px solid var(--color-border-accent);
+  }
+  .btn-action-pill:hover {
+    color: var(--color-accent-blue-strong);
+    background-color: var(--color-bg-card-hover);
+    border-color: var(--color-accent-blue);
+  }
+
+  .btn-pill-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    background-color: var(--color-accent-blue-soft);
+    color: var(--color-accent-blue);
+    border: 1px solid var(--color-border-accent);
+  }
+  .btn-pill-action:hover {
+    background-color: var(--color-bg-card-hover);
+    border-color: var(--color-accent-blue);
+    color: var(--color-accent-blue-strong);
+  }
+
+  /* ── Semantic tint badges (theme-adaptive) ── */
+  .badge-theme-blue {
+    background-color: rgba(78, 143, 247, 0.14);
+    color: #6FA5FF;
+    border: 1px solid rgba(78, 143, 247, 0.32);
+  }
+  [data-theme="light"] .badge-theme-blue {
+    background-color: #EAF1FC !important;
+    color: #1D5BD8 !important;
+    border-color: #C6DAF7 !important;
+  }
+
+  .badge-theme-green {
+    background-color: rgba(34, 197, 94, 0.13);
+    color: #34D399;
+    border: 1px solid rgba(34, 197, 94, 0.32);
+  }
+  [data-theme="light"] .badge-theme-green {
+    background-color: #E9F9EF !important;
+    color: #15803D !important;
+    border-color: #BBF0CE !important;
+  }
+
+  .badge-theme-red {
+    background-color: rgba(239, 68, 68, 0.13);
+    color: #F87171;
+    border: 1px solid rgba(239, 68, 68, 0.32);
+  }
+  [data-theme="light"] .badge-theme-red {
+    background-color: #FEF2F2 !important;
+    color: #B91C1C !important;
+    border-color: #FBD5D5 !important;
+  }
+
+  .badge-theme-amber {
+    background-color: rgba(234, 179, 8, 0.13);
+    color: #FACC15;
+    border: 1px solid rgba(234, 179, 8, 0.32);
+  }
+  [data-theme="light"] .badge-theme-amber {
+    background-color: #FFFBEA !important;
+    color: #A16207 !important;
+    border-color: #FBE8A0 !important;
+  }
+
+  .badge-theme-purple {
+    background-color: rgba(168, 85, 247, 0.13);
+    color: #C08BFC;
+    border: 1px solid rgba(168, 85, 247, 0.32);
+  }
+  [data-theme="light"] .badge-theme-purple {
+    background-color: #F9F3FF !important;
+    color: #7E22CE !important;
+    border-color: #E7D6FB !important;
+  }
+
+  .badge-theme-cyan {
+    background-color: rgba(6, 182, 212, 0.13);
+    color: #38CDE8;
+    border: 1px solid rgba(6, 182, 212, 0.32);
+  }
+  [data-theme="light"] .badge-theme-cyan {
+    background-color: #EBFAFE !important;
+    color: #0E7490 !important;
+    border-color: #B3EDF8 !important;
+  }
 }
 
-[data-theme="light"] select:focus,
-[data-theme="light"] .filter-select:focus {
-  border-color: #1D6FB8 !important;
-  box-shadow: 0 0 0 3px rgba(29, 111, 184, 0.18) !important;
-}
+/* ═══════════════════════════════════════════════════════════════════════════════
+   LIGHT-MODE OVERRIDES THAT MUST REMAIN EXPLICIT
+   (elements whose inline styles come from business logic)
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
-[data-theme="light"] .metric-toggle-container {
-  background: transparent !important;
-  border: 1px solid #CBD5E1 !important;
-  box-shadow: none !important;
-}
-
-/* Sidebar links read as pure white text on the navy strip in both themes */
-[data-theme="light"] .sidebar-link {
-  color: #FFFFFF !important;
-}
-[data-theme="light"] .sidebar-link:hover {
-  color: #FFFFFF !important;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.12), transparent);
-}
-
-/* Active nav: navy strip + sky-blue accent in light */
-[data-theme="light"] .sidebar-link.active {
-  background: linear-gradient(90deg, var(--color-sidebar-active-bg) 0%, transparent 100%);
-  box-shadow: inset 3.5px 0 0 var(--color-sidebar-active-icon);
-  color: #FFFFFF !important;
-}
-
-/* Severity badge overrides in light — pale bg + dark-toned text.
-   Badges carry a data-severity attribute (bucketed by current hue) so these
-   rules target them regardless of inline styles. !important overrides inline. */
+/* Severity badges carry data-severity (bucketed by hue) — CSS beats inline
+   styles so light mode stays readable. Dark mode keeps the inline values. */
 [data-theme="light"] [data-severity="critical"] {
   background: var(--color-severity-critical-bg) !important;
   color: var(--color-severity-critical-text) !important;
@@ -308,425 +699,42 @@
   border-color: var(--color-severity-none-border) !important;
 }
 
-/* Universal High-Contrast Theme Badges & Pills */
-.badge-theme-blue {
-  background-color: rgba(59, 130, 246, 0.14);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.35);
-}
-[data-theme="light"] .badge-theme-blue {
-  background-color: #EBF3FC !important;
-  color: #1D4ED8 !important;
-  border-color: #BFDBFE !important;
-}
-
-.badge-theme-green {
-  background-color: rgba(34, 197, 94, 0.14);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.35);
-}
-[data-theme="light"] .badge-theme-green {
-  background-color: #EDFDF2 !important;
-  color: #15803D !important;
-  border-color: #BBF7D0 !important;
-}
-
-.badge-theme-red {
-  background-color: rgba(239, 68, 68, 0.14);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.35);
-}
-[data-theme="light"] .badge-theme-red {
-  background-color: #FEF2F2 !important;
-  color: #B91C1C !important;
-  border-color: #FECACA !important;
-}
-
-.badge-theme-amber {
-  background-color: rgba(245, 158, 11, 0.14);
-  color: #f59e0b;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-}
-[data-theme="light"] .badge-theme-amber {
-  background-color: #FFFBEB !important;
-  color: #B45309 !important;
-  border-color: #FDE68A !important;
-}
-
-.badge-theme-purple {
-  background-color: rgba(168, 85, 247, 0.14);
-  color: #a855f7;
-  border: 1px solid rgba(168, 85, 247, 0.35);
-}
-[data-theme="light"] .badge-theme-purple {
-  background-color: #FAF5FF !important;
-  color: #7E22CE !important;
-  border-color: #E9D5FF !important;
-}
-
-.badge-theme-cyan {
-  background-color: rgba(6, 182, 212, 0.14);
-  color: #06b6d4;
-  border: 1px solid rgba(6, 182, 212, 0.35);
-}
-[data-theme="light"] .badge-theme-cyan {
-  background-color: #ECFEFF !important;
-  color: #0E7490 !important;
-  border-color: #A5F3FC !important;
-}
-
-/* Geo map — light surfaces + light landmass. .panel dark rule untouched.
-   CSS fill !important overrides the SVG presentation attribute while
-   D3's sel.attr('fill') still returns the no-data hex, so map logic is
-   not affected. */
-[data-theme="light"] .panel {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 249, 251, 0.92) 100%);
-  border-color: rgba(211, 217, 224, 0.7);
-}
-[data-theme="light"] .panel-inset {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 249, 251, 0.94) 100%);
-  border-color: rgba(211, 217, 224, 0.55);
-}
-[data-theme="light"] path.map-path[fill="#1e2535"] {
-  fill: var(--color-map-landmass) !important;
-}
-[data-theme="light"] .glass-card {
-  box-shadow: 0 2px 12px rgba(11, 34, 64, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-}
-
-/* Action navigation pills (e.g., View District Breakdown, View All Dealers) */
-.btn-action-pill {
-  color: #60A5FA;
-  background-color: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.35);
-}
-.btn-action-pill:hover {
-  background-color: rgba(59, 130, 246, 0.22);
-  border-color: rgba(59, 130, 246, 0.55);
-}
-
-[data-theme="light"] .btn-action-pill {
-  color: #1D4ED8 !important;
-  background-color: #EBF3FC !important;
-  border-color: #BFDBFE !important;
-  font-weight: 700 !important;
-}
-
-[data-theme="light"] .btn-action-pill:hover {
-  color: #1E40AF !important;
-  background-color: #DBEAFE !important;
-  border-color: #93C5FD !important;
-}
-
-/* Dedicated Pill-Shaped Action Button (View AI Insights, Lead Times, View All Actions, Dealer Intelligence) */
-.btn-pill-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.35rem 0.85rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 800;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.18s ease-in-out;
-  background-color: rgba(59, 130, 246, 0.14);
-  color: #60A5FA;
-  border: 1px solid rgba(59, 130, 246, 0.35);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.btn-pill-action:hover {
-  background-color: rgba(59, 130, 246, 0.25);
-  border-color: rgba(59, 130, 246, 0.55);
-  color: #93C5FD;
-  transform: translateY(-0.5px);
-}
-
-[data-theme="light"] .btn-pill-action {
-  background-color: #EBF3FC !important;
-  color: #1D4ED8 !important;
-  border-color: #BFDBFE !important;
-  font-weight: 800 !important;
-}
-
-[data-theme="light"] .btn-pill-action:hover {
-  background-color: #DBEAFE !important;
-  color: #1E40AF !important;
-  border-color: #93C5FD !important;
-}
-
-/* ── Light overrides for shared component classes (dark rules untouched,
-   so dark mode stays pixel-identical). These only activate in light mode. ── */
-
-/* Skeleton shimmer — light tint instead of dark */
-[data-theme="light"] .skeleton {
-  background: linear-gradient(90deg, rgba(11, 34, 64, 0.05) 25%, rgba(11, 34, 64, 0.11) 50%, rgba(11, 34, 64, 0.05) 75%);
-}
-
-/* Geo map landmass strokes — slate grey borders across all themes */
-path.map-path,
-[data-theme="light"] path.map-path {
-  stroke: #475569 !important;
-}
+/* Geo map — light landmass fill. CSS fill !important overrides the SVG
+   presentation attribute while D3's sel.attr('fill') still returns the
+   no-data hex, so map logic is unaffected. */
 [data-theme="light"] path.map-path[fill="#1e2535"],
 [data-theme="light"] path.map-path[fill="rgb(30, 37, 53)"] {
   fill: var(--color-map-landmass) !important;
 }
-
-@layer base {
-  body {
-    @apply bg-bg-primary text-text-primary font-sans antialiased;
-    margin: 0;
-    min-height: 100vh;
-    background: var(--gradient-page);
-    contain: layout style;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background: var(--gradient-page);
-    pointer-events: none;
-  }
-
-  *:focus,
-  *:focus-visible,
-  *:active {
-    outline: none !important;
-  }
-
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: var(--color-bg-secondary);
-  }
-  ::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-text-muted);
-  }
-
-  html { font-variant-numeric: tabular-nums; }
+path.map-path {
+  stroke: var(--color-map-stroke) !important;
 }
 
-@layer components {
-  .glass-card {
-    @apply border border-border/80 rounded-2xl;
-    background: var(--gradient-card);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    contain: content;
-  }
-
-  .glass-card-hover {
-    @apply border border-border/80 rounded-2xl transition-transform duration-200;
-    transition-property: transform, border-color, box-shadow, background;
-    transition-duration: 200ms;
-    transition-timing-function: ease-out;
-    background: var(--gradient-card);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    contain: content;
-  }
-  @media (hover: hover) {
-    .glass-card-hover:hover {
-      background: var(--gradient-card-hover);
-      border-color: rgba(59, 130, 246, 0.35);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 32px rgba(59, 130, 246, 0.12), 0 2px 8px rgba(0, 0, 0, 0.5);
-    }
-  }
-
-  .gradient-border {
-    position: relative;
-    background: var(--gradient-card);
-  }
-  .gradient-border::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: var(--gradient-accent);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    opacity: 0.4;
-  }
-
-  .gradient-text {
-    @apply font-bold;
-    background: var(--gradient-accent);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .gradient-glow-top {
-    position: relative;
-    overflow: hidden;
-  }
-  .gradient-glow-top::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.4), rgba(59, 130, 246, 0.2), transparent);
-    pointer-events: none;
-  }
-
-  .collapsible-header {
-    background: var(--color-bg-secondary);
-  }
-  @media (hover: hover) {
-    .collapsible-header:hover {
-      background: var(--color-bg-card-hover);
-    }
-  }
-
-  /* Inner content panel — gradient surface for depth on top of the page gradient */
-  .panel {
-    background: linear-gradient(160deg, rgba(15, 15, 15, 0.94) 0%, rgba(8, 8, 8, 0.90) 100%);
-    border: 1px solid rgba(35, 35, 35, 0.7);
-  }
-  .panel-inset {
-    background: linear-gradient(180deg, rgba(10, 10, 10, 0.96) 0%, rgba(6, 6, 6, 0.92) 100%);
-    border: 1px solid rgba(35, 35, 35, 0.55);
-  }
-
-  .section-header {
-    @apply text-xs font-bold text-text-muted uppercase tracking-wider mb-4 pb-2 border-b border-border;
-  }
-
-  .kpi-value {
-    @apply font-extrabold text-text-primary leading-none;
-    font-size: var(--text-fluid-3xl);
-  }
-
-  .card-title {
-    @apply font-bold text-text-primary tracking-wide;
-    font-size: var(--text-fluid-lg);
-  }
-
-  .stat-label {
-    @apply font-bold text-text-muted uppercase tracking-wider;
-    font-size: var(--text-fluid-xs);
-  }
-
-  .badge {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold tracking-wide;
-  }
-
-  .badge-critical {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-critical tracking-wide;
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.14), rgba(239, 68, 68, 0.06));
-    border: 1px solid rgba(239, 68, 68, 0.35);
-  }
-  .badge-immediate {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-critical tracking-wide;
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.08));
-    border: 1px solid rgba(239, 68, 68, 0.45);
-  }
-  .badge-high {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-high tracking-wide;
-    background: linear-gradient(135deg, rgba(249, 115, 22, 0.16), rgba(249, 115, 22, 0.08));
-    border: 1px solid rgba(249, 115, 22, 0.35);
-  }
-  .badge-medium {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-medium tracking-wide;
-    background: linear-gradient(135deg, rgba(234, 179, 8, 0.16), rgba(234, 179, 8, 0.08));
-    border: 1px solid rgba(234, 179, 8, 0.35);
-  }
-  .badge-low {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-low tracking-wide;
-    background: linear-gradient(135deg, rgba(107, 114, 128, 0.16), rgba(107, 114, 128, 0.08));
-    border: 1px solid rgba(107, 114, 128, 0.35);
-  }
-  .badge-none {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-severity-none tracking-wide;
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.16), rgba(34, 197, 94, 0.08));
-    border: 1px solid rgba(34, 197, 94, 0.35);
-  }
-
-  /* Dark theme: critical red font + badge surface tokens. */
-  [data-theme="dark"] {
-    --color-severity-critical: #ef4444;
-    --color-severity-critical-text: #ef4444;
-    --color-severity-critical-bg: rgba(239, 68, 68, 0.12);
-    --color-severity-critical-border: rgba(239, 68, 68, 0.45);
-  }
-
-  .sidebar-link {
-    @apply flex items-center gap-3 px-5 py-3 rounded-lg text-[15px] font-medium whitespace-nowrap transition-colors duration-150;
-    color: #FFFFFF !important;
-  }
-  .sidebar-link:hover {
-    color: #FFFFFF !important;
-    background: linear-gradient(90deg, rgba(255, 255, 255, 0.12), transparent);
-  }
-  .sidebar-link.active {
-    color: #FFFFFF !important;
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.20) 0%, rgba(59, 130, 246, 0.05) 60%, transparent 100%);
-    box-shadow: inset 3.5px 0 0 var(--color-accent-blue);
-  }
-
-  /* Modern styling for all select dropdowns to match the theme and resolve native browser glitches */
-  select, .filter-select {
-    @apply border rounded-xl px-4 py-2 text-[13px] text-text-primary focus:outline-none transition-all cursor-pointer;
-    border-color: var(--color-border) !important;
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    background-color: var(--color-bg-input) !important;
-    color: var(--color-text-primary) !important;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233B82F6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") !important;
-    background-repeat: no-repeat !important;
-    background-position: right 12px center !important;
-    background-size: 13px !important;
-    padding-right: 32px !important;
-  }
-  select:focus, .filter-select:focus {
-    border-color: rgba(59, 130, 246, 0.5) !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
-  }
-  select option, .filter-select option {
-    background-color: var(--color-bg-input) !important;
-    color: var(--color-text-primary) !important;
-  }
-
-  .search-input {
-    @apply bg-bg-input border border-border/80 rounded-xl pl-10 pr-4 py-2.5 text-[15px] text-text-primary placeholder-text-muted focus:outline-none transition-all w-full;
-    background: var(--color-bg-input);
-  }
-  .search-input:focus {
-    border-color: rgba(59, 130, 246, 0.7);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-  }
-
-  .chart-tooltip {
-    background: var(--color-chart-tooltip-bg);
-    border: 1px solid var(--color-chart-tooltip-border);
-    border-radius: 12px;
-    box-shadow: var(--shadow-chart-tooltip);
-    transition: opacity 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
-    will-change: transform, opacity;
-  }
-  .chart-tooltip:hover {
-    filter: brightness(1.08);
-  }
-  .map-tooltip-container {
-    will-change: transform, opacity;
-  }
+/* Skeleton shimmer — tinted per theme */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-bg-secondary) 25%, var(--color-bg-tertiary) 50%, var(--color-bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.5rem;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   TABLE ROW SEPARATORS — crisp hairlines
+   ───────────────────────────────────────────────────────────── */
+.table-row-separator td,
+.table-cell-separator {
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+tbody tr:last-child td,
+.table-row-separator:last-child td,
+.table-row-separator:last-child .table-cell-separator {
+  border-bottom: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   UTILITIES — keyframe animations
+   ═══════════════════════════════════════════════════════════════════════════════ */
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out both;
@@ -741,35 +749,6 @@ path.map-path,
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
   }
-
-  /* ── Light theme overrides ──────────────────────────────────────────
-     Most base rules now use CSS variables that self-resolve per theme,
-     so only edge-case overrides remain here. Dark mode untouched. */
-}
-
-/* ─────────────────────────────────────────────────────────────
-   TABLE ROW SEPARATORS — Crisp, persistent non-disappearing borders
-   ───────────────────────────────────────────────────────────── */
-.table-row-separator td,
-.table-cell-separator {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-}
-
-tbody tr:last-child td,
-.table-row-separator:last-child td,
-.table-row-separator:last-child .table-cell-separator {
-  border-bottom: none !important;
-}
-
-[data-theme="light"] .table-row-separator td,
-[data-theme="light"] .table-cell-separator {
-  border-bottom: 1px solid #D3D9E0 !important;
-}
-
-[data-theme="light"] tbody tr:last-child td,
-[data-theme="light"] .table-row-separator:last-child td,
-[data-theme="light"] .table-row-separator:last-child .table-cell-separator {
-  border-bottom: none !important;
 }
 
 @keyframes fadeIn {
@@ -790,7 +769,7 @@ tbody tr:last-child td,
 }
 
 /* ─────────────────────────────────────────────────────────────
-   ENTERPRISE RESPONSIVE ENHANCEMENTS
+   ENTERPRISE RESPONSIVE + A11Y
    ───────────────────────────────────────────────────────────── */
 
 body {
@@ -824,18 +803,11 @@ body {
   ::-webkit-scrollbar { width: 0px; height: 0px; }
 }
 
-.skeleton {
-  background: linear-gradient(90deg, var(--color-bg-secondary) 25%, var(--color-bg-card-hover) 50%, var(--color-bg-secondary) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 0.5rem;
-}
-
 @media (max-width: 767px) {
   .glass-card { border-radius: 0.75rem; }
-  .glass-card-hover:hover { transform: none; box-shadow: none; }
+  .glass-card-hover:hover { transform: none; box-shadow: var(--shadow-card); }
   .kpi-value { font-size: var(--text-fluid-xl); }
-  .section-header { font-size: 9px; }
+  .section-header { font-size: 10px; }
   .filter-select { width: 100%; font-size: 14px; }
   .search-input { font-size: 16px; }
 }
@@ -847,19 +819,8 @@ body {
 }
 
 /* ── Map rendering / pan-zoom performance layer ──────────────────────────────
-   The Geo Intelligence map needs three guarantees for 60fps panning:
-
-   1. `map-svg` enables `shape-rendering: geometricPrecision` for sharp polygon
-      edges and `touch-action: none` so the browser doesn't fight our gestures
-      (pinch-zoom on trackpads, two-finger pan on touchscreens).
-   2. `map-transform-layer` is the `<g>` that receives pan/zoom. We use
-      `translate3d(...)` + `scale(...)` via CSS so the browser composites the
-      whole layer on the GPU instead of re-rasterising every frame. `will-change`
-      keeps the layer promoted; `backface-visibility: hidden` + `translateZ(0)`
-      keeps the layer on its own compositor tile on Chromium/Safari/Firefox.
-   3. `map-paths` opt every polygon path into the non-scaling-stroke pipeline
-      AND crisp-edge shape rendering, so 1px borders stay exactly 1px at any
-      zoom level instead of stretching into blurry thick lines.
+   Guarantees 60fps panning: composite the transform layer on the GPU, keep
+   strokes non-scaling and crisp at every zoom level.
    ──────────────────────────────────────────────────────────────────────── */
 .map-svg {
   shape-rendering: geometricPrecision;
@@ -878,179 +839,151 @@ body {
   shape-rendering: geometricPrecision;
 }
 
-/* ── Alert Intelligence KPI Pills (Dark & Light theme aware) ─────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ALERT INTELLIGENCE — KPI filter pills (token-driven, no glow shadows)
+   ═══════════════════════════════════════════════════════════════════════════════ */
 .kpi-pill-critical {
-  background-color: rgba(239, 68, 68, 0.10);
+  background-color: rgba(239, 68, 68, 0.09);
   border-color: rgba(239, 68, 68, 0.30);
-  color: #f87171;
+  color: #F08E8E;
 }
 .kpi-pill-critical:hover {
-  background-color: rgba(239, 68, 68, 0.18);
+  background-color: rgba(239, 68, 68, 0.16);
 }
 .kpi-pill-critical-active {
-  background-color: rgba(239, 68, 68, 0.25);
-  border-color: rgba(239, 68, 68, 0.80);
-  color: #fca5a5;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+  background-color: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.70);
+  color: #FCA5A5;
 }
 .kpi-count-critical {
-  background-color: rgba(239, 68, 68, 0.20);
-  color: #fca5a5;
+  background-color: rgba(239, 68, 68, 0.18);
+  color: #FCA5A5;
 }
 
 .kpi-pill-high {
-  background-color: rgba(249, 115, 22, 0.10);
+  background-color: rgba(249, 115, 22, 0.09);
   border-color: rgba(249, 115, 22, 0.30);
-  color: #fb923c;
+  color: #FBA05C;
 }
 .kpi-pill-high:hover {
-  background-color: rgba(249, 115, 22, 0.18);
+  background-color: rgba(249, 115, 22, 0.16);
 }
 .kpi-pill-high-active {
-  background-color: rgba(249, 115, 22, 0.25);
-  border-color: rgba(249, 115, 22, 0.80);
-  color: #fdba74;
-  box-shadow: 0 0 12px rgba(249, 115, 22, 0.25);
+  background-color: rgba(249, 115, 22, 0.18);
+  border-color: rgba(249, 115, 22, 0.70);
+  color: #FDBA74;
 }
 .kpi-count-high {
-  background-color: rgba(249, 115, 22, 0.20);
-  color: #fdba74;
+  background-color: rgba(249, 115, 22, 0.18);
+  color: #FDBA74;
 }
 
 .kpi-pill-medium {
-  background-color: rgba(234, 179, 8, 0.10);
+  background-color: rgba(234, 179, 8, 0.09);
   border-color: rgba(234, 179, 8, 0.30);
-  color: #facc15;
+  color: #E8C537;
 }
 .kpi-pill-medium:hover {
-  background-color: rgba(234, 179, 8, 0.18);
+  background-color: rgba(234, 179, 8, 0.16);
 }
 .kpi-pill-medium-active {
-  background-color: rgba(234, 179, 8, 0.25);
-  border-color: rgba(234, 179, 8, 0.80);
-  color: #fde047;
-  box-shadow: 0 0 12px rgba(234, 179, 8, 0.25);
+  background-color: rgba(234, 179, 8, 0.18);
+  border-color: rgba(234, 179, 8, 0.70);
+  color: #FDE047;
 }
 .kpi-pill-total {
-  background-color: rgba(10, 10, 10, 0.8);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: var(--color-text-primary);
+  background-color: var(--color-bg-tertiary);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
 }
 .kpi-count-total {
-  background-color: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  color: #60a5fa;
+  background-color: var(--color-accent-blue-soft);
+  border: 1px solid var(--color-border-accent);
+  color: var(--color-accent-blue);
 }
 
-/* Light mode overrides for KPI Pills — high contrast readable text & badges */
-[data-theme="light"] .kpi-pill-total {
-  background-color: #FFFFFF !important;
-  border-color: #D3D9E0 !important;
-  color: #0A192F !important;
-}
-[data-theme="light"] .kpi-count-total {
-  background-color: #DBEAFE !important;
-  border-color: #BFDBFE !important;
-  color: #1D4ED8 !important;
-  font-weight: 800 !important;
-}
+/* Light mode — pale tints + darkened text */
 [data-theme="light"] .kpi-pill-critical {
-  background-color: #FEF2F2 !important;
-  border-color: #FECACA !important;
-  color: #991B1B !important;
+  background-color: #FDF3F3 !important;
+  border-color: #F5C9C9 !important;
+  color: #9E2424 !important;
 }
 [data-theme="light"] .kpi-pill-critical:hover {
-  background-color: #FEE2E2 !important;
+  background-color: #FBE7E7 !important;
 }
 [data-theme="light"] .kpi-pill-critical-active {
-  background-color: #FEE2E2 !important;
-  border-color: #EF4444 !important;
-  color: #7F1D1D !important;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.20) !important;
+  background-color: #FBE7E7 !important;
+  border-color: #E05252 !important;
+  color: #8C1D1D !important;
 }
 [data-theme="light"] .kpi-count-critical {
-  background-color: #FECACA !important;
-  color: #991B1B !important;
-  font-weight: 800 !important;
+  background-color: #F5C9C9 !important;
+  color: #8C1D1D !important;
 }
 
 [data-theme="light"] .kpi-pill-high {
-  background-color: #FFF7ED !important;
-  border-color: #FFEDD5 !important;
-  color: #9A3412 !important;
+  background-color: #FDF6EE !important;
+  border-color: #F5D9BC !important;
+  color: #A2500E !important;
 }
 [data-theme="light"] .kpi-pill-high:hover {
-  background-color: #FFEDD5 !important;
+  background-color: #FBEADA !important;
 }
 [data-theme="light"] .kpi-pill-high-active {
-  background-color: #FFEDD5 !important;
-  border-color: #F97316 !important;
-  color: #7C2D12 !important;
-  box-shadow: 0 0 10px rgba(249, 115, 22, 0.20) !important;
+  background-color: #FBEADA !important;
+  border-color: #EA7A28 !important;
+  color: #8A3F08 !important;
 }
 [data-theme="light"] .kpi-count-high {
-  background-color: #FFEDD5 !important;
-  color: #9A3412 !important;
-  font-weight: 800 !important;
+  background-color: #F5D9BC !important;
+  color: #8A3F08 !important;
 }
 
 [data-theme="light"] .kpi-pill-medium {
-  background-color: #FEFCE8 !important;
-  border-color: #FEF08A !important;
-  color: #854D0E !important;
+  background-color: #FCF9EC !important;
+  border-color: #EFE4B0 !important;
+  color: #8A6510 !important;
 }
 [data-theme="light"] .kpi-pill-medium:hover {
-  background-color: #FEF9C3 !important;
+  background-color: #FAF3D6 !important;
 }
 [data-theme="light"] .kpi-pill-medium-active {
-  background-color: #FEF9C3 !important;
-  border-color: #EAB308 !important;
-  color: #713F12 !important;
-  box-shadow: 0 0 10px rgba(234, 179, 8, 0.20) !important;
+  background-color: #FAF3D6 !important;
+  border-color: #D4B022 !important;
+  color: #71520C !important;
 }
 [data-theme="light"] .kpi-count-medium {
-  background-color: #FEF08A !important;
-  color: #854D0E !important;
-  font-weight: 800 !important;
+  background-color: #EFE4B0 !important;
+  color: #71520C !important;
 }
 
-/* ── Alert Intelligence Table Column Colors ──────────────────────────────── */
-/* Pending Orders Column Text — pure white in dark theme, high contrast in light */
+/* ── Alert Intelligence table column values ── */
 .pending-orders-val {
-  color: #FFFFFF;
+  color: var(--color-text-primary);
   font-weight: 700;
   font-size: 0.875rem;
 }
-[data-theme="light"] .pending-orders-val {
-  color: #0F172A !important;
-  font-weight: 700 !important;
-}
 
-/* MT Loss Column Text — pure white in dark theme, high contrast in light */
 .mt-loss-val {
-  color: #FFFFFF;
+  color: var(--color-text-primary);
   font-weight: 700;
   font-size: 0.875rem;
 }
-[data-theme="light"] .mt-loss-val {
-  color: #0F172A !important;
-  font-weight: 700 !important;
-}
 
-/* Clearance Runway Indicators */
+/* ── Clearance runway indicators ── */
 .clearance-stuck {
-  background-color: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.30);
-  color: #f87171;
+  background-color: var(--color-severity-critical-bg);
+  border: 1px solid var(--color-severity-critical-border);
+  color: #F08E8E;
 }
 [data-theme="light"] .clearance-stuck {
-  background-color: #FEF2F2 !important;
-  border-color: #FECACA !important;
-  color: #B91C1C !important;
+  background-color: #FCEBEB !important;
+  border-color: rgba(121, 31, 31, 0.25) !important;
+  color: #9E2424 !important;
 }
 
 .clearance-crit {
-  color: #f87171;
+  color: #F08E8E;
   font-weight: 700;
 }
 [data-theme="light"] .clearance-crit {
@@ -1058,7 +991,7 @@ body {
 }
 
 .clearance-high {
-  color: #fb923c;
+  color: #FBA05C;
   font-weight: 700;
 }
 [data-theme="light"] .clearance-high {
@@ -1066,7 +999,7 @@ body {
 }
 
 .clearance-med {
-  color: #fbbf24;
+  color: #E8C537;
   font-weight: 600;
 }
 [data-theme="light"] .clearance-med {
@@ -1075,7 +1008,7 @@ body {
 }
 
 .clearance-good {
-  color: #34d399;
+  color: #34D399;
   font-weight: 600;
 }
 [data-theme="light"] .clearance-good {

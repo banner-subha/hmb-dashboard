@@ -1,9 +1,9 @@
-import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRawData } from '../context/DataContext';
 import { useTheme } from '../context/ThemeContext';
-import { NAV_ITEMS, CLIENT_NAV_ITEMS, CATEGORY_ICONS } from '../utils/constants';
+import { NAV_ITEMS, CLIENT_NAV_ITEMS } from '../utils/constants';
 import {
   LayoutDashboard,
   Map,
@@ -22,7 +22,6 @@ import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
 import { backdropVariants } from '../utils/motionVariants';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import AnimatedPage from '../components/common/AnimatedPage';
-import { calculateMoM, formatTrend } from '../utils/trendEngine';
 
 const NAV_ICON_MAP = {
   LayoutDashboard,
@@ -43,7 +42,6 @@ export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [syncAgoText, setSyncAgoText] = useState('just now');
-  const prevDataRef = useRef(null);
 
   const navItemsToRender = useMemo(() => {
     if (user?.role === 'client') return CLIENT_NAV_ITEMS;
@@ -136,24 +134,28 @@ export default function DashboardLayout() {
         </AnimatePresence>
 
         {/* Sidebar */}
-        <aside 
+        <aside
           className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col h-dvh border-r border-[var(--color-sidebar-border)] transition-transform duration-300 lg:static lg:h-full lg:translate-x-0 flex-shrink-0 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
           style={{ background: 'var(--gradient-sidebar)' }}
         >
-          {/* Header */}
-          <header className="flex items-center justify-between h-16 px-5 border-b border-[var(--color-sidebar-border)] shrink-0">
+          {/* Brand */}
+          <header className="flex items-center justify-between h-[80px] px-4 border-b border-[var(--color-sidebar-border)] shrink-0">
             <div className="flex items-center gap-3 min-w-0">
-              {/* Accent bar */}
-              <div className="w-1 h-8 rounded-full shrink-0" style={{ background: 'var(--gradient-accent)' }} />
+              <img
+                src="/hmb.png"
+                alt="HMB Ispat"
+                className="h-11 w-auto object-contain shrink-0 select-none rounded-lg"
+                draggable={false}
+              />
               <div className="flex flex-col leading-tight min-w-0">
-                <span className="text-base font-extrabold tracking-tight gradient-text truncate">HMB Ispat</span>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/80 truncate">Intelligence Platform</span>
+                <span className="text-[17px] font-bold tracking-tight text-white truncate">HMB Ispat</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sidebar-text-muted truncate">Intelligence Platform</span>
               </div>
             </div>
-            <button 
-              className="lg:hidden text-white ml-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors" 
+            <button
+              className="lg:hidden text-white ml-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors"
               onClick={() => setSidebarOpen(false)}
               aria-label="Close sidebar"
             >
@@ -161,9 +163,9 @@ export default function DashboardLayout() {
             </button>
           </header>
 
-          {/* Navigation Items (Scrollable flex child) */}
-          <nav className="flex-1 overflow-y-auto min-h-0 p-4 space-y-0.5">
-            <div className="text-xs font-bold text-white uppercase tracking-wider mb-3 px-2 mt-4">
+          {/* Navigation (scrollable flex child) */}
+          <nav className="flex-1 overflow-y-auto min-h-0 py-4">
+            <div className="text-[11px] font-bold text-sidebar-text-muted/70 uppercase tracking-[0.14em] mb-2 px-6">
               Intelligence
             </div>
             {navItemsToRender.map((item) => {
@@ -172,32 +174,39 @@ export default function DashboardLayout() {
                 <NavLink
                   key={item.path}
                   to={item.path}
-                  className={({ isActive }) => 
+                  className={({ isActive }) =>
                     `sidebar-link ${isActive ? 'active' : ''}`
                   }
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <Icon className="w-5 h-5 shrink-0" />
+                  <Icon className="w-[18px] h-[18px] shrink-0" />
                   <span className="truncate">{item.label}</span>
                 </NavLink>
               );
             })}
           </nav>
 
-          {/* Footer (Pinned to bottom) */}
-          <footer className="shrink-0 mt-auto w-full px-4 py-3.5 border-t border-[var(--color-sidebar-border)]" style={{ background: 'var(--color-sidebar-bg)' }}>
-            <div className="flex items-center justify-between px-2">
-              <div className="flex flex-col gap-0.5 min-w-0 pr-2">
-                <span className="text-sm font-semibold text-sidebar-text truncate" title={user?.name || user?.username}>
-                  {user?.name || user?.username}
-                </span>
-                <span className="text-xs text-sidebar-text-muted truncate">
-                  {user?.role === 'client'
-                    ? `${user?.kroRole || 'Client View'}${user?.states ? ` (${Array.isArray(user.states) ? user.states.join(', ') : user.states})` : ''}`
-                    : 'Administrator'}
-                </span>
+          {/* Footer (pinned to bottom) */}
+          <footer className="shrink-0 mt-auto w-full px-4 py-3.5 border-t border-[var(--color-sidebar-border)]">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
+                  <span className="text-[11px] font-bold text-white">
+                    {(user?.name || user?.username || 'U').charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <span className="text-[14px] font-semibold text-sidebar-text truncate" title={user?.name || user?.username}>
+                    {user?.name || user?.username}
+                  </span>
+                  <span className="text-[12px] text-sidebar-text-muted truncate">
+                    {user?.role === 'client'
+                      ? `${user?.kroRole || 'Client View'}${user?.states ? ` (${Array.isArray(user.states) ? user.states.join(', ') : user.states})` : ''}`
+                      : 'Administrator'}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center gap-0.5 shrink-0">
                 <button
                   onClick={toggleTheme}
                   className="p-2 text-sidebar-text-muted hover:text-sidebar-text transition-colors rounded-lg hover:bg-white/10"
@@ -205,8 +214,8 @@ export default function DashboardLayout() {
                   aria-label="Toggle theme"
                 >
                   {theme === 'light'
-                    ? <Moon className="w-5 h-5" />
-                    : <Sun className="w-5 h-5" />}
+                    ? <Moon className="w-4.5 h-4.5" />
+                    : <Sun className="w-4.5 h-4.5" />}
                 </button>
                 <button
                   onClick={handleLogout}
@@ -214,7 +223,7 @@ export default function DashboardLayout() {
                   title="Logout"
                   aria-label="Logout"
                 >
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-4.5 h-4.5" />
                 </button>
               </div>
             </div>
@@ -223,68 +232,68 @@ export default function DashboardLayout() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header — Option C */}
-        <header className="sticky top-0 shrink-0 z-10 px-4 sm:px-6 pt-3 sm:pt-3.5 pb-0">
-          {/* Mobile hamburger — sits above the card on small screens */}
-          <button 
-            className="lg:hidden p-2 -ml-2 mb-2 text-text-muted hover:text-text-primary rounded-lg"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+        {/* Top Header — themed navy strip with accent bar */}
+        <header
+          className="sticky top-0 shrink-0 z-10 px-4 sm:px-5 pt-3 sm:pt-3.5 pb-3.5"
+          style={{ background: 'linear-gradient(180deg, rgba(var(--color-bg-primary-rgb), 0.92) 60%, rgba(var(--color-bg-primary-rgb), 0.72) 100%)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}
+        >
+          <div className="max-w-[1680px] mx-auto relative flex overflow-hidden rounded-2xl border gradient-glow-top" style={{ background: 'var(--gradient-header)', borderColor: 'var(--color-sidebar-border)' }}>
+            {/* Left accent bar */}
+            <div className="w-[4px] shrink-0 self-stretch rounded-l-2xl" style={{ background: 'var(--gradient-accent)' }} />
 
-          <div className="border border-border/10 rounded-xl overflow-hidden shadow-sm gradient-glow-top" style={{ background: 'var(--gradient-header)' }}>
-            {/* Left Blue Accent Bar */}
-            <div className="w-[4px] shrink-0 rounded-l-xl" style={{ background: 'var(--gradient-accent)' }} />
+            <div className="flex-1 flex flex-wrap items-center gap-x-5 gap-y-1.5 px-4 sm:px-5 py-3.5 sm:py-4">
 
-            {/* Inner content — two columns */}
-            <div className="flex items-center justify-between gap-4 px-5 py-3.5 flex-wrap flex-1">
-              {/* LEFT SIDE — Icon + Branding / Title / Meta */}
-              <div className="flex items-center gap-4 min-w-0">
-                {/* Logo */}
-                <img
-                  src="/hmb.png"
-                  alt="HMB Ispat"
-                  className="h-11 w-auto object-contain shrink-0 select-none"
-                  draggable={false}
-                />
-
-                {/* Text stack */}
-                <div className="flex flex-col gap-0.5 min-w-0">
-                  {/* Eyebrow */}
-                  <span className="text-xs font-semibold uppercase tracking-[0.06em] text-sidebar-text-muted">
-                    HMB Ispat · Business Intelligence
+              {/* Brand identity */}
+              <div className="order-1 flex items-center gap-3 min-w-0">
+                <button
+                  className="lg:hidden -ml-1.5 p-2 text-white/60 hover:text-white rounded-lg transition-colors cursor-pointer"
+                  onClick={() => setSidebarOpen(true)}
+                  aria-label="Open navigation"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <div className="flex flex-col leading-none">
+                  <span className="text-[15px] sm:text-[16px] font-extrabold tracking-tight text-sidebar-text whitespace-nowrap">
+                    HMB Ispat
                   </span>
-
-                  {/* Title */}
-                  <h1 className="text-2xl font-semibold text-sidebar-text leading-tight m-0">
-                    {currentTabTitle}
-                  </h1>
-
-                  {/* Meta row */}
-                  <div className="flex items-center gap-0 text-xs text-sidebar-text-muted flex-wrap leading-relaxed">
-                    {headerDateRange && (
-                      <span>{headerDateRange}</span>
-                    )}
-                    <span className="mx-2 text-sidebar-text-muted font-bold">|</span>
-                    <span>Current Cycle (MTD)</span>
-                    {dispatchGrowth !== null && (
-                      <>
-                        <span className="mx-2 text-sidebar-text-muted font-bold">|</span>
-                        <span className={`text-sm sm:text-[13.5px] font-black tracking-wide ${dispatchGrowth >= 0 ? 'text-severity-none' : 'text-severity-critical'}`}>
-                          {dispatchGrowth >= 0 ? '↑' : '↓'} {Math.abs(dispatchGrowth).toFixed(1)}% vs last period
-                        </span>
-                      </>
-                    )}
-                  </div>
+                  <span className="text-[9px] sm:text-[9.5px] font-bold uppercase tracking-[0.18em] text-sidebar-text-muted mt-[5px] whitespace-nowrap">
+                    Business Intelligence
+                  </span>
                 </div>
               </div>
 
-              {/* RIGHT SIDE — Sync status only */}
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                <div className="flex items-center gap-2 text-xs text-sidebar-text-muted whitespace-nowrap">
-                  <span className="w-2 h-2 rounded-full bg-severity-none shrink-0" />
+              {/* Live sync chip — right on mobile, end of row on desktop */}
+              <div className="order-2 sm:order-3 ml-auto sm:ml-0 shrink-0">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.07] text-xs text-white/75 whitespace-nowrap">
+                  <span className="relative flex w-2 h-2 shrink-0">
+                    <span className="absolute inline-flex w-full h-full rounded-full bg-severity-none opacity-40 animate-pulse-subtle" />
+                    <span className="relative inline-flex w-2 h-2 rounded-full bg-severity-none" />
+                  </span>
                   Live · Updated {syncAgoText}
+                </div>
+              </div>
+
+              {/* Page context — hairline-separated on desktop, own row on mobile */}
+              <div className="order-3 sm:order-2 basis-full sm:basis-auto sm:pl-5 sm:border-l sm:border-white/10 sm:mr-auto min-w-0 flex flex-col gap-0.5">
+                <h1 className="text-lg sm:text-xl font-bold text-sidebar-text tracking-tight leading-tight m-0 truncate">
+                  {currentTabTitle}
+                </h1>
+                <div className="flex items-center gap-2 text-[11px] sm:text-xs text-sidebar-text-muted flex-wrap leading-relaxed">
+                  {headerDateRange && (
+                    <span className="font-medium whitespace-nowrap">{headerDateRange}</span>
+                  )}
+                  {headerDateRange && (
+                    <span className="text-white/30">·</span>
+                  )}
+                  <span className="font-medium whitespace-nowrap">Current Cycle (MTD)</span>
+                  {dispatchGrowth !== null && (
+                    <>
+                      <span className="text-white/30">·</span>
+                      <span className={`font-bold whitespace-nowrap ${dispatchGrowth >= 0 ? 'text-severity-none' : 'text-severity-critical'}`}>
+                        {dispatchGrowth >= 0 ? '↑' : '↓'} {Math.abs(dispatchGrowth).toFixed(1)}% vs last period
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -292,8 +301,8 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-4 pb-12 sm:p-6" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)' }}>
-          <div className="max-w-[90rem] mx-auto space-y-6 min-h-full relative">
+        <div className="flex-1 overflow-auto p-4 sm:p-5 pb-12" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)' }}>
+          <div className="max-w-[1680px] mx-auto space-y-6 min-h-full relative">
             <AnimatePresence mode="wait">
               <AnimatedPage key={location.pathname}>
                 <Suspense fallback={

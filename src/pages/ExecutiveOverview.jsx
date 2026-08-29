@@ -8,7 +8,7 @@ import SeverityBadge from '../components/common/SeverityBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
-import { calculateMoM, formatTrend, getTrendColor, getSeverityTheme, getBusinessImpact } from '../utils/trendEngine';
+import { calculateMoM, formatTrend, getTrendColor } from '../utils/trendEngine';
 import { useNavigate } from 'react-router-dom';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 import { m } from 'framer-motion';
@@ -20,33 +20,22 @@ import TopGrowthLeadersCard from '../components/common/TopGrowthLeadersCard';
 import OrderFulfillmentVelocityCard from '../components/common/OrderFulfillmentVelocityCard';
 import RootCauseAndInsightsCard from '../components/common/RootCauseAndInsightsCard';
 import MultiMonthTrajectoryCard from '../components/common/MultiMonthTrajectoryCard';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Info } from 'lucide-react';
+import DeclineDriversCard from '../components/common/DeclineDriversCard';
+import BacklogRegionCard from '../components/common/BacklogRegionCard';
 
 export default function ExecutiveOverview() {
   const { data: filteredData, overallData, rawData, loading, error } = useData();
   const data = overallData || filteredData;
   const navigate = useNavigate();
 
-  const { totalCur = 0, totalPrev = 0, products = [], states = [], districts = [], dealers = [], alerts = [], intelligence = {}, alertCount = 0, intel = {} } = data || {};
+  const { totalCur = 0, totalPrev = 0, products = [], states = [], districts = [], dealers = [], intelligence = {}, alertCount = 0, intel = {} } = data || {};
 
   // Root cause findings derived from backend intelligence + product insights
   const rootCauses = useMemo(() => {
     const intelData = data?.intelligence;
     if (!intelData) {
-      return [
-        {
-          dimension: "PRODUCT",
-          finding: "SS segment supply allocation shortfall — 80 MT volume loss from 362 to 282 MT",
-          impact_mt: 80,
-          pct_of_total_decline: 31
-        },
-        {
-          dimension: "STATE",
-          finding: "West Bengal region dropped 147 MT due to inactive dealers and GI product weakness",
-          impact_mt: 147,
-          pct_of_total_decline: 58
-        },
-      ];
+      return [];
     }
 
     if (Array.isArray(intelData.root_cause_analysis) && intelData.root_cause_analysis.length > 0) {
@@ -136,10 +125,9 @@ export default function ExecutiveOverview() {
     return trend;
   }, [rawData]);
 
-  const { totalMoM, totalTrendDisplay, totalTrendColor } = useMemo(() => {
+  const { totalTrendDisplay, totalTrendColor } = useMemo(() => {
     const mom = calculateMoM(totalCur, totalPrev);
     return {
-      totalMoM: mom,
       totalTrendDisplay: formatTrend(mom),
       totalTrendColor: getTrendColor(mom)
     };
@@ -192,6 +180,14 @@ export default function ExecutiveOverview() {
       return scoreB - scoreA;
     }).slice(0, 3);
   }, [dealers]);
+
+  const dealerMovement = useMemo(() => {
+    const lost = (dealers || []).filter(d => d.cur === 0 && d.prev > 0).length;
+    const reactivated = (dealers || []).filter(d => d.cur > 0 && d.prev === 0 && (d.ytd || 0) > 0).length;
+    return { lost, reactivated };
+  }, [dealers]);
+
+  const earlyMonth = data?.meta?.isEarlyMonth || (data?.meta?.elapsedFraction != null && data.meta.elapsedFraction < 0.15);
 
   if (loading) return (
     <div className="space-y-6">
@@ -287,11 +283,25 @@ export default function ExecutiveOverview() {
           <KPICard 
             label="Active Dealers" 
             value={data.dealers?.filter(d => d.cur > 0).length || 0} 
-            subtitle="Transacting this month"
+            subtitle={
+              dealerMovement.lost > 0 || dealerMovement.reactivated > 0
+                ? [dealerMovement.lost > 0 ? `${dealerMovement.lost} lost` : null, dealerMovement.reactivated > 0 ? `${dealerMovement.reactivated} returned` : null].filter(Boolean).join(' · ')
+                : "Transacting this month"
+            }
             accentColor="#8b5cf6"
           />
         </m.div>
       </m.div>
+
+      {/* Early-month low-confidence note */}
+      {earlyMonth && (
+        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-accent-cyan/10 border border-accent-cyan/30 text-[13px] text-text-secondary">
+          <Info className="w-4 h-4 text-accent-cyan shrink-0" />
+          <span>
+            The month has just started — MoM comparisons are based on limited days and carry low statistical confidence.
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
         
@@ -382,40 +392,9 @@ export default function ExecutiveOverview() {
             </CollapsibleCard>
           </div>
 
-          {/* Dealer Impact Alerts */}
+          {/* Decline Drivers */}
           <div>
-            <CollapsibleCard 
-              title="Dealer Alerts" 
-              badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-red">{inactiveDealers.length + decliningDealers.length}</span>}
-              accentColor="#ef4444"
-            >
-              <div className="space-y-2.5">
-                {inactiveDealers.map((d, i) => (
-                  <div key={`in-${i}`} 
-                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
-                    onClick={() => navigate(`/dealers?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}&search=${encodeURIComponent(d.client)}`)}
-                  >
-                    <div className="min-w-0 flex-1 pr-1">
-                      <div className="text-sm text-text-primary font-medium truncate">{d.client}</div>
-                      <div className="text-xs text-text-muted mt-0.5 truncate">{d.district}, {d.state}</div>
-                    </div>
-                    <SeverityBadge severity="CRITICAL" className="shrink-0" />
-                  </div>
-                ))}
-                {decliningDealers.map((d, i) => (
-                  <div key={`dec-${i}`} 
-                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
-                    onClick={() => navigate(`/dealers?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}&search=${encodeURIComponent(d.client)}`)}
-                  >
-                    <div className="min-w-0 flex-1 pr-1">
-                      <div className="text-sm text-text-primary font-medium truncate">{d.client}</div>
-                      <div className="text-xs text-text-muted mt-0.5 truncate">{d.district}, {d.state}</div>
-                    </div>
-                    <SeverityBadge severity={d.impactTier || 'LOW'} className="shrink-0" />
-                  </div>
-                ))}
-              </div>
-            </CollapsibleCard>
+            <DeclineDriversCard data={data} />
           </div>
 
           {/* 8-Month Macro Trajectory Chart */}
@@ -469,6 +448,38 @@ export default function ExecutiveOverview() {
                 dealerRisks={data?.intelligence?.dealer_risks || []}
               />
               <TopGrowthLeadersCard intel={intel} />
+              <CollapsibleCard 
+                title="Dealer Alerts" 
+                badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-red">{inactiveDealers.length + decliningDealers.length}</span>}
+                accentColor="#ef4444"
+              >
+                <div className="space-y-2.5">
+                  {inactiveDealers.map((d, i) => (
+                    <div key={`in-${i}`} 
+                      className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
+                      onClick={() => navigate(`/dealers?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}&search=${encodeURIComponent(d.client)}`)}
+                    >
+                      <div className="min-w-0 flex-1 pr-1">
+                        <div className="text-sm text-text-primary font-medium truncate">{d.client}</div>
+                        <div className="text-xs text-text-muted mt-0.5 truncate">{d.district}, {d.state}</div>
+                      </div>
+                      <SeverityBadge severity="CRITICAL" className="shrink-0" />
+                    </div>
+                  ))}
+                  {decliningDealers.map((d, i) => (
+                    <div key={`dec-${i}`} 
+                      className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
+                      onClick={() => navigate(`/dealers?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}&search=${encodeURIComponent(d.client)}`)}
+                    >
+                      <div className="min-w-0 flex-1 pr-1">
+                        <div className="text-sm text-text-primary font-medium truncate">{d.client}</div>
+                        <div className="text-xs text-text-muted mt-0.5 truncate">{d.district}, {d.state}</div>
+                      </div>
+                      <SeverityBadge severity={d.impactTier || 'LOW'} className="shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleCard>
             </div>
 
             {/* Sub-Column 2: Order Backlog -> Recommended Actions -> Order Velocity */}
@@ -505,6 +516,7 @@ export default function ExecutiveOverview() {
                 </div>
               </CollapsibleCard>
               <OrderFulfillmentVelocityCard data={data} rawData={rawData} />
+              <BacklogRegionCard data={data} />
             </div>
 
           </div>

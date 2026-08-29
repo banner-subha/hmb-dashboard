@@ -2,15 +2,15 @@ import { useMemo, useEffect, useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useSearchParams } from 'react-router-dom';
-import FilterBar from '../components/common/FilterBar';
 import SearchInput from '../components/common/SearchInput';
 import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import ImpactBadge from '../components/common/ImpactBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
+import SkeletonLoader from '../components/common/SkeletonLoader';
 import { formatMT, formatDays } from '../utils/formatters';
-import { calculateMoM, getBusinessImpact, getSeverityTheme } from '../utils/trendEngine';
+import { calculateMoM, getSeverityTheme } from '../utils/trendEngine';
 import { getPendingForPeriod, getBacklogClearance } from '../utils/pending';
 import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalDealers } from '../utils/despatch';
 import { isWestBengalUser } from '../utils/constants';
@@ -160,7 +160,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                   {val}
                 </span>
                 {isPlaceholder && (
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25 tracking-wide">
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25 tracking-wide whitespace-nowrap shrink-0">
                     {val === '0' ? 'Pending Placeholder' : 'Verbal Order'}
                   </span>
                 )}
@@ -264,7 +264,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                 {val}
               </span>
               {isPlaceholder && (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25 tracking-wide">
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25 tracking-wide whitespace-nowrap shrink-0">
                   {val === '0' ? 'Pending Placeholder' : 'Verbal Order'}
                 </span>
               )}
@@ -362,12 +362,8 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
           const isInactive = row.isInactive || cur === 0;
           const mom = row.mom != null ? row.mom : calculateMoM(cur, prev);
 
-          let statusLabel = 'Growing';
-          let theme = {
-            color: '#22c55e',
-            bg: 'rgba(34,197,94,0.12)',
-            border: 'rgba(34,197,94,0.45)'
-          };
+          let statusLabel;
+          let theme;
 
           if (isInactive) {
             statusLabel = 'Inactive';
@@ -835,11 +831,11 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                     {dealerAlerts.map((a, i) => {
                       return (
                       <div key={i} className="p-3 bg-bg-secondary rounded-lg border-l-2 border-severity-high">
-                        <div className="flex items-center gap-2 mb-1">
-                          <SeverityBadge severity={a.severity} />
-                          <span className="text-xs font-bold truncate max-w-[200px]">{a.title}</span>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap min-w-0">
+                          <SeverityBadge severity={a.severity} className="shrink-0" />
+                          <span className="text-xs font-bold truncate min-w-0 flex-1">{a.title}</span>
                         </div>
-                        <p className="text-xs text-text-muted whitespace-pre-line">{a.detail}</p>
+                        <p className="text-xs text-text-muted whitespace-pre-line break-words">{a.detail}</p>
                       </div>
                       );
                     })}

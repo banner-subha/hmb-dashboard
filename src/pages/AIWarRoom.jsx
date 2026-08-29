@@ -33,7 +33,7 @@ export default function AIWarRoom() {
   const data = overallData || filteredData;
 
   if (loading) return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6">
       <SkeletonLoader variant="card" className="h-32" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <SkeletonLoader variant="card" count={2} />
@@ -146,7 +146,7 @@ export default function AIWarRoom() {
       variants={staggerContainer}
       initial="initial"
       animate="animate"
-      className="max-w-7xl mx-auto space-y-6"
+      className="w-full space-y-6"
     >
       {/* PAGE TITLE */}
       <div className="flex items-center gap-3 border-b border-border pb-4 mb-4">
@@ -157,17 +157,19 @@ export default function AIWarRoom() {
       {/* Master Card */}
       <m.div
         variants={staggerItem}
-        className="overflow-hidden border border-border/60 rounded-2xl shadow-2xl bg-bg-card"
+        className="overflow-hidden border border-border/60 rounded-2xl shadow-2xl"
+        style={{ background: 'var(--directive-shell)' }}
       >
         {/* Executive Summary */}
         <m.div
           variants={fadeInUp}
-          className="p-8 md:p-10 border-b border-border/40 bg-gradient-to-r from-accent-blue/10 via-transparent to-transparent"
+          className="p-8 md:p-10 border-b border-border/40"
+          style={{ background: 'var(--directive-bg)' }}
         >
-          <span className="text-xs font-black text-accent-blue tracking-widest uppercase block mb-3 font-mono">
+          <span className="text-[11px] font-black text-accent-blue tracking-[0.18em] uppercase block mb-3 font-mono">
             Key Directive
           </span>
-          <p className="text-xl md:text-2xl text-text-primary font-semibold leading-relaxed italic border-l-4 border-accent-blue/80 pl-6">
+          <p className="text-xl md:text-[26px] text-text-primary font-semibold leading-relaxed italic border-l-4 pl-6" style={{ borderColor: 'var(--directive-edge)' }}>
             "{intelligence.executive_summary}"
           </p>
         </m.div>
@@ -181,16 +183,16 @@ export default function AIWarRoom() {
             {/* Column Header */}
             <div className="flex items-center justify-between pb-3.5 border-b border-border/30">
               <div className="flex items-center gap-2.5">
-                <span className="text-base font-black text-text-muted font-mono">01 /</span>
-                <h3 className="text-base font-extrabold text-text-primary uppercase tracking-wider">Priority Action Plans</h3>
+                <span className="text-lg font-black text-text-muted font-mono">01 /</span>
+                <h3 className="text-lg sm:text-xl font-extrabold text-text-primary uppercase tracking-wider">Priority Action Plans</h3>
               </div>
-              <span className="text-xs font-bold text-text-muted uppercase font-mono">Urgent Action Items</span>
+              <span className="text-xs font-bold text-text-muted uppercase font-mono tracking-wide">Urgent Action Items</span>
             </div>
 
             {/* ── Critical Risk Alerts ── */}
             {intelligence.escalation_flags?.length > 0 && (
               <m.div variants={fadeInUp} className="space-y-4">
-                <h4 className="text-sm font-extrabold text-severity-critical uppercase tracking-widest flex items-center gap-2">
+                <h4 className="text-base font-extrabold text-severity-critical uppercase tracking-widest flex items-center gap-2">
                   <ShieldAlert className="w-5 h-5" />
                   Critical Risk Alerts
                 </h4>
@@ -206,15 +208,15 @@ export default function AIWarRoom() {
             {/* ── Recommended Actions ── */}
             {intelligence.recommended_actions?.length > 0 && (
               <m.div variants={fadeInUp} className="space-y-4">
-                <h4 className="text-sm font-extrabold text-accent-blue uppercase tracking-widest flex items-center gap-2">
-                  <Activity className="w-5 h-5" />
+                <h4 className="text-base font-extrabold text-text-primary uppercase tracking-widest flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-accent-blue" />
                   Recommended Response Actions ({intelligence.recommended_actions.length})
                 </h4>
                 {intelligence.recommended_actions.map((act, idx) => (
                   <div key={idx} className={`${CARD_ACTION} flex flex-col gap-3.5 border-l-4 border-l-accent-blue/70 hover:border-accent-blue`}>
                     <div className="flex items-center gap-3">
                       <PriorityBadge priority={act.priority} />
-                      <span className="text-sm font-extrabold text-text-muted uppercase tracking-wider">{act.owner}</span>
+                      <span className="text-base font-extrabold text-text-muted uppercase tracking-wider">{act.owner}</span>
                     </div>
                     <p className="text-lg text-text-primary leading-relaxed font-medium">{act.action}</p>
                   </div>
@@ -225,7 +227,7 @@ export default function AIWarRoom() {
             {/* ── Dealer Risks ── */}
             {decliningInterventions.length > 0 && (
               <m.div variants={fadeInUp} className="space-y-4">
-                <h4 className="text-sm font-extrabold text-severity-high uppercase tracking-widest flex items-center gap-2">
+                <h4 className="text-base font-extrabold text-severity-high uppercase tracking-widest flex items-center gap-2">
                   <User className="w-5 h-5" />
                   At-Risk Dealer Interventions ({decliningInterventions.length})
                 </h4>
@@ -265,20 +267,20 @@ export default function AIWarRoom() {
             {/* ── Regional & Pending Analysis ── */}
             {(intelligence.geographic_insights || intelligence.pending_order_intelligence) && (
               <m.div variants={fadeInUp} className="space-y-4 pt-3">
-                <h4 className="text-sm font-extrabold text-accent-cyan uppercase tracking-widest flex items-center gap-2">
-                  <MapIcon className="w-5 h-5" />
+                <h4 className="text-base font-extrabold text-text-primary uppercase tracking-widest flex items-center gap-2">
+                  <MapIcon className="w-5 h-5 text-accent-cyan" />
                   Regional & Backlog Analysis
                 </h4>
                 <div className="grid grid-cols-1 gap-4">
                   {intelligence.geographic_insights && (
                     <div className={`${CARD_REGION} border-l-4 border-l-accent-cyan/70 hover:border-l-accent-cyan space-y-3`}>
-                      <span className="text-xs font-black text-accent-cyan uppercase tracking-wider block">Regional Breakdown</span>
+                      <span className="text-xs font-black text-text-muted uppercase tracking-wider block">Regional Breakdown</span>
                       <p className="text-base text-text-secondary leading-relaxed font-medium">{intelligence.geographic_insights}</p>
                     </div>
                   )}
                   {intelligence.pending_order_intelligence && (
                     <div className={`${CARD_REGION} border-l-4 border-l-accent-cyan/70 hover:border-l-accent-cyan space-y-3`}>
-                      <span className="text-xs font-black text-accent-cyan uppercase tracking-wider block">Order Backlog Insights</span>
+                      <span className="text-xs font-black text-text-muted uppercase tracking-wider block">Order Backlog Insights</span>
                       <p className="text-base text-text-secondary leading-relaxed font-medium">{intelligence.pending_order_intelligence}</p>
                     </div>
                   )}
@@ -293,16 +295,16 @@ export default function AIWarRoom() {
             {/* Column Header */}
             <div className="flex items-center justify-between pb-3.5 border-b border-border/30">
               <div className="flex items-center gap-2.5">
-                <span className="text-base font-black text-text-muted font-mono">02 /</span>
-                <h3 className="text-base font-extrabold text-text-primary uppercase tracking-wider">Performance Analysis</h3>
+                <span className="text-lg font-black text-text-muted font-mono">02 /</span>
+                <h3 className="text-lg sm:text-xl font-extrabold text-text-primary uppercase tracking-wider">Performance Analysis</h3>
               </div>
-              <span className="text-xs font-bold text-text-muted uppercase font-mono">Issue Analysis</span>
+              <span className="text-xs font-bold text-text-muted uppercase font-mono tracking-wide">Issue Analysis</span>
             </div>
 
             {/* ── Root Cause Analysis ── */}
             {intelligence.root_cause_analysis?.length > 0 && (
               <m.div variants={fadeInUp} className="space-y-4">
-                <h4 className="text-sm font-extrabold text-severity-high uppercase tracking-widest flex items-center gap-2">
+                <h4 className="text-base font-extrabold text-severity-high uppercase tracking-widest flex items-center gap-2">
                   <Target className="w-5 h-5" />
                    Volume Loss Drivers
                 </h4>
@@ -360,7 +362,7 @@ export default function AIWarRoom() {
                     <div className="flex justify-between items-start">
                       <div>
                         <span className="text-base font-black text-text-primary block">
-                          {PRODUCT_LABELS[insight.product] || (insight.label ? insight.label.replace(/^([A-Z]+)\s*[\-\–]\s*(.+)$/, '$1 ($2)') : insight.product)}
+                          {PRODUCT_LABELS[insight.product] || (insight.label ? insight.label.replace(/^([A-Z]+)\s*[-–]\s*(.+)$/, '$1 ($2)') : insight.product)}
                         </span>
                       </div>
                       <span className={`text-xs font-black tracking-wider px-3 py-1.5 rounded-lg uppercase ${s.badge}`}>
@@ -404,14 +406,14 @@ export default function AIWarRoom() {
 
               return (
                 <div className="space-y-4">
-                  <h4 className="text-sm font-extrabold text-accent-blue uppercase tracking-widest flex items-center gap-2">
-                    <Layers className="w-5 h-5" />
+                  <h4 className="text-base font-extrabold text-text-primary uppercase tracking-widest flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-accent-blue" />
                     Product Insights ({allInsights.length})
                   </h4>
 
                   {declining.length > 0 && (
                     <div className="space-y-4">
-                      <h5 className="text-xs font-black text-severity-high uppercase tracking-widest flex items-center gap-2">
+                      <h5 className="text-[13px] font-black text-severity-high uppercase tracking-widest flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-severity-high" />
                         Declining Products ({declining.length})
                       </h5>
@@ -421,7 +423,7 @@ export default function AIWarRoom() {
 
                   {growth.length > 0 && (
                     <div className="space-y-4">
-                      <h5 className="text-xs font-black text-severity-none uppercase tracking-widest flex items-center gap-2">
+                      <h5 className="text-[13px] font-black text-severity-none uppercase tracking-widest flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-severity-none" />
                         Growth Products ({growth.length})
                       </h5>

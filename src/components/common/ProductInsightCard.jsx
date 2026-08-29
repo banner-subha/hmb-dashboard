@@ -1,4 +1,3 @@
-import React from 'react';
 import MoMIndicator from './MoMIndicator';
 import { formatMT } from '../../utils/formatters';
 
@@ -7,7 +6,6 @@ export default function ProductInsightCard({ productInsights = [] }) {
     <div className="grid grid-cols-1 gap-4 w-full">
       {productInsights.map((insight, idx) => {
         const {
-          product,
           label,
           cur_mt = 0,
           prev_mt = 0,
@@ -20,9 +18,9 @@ export default function ProductInsightCard({ productInsights = [] }) {
         } = insight;
 
         // Determine border and accent color based on mom_pct
-        let borderColor = 'border-border/60';
-        let accentColor = 'text-text-muted';
-        let trendBg = 'bg-bg-card/40';
+        let borderColor;
+        let accentColor;
+        let trendBg;
 
         if (mom_pct < -10) {
           borderColor = 'border-severity-critical/55';

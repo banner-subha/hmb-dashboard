@@ -148,7 +148,6 @@ export function getPendingAvailableMonths(rawData) {
 
   const map = new Map();
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   const addKey = (pk, year, month, label) => {
     if (!pk || map.has(pk)) return;

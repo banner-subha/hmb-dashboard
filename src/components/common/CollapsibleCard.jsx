@@ -31,7 +31,7 @@ function CollapsibleCard({
         style={accentColor ? { borderLeftWidth: '3px', borderLeftColor: accentColor } : {}}
       >
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 min-w-0 pr-2 flex-1">
-          <h3 className="card-title text-sm sm:text-base font-bold text-text-primary tracking-tight leading-snug">{title}</h3>
+          <h3 className="card-title text-base sm:text-lg font-bold text-text-primary tracking-tight leading-snug">{title}</h3>
           {badge && <div className="inline-flex items-center shrink-0">{badge}</div>}
         </div>
         <m.div

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import CollapsibleCard from './CollapsibleCard';
 import { formatMT, formatPct } from '../../utils/formatters';
 import { Users, ArrowRight, Award, TrendingUp, AlertOctagon } from 'lucide-react';

@@ -246,15 +246,33 @@ function processData(rawData, filters, user) {
   const dynamicTotalMoMColor = getTrendColor(calculateMoM(dynamicTotalCur, dynamicTotalPrev), dynamicTotalCur, dynamicTotalPrev);
 
   let dynamicPendingTotal = rawData.pendingTotal || 0;
+  let pendingAgeScope = null; // entities whose ageing matches the scope above
   if (filters.selectedDistrict) {
     dynamicPendingTotal = districts.reduce((sum, d) => sum + (d.pendingQty || 0), 0);
+    pendingAgeScope = districts;
   } else if (filters.selectedState) {
     dynamicPendingTotal = states.reduce((sum, s) => sum + (s.pendingQty || 0), 0);
+    pendingAgeScope = states;
   } else if (filters.selectedProduct) {
     dynamicPendingTotal = states.reduce((sum, s) => sum + (s.pendingQty || 0), 0);
+    pendingAgeScope = states;
   } else if (isFiltered) {
     dynamicPendingTotal = districts.reduce((sum, d) => sum + (d.pendingQty || 0), 0);
+    pendingAgeScope = districts;
   }
+
+  // Backlog ageing aligned with the same filter scope as dynamicPendingTotal
+  const dynamicPendingAge = pendingAgeScope
+    ? (pendingAgeScope.reduce((acc, e) => {
+        const src = e.pendingAge;
+        if (src) Object.keys(acc).forEach(k => { acc[k] += (src[k] || 0); });
+        return acc;
+      }, { d0_30: 0, d31_60: 0, d61_90: 0, d90plus: 0, unknown: 0 }))
+    : (rawData.pendingAgeTotal || null);
+  if (dynamicPendingAge) Object.keys(dynamicPendingAge).forEach(k => { dynamicPendingAge[k] = Math.round(dynamicPendingAge[k] * 100) / 100; });
+  const dynamicOldestPending = pendingAgeScope
+    ? (pendingAgeScope.map(e => e.oldestPendingDate).filter(Boolean).sort()[0] || null)
+    : (rawData.oldestPendingDate || null);
 
   const dynamicIntel = {
     ...rawData.intel,
@@ -350,7 +368,6 @@ function processData(rawData, filters, user) {
       
       for (const d of decliningDealers) {
         if (healedDealerRisks.length >= 6) break;
-        const drop = Math.max(0, (d.prev || 0) - (d.cur || 0));
         const riskType = d.cur === 0 ? 'INACTIVE' : 'DECLINING';
         healedDealerRisks.push({
           dealer: d.client,
@@ -406,7 +423,7 @@ function processData(rawData, filters, user) {
               primary_driver += ` A significant backlog of ${p.pendingQty} MT remains open.`;
             }
             
-            let recommended_action = '';
+            let recommended_action;
             if (p.pendingQty > 0) {
               recommended_action = `Regional Sales Manager to review the ${p.pendingQty} MT pending backlog for ${p.product} and coordinate with the Dispatch Team to clear delivery bottlenecks this week.`;
             } else {
@@ -439,7 +456,7 @@ function processData(rawData, filters, user) {
               primary_driver += ` ${p.pendingQty} MT of orders remain in the pipeline awaiting dispatch.`;
             }
 
-            let recommended_action = '';
+            let recommended_action;
             if (p.pendingQty > 0) {
               recommended_action = `Area Sales Manager to coordinate with the Dispatch Team to fulfill the ${p.pendingQty} MT pending backlog for ${p.product} and ensure timely delivery to sustain momentum.`;
             } else {
@@ -488,6 +505,8 @@ function processData(rawData, filters, user) {
     totalMoMColor: dynamicTotalMoMColor,
     products: dynamicProducts,
     pendingTotal: dynamicPendingTotal,
+    pendingAgeTotal: dynamicPendingAge,
+    oldestPendingDate: dynamicOldestPending,
     alertCount: alerts.length,
     intel: dynamicIntel
   };

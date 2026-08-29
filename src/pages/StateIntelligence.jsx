@@ -1,8 +1,6 @@
 import { useMemo, useEffect, useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
-import { useAuth } from '../context/AuthContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import FilterBar from '../components/common/FilterBar';
 import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import ShareDonutChart from '../components/charts/ShareDonutChart';
@@ -13,13 +11,13 @@ import { calculateMoM, getBusinessImpact, getSeverityTheme } from '../utils/tren
 import SkeletonLoader from '../components/common/SkeletonLoader';
 import { getPendingForPeriod, getTotalPendingForPeriod, getSharePctForPeriod, getBacklogClearance } from '../utils/pending';
 import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalStates } from '../utils/despatch';
+import { AGING_BUCKETS, getEntityAging, agingTotal } from '../utils/backlogAging';
 import { isRealState } from '../utils/constants';
 import { Map } from 'lucide-react';
 import MoMAreaTrendChart from '../components/charts/MoMAreaTrendChart';
 
 export default function StateIntelligence({ pendingAvailableMonths = [] }) {
   const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
-  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -53,7 +51,6 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
   // Sync URL params → Context: runs only when the URL itself changes.
   useEffect(() => {
-    const trend = searchParams.get('trend');
     const state = searchParams.get('state') || null;
     const district = searchParams.get('district') || null;
     const product = searchParams.get('product') || null;
@@ -127,7 +124,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
     }
     
     // DESPATCH MODE: Sort by % share of state volume descending, or filter by positive growth
-    let list = [];
+    let list;
     const curMonthKey = getCurMonthKey(rawData);
     if (!selectedPendingMonth || selectedPendingMonth === curMonthKey) {
       list = [...rawStates];
@@ -191,9 +188,24 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
             const row = info.row.original;
             const val = getPendingForPeriod(row, selectedPendingMonth);
             const allTime = getPendingForPeriod(row, 'ALL');
+            const agingNow = selectedPendingMonth === 'ALL' && allTime > 0;
+            const { aging } = agingNow ? getEntityAging(row, data?.meta?.dataAsOfDate || null) : { aging: null };
+            const aTotal = aging ? agingTotal(aging) : 0;
             return (
               <div className="flex flex-col">
                 <span className="font-medium">{formatMT(val)}</span>
+                {agingNow && aTotal > 0 && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex w-14 h-1.5 rounded-full overflow-hidden border border-border/40 shrink-0 bg-bg-primary/60" title="Backlog age profile">
+                      {AGING_BUCKETS.map(b => (aging[b.key] > 0 ? (
+                        <div key={b.key} className={`h-full ${b.colorClass}`} style={{ width: `${(aging[b.key] / aTotal) * 100}%` }} title={`${b.fullLabel}: ${formatMT(aging[b.key])} MT`} />
+                      ) : null))}
+                    </div>
+                    {row.oldestPendingDate && (
+                      <span className="text-[9px] text-text-muted whitespace-nowrap">oldest {row.oldestPendingDate.slice(5).replace('-', '/')}</span>
+                    )}
+                  </div>
+                )}
                 {selectedPendingMonth !== 'ALL' && (
                   <span className="text-[10px] text-text-muted mt-0.5">
                     all-time: {formatMT(allTime)}
@@ -352,7 +364,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         }
       }
     ];
-  }, [metricMode, selectedPendingMonth, states]);
+  }, [metricMode, selectedPendingMonth, states, data]);
 
   // NOTE: Must be declared before any early returns to satisfy Rules of Hooks.
   const selectedStateData = states.find(s => s.state && filters.selectedState && s.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase());

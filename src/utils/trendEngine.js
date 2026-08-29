@@ -13,14 +13,15 @@
  * Always use this instead of trusting backend `mom` field.
  */
 export function calculateMoM(cur = 0, prev = 0) {
-  let pct = 0;
+  let pct;
   if (prev <= 0) {
     if (cur <= 0) pct = 0;
     else pct = 100;
   } else {
     pct = ((cur - prev) / prev) * 100;
   }
-  pct = Math.max(-100, pct);
+  // Symmetric clamp — mirrors the backend n8n mom() cap of ±100
+  pct = Math.max(-100, Math.min(100, pct));
   return Number(pct.toFixed(1));
 }
 
@@ -130,7 +131,7 @@ export function getSeverityTheme(level) {
  * Primary Signal — Volume Risk / Volume Basis (40% weight):
  *   volumeRiskScore = Math.round(shareAmplifier × (underperformanceDeficit / 100))
  *   shareAmplifier = Math.min((sharePct / shareDenom) * 100, 100)
- *   shareDenom: STATE=20%, DISTRICT/PRODUCT=10%, DEALER=5%
+ *   shareDenom: STATE=25%, DISTRICT/PRODUCT=10%, DEALER=5%
  *
  * Secondary Signal — Pace vs Historical Avg (30% weight):
  *   paceAchievement = cur / expectedMtd
@@ -177,7 +178,7 @@ export function getBusinessImpact(cur = 0, prev = 0, sharePct = 0, level = '', s
   }
 
   // ── Signal 2: MoM Direction (30% weight) ─────────────────────────────────────
-  let momScore = 0;
+  let momScore;
   if (cur === 0 && prev > 0) {
     momScore = 100;
   } else if (momPct >= 10)                  momScore = 0;    // strong growth
