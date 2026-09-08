@@ -59,7 +59,6 @@ export default function AssistantPanel() {
     rename,
     remove,
     removeMany,
-    agentReady,
   } = useAssistant();
 
   // Only the behavioural differences are decided in JS. Sizing is CSS, so a
@@ -312,15 +311,8 @@ export default function AssistantPanel() {
             onSend={handleSend}
             onRetry={retry}
             loadResult={loadResult}
-            agentReady={agentReady}
-            onSignIn={() => {
-              closePanel();
-              navigate('/login');
-            }}
           />
-          {agentReady && (
-            <Composer ref={composerRef} onSend={handleSend} onStop={stop} streaming={streaming} />
-          )}
+          <Composer ref={composerRef} onSend={handleSend} onStop={stop} streaming={streaming} />
         </>
       )}
     </m.section>

@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import { LogIn, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import MessageTurn from './MessageTurn';
 import ThinkingIndicator from './ThinkingIndicator';
@@ -67,38 +67,6 @@ function EmptyState({ onPick }) {
   );
 }
 
-/**
- * The agent's token has lapsed.
- *
- * The dashboard is unaffected — its figures come from a public storage object
- * — so this is a prompt, not a lockout. The agent has no refresh endpoint, so
- * signing in again is genuinely the only way to renew it.
- */
-function SignInAgain({ onSignIn }) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
-      <span className="mb-3.5 flex h-11 w-11 items-center justify-center rounded-full bg-bg-card-hover text-text-muted">
-        <LogIn className="h-5 w-5" />
-      </span>
-      <h2 className="text-[1.05rem] font-semibold tracking-tight text-text-primary">
-        Sign in again to ask questions
-      </h2>
-      <p className="mt-2 max-w-[24rem] text-[0.88rem] leading-relaxed text-text-muted">
-        Your assistant session has expired. The dashboard behind is still
-        yours — only the assistant needs a fresh sign-in.
-      </p>
-      <button
-        type="button"
-        onClick={onSignIn}
-        className="mt-5 rounded-lg px-4 py-2 text-[0.85rem] font-semibold text-white"
-        style={{ background: 'var(--gradient-accent)' }}
-      >
-        Sign in
-      </button>
-    </div>
-  );
-}
-
 export default function ConversationView({
   messages,
   phases,
@@ -108,8 +76,6 @@ export default function ConversationView({
   onRetry,
   loadResult,
   wide = false,
-  agentReady = true,
-  onSignIn,
 }) {
   const scrollRef = useRef(null);
   // Pinned until the reader scrolls up. Yanking someone back to the bottom
@@ -136,11 +102,7 @@ export default function ConversationView({
       onScroll={onScroll}
       className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-4"
     >
-      {!agentReady ? (
-        <div className={`flex h-full flex-col ${wide ? 'mx-auto w-full max-w-[46rem]' : ''}`}>
-          <SignInAgain onSignIn={onSignIn} />
-        </div>
-      ) : empty ? (
+      {empty ? (
         // h-full here, flex-1 on the greeting inside it: the wrapper has to
         // carry a definite height or the greeting cannot centre against it.
         <div className={`flex h-full flex-col ${wide ? 'mx-auto w-full max-w-[46rem]' : ''}`}>

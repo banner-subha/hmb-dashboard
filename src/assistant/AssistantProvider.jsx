@@ -59,7 +59,9 @@ export function AssistantProvider({ children }) {
   // there is one.
   //
   // `agentReady`, not `isAuthenticated`: a lapsed token leaves the dashboard
-  // signed in, and the assistant is the only part that has to notice.
+  // signed in, so the session list is the one thing that must not be requested
+  // with a token the agent will reject. Asking a question with a dead token
+  // simply fails inline, which is the whole of the handling it needs.
   const { isAuthenticated, agentReady } = useAuth();
 
   // Restored from the tab, so a refresh mid-conversation comes back to it.
@@ -227,7 +229,6 @@ export function AssistantProvider({ children }) {
       sessionId,
       // The /chat page mirrors the URL into this. Nothing else should call it.
       setSessionId,
-      agentReady,
       newConversation,
       selectSession,
       sessions,
@@ -246,7 +247,6 @@ export function AssistantProvider({ children }) {
       unread,
       view,
       sessionId,
-      agentReady,
       newConversation,
       selectSession,
       sessions,
