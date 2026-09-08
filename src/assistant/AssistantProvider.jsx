@@ -55,9 +55,12 @@ function writeStored(key, value) {
 
 export function AssistantProvider({ children }) {
   // The provider sits above the router, so it is mounted on the sign-in screen
-  // too. Every call it makes needs a token, so nothing happens until there is
-  // one.
-  const { isAuthenticated } = useAuth();
+  // too. Every call it makes needs a live token, so nothing happens until
+  // there is one.
+  //
+  // `agentReady`, not `isAuthenticated`: a lapsed token leaves the dashboard
+  // signed in, and the assistant is the only part that has to notice.
+  const { isAuthenticated, agentReady } = useAuth();
 
   // Restored from the tab, so a refresh mid-conversation comes back to it.
   const [open, setOpen] = useState(() => readStored(OPEN_KEY) === '1');
@@ -72,7 +75,7 @@ export function AssistantProvider({ children }) {
   useEffect(() => writeStored(SESSION_KEY, sessionId), [sessionId]);
 
   const refreshSessions = useCallback(() => {
-    if (!isAuthenticated) return Promise.resolve();
+    if (!agentReady) return Promise.resolve();
     return api.listSessions().then(
       (data) => {
         setSessions(data.sessions || []);
@@ -84,7 +87,7 @@ export function AssistantProvider({ children }) {
         setSessionsLoading(false);
       },
     );
-  }, [isAuthenticated]);
+  }, [agentReady]);
 
   useEffect(() => {
     refreshSessions();
@@ -211,17 +214,6 @@ export function AssistantProvider({ children }) {
     [sessionId, refreshSessions],
   );
 
-  // A dead token means there is nothing to show. AuthContext handles the
-  // redirect; the panel just gets out of the way.
-  useEffect(() => {
-    const onUnauthorized = () => {
-      setOpen(false);
-      setSessionId(null);
-    };
-    window.addEventListener('hmb:unauthorized', onUnauthorized);
-    return () => window.removeEventListener('hmb:unauthorized', onUnauthorized);
-  }, []);
-
   const value = useMemo(
     () => ({
       ...stream,
@@ -235,6 +227,7 @@ export function AssistantProvider({ children }) {
       sessionId,
       // The /chat page mirrors the URL into this. Nothing else should call it.
       setSessionId,
+      agentReady,
       newConversation,
       selectSession,
       sessions,
@@ -253,6 +246,7 @@ export function AssistantProvider({ children }) {
       unread,
       view,
       sessionId,
+      agentReady,
       newConversation,
       selectSession,
       sessions,

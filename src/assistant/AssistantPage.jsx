@@ -49,6 +49,7 @@ export default function AssistantPage() {
     rename,
     remove,
     removeMany,
+    agentReady,
   } = useAssistant();
 
   const composerRef = useRef(null);
@@ -188,15 +189,19 @@ export default function AssistantPage() {
               onSend={handleSend}
               onRetry={retry}
               loadResult={loadResult}
+              agentReady={agentReady}
+              onSignIn={() => navigate('/login')}
             />
-            <div className="mx-auto w-full max-w-[46rem]">
-              <Composer
-                ref={composerRef}
-                onSend={handleSend}
-                onStop={stop}
-                streaming={streaming}
-              />
-            </div>
+            {agentReady && (
+              <div className="mx-auto w-full max-w-[46rem]">
+                <Composer
+                  ref={composerRef}
+                  onSend={handleSend}
+                  onStop={stop}
+                  streaming={streaming}
+                />
+              </div>
+            )}
           </>
         )}
       </main>

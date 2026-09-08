@@ -37,8 +37,11 @@ function readStoredUser() {
     if (!saved) return null;
 
     const parsed = JSON.parse(saved);
-    const expired = parsed?.expiresAt && parsed.expiresAt * 1000 < Date.now();
-    if (!parsed?.accessToken || !parsed?.expiresAt || expired) {
+    // Only an entry that identifies someone is worth restoring. An expired
+    // access token is NOT a reason to throw the session away: the dashboard's
+    // figures come from a public storage object and need no token at all, so
+    // discarding the identity only forced a sign-in that bought nothing.
+    if (!parsed?.username) {
       localStorage.removeItem(AUTH_KEY);
       return null;
     }
@@ -49,20 +52,37 @@ function readStoredUser() {
   }
 }
 
+/**
+ * Whether the stored access token can still be sent to the agent.
+ *
+ * The agent has no refresh endpoint — /openapi.json lists /auth/login and
+ * nothing else — so a token cannot be renewed silently. When it lapses the
+ * dashboard carries on and only the assistant needs signing in again.
+ */
+function tokenUsable(stored) {
+  if (!stored?.accessToken) return false;
+  return !stored.expiresAt || stored.expiresAt * 1000 > Date.now();
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser);
+  // Set when the agent rejects the token. Separate from `user`, because being
+  // signed in and holding a live agent token are now two different things.
+  const [tokenRejected, setTokenRejected] = useState(false);
 
   const logout = useCallback(() => {
     setUser(null);
+    setTokenRejected(false);
     localStorage.removeItem(AUTH_KEY);
   }, []);
 
-  // Any 401 from the agent means the token is gone. One listener, one place.
+  // A 401 from the agent retires the token, not the session. Signing out is
+  // something the user does deliberately, from the button that says so.
   useEffect(() => {
-    const onUnauthorized = () => logout();
+    const onUnauthorized = () => setTokenRejected(true);
     window.addEventListener('hmb:unauthorized', onUnauthorized);
     return () => window.removeEventListener('hmb:unauthorized', onUnauthorized);
-  }, [logout]);
+  }, []);
 
   const login = useCallback(async (username, password) => {
     try {
@@ -82,6 +102,7 @@ export function AuthProvider({ children }) {
         loginAt: new Date().toISOString(),
       };
       setUser(userData);
+      setTokenRejected(false);
       localStorage.setItem(AUTH_KEY, JSON.stringify(userData));
       return { success: true };
     } catch (err) {
@@ -104,7 +125,16 @@ export function AuthProvider({ children }) {
   // RequireAuth and the pages read it.
   return (
     <AuthContext.Provider
-      value={{ user, loading: false, login, logout, isAuthenticated: !!user }}
+      value={{
+        user,
+        loading: false,
+        login,
+        logout,
+        // Signed in: the dashboard is yours. Survives a lapsed agent token.
+        isAuthenticated: !!user,
+        // Cleared to talk to the agent. The assistant checks this one.
+        agentReady: !!user && !tokenRejected && tokenUsable(user),
+      }}
     >
       {children}
     </AuthContext.Provider>
