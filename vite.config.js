@@ -4,6 +4,17 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Pinned, and deliberately allowed to fail rather than drift.
+  //
+  // Vite's default is to hunt for the next free port, so a stray process on
+  // 5173 silently moves the app to 5174. That changes the origin, and both the
+  // stored session and the agent's CORS allowlist are per-origin — so the app
+  // comes up looking signed out for no visible reason. Failing loudly on a
+  // busy port is far easier to diagnose than a session that vanished.
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   build: {
     rollupOptions: {
       output: {

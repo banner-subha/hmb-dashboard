@@ -88,16 +88,14 @@ export function AuthProvider({ children }) {
       if (err instanceof AgentError && err.status === 401) {
         return { success: false, error: 'Invalid username or password' };
       }
-      // status 0 is a configuration problem, and its message says which.
-      if (err instanceof AgentError && err.status === 0) {
+      // Every other AgentError already carries a message written for this
+      // screen — a missing VITE_AGENT_URL, a timeout, a 502, a dead network.
+      // Collapsing them into one sentence about configuration is how a
+      // transient blip turns into an afternoon of checking settings.
+      if (err instanceof AgentError) {
         return { success: false, error: err.message };
       }
-      return {
-        success: false,
-        error:
-          'Cannot reach the sign-in service. Check that the agent is running ' +
-          'and that VITE_AGENT_URL points at it.',
-      };
+      return { success: false, error: `Sign-in failed: ${err.message}` };
     }
   }, []);
 

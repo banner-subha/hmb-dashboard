@@ -80,19 +80,60 @@ async function request(path, { method = 'GET', body, signal } = {}) {
 
 // ── auth ────────────────────────────────────────────────────────────────────
 
+// How long to wait for a sign-in before giving up. The service answers in
+// about a second warm; a cold instance can take several. Twenty is generous
+// without leaving someone staring at a dead spinner.
+const LOGIN_TIMEOUT_MS = 20000;
+
+/**
+ * Sign in.
+ *
+ * Retries once on a transport failure. A cold instance or a momentary network
+ * blip is not a configuration problem, and telling someone to go and check
+ * VITE_AGENT_URL when the answer is "try again" wastes their afternoon.
+ *
+ * An HTTP answer of any kind is never retried: 401 means the password is
+ * wrong, and repeating it would only look like a brute-force attempt.
+ */
 export async function login(username, password) {
-  const res = await fetch(`${base()}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  });
-  if (res.status === 401) {
-    throw new AgentError('Invalid username or password', 401);
+  const url = `${base()}/auth/login`;
+  let transportError;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        signal: AbortSignal.timeout(LOGIN_TIMEOUT_MS),
+      });
+    } catch (err) {
+      transportError = err;
+      continue;
+    }
+
+    if (res.status === 401) {
+      throw new AgentError('Invalid username or password', 401);
+    }
+    if (!res.ok) {
+      throw new AgentError(
+        `The sign-in service answered ${res.status}. This is the service, not your password.`,
+        res.status,
+      );
+    }
+    return res.json();
   }
-  if (!res.ok) {
-    throw new AgentError(`Sign-in failed (${res.status})`, res.status);
-  }
-  return res.json();
+
+  const timedOut =
+    transportError?.name === 'TimeoutError' || transportError?.name === 'AbortError';
+  throw new AgentError(
+    timedOut
+      ? 'The sign-in service did not answer in time. It may be starting up — try again in a moment.'
+      : `Could not reach the sign-in service: ${transportError?.message || 'network error'}. ` +
+        'Check your connection, then that the agent is running.',
+    timedOut ? 408 : -1,
+  );
 }
 
 // ── sessions ────────────────────────────────────────────────────────────────

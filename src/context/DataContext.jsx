@@ -514,12 +514,24 @@ function processData(rawData, filters, user) {
 
 export function DataProvider({ children }) {
   const { user } = useAuth();
+  // A primitive, so replacing the user object cannot retrigger a 2.5MB fetch.
+  const authed = !!user;
   const [rawData, setRawData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filters, dispatch] = useReducer(filterReducer, initialFilters);
 
   useEffect(() => {
+    // Nothing to fetch until someone is signed in.
+    //
+    // This effect used to run on mount with no dependencies, so the dashboard
+    // payload — 2.5MB of latest.json — downloaded on the sign-in screen and
+    // competed with the sign-in request itself. Waiting for auth makes signing
+    // in noticeably quicker, and stops handing business data to anyone who
+    // merely loads the page. A returning visitor whose token is still valid is
+    // authenticated on the first render, so their prefetch is unaffected.
+    if (!authed) return undefined;
+
     let mounted = true;
     setLoading(true);
     const timeout = setTimeout(() => {
@@ -543,7 +555,7 @@ export function DataProvider({ children }) {
       .catch(err => { if (mounted) { clearTimeout(timeout); setError(err.message); } })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; clearTimeout(timeout); };
-  }, []);
+  }, [authed]);
 
   const refresh = useCallback(() => {
     dataService.clearCache();
