@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
+import { Sparkles } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import MessageTurn from './MessageTurn';
 import ThinkingIndicator from './ThinkingIndicator';
 
@@ -16,19 +18,46 @@ const OPENERS = [
   { label: '10mm vs 12mm', prompt: '10mm vs 12mm volume this month' },
 ];
 
+/** Time of day, so the greeting is not the same sentence all day. */
+function timeOfDay() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 function EmptyState({ onPick }) {
+  const { user } = useAuth();
+  // First name only. "Good afternoon, Rajesh Kumar Sharma" reads like a form
+  // letter; "Good afternoon, Rajesh" reads like a colleague.
+  const firstName = String(user?.name || user?.username || '')
+    .trim()
+    .split(/\s+/)[0];
+
   return (
-    <div className="flex min-h-full flex-col justify-end pb-1">
-      <p className="text-[0.95rem] leading-relaxed text-text-secondary">
-        Ask me about despatch, backlog, targets or rates.
+    <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
+      <span
+        className="mb-3.5 flex h-11 w-11 items-center justify-center rounded-full text-white"
+        style={{ background: 'var(--gradient-accent)' }}
+      >
+        <Sparkles className="h-5 w-5" />
+      </span>
+
+      <h2 className="text-[1.1rem] font-semibold tracking-tight text-text-primary">
+        {firstName ? `${timeOfDay()}, ${firstName}` : timeOfDay()}
+      </h2>
+      <p className="mt-2 max-w-[24rem] text-[0.88rem] leading-relaxed text-text-muted">
+        I can look up despatch, order backlog, dealer targets and size-wise rates.
+        Ask in plain English — figures come straight from the sales data.
       </p>
-      <div className="mt-3 flex flex-wrap gap-1.5">
+
+      <div className="mt-5 flex flex-wrap justify-center gap-1.5">
         {OPENERS.map((opener) => (
           <button
             key={opener.label}
             type="button"
             onClick={() => onPick(opener.prompt)}
-            className="rounded-full border border-border bg-bg-card px-2.5 py-1 text-[0.8rem] text-text-muted transition-colors hover:border-border-accent hover:bg-bg-card-hover hover:text-text-primary"
+            className="rounded-full border border-border bg-bg-card px-3 py-1.5 text-[0.8rem] text-text-secondary transition-colors hover:border-border-accent hover:bg-bg-card-hover hover:text-text-primary"
           >
             {opener.label}
           </button>
@@ -74,7 +103,9 @@ export default function ConversationView({
       className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-4"
     >
       {empty ? (
-        <div className={wide ? 'mx-auto w-full max-w-[46rem]' : undefined}>
+        // h-full here, flex-1 on the greeting inside it: the wrapper has to
+        // carry a definite height or the greeting cannot centre against it.
+        <div className={`flex h-full flex-col ${wide ? 'mx-auto w-full max-w-[46rem]' : ''}`}>
           <EmptyState onPick={onSend} />
         </div>
       ) : (

@@ -67,10 +67,6 @@ export function AssistantProvider({ children }) {
 
   const [sessions, setSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
-  // Table staleness. Session-level rather than per-answer: it describes the
-  // data behind every figure, so it is fetched once and shared, not refetched
-  // each time the panel opens.
-  const [freshness, setFreshness] = useState(null);
 
   useEffect(() => writeStored(OPEN_KEY, open ? '1' : null), [open]);
   useEffect(() => writeStored(SESSION_KEY, sessionId), [sessionId]);
@@ -93,23 +89,6 @@ export function AssistantProvider({ children }) {
   useEffect(() => {
     refreshSessions();
   }, [refreshSessions]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return undefined;
-    let cancelled = false;
-    api.getFreshness().then(
-      (data) => {
-        if (!cancelled) setFreshness(data.tables || []);
-      },
-      () => {
-        // Informational. A failure here must not block the conversation.
-        if (!cancelled) setFreshness([]);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated]);
 
   // Signing out has to clear the conversation, not just hide it. The next
   // person to sign in on this tab must not find someone else's questions
@@ -261,7 +240,6 @@ export function AssistantProvider({ children }) {
       sessions,
       sessionsLoading,
       refreshSessions,
-      freshness,
       rename,
       remove,
       removeMany,
@@ -280,7 +258,6 @@ export function AssistantProvider({ children }) {
       sessions,
       sessionsLoading,
       refreshSessions,
-      freshness,
       rename,
       remove,
       removeMany,

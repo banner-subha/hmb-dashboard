@@ -6,7 +6,6 @@ import { useAssistant } from './AssistantProvider';
 import ConversationView from './ConversationView';
 import Composer from './Composer';
 import HistoryPane from './HistoryPane';
-import { FreshnessNotice } from './Provenance';
 
 // /chat — the same assistant, given the whole viewport.
 //
@@ -39,7 +38,6 @@ export default function AssistantPage() {
     loadingHistory,
     loadError,
     loadResult,
-    freshness,
     sessionId,
     setSessionId,
     view,
@@ -142,7 +140,6 @@ export default function AssistantPage() {
               <span className="flex-1 truncate text-[0.9rem] font-semibold">
                 Sales Assistant
               </span>
-              <FreshnessNotice tables={freshness} />
               {!sidebar && (
                 <>
                   <button

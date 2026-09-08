@@ -4,9 +4,12 @@ import { useAssistant } from './AssistantProvider';
 /**
  * The dashboard header's trigger.
  *
- * Styled for the header's own dark gradient rather than the page surface, so
- * it sits beside the live-sync chip as a peer. Stays mounted while the panel
- * is open: it is where focus returns on close.
+ * Deliberately the loudest thing in the header: accent blue with the AI mark,
+ * where the live-sync chip beside it is a muted outline. Someone opening the
+ * dashboard for the first time should be able to find the assistant without
+ * being shown where it is.
+ *
+ * Stays mounted while the panel is open — it is where focus returns on close.
  */
 export default function AssistantLauncher() {
   const { open, openPanel, unread } = useAssistant();
@@ -18,11 +21,13 @@ export default function AssistantLauncher() {
       aria-label="Open the sales assistant"
       aria-expanded={open}
       title="Ask the sales assistant (Ctrl+K)"
-      className={`relative hidden items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition-colors sm:flex ${
-        open
-          ? 'border-accent-blue/50 bg-accent-blue/20 text-white'
-          : 'border-white/10 bg-white/[0.07] text-white/75 hover:bg-white/[0.12] hover:text-white'
-      }`}
+      className="relative hidden items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold text-white ring-1 ring-inset ring-white/25 transition-all hover:brightness-110 sm:flex"
+      style={{
+        background: 'var(--gradient-accent)',
+        boxShadow: open
+          ? '0 0 0 3px rgba(78, 143, 247, 0.28)'
+          : '0 1px 8px rgba(37, 99, 235, 0.45)',
+      }}
     >
       <Sparkles className="h-3.5 w-3.5 shrink-0" />
       Ask

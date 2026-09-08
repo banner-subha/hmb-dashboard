@@ -1,130 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ChevronDown, Clock, Info, SearchX } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Info, SearchX } from 'lucide-react';
 
 // The only plumbing worth showing.
 //
 // The old chat put a query trace above every answer — "2 queries · 4,812 rows
 // · 380 ms" — and a full dealer-matching table inline. That is a query plan;
-// a salesperson wants the number. All of it is gone except the two things that
-// change whether a figure should be acted on:
+// a salesperson wants the number. All of it is gone except the one thing that
+// changes whether a figure should be acted on: a dealer filter that quietly
+// folded in a different company.
 //
-//   1. the data behind it stops before the period asked about, and
-//   2. a dealer filter quietly folded in a different company.
+// It collapses to a chip, and expands itself when the match is actually
+// suspect, because that one is a wrong-number guard rather than a footnote.
 //
-// Both are collapsed to a chip. The second expands itself when the match is
-// actually suspect, because that one is a wrong-number guard rather than a
-// footnote.
-
-const STALE_DAYS = 3;
-const STALE_SEEN_KEY = 'hmb_assistant_stale_seen';
-
-const SOURCE_LABEL = {
-  despatch_orders: 'Despatch',
-  dia_wise_despatch: 'Size, rate and revenue',
-  do_pending: 'Order backlog',
-  dealer_targets: 'Dealer targets',
-  dealer_kro_mapping: 'Dealer/KRO mapping',
-};
+// A staleness chip used to live here too, warning when a source stopped before
+// the period asked about. Removed at the product owner's request: the agent
+// already states the data's end date in its own prose, so the chip was
+// repeating what the answer says.
 
 const CONFIDENCE_LABEL = {
   spelling_variant: 'spelling variant',
   suffix_or_prefix: 'suffix or prefix',
   possible_mismatch: 'possible mismatch',
 };
-
-function formatDate(iso) {
-  if (!iso) return null;
-  const [y, m, d] = String(iso).split('-').map(Number);
-  if (!y || !m || !d) return iso;
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-}
-
-function readSeen() {
-  try {
-    return sessionStorage.getItem(STALE_SEEN_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Staleness, as a dot in the panel header.
- *
- * Open on its own the first time in a tab, because a figure covering a partial
- * period should not need to be asked about. Once dismissed it stays a dot.
- */
-export function FreshnessNotice({ tables }) {
-  const stale = useMemo(
-    () => (tables || []).filter((t) => t.days_behind != null && t.days_behind > STALE_DAYS),
-    [tables],
-  );
-
-  // `null` means the reader has not decided; the default then applies. Derived
-  // rather than set in an effect, so the first render after the fetch lands is
-  // already correct.
-  const [toggled, setToggled] = useState(null);
-  // Read once, at mount, through a state initialiser rather than a ref: this
-  // value is an input to what renders, and refs are not readable during render.
-  const [seenAtMount] = useState(readSeen);
-
-  if (!stale.length) return null;
-
-  const open = toggled ?? !seenAtMount;
-
-  const onToggle = () => {
-    if (open) {
-      try {
-        sessionStorage.setItem(STALE_SEEN_KEY, '1');
-      } catch {
-        /* ignore */
-      }
-    }
-    setToggled(!open);
-  };
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-label={`${stale.length} data source${stale.length === 1 ? '' : 's'} behind`}
-        title="Some data is behind"
-        className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-severity-high transition-colors hover:bg-severity-high/10"
-      >
-        <Clock className="h-4 w-4" />
-        <span className="h-1.5 w-1.5 rounded-full bg-severity-high" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-full z-10 mt-1 w-[19rem] max-w-[calc(100vw-2rem)] rounded-xl border border-severity-high/40 bg-bg-elevated p-3 shadow-xl">
-          <p className="text-[0.82rem] font-semibold text-severity-high">
-            {stale.length === 1 ? 'A source is' : 'Some sources are'} behind
-          </p>
-          <ul className="mt-1.5 space-y-1">
-            {stale.map((t) => (
-              <li key={t.table_name} className="text-[0.8rem] leading-relaxed text-text-secondary">
-                <span className="font-medium text-text-primary">
-                  {SOURCE_LABEL[t.table_name] || t.table_name}
-                </span>{' '}
-                ends {formatDate(t.latest_data_date)}
-                <span className="text-text-dim"> · {t.days_behind} days behind</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-[0.78rem] leading-relaxed text-text-muted">
-            Figures drawn from {stale.length === 1 ? 'it' : 'these'} cover a partial period.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
 
 /**
  * One dealer filter and the stored names it matched.

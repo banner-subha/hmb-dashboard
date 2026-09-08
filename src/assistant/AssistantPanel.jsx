@@ -8,7 +8,6 @@ import { useAssistant } from './AssistantProvider';
 import ConversationView from './ConversationView';
 import Composer from './Composer';
 import HistoryPane from './HistoryPane';
-import { FreshnessNotice } from './Provenance';
 import { dismissTop } from './escapeStack';
 
 // The slide-over shell: chrome, sizing, focus and keyboard behaviour. The
@@ -51,7 +50,6 @@ export default function AssistantPanel() {
     loadingHistory,
     loadError,
     loadResult,
-    freshness,
     view,
     setView,
     sessions,
@@ -246,7 +244,6 @@ export default function AssistantPanel() {
             <span className="flex-1 truncate text-[0.9rem] font-semibold text-text-primary">
               Sales Assistant
             </span>
-            <FreshnessNotice tables={freshness} />
             <button
               type="button"
               onClick={() => {
