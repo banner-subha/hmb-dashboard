@@ -8,13 +8,14 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/';
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -23,11 +24,16 @@ export default function Login() {
       return;
     }
 
-    const result = login(username, password);
-    if (result.success) {
-      navigate(from, { replace: true });
-    } else {
-      setError(result.error);
+    setSubmitting(true);
+    try {
+      const result = await login(username, password);
+      if (result.success) {
+        navigate(from, { replace: true });
+      } else {
+        setError(result.error);
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -103,10 +109,11 @@ export default function Login() {
             <div className="pt-1">
               <button
                 type="submit"
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:brightness-110 active:translate-y-[0.5px] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 cursor-pointer"
+                disabled={submitting}
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:brightness-110 active:translate-y-[0.5px] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                 style={{ background: 'var(--gradient-accent)', boxShadow: 'var(--shadow-card)' }}
               >
-                Sign in to Dashboard
+                {submitting ? 'Signing in…' : 'Sign in to Dashboard'}
               </button>
             </div>
           </form>

@@ -1,0 +1,321 @@
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, ChevronDown, Clock, Info, SearchX } from 'lucide-react';
+
+// The only plumbing worth showing.
+//
+// The old chat put a query trace above every answer — "2 queries · 4,812 rows
+// · 380 ms" — and a full dealer-matching table inline. That is a query plan;
+// a salesperson wants the number. All of it is gone except the two things that
+// change whether a figure should be acted on:
+//
+//   1. the data behind it stops before the period asked about, and
+//   2. a dealer filter quietly folded in a different company.
+//
+// Both are collapsed to a chip. The second expands itself when the match is
+// actually suspect, because that one is a wrong-number guard rather than a
+// footnote.
+
+const STALE_DAYS = 3;
+const STALE_SEEN_KEY = 'hmb_assistant_stale_seen';
+
+const SOURCE_LABEL = {
+  despatch_orders: 'Despatch',
+  dia_wise_despatch: 'Size, rate and revenue',
+  do_pending: 'Order backlog',
+  dealer_targets: 'Dealer targets',
+  dealer_kro_mapping: 'Dealer/KRO mapping',
+};
+
+const CONFIDENCE_LABEL = {
+  spelling_variant: 'spelling variant',
+  suffix_or_prefix: 'suffix or prefix',
+  possible_mismatch: 'possible mismatch',
+};
+
+function formatDate(iso) {
+  if (!iso) return null;
+  const [y, m, d] = String(iso).split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+function readSeen() {
+  try {
+    return sessionStorage.getItem(STALE_SEEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Staleness, as a dot in the panel header.
+ *
+ * Open on its own the first time in a tab, because a figure covering a partial
+ * period should not need to be asked about. Once dismissed it stays a dot.
+ */
+export function FreshnessNotice({ tables }) {
+  const stale = useMemo(
+    () => (tables || []).filter((t) => t.days_behind != null && t.days_behind > STALE_DAYS),
+    [tables],
+  );
+
+  // `null` means the reader has not decided; the default then applies. Derived
+  // rather than set in an effect, so the first render after the fetch lands is
+  // already correct.
+  const [toggled, setToggled] = useState(null);
+  // Read once, at mount, through a state initialiser rather than a ref: this
+  // value is an input to what renders, and refs are not readable during render.
+  const [seenAtMount] = useState(readSeen);
+
+  if (!stale.length) return null;
+
+  const open = toggled ?? !seenAtMount;
+
+  const onToggle = () => {
+    if (open) {
+      try {
+        sessionStorage.setItem(STALE_SEEN_KEY, '1');
+      } catch {
+        /* ignore */
+      }
+    }
+    setToggled(!open);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-label={`${stale.length} data source${stale.length === 1 ? '' : 's'} behind`}
+        title="Some data is behind"
+        className="flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-severity-high transition-colors hover:bg-severity-high/10"
+      >
+        <Clock className="h-4 w-4" />
+        <span className="h-1.5 w-1.5 rounded-full bg-severity-high" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-10 mt-1 w-[19rem] max-w-[calc(100vw-2rem)] rounded-xl border border-severity-high/40 bg-bg-elevated p-3 shadow-xl">
+          <p className="text-[0.82rem] font-semibold text-severity-high">
+            {stale.length === 1 ? 'A source is' : 'Some sources are'} behind
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {stale.map((t) => (
+              <li key={t.table_name} className="text-[0.8rem] leading-relaxed text-text-secondary">
+                <span className="font-medium text-text-primary">
+                  {SOURCE_LABEL[t.table_name] || t.table_name}
+                </span>{' '}
+                ends {formatDate(t.latest_data_date)}
+                <span className="text-text-dim"> · {t.days_behind} days behind</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[0.78rem] leading-relaxed text-text-muted">
+            Figures drawn from {stale.length === 1 ? 'it' : 'these'} cover a partial period.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One dealer filter and the stored names it matched.
+ *
+ * Dealer totals are deliberately inclusive: a filter folds in every stored
+ * spelling that matches, which can pull in a genuinely different company.
+ * When that happens the disclosure is amber and already open — it is the
+ * difference between a right and a wrong number, not a detail.
+ */
+function DealerDisclosure({ disclosure }) {
+  const matches = disclosure?.matches || [];
+  const suspect = matches.filter((m) => m.confidence === 'possible_mismatch');
+  const caution = suspect.length > 0;
+  const [toggled, setToggled] = useState(null);
+
+  // One match and no suspicion means nothing was folded together, so there is
+  // nothing to disclose. "Includes 1 stored name" is just noise on the answer.
+  if (matches.length < 2 && !caution) return null;
+
+  const open = toggled ?? caution;
+
+  return (
+    <div
+      className={`my-2 rounded-xl border ${
+        caution
+          ? 'border-severity-high/45 bg-severity-high/[0.07]'
+          : 'border-border bg-bg-tertiary/60'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => setToggled(!open)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left"
+      >
+        {caution ? (
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-severity-high" />
+        ) : (
+          <Info className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+        )}
+        <span
+          className={`flex-1 text-[0.8rem] leading-snug ${
+            caution ? 'font-semibold text-severity-high' : 'text-text-muted'
+          }`}
+        >
+          {caution
+            ? 'This total may include a different company'
+            : `Includes ${matches.length} stored name${matches.length === 1 ? '' : 's'}`}
+        </span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-text-dim transition-transform ${
+            open ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {open && (
+        <div className="px-3 pb-2.5">
+          {caution && (
+            <p className="mb-2 text-[0.8rem] leading-relaxed text-text-secondary">
+              The filter “{disclosure.input}” folded in{' '}
+              {suspect.map((m, i) => (
+                <span key={m.matched_name}>
+                  {i > 0 && ', '}
+                  <strong className="font-semibold text-severity-high">{m.matched_name}</strong>
+                </span>
+              ))}
+              , which may not be the dealer you meant.
+            </p>
+          )}
+          <table className="w-full text-[0.78rem]">
+            <tbody>
+              {matches.map((m) => (
+                <tr
+                  key={m.matched_name}
+                  className={
+                    m.confidence === 'possible_mismatch'
+                      ? 'text-severity-high'
+                      : 'text-text-muted'
+                  }
+                >
+                  <td className="py-[3px] pr-2 font-medium">{m.matched_name}</td>
+                  <td className="whitespace-nowrap py-[3px] text-right text-[0.72rem]">
+                    {CONFIDENCE_LABEL[m.confidence] || m.confidence}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A one-line note, not a paragraph.
+ *
+ * "Not found" and "no data" are different things, and conflating them tells a
+ * salesperson their state does not exist when it simply had a quiet week.
+ */
+function MissNotice({ tools }) {
+  const missed = tools.some((t) => t.notFound);
+  const quiet = tools.some((t) => t.noData && !t.notFound);
+  if (!missed && !quiet) return null;
+
+  return (
+    <div className="my-2 space-y-1">
+      {missed && (
+        <p className="flex items-start gap-1.5 text-[0.8rem] leading-relaxed text-severity-high">
+          <SearchX className="mt-[2px] h-3.5 w-3.5 shrink-0" />
+          A filter value was not found. Nothing was substituted for it.
+        </p>
+      )}
+      {quiet && (
+        <p className="flex items-start gap-1.5 text-[0.8rem] leading-relaxed text-text-muted">
+          <Info className="mt-[2px] h-3.5 w-3.5 shrink-0" />
+          The names matched, but there was no activity in that period.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The provenance for one answer. Renders above the prose, because a warning
+ * about a figure is worth less after the figure has been read.
+ */
+export default function TurnProvenance({ tools = [], loadResult }) {
+  const [fetched, setFetched] = useState({});
+
+  // Disclosures live on the tool result, so they arrive with the rows rather
+  // than on the stream event, which only flags that there is one.
+  const needing = tools.filter((t) => t.hasDisclosure && !t.disclosure).map((t) => t.id);
+  const key = needing.join(',');
+
+  useEffect(() => {
+    if (!key || !loadResult) return undefined;
+    let cancelled = false;
+    Promise.all(
+      key.split(',').map((id) =>
+        loadResult(id)
+          .then((payload) => [id, payload?.dealer_disclosure])
+          .catch(() => [id, null]),
+      ),
+    ).then((pairs) => {
+      if (cancelled) return;
+      setFetched(Object.fromEntries(pairs.filter(([, d]) => d)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, loadResult]);
+
+  // Rebuilt history carries its disclosure inline and needs no fetch.
+  const inline = Object.fromEntries(
+    tools.filter((t) => t.disclosure).map((t) => [t.id, t.disclosure]),
+  );
+
+  // One disclosure per distinct dealer input, suspect matches first.
+  const unique = useMemo(() => {
+    const all = { ...inline, ...fetched };
+    const seen = new Set();
+    return Object.values(all)
+      .filter((d) => {
+        if (!d?.input || seen.has(d.input)) return false;
+        seen.add(d.input);
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          Number(b.matches?.some((m) => m.confidence === 'possible_mismatch')) -
+          Number(a.matches?.some((m) => m.confidence === 'possible_mismatch')),
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, fetched, tools]);
+
+  const worthShowing = unique.filter(
+    (d) =>
+      (d.matches || []).length > 1 ||
+      (d.matches || []).some((m) => m.confidence === 'possible_mismatch'),
+  );
+
+  if (!worthShowing.length && !tools.some((t) => t.notFound || t.noData)) return null;
+
+  return (
+    <>
+      {worthShowing.map((d) => (
+        <DealerDisclosure key={d.input} disclosure={d} />
+      ))}
+      <MissNotice tools={tools} />
+    </>
+  );
+}

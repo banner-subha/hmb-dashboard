@@ -34,6 +34,15 @@ export default class ErrorBoundary extends Component {
     if (this.state.hasError) {
       const errorMsg = this.state.error?.message || 'Something went wrong';
 
+      // A caller that owns a region rather than the page can supply its own
+      // recovery UI. The default below fills the viewport, which is right for
+      // the app shell and wrong for anything mounted inside it.
+      if (this.props.fallback) {
+        return typeof this.props.fallback === 'function'
+          ? this.props.fallback({ error: this.state.error, reset: this.handleRetry })
+          : this.props.fallback;
+      }
+
       return (
         <div className="min-h-screen flex items-center justify-center bg-bg-primary">
           <div className="glass-card p-8 max-w-md w-full mx-4 text-center space-y-5">

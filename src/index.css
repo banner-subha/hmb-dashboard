@@ -749,6 +749,13 @@ tbody tr:last-child td,
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
   }
+  /* A steady sweep for text the assistant is "thinking" through. Linear, not
+     eased: an eased sweep hesitates mid-phrase and reads as a stutter. Paired
+     with background-clip: text, so the gradient lights the glyphs themselves. */
+  .animate-text-shimmer {
+    background-size: 200% 100%;
+    animation: textShimmer 2.1s linear infinite;
+  }
 }
 
 @keyframes fadeIn {
@@ -766,6 +773,10 @@ tbody tr:last-child td,
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+@keyframes textShimmer {
+  0% { background-position: 150% 0; }
+  100% { background-position: -150% 0; }
 }
 
 /* ─────────────────────────────────────────────────────────────

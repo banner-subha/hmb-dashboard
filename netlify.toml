@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  VITE_AGENT_URL = "https://hmb-sales-agent-36491096962.us-central1.run.app"
+
 # Cache geo boundary files aggressively (immutable — content-addressed by filename)
 [[headers]]
   for = "/geo/*.geojson"

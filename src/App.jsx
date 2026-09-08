@@ -2,10 +2,11 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider, useRawData } from './context/DataContext';
 import { ThemeProvider } from './context/ThemeContext';
-import React, { useMemo, lazy } from 'react';
+import React, { useMemo, lazy, Suspense } from 'react';
 import { calculateMoM, getBusinessImpact } from './utils/trendEngine';
 import { getPendingAvailableMonths } from './utils/pending';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import { AssistantProvider } from './assistant/AssistantProvider';
 
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
@@ -17,6 +18,10 @@ const DealerIntelligence = lazy(() => import('./pages/DealerIntelligence'));
 const AIWarRoom = lazy(() => import('./pages/AIWarRoom'));
 const AlertIntelligence = lazy(() => import('./pages/AlertIntelligence'));
 const GeoIntelligence = lazy(() => import('./pages/GeoIntelligence'));
+// The surface is lazy so that nothing it pulls in — the panel, markdown,
+// recharts, the result table — lands in the dashboard's initial bundle.
+const AssistantSurface = lazy(() => import('./assistant/AssistantSurface'));
+const AssistantPage = lazy(() => import('./assistant/AssistantPage'));
 
 // ─── GeoIntelligence wrapper — transforms rawData → salesData prop ─────────────
 function GeoIntelligenceWrapper() {
@@ -189,6 +194,35 @@ function StateIntelligenceWrapper() {
   return <StateIntelligence pendingAvailableMonths={pendingAvailableMonths} />;
 }
 
+/**
+ * Mounts the assistant surface as a sibling of the routes.
+ *
+ * Rendered here rather than inside any page, because the panel has to keep
+ * streaming while the user navigates between dashboard pages — a routed
+ * component would unmount and take the answer with it.
+ *
+ * Hidden on /login, and on /chat, where the page already *is* the assistant.
+ * Both surfaces share one conversation through the provider, so a panel
+ * floating over the full-page view would be the same conversation twice.
+ */
+function AssistantMount() {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+
+  const suppressed =
+    !isAuthenticated ||
+    location.pathname === '/login' ||
+    location.pathname.startsWith('/chat');
+
+  if (suppressed) return null;
+
+  return (
+    <Suspense fallback={null}>
+      <AssistantSurface />
+    </Suspense>
+  );
+}
+
 // RequireAuth Wrapper
 function RequireAuth({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -244,21 +278,50 @@ function App() {
         <DataProvider>
           <GeoPrefetcher />
           <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              
-              <Route path="/" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
-                <Route index element={<IndexElement />} />
-                <Route path="states" element={<StateIntelligenceWrapper />} />
-                <Route path="districts" element={<DistrictIntelligenceWrapper />} />
-                <Route path="dealers" element={<DealerIntelligenceWrapper />} />
-                <Route path="risk" element={<Navigate to="/alerts" replace />} />
-                <Route path="war-room" element={<RequireAdminRoute><AIWarRoom /></RequireAdminRoute>} />
-                <Route path="alerts" element={<RequireAdminRoute><AlertIntelligence /></RequireAdminRoute>} />
-                <Route path="geo" element={<RequireAdminRoute><GeoIntelligenceWrapper /></RequireAdminRoute>} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Route>
-            </Routes>
+            <AssistantProvider>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+
+                {/* The assistant's full-page view — a peer route with its own
+                  shell, not a child of the dashboard layout, because it needs
+                  the whole viewport and controls scrolling itself. This is the
+                  only surface that touches the URL: the provider owns which
+                  session is open and this page mirrors it, which is what makes
+                  deep links, the back button and refresh work. */}
+                <Route
+                  path="/chat/*"
+                  element={
+                    <RequireAuth>
+                      <Suspense
+                        fallback={
+                          <div className="flex h-[100dvh] items-center justify-center bg-bg-primary text-text-muted">
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-blue/30 border-t-accent-blue" />
+                              <span className="text-xs font-medium tracking-wide">Loading the assistant…</span>
+                            </div>
+                          </div>
+                        }
+                      >
+                        <AssistantPage />
+                      </Suspense>
+                    </RequireAuth>
+                  }
+                />
+
+                <Route path="/" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
+                  <Route index element={<IndexElement />} />
+                  <Route path="states" element={<StateIntelligenceWrapper />} />
+                  <Route path="districts" element={<DistrictIntelligenceWrapper />} />
+                  <Route path="dealers" element={<DealerIntelligenceWrapper />} />
+                  <Route path="risk" element={<Navigate to="/alerts" replace />} />
+                  <Route path="war-room" element={<RequireAdminRoute><AIWarRoom /></RequireAdminRoute>} />
+                  <Route path="alerts" element={<RequireAdminRoute><AlertIntelligence /></RequireAdminRoute>} />
+                  <Route path="geo" element={<RequireAdminRoute><GeoIntelligenceWrapper /></RequireAdminRoute>} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Route>
+              </Routes>
+              <AssistantMount />
+            </AssistantProvider>
           </BrowserRouter>
         </DataProvider>
       </AuthProvider>

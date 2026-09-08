@@ -22,6 +22,7 @@ import { AnimatePresence, LazyMotion, domAnimation, m } from 'framer-motion';
 import { backdropVariants } from '../utils/motionVariants';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import AnimatedPage from '../components/common/AnimatedPage';
+import AssistantLauncher from '../assistant/AssistantLauncher';
 
 const NAV_ICON_MAP = {
   LayoutDashboard,
@@ -262,8 +263,10 @@ export default function DashboardLayout() {
                 </div>
               </div>
 
-              {/* Live sync chip — right on mobile, end of row on desktop */}
-              <div className="order-2 sm:order-3 ml-auto sm:ml-0 shrink-0">
+              {/* Assistant trigger and live sync chip — right on mobile, end
+                  of row on desktop */}
+              <div className="order-2 sm:order-3 ml-auto sm:ml-0 shrink-0 flex items-center gap-2">
+                <AssistantLauncher />
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.07] text-xs text-white/75 whitespace-nowrap">
                   <span className="relative flex w-2 h-2 shrink-0">
                     <span className="absolute inline-flex w-full h-full rounded-full bg-severity-none opacity-40 animate-pulse-subtle" />

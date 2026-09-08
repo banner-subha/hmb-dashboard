@@ -55,6 +55,9 @@ export const CATEGORY_ICONS = {
 };
 
 // Navigation items — Business-Friendly Labels
+// The assistant is not a page in this list. It opens as a panel over whichever
+// page you are on, from the header button or Ctrl+K, so a nav row pointing at
+// its full-page view would be a second, worse door to the same thing.
 export const NAV_ITEMS = [
   { path: '/',          label: 'Executive Overview', icon: 'LayoutDashboard' },
   { path: '/states',    label: 'State Overview', icon: 'Map' },
