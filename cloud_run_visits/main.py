@@ -486,7 +486,7 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
                 }
 
     for dt in dashboard_data.get('districts', []):
-        d_key = f"{dt.get('state', '').upper()}||{dt.get('district', '').upper()}"
+        d_key = f"{norm_name(dt.get('state', ''))}||{norm_name(dt.get('district', ''))}"
         districts_pace_map[d_key] = {
             'paceStatus': dt.get('lossFlag') or ('AHEAD' if (dt.get('cur', 0) >= dt.get('prev', 0)) else 'BEHIND'),
             'cur': dt.get('cur', 0),
@@ -505,16 +505,21 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
     # "s s enterprise", ...); keying on the raw string split one dealer's
     # visits across several rows, each then classified separately.
     dealer_monthly_visits = defaultdict(lambda: defaultdict(int))
+    # Same shape, but only counting visits on or before elapsed_days of each
+    # month, so a partial current month can be compared like for like.
+    dealer_mtd_visits = defaultdict(lambda: defaultdict(int))
     dealer_display = defaultdict(Counter)
     dealer_info = {}
     dealer_durations = defaultdict(list)
     dealer_reps = defaultdict(Counter)
 
     district_fab_monthly = defaultdict(lambda: defaultdict(int))
+    district_fab_mtd = defaultdict(lambda: defaultdict(int))
     district_fab_unique = defaultdict(lambda: defaultdict(set))
     district_info = {}
 
     rep_monthly = defaultdict(lambda: defaultdict(int))
+    rep_mtd = defaultdict(lambda: defaultdict(int))
     rep_dates = defaultdict(set)
     rep_custs = defaultdict(set)
     rep_dealer_visits = defaultdict(int)
@@ -526,22 +531,33 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
     duration_buckets = {'under15m': 0, '15to30m': 0, '30to60m': 0, 'over60m': 0}
     hourly_distribution = Counter()
 
-    # Rows destined for public.field_visits. Only the trailing window is
-    # collected, rather than collecting everything and filtering afterwards:
-    # ~308k tuples held alongside the aggregation structures is the shape of
-    # OOM this 2 GiB container is one file-growth away from. Needs the max
-    # visit date up front, so pre-scan for it — parse_date_fast is character
-    # slicing, so a second pass over the dates costs a fraction of a second.
+    # One pre-scan for the latest visit date in the file. parse_date_fast is
+    # character slicing, so a second pass over the dates costs a fraction of a
+    # second, and two things downstream need the answer before the main loop:
+    #
+    #   * the Postgres trailing window (collecting only in-window rows rather
+    #     than collecting everything and filtering after: ~308k tuples held
+    #     alongside the aggregation structures is the shape of OOM this 2 GiB
+    #     container is one file-growth away from)
+    #   * elapsed_days, so the current partial month can be compared against
+    #     the same slice of earlier months instead of against whole ones
+    max_visit_date = None
+    for row in raw_parsed:
+        d = parse_date_fast(get_val(row, idx_date))
+        if d and (max_visit_date is None or d > max_visit_date):
+            max_visit_date = d
+
     sql_cutoff = None
-    if push_to_postgres and not sql_full:
-        max_visit_date = None
-        for row in raw_parsed:
-            d = parse_date_fast(get_val(row, idx_date))
-            if d and (max_visit_date is None or d > max_visit_date):
-                max_visit_date = d
-        if max_visit_date:
-            sql_cutoff = max_visit_date - timedelta(days=VISITS_SQL_WINDOW_DAYS)
+    if push_to_postgres and not sql_full and max_visit_date:
+        sql_cutoff = max_visit_date - timedelta(days=VISITS_SQL_WINDOW_DAYS)
     sql_rows = []
+
+    # How far into the current month the data actually runs. Taken from the
+    # data, not from today's date: the export lags by a couple of days, and
+    # comparing seven days of visits against ten days of calendar would
+    # understate the current month just as badly as the full-month comparison
+    # this replaces.
+    elapsed_days = max_visit_date.day if max_visit_date else 31
 
     for row in raw_parsed:
         v_d = parse_date_fast(get_val(row, idx_date))
@@ -595,6 +611,7 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
         state_norm = normalize_title(st)
         dist_norm = normalize_title(dt)
         m_key = f"{v_d.year:04d}-{v_d.month:02d}"
+        within_mtd = v_d.day <= elapsed_days
 
         monthly_totals[m_key]['total'] += 1
         if c_type == 'DEALER':
@@ -602,6 +619,7 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
             d_key = norm_name(c_name)
             dealer_display[d_key][c_name] += 1
             dealer_monthly_visits[d_key][m_key] += 1
+            if within_mtd: dealer_mtd_visits[d_key][m_key] += 1
             dealer_info[d_key] = {'state': state_norm, 'district': dist_norm}
             if dur > 0: dealer_durations[d_key].append(dur)
             if emp: dealer_reps[d_key][emp] += 1
@@ -609,6 +627,7 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
             monthly_totals[m_key]['fabricator'] += 1
             dist_key = f"{state_norm}||{dist_norm}"
             district_fab_monthly[dist_key][m_key] += 1
+            if within_mtd: district_fab_mtd[dist_key][m_key] += 1
             district_fab_unique[dist_key][m_key].add(c_name)
             district_info[dist_key] = {'state': state_norm, 'district': dist_norm}
         else:
@@ -624,6 +643,7 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
 
         if emp:
             rep_monthly[emp][m_key] += 1
+            if within_mtd: rep_mtd[emp][m_key] += 1
             rep_dates[emp].add(v_d)
             rep_custs[emp].add(c_name)
             if c_type == 'DEALER': rep_dealer_visits[emp] += 1
@@ -693,8 +713,19 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
         prev_v = dealer_monthly_visits[d_key].get(prev_month_prefix, 0)
         hist_sum = sum(dealer_monthly_visits[d_key].get(m, 0) for m in hist_months)
         hist_avg = round(hist_sum / float(num_hist_months), 2)
-        visit_growth = round(cur_v - hist_avg, 2)
-        visit_status = 'GROWTH' if cur_v > hist_avg else 'DEGROWTH'
+
+        # Like-for-like average: the same day-of-month slice of each historical
+        # month as the current month has so far. cur_v is a partial month and
+        # hist_avg is a whole one, so comparing them made almost every dealer
+        # look like it had stopped being visited until the month was nearly
+        # over -- on 7 September only 85 of 846 linked dealers cleared the
+        # full-month bar, so the quadrant map swung through the month and only
+        # settled on the last day.
+        hist_mtd_sum = sum(dealer_mtd_visits[d_key].get(m, 0) for m in hist_months)
+        hist_avg_mtd = round(hist_mtd_sum / float(num_hist_months), 2)
+        prev_v_mtd = dealer_mtd_visits[d_key].get(prev_month_prefix, 0)
+        visit_growth = round(cur_v - hist_avg_mtd, 2)
+        visit_status = 'GROWTH' if cur_v > hist_avg_mtd else 'DEGROWTH'
 
         # This used to read:
         #   pace_status = pace_info.get('paceStatus',
@@ -715,7 +746,7 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
         sales_cur = pace_info.get('cur', 0)
         sales_prev = pace_info.get('prev', 0)
 
-        is_high_visits = cur_v >= max(1, hist_avg)
+        is_high_visits = cur_v >= max(1, hist_avg_mtd)
         # lossFlag carries three values, not two: AHEAD, BEHIND and STABLE
         # (75 / 780 / 62 in the current sales feed). Testing == 'AHEAD' put
         # every STABLE dealer on the behind-target side of the quadrant split,
@@ -751,6 +782,8 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
                 'curVisits': cur_v,
                 'prevVisits': prev_v,
                 'histAvgVisits': hist_avg,
+                'histAvgVisitsMtd': hist_avg_mtd,
+                'prevVisitsMtd': prev_v_mtd,
                 'visitGrowth': visit_growth,
                 'visitGrowthStatus': visit_status,
                 'paceStatus': pace_status,
@@ -777,11 +810,21 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
         cur_fab_uniq = len(district_fab_unique[dist_key].get(cur_month_prefix, set()))
         hist_fab_sum = sum(district_fab_monthly[dist_key].get(m, 0) for m in hist_months)
         hist_fab_avg = round(hist_fab_sum / float(num_hist_months), 2)
-        fab_growth = round(cur_fab_v - hist_fab_avg, 2)
-        fab_trend = 'ACCELERATING' if cur_fab_v > hist_fab_avg else 'LAGGING'
+        # Same day-of-month slice as the dealers above: ACCELERATING vs LAGGING
+        # was a partial month measured against whole ones, so every district
+        # read as LAGGING until late in the month.
+        hist_fab_mtd_sum = sum(district_fab_mtd[dist_key].get(m, 0) for m in hist_months)
+        hist_fab_avg_mtd = round(hist_fab_mtd_sum / float(num_hist_months), 2)
+        fab_growth = round(cur_fab_v - hist_fab_avg_mtd, 2)
+        fab_trend = 'ACCELERATING' if cur_fab_v > hist_fab_avg_mtd else 'LAGGING'
 
-        dp_info = districts_pace_map.get(f"{st.upper()}||{dt.upper()}", {})
-        d_pace = dp_info.get('paceStatus', 'AHEAD' if cur_fab_v >= prev_fab_v else 'BEHIND')
+        # Districts carried the same invented-pace defect as dealers: absent
+        # from the sales feed meant a pace derived from fabricator visit counts
+        # alone. The feed covers 134 districts against 187 seen in the field.
+        dp_info = districts_pace_map.get(f"{norm_name(st)}||{norm_name(dt)}")
+        district_sales_matched = dp_info is not None
+        dp_info = dp_info or {}
+        d_pace = dp_info.get('paceStatus') if district_sales_matched else 'UNKNOWN'
 
         districts_output.append({
             'state': st,
@@ -790,7 +833,9 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
             'prevFabricatorVisits': prev_fab_v,
             'curUniqueFabricators': cur_fab_uniq,
             'histAvgFabricatorVisits': hist_fab_avg,
+            'histAvgFabricatorVisitsMtd': hist_fab_avg_mtd,
             'fabricatorGrowth': fab_growth,
+            'salesMatched': district_sales_matched,
             'fabricatorTrend': fab_trend,
             'districtPaceStatus': d_pace,
             'districtCurQty': dp_info.get('cur', 0),
@@ -817,6 +862,9 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
             'totalVisits': total_v,
             'curVisits': cur_v,
             'prevVisits': prev_v,
+            # Previous month truncated to the same day-of-month the current
+            # month has reached, so cur vs prev is a fair comparison.
+            'prevVisitsMtd': rep_mtd[emp].get(prev_month_prefix, 0),
             'activeDays': active_days,
             'dailyVisitRate': daily_rate,
             'uniqueCustomers': len(rep_custs[emp]),
@@ -857,6 +905,11 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
         'meta': {
             'generatedAt': datetime.now(timezone.utc).isoformat(),
             'curPeriod': f"MTD {cur_month_prefix}",
+            # Everything labelled *Mtd compares day 1..elapsedDays of each
+            # month. Quote it wherever a current-month figure sits next to a
+            # historical one.
+            'elapsedDays': elapsed_days,
+            'latestVisitDate': max_visit_date.isoformat() if max_visit_date else None,
             'prevPeriod': f"MTD {prev_month_prefix}",
             'totalRecordsProcessed': len(clean_records),
             'geoEnrichedRecords': enriched_count,

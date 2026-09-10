@@ -507,7 +507,7 @@ export default function VisitIntelligence() {
                     <th className="py-3 px-3">District & State</th>
                     <th className="py-3 px-3">Sales & Visit Category</th>
                     <th className="py-3 px-3 text-right">Visits This Month</th>
-                    <th className="py-3 px-3 text-right">Past 6-Mo Monthly Avg</th>
+                    <th className="py-3 px-3 text-right" title="Average visits over the same first-N-days window of the past 6 months, so it is comparable with a month still in progress">Same Period, 6-Mo Avg</th>
                     <th className="py-3 px-3 text-right">Change vs Avg</th>
                     <th className="py-3 px-3 text-center">Target Status</th>
                     <th className="py-3 px-3 text-right">Current Sales Rate</th>
@@ -549,7 +549,7 @@ export default function VisitIntelligence() {
                           {dl.curVisits}
                         </td>
                         <td className="py-3 px-3 text-right text-text-muted">
-                          {dl.histAvgVisits}
+                          {dl.histAvgVisitsMtd ?? dl.histAvgVisits}
                         </td>
                         <td className="py-3 px-3 text-right whitespace-nowrap">
                           <span className={`inline-flex items-center gap-0.5 font-bold ${isGrowth ? 'text-emerald-400' : 'text-text-muted'}`}>
@@ -605,7 +605,7 @@ export default function VisitIntelligence() {
                       <th className="py-3 px-3">State</th>
                       <th className="py-3 px-3 text-right">Fabricator Visits This Month</th>
                       <th className="py-3 px-3 text-right">Distinct Fabricators Visited</th>
-                      <th className="py-3 px-3 text-right">Past 6-Mo Monthly Avg</th>
+                      <th className="py-3 px-3 text-right" title="Average fabricator visits over the same first-N-days window of the past 6 months">Same Period, 6-Mo Avg</th>
                       <th className="py-3 px-3 text-right">Visit Intensity</th>
                       <th className="py-3 px-3 text-center">District Sales Target Status</th>
                       <th className="py-3 px-4">Market Demand Status</th>
@@ -614,11 +614,18 @@ export default function VisitIntelligence() {
                   <tbody className="divide-y divide-border/20">
                     {filteredDistricts.slice(0, 50).map((dt, idx) => {
                       const isAccel = dt.fabricatorTrend === 'ACCELERATING';
-                      const isAhead = dt.districtPaceStatus === 'AHEAD';
+                      const paceUnknown = dt.districtPaceStatus === 'UNKNOWN' || dt.salesMatched === false;
+                      const isAhead = dt.districtPaceStatus === 'AHEAD' || dt.districtPaceStatus === 'STABLE';
 
-                      let insight = '';
-                      let insightColor = 'text-text-muted';
-                      if (isAccel && isAhead) {
+                      let insight;
+                      let insightColor;
+                      if (paceUnknown) {
+                        // 92 of 187 districts have no entry in the sales feed.
+                        // Every sentence below claims something about dealer
+                        // sales, so none of them can be said here.
+                        insight = 'Fabricator visit activity tracked; no dealer sales data for this district';
+                        insightColor = 'text-slate-400';
+                      } else if (isAccel && isAhead) {
                         insight = 'Strong fabricator engagement driving healthy dealer sales';
                         insightColor = 'text-emerald-400 font-bold';
                       } else if (isAccel && !isAhead) {
@@ -647,7 +654,7 @@ export default function VisitIntelligence() {
                             {dt.curUniqueFabricators}
                           </td>
                           <td className="py-3 px-3 text-right text-text-muted">
-                            {dt.histAvgFabricatorVisits}
+                            {dt.histAvgFabricatorVisitsMtd ?? dt.histAvgFabricatorVisits}
                           </td>
                           <td className="py-3 px-3 text-right whitespace-nowrap">
                             <span className={`inline-flex items-center gap-0.5 font-bold ${isAccel ? 'text-emerald-400' : 'text-text-muted'}`}>
@@ -657,9 +664,11 @@ export default function VisitIntelligence() {
                           </td>
                           <td className="py-3 px-3 text-center whitespace-nowrap">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                              isAhead ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                              paceUnknown
+                                ? 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
+                                : isAhead ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
                             }`}>
-                              {isAhead ? 'Ahead of Target' : 'Behind Target'}
+                              {paceUnknown ? 'No Sales Data' : isAhead ? 'Ahead of Target' : 'Behind Target'}
                             </span>
                           </td>
                           <td className={`py-3 px-4 text-xs whitespace-nowrap ${insightColor}`}>
@@ -871,6 +880,9 @@ export default function VisitIntelligence() {
                   <span className="text-2xl font-black text-text-primary">{selectedDealer.curVisits}</span>
                   <span className="text-[10px] text-text-muted block mt-0.5">
                     Past 6-Mo Avg: {selectedDealer.histAvgVisits} visits/month
+                  </span>
+                  <span className="text-[10px] text-text-muted block">
+                    Same period last 6 months: {selectedDealer.histAvgVisitsMtd ?? '—'} visits
                   </span>
                 </div>
                 <div className="p-3 bg-bg-secondary/60 rounded-xl border border-border/30">
