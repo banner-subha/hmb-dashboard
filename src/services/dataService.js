@@ -1,7 +1,7 @@
 import { isRealState, normalizeStateName } from '../utils/constants.js';
 import { normalizeDistrict } from '../utils/districtNormalizer.js';
 
-let DATA_URL = 'https://hubydueitefxxxrbpnjk.supabase.co/storage/v1/object/public/dashboard-data/latest.json';
+let DATA_URL = 'https://jhsttedcvzfkszbzczak.supabase.co/storage/v1/object/public/dashboard-data/latest.json';
 
 function normalizeAndMergeStates(statesList) {
   if (!statesList || !Array.isArray(statesList)) return statesList;
@@ -608,4 +608,73 @@ class DataService {
 
 // Singleton instance
 export const dataService = new DataService();
+
+let _visitDataCache = null;
+let _visitFetchPromise = null;
+
+/**
+ * Loads pre-aggregated Field Visit Intelligence data.
+ * Tries Supabase Storage public CDN first, with fallback to local public/visits_intelligence.json.
+ */
+export async function getVisitData() {
+  if (_visitDataCache) return _visitDataCache;
+  if (_visitFetchPromise) return _visitFetchPromise;
+
+  _visitFetchPromise = (async () => {
+    // 0. Local-first, dev only. Set VITE_VISITS_LOCAL=1 to read
+    //    public/visits_intelligence.json instead of the CDN, so parser changes
+    //    can be reviewed in the real UI before anything is deployed. Guarded
+    //    on import.meta.env.DEV as well as the flag, so a production build can
+    //    never take this path.
+    if (import.meta.env.DEV && import.meta.env.VITE_VISITS_LOCAL === '1') {
+      try {
+        const devResp = await fetch('/visits_intelligence.json');
+        if (devResp.ok) {
+          const json = await devResp.json();
+          console.info(
+            '[visits] using local public/visits_intelligence.json (VITE_VISITS_LOCAL=1)',
+            { generatedAt: json?.meta?.generatedAt, dealers: json?.dealers?.length }
+          );
+          _visitDataCache = json;
+          return json;
+        }
+        console.warn('[visits] VITE_VISITS_LOCAL=1 but local file missing; falling back to CDN');
+      } catch {
+        console.warn('[visits] VITE_VISITS_LOCAL=1 but local file unreadable; falling back to CDN');
+      }
+    }
+
+    // 1. Try remote Supabase Storage public bucket
+    const remoteUrl = 'https://jhsttedcvzfkszbzczak.supabase.co/storage/v1/object/public/dashboard-data/visits_intelligence.json';
+    try {
+      const resp = await fetch(remoteUrl);
+      if (resp.ok) {
+        const json = await resp.json();
+        _visitDataCache = json;
+        return json;
+      }
+    } catch {
+      // ignore and fallback
+    }
+
+    // 2. Fallback to local /visits_intelligence.json
+    try {
+      const localResp = await fetch('/visits_intelligence.json');
+      if (localResp.ok) {
+        const json = await localResp.json();
+        _visitDataCache = json;
+        return json;
+      }
+    } catch (err) {
+      console.error('Failed to load visit intelligence from local bundle:', err);
+    }
+
+    return null;
+  })();
+
+  const result = await _visitFetchPromise;
+  _visitFetchPromise = null;
+  return result;
+}
+
 

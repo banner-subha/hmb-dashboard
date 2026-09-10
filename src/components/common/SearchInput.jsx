@@ -2,19 +2,45 @@ import { Search, X } from 'lucide-react';
 import { useFilterState } from '../../context/DataContext';
 import { useState, useEffect, useRef } from 'react';
 
-export default function SearchInput({ placeholder = "Search dealers, districts...", className = "" }) {
+/**
+ * Search box, in either of two modes.
+ *
+ * Uncontrolled (default): debounces into the shared FilterContext, which is
+ * what the pages wired into DataContext expect.
+ *
+ * Controlled: pass `onChange` (and `value`) to drive a caller's own state
+ * instead. VisitIntelligence was already passing both, but they were not in
+ * the signature, so they were silently dropped: typing there updated the
+ * global filter for other pages while the page's own searchQuery never moved,
+ * and the box did nothing visible.
+ */
+export default function SearchInput({
+  placeholder = "Search dealers, districts...",
+  className = "",
+  value,
+  onChange,
+}) {
   const { filters, dispatch } = useFilterState();
-  const [localValue, setLocalValue] = useState(filters.searchQuery || '');
+  const controlled = typeof onChange === 'function';
+  const externalValue = controlled ? (value || '') : (filters.searchQuery || '');
+  const [localValue, setLocalValue] = useState(externalValue);
   const timerRef = useRef(null);
 
   // Keep local value in sync if filters are reset or updated externally
   useEffect(() => {
-    setLocalValue(filters.searchQuery || '');
-  }, [filters.searchQuery]);
+    setLocalValue(externalValue);
+  }, [externalValue]);
 
   const handleChange = (e) => {
     const val = e.target.value;
     setLocalValue(val);
+
+    if (controlled) {
+      // The caller owns the state; debouncing here would only add lag to a
+      // filter that runs over an in-memory array.
+      onChange(val);
+      return;
+    }
 
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -28,6 +54,10 @@ export default function SearchInput({ placeholder = "Search dealers, districts..
   const handleClear = () => {
     setLocalValue('');
     if (timerRef.current) clearTimeout(timerRef.current);
+    if (controlled) {
+      onChange('');
+      return;
+    }
     dispatch({ type: 'SET_SEARCH', payload: '' });
   };
 

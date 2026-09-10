@@ -435,6 +435,33 @@ export default function VisitIntelligence() {
               </p>
             </div>
 
+            {/* Category 5: No Sales Record Yet.
+                Without this tile the four above sum to the linked dealers only
+                and the remaining ~1,600 are simply missing from the page. */}
+            <div
+              onClick={() => setSelectedQuadrant(selectedQuadrant === 'NO_SALES_LINK' ? 'ALL' : 'NO_SALES_LINK')}
+              className={`p-4 rounded-2xl cursor-pointer transition-all duration-200 border relative overflow-hidden ${
+                selectedQuadrant === 'NO_SALES_LINK'
+                  ? 'bg-slate-500/15 border-slate-500 shadow-md ring-1 ring-slate-500'
+                  : 'bg-bg-card hover:bg-bg-card-hover border-slate-500/30'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Compass className="w-4 h-4" /> No Sales Record Yet
+                </span>
+                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300">
+                  Visited · No Sales Data
+                </span>
+              </div>
+              <div className="text-3xl font-black text-text-primary mb-1">
+                {stateSummary?.noSalesLinkCount || 0} <span className="text-xs font-semibold text-text-muted">dealers</span>
+              </div>
+              <p className="text-[11.5px] text-text-muted leading-snug">
+                Visited in the field but not yet linked to a sales account, so target progress cannot be assessed. Mostly prospects and new leads.
+              </p>
+            </div>
+
           </div>
         </div>
 
