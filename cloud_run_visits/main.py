@@ -18,7 +18,7 @@ except ImportError:
         def http(f):
             return f
 
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 import os
 import time
 import io
@@ -33,6 +33,128 @@ from collections import defaultdict, Counter
 # In-memory caches
 _DROPBOX_TOKEN_CACHE = {'access_token': None, 'expires_at': 0}
 _LAST_PROCESSED_METADATA = {'rev': None, 'content_hash': None, 'processed_at': None}
+
+# ---------------------------------------------------------------------------
+# Postgres sink for public.field_visits
+# ---------------------------------------------------------------------------
+# Until Phase 0b this service only refreshed the Storage CDN JSON. Nothing ever
+# wrote to public.field_visits: the table was a one-time manual backfill
+# (scratch/bulk_load_postgres.py, which TRUNCATEd and reloaded). So the
+# dashboard was live while the table the chatbot queries was frozen. Wiring the
+# chatbot to that table without this would have it confidently reporting stale
+# figures against a dashboard showing fresh ones.
+#
+# Writes are best-effort by design: a DB outage must not stop the CDN upload,
+# because the dashboard is the user-facing surface and it only needs the JSON.
+
+# How far back to re-upsert on each run. The parser holds the whole CSV in
+# memory anyway, but writing all ~308k rows every run is wasteful and gets
+# worse as the file grows. A trailing window still catches back-dated entries,
+# which is the realistic case (reps filing late).
+VISITS_SQL_WINDOW_DAYS = int(os.environ.get('VISITS_SQL_WINDOW_DAYS', '45'))
+VISITS_SQL_BATCH = int(os.environ.get('VISITS_SQL_BATCH', '5000'))
+
+# ON CONFLICT infers the target from idx_field_visits_natural_key (migration
+# 003), whose expressions must be repeated here verbatim. The key is the same
+# tuple every historical implementation deduplicated on, so a re-run of the
+# same CSV updates rows in place instead of doubling the table.
+_UPSERT_FIELD_VISITS = """
+    INSERT INTO public.field_visits (
+        employee_name, visit_date, visit_time, visit_type, visit_person,
+        customer_name, customer_type, checkin_time, report_time,
+        duration_minutes, contact_person, city, state, district, pincode
+    ) VALUES %s
+    ON CONFLICT (upper(coalesce(employee_name, '')), visit_date,
+                 upper(customer_name), checkin_time)
+    DO UPDATE SET
+        visit_time       = EXCLUDED.visit_time,
+        visit_type       = EXCLUDED.visit_type,
+        visit_person     = EXCLUDED.visit_person,
+        customer_type    = EXCLUDED.customer_type,
+        report_time      = EXCLUDED.report_time,
+        duration_minutes = EXCLUDED.duration_minutes,
+        contact_person   = EXCLUDED.contact_person,
+        city             = EXCLUDED.city,
+        state            = EXCLUDED.state,
+        district         = EXCLUDED.district,
+        pincode          = EXCLUDED.pincode
+    -- Skip rows that have not actually changed. Without this the daily run
+    -- rewrites every row in the window (~24.6k) whether or not anything moved,
+    -- and each rewrite is a dead tuple for autovacuum to chase. Compared
+    -- column-wise rather than with field_visits.* because id and created_at
+    -- always differ and would make every row look changed. Row-wise
+    -- IS DISTINCT FROM gets the NULL semantics right.
+    WHERE (public.field_visits.visit_time, public.field_visits.visit_type,
+           public.field_visits.visit_person, public.field_visits.customer_type,
+           public.field_visits.report_time, public.field_visits.duration_minutes,
+           public.field_visits.contact_person, public.field_visits.city,
+           public.field_visits.state, public.field_visits.district,
+           public.field_visits.pincode)
+          IS DISTINCT FROM
+          (EXCLUDED.visit_time, EXCLUDED.visit_type,
+           EXCLUDED.visit_person, EXCLUDED.customer_type,
+           EXCLUDED.report_time, EXCLUDED.duration_minutes,
+           EXCLUDED.contact_person, EXCLUDED.city,
+           EXCLUDED.state, EXCLUDED.district,
+           EXCLUDED.pincode)
+"""
+
+
+def upsert_field_visits(rows):
+    """Upsert visit rows into public.field_visits. Returns a status dict.
+
+    Never raises: the caller's CDN upload matters more than this write.
+    """
+    # 'written' counts rows Postgres actually inserted or changed. With the
+    # no-op guard in the ON CONFLICT clause a steady-state daily run should
+    # report a small number against a much larger 'attempted' -- if the two
+    # match every day, the guard is not working.
+    result = {'attempted': len(rows), 'written': 0, 'ok': False, 'error': None}
+    if not rows:
+        result['ok'] = True
+        return result
+
+    dsn = os.environ.get('DATABASE_URL') or os.environ.get('HMB_DATABASE_URL')
+    if not dsn:
+        result['error'] = 'DATABASE_URL is not set; skipped Postgres write'
+        print('WARNING:', result['error'])
+        return result
+
+    try:
+        import psycopg2
+        from psycopg2.extras import execute_values
+    except ImportError as err:
+        result['error'] = f'psycopg2 unavailable: {err}'
+        print('WARNING:', result['error'])
+        return result
+
+    conn = None
+    t_sql = time.time()
+    try:
+        conn = psycopg2.connect(dsn, connect_timeout=15)
+        with conn:
+            with conn.cursor() as cur:
+                for i in range(0, len(rows), VISITS_SQL_BATCH):
+                    batch = rows[i:i + VISITS_SQL_BATCH]
+                    execute_values(cur, _UPSERT_FIELD_VISITS, batch,
+                                   page_size=VISITS_SQL_BATCH)
+                    if cur.rowcount and cur.rowcount > 0:
+                        result['written'] += cur.rowcount
+        result['ok'] = True
+        print(f"field_visits: {result['written']:,} changed of "
+              f"{result['attempted']:,} offered, in {time.time() - t_sql:.2f}s")
+    except Exception as err:
+        # Deliberately swallowed. Reported in the response payload so a failed
+        # write is visible to n8n without taking the CDN refresh down with it.
+        result['error'] = str(err)
+        print('Postgres upsert error:', err)
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    return result
 
 # Standard Indian postal master mapping for major unmapped industrial pincodes
 PINCODE_REGISTRY = {
@@ -115,30 +237,48 @@ def normalize_title(s):
         return ''
     return ' '.join(w.capitalize() for w in s.split())
 
+_DATE_FMTS = ('%d-%m-%Y', '%d/%m/%Y', '%Y-%m-%d', '%Y/%m/%d', '%d-%b-%Y')
+_DATETIME_FMTS = ('%d-%m-%Y %H:%M', '%d/%m/%Y %H:%M', '%Y-%m-%d %H:%M:%S',
+                  '%d-%m-%Y %H:%M:%S', '%d/%m/%Y %H:%M:%S', '%Y-%m-%d %H:%M')
+
 def parse_date_fast(s):
-    if not s or len(s) < 8:
+    # The offset fast path assumes a zero-padded DD-MM-YYYY / YYYY-MM-DD, which
+    # is what the Dropbox export emits today. It used to `return None` outright
+    # when neither shape matched: no exception was raised, so the strptime
+    # fallback never ran, and the caller's `if not v_date: continue` dropped the
+    # row silently. '1-1-2025', '1/1/2025' and '2025/01/01' all vanished that
+    # way. The fallback is now always reached.
+    if not s:
         return None
     s = s.strip()
+    if len(s) < 8:
+        return None
     try:
         # Most common: DD-MM-YYYY or DD/MM/YYYY
         if s[2] in ('-', '/'):
             return date(int(s[6:10]), int(s[3:5]), int(s[0:2]))
-        # YYYY-MM-DD
-        elif s[4] == '-':
+        # YYYY-MM-DD or YYYY/MM/DD
+        if s[4] in ('-', '/'):
             return date(int(s[0:4]), int(s[5:7]), int(s[8:10]))
     except Exception:
-        for fmt in ('%d-%m-%Y', '%d/%m/%Y', '%Y-%m-%d', '%d-%b-%Y'):
-            try:
-                return datetime.strptime(s, fmt).date()
-            except ValueError:
-                pass
+        pass
+    for fmt in _DATE_FMTS:
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            pass
     return None
 
 def parse_datetime_fast(s):
-    if not s or len(s) < 14:
+    # Same class of bug as parse_date_fast: the old `len(s) < 14` guard rejected
+    # '1-1-2025 9:30' (13 chars) before any format was tried, nulling
+    # checkin/report and so zeroing duration_minutes. 'D-M-YYYY H:MM' is 13.
+    if not s:
         return None
     s = s.strip()
-    for fmt in ('%d-%m-%Y %H:%M', '%d/%m/%Y %H:%M', '%Y-%m-%d %H:%M:%S', '%d-%m-%Y %H:%M:%S'):
+    if len(s) < 13:
+        return None
+    for fmt in _DATETIME_FMTS:
         try:
             return datetime.strptime(s, fmt)
         except ValueError:
@@ -178,11 +318,23 @@ def get_val(row, idx):
         return row[idx].strip()
     return ''
 
-def process_visit_data(csv_file_or_stream, push_to_postgres=False):
+def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False):
     """
     High-Speed Ingestion & Analytics Pipeline.
     Uses indexed column arrays for sub-second parsing across 300k+ records.
+
+    push_to_postgres  upsert into public.field_visits as well as refreshing the
+                      CDN JSON. None (default) resolves from the environment
+                      variable VISITS_PUSH_TO_POSTGRES, which defaults to on, so
+                      the write can be disabled without a redeploy.
+    sql_full          upsert every row rather than the trailing
+                      VISITS_SQL_WINDOW_DAYS window. For backfills.
     """
+    if push_to_postgres is None:
+        push_to_postgres = os.environ.get(
+            'VISITS_PUSH_TO_POSTGRES', '1'
+        ).strip().lower() not in ('0', 'false', 'no', 'off')
+
     t0 = time.time()
     reader = csv.reader(csv_file_or_stream)
     header = next(reader, None)
@@ -320,6 +472,23 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=False):
     duration_buckets = {'under15m': 0, '15to30m': 0, '30to60m': 0, 'over60m': 0}
     hourly_distribution = Counter()
 
+    # Rows destined for public.field_visits. Only the trailing window is
+    # collected, rather than collecting everything and filtering afterwards:
+    # ~308k tuples held alongside the aggregation structures is the shape of
+    # OOM this 2 GiB container is one file-growth away from. Needs the max
+    # visit date up front, so pre-scan for it — parse_date_fast is character
+    # slicing, so a second pass over the dates costs a fraction of a second.
+    sql_cutoff = None
+    if push_to_postgres and not sql_full:
+        max_visit_date = None
+        for row in raw_parsed:
+            d = parse_date_fast(get_val(row, idx_date))
+            if d and (max_visit_date is None or d > max_visit_date):
+                max_visit_date = d
+        if max_visit_date:
+            sql_cutoff = max_visit_date - timedelta(days=VISITS_SQL_WINDOW_DAYS)
+    sql_rows = []
+
     for row in raw_parsed:
         v_d = parse_date_fast(get_val(row, idx_date))
         if not v_d:
@@ -411,6 +580,18 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=False):
                 else: rep_time_buckets[emp]['afternoon'] += 1
 
         clean_records.append(True)
+
+        # Warehouse row. Column conventions follow what is already stored:
+        # raw uppercase state/district with an UNKNOWN fallback, customer and
+        # city left as they appear in the export. The title-cased state_norm /
+        # dist_norm above are for the CDN JSON only — writing those here would
+        # fork the two layers apart again.
+        if push_to_postgres and (sql_cutoff is None or v_d >= sql_cutoff):
+            sql_rows.append((
+                emp, v_d, v_time, get_val(row, idx_type), get_val(row, idx_person),
+                c_name, c_type, checkin_dt, report_dt, dur,
+                get_val(row, idx_contact), ct, st or 'UNKNOWN', dt or 'UNKNOWN', pin,
+            ))
 
     months_in_data = sorted(list(monthly_totals.keys()))
     cur_month_prefix = months_in_data[-1] if months_in_data else '2026-09'
@@ -596,6 +777,18 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=False):
         'monthlyTrend': monthly_trend
     }
 
+    # Warehouse write first, so its outcome can be reported in the payload that
+    # goes to the CDN and back to n8n. Best-effort: upsert_field_visits never
+    # raises, so a DB problem degrades to a stale table rather than a failed run.
+    sql_result = {'attempted': 0, 'written': 0, 'ok': True, 'error': None,
+                  'skipped': True}
+    if push_to_postgres:
+        sql_result = upsert_field_visits(sql_rows)
+        sql_result['skipped'] = False
+        sql_result['window_days'] = None if sql_full else VISITS_SQL_WINDOW_DAYS
+        sql_result['cutoff'] = sql_cutoff.isoformat() if sql_cutoff else None
+    payload['meta']['postgres'] = sql_result
+
     # Upload to Supabase Storage
     json_bytes = json.dumps(payload, separators=(',', ':')).encode('utf-8')
     # No literal fallback. Cloud Run injects SUPABASE_SERVICE_ROLE_KEY from
@@ -630,11 +823,11 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=False):
 
     return payload, storage_uploaded
 
-def run_ingestion_background(csv_bytes, rev=None):
+def run_ingestion_background(csv_bytes, rev=None, sql_full=False):
     """Worker function for async mode"""
     try:
         csv_stream = io.StringIO(csv_bytes.decode('utf-8-sig', errors='replace'))
-        payload, ok = process_visit_data(csv_stream)
+        payload, ok = process_visit_data(csv_stream, sql_full=sql_full)
         if ok and rev:
             _LAST_PROCESSED_METADATA['rev'] = rev
             _LAST_PROCESSED_METADATA['processed_at'] = datetime.now(timezone.utc).isoformat()
@@ -665,11 +858,16 @@ def parse_visits_cloud_function(request):
 
     is_force = request.args.get('force') == 'true'
     is_async = request.args.get('async') == 'true'
+    # ?full=true upserts every row in the CSV rather than the trailing
+    # VISITS_SQL_WINDOW_DAYS window. For rebuilding field_visits from scratch;
+    # the scheduled run should never need it.
+    sql_full = request.args.get('full') == 'true'
     req_json = {}
     if request.is_json:
         req_json = request.get_json(silent=True) or {}
         if req_json.get('force'): is_force = True
         if req_json.get('async'): is_async = True
+        if req_json.get('full'): sql_full = True
 
     file_bytes = None
     dbx_rev = None
@@ -741,7 +939,8 @@ def parse_visits_cloud_function(request):
 
     # 4. If async mode requested, spawn background thread and return HTTP 202 immediately
     if is_async:
-        thread = threading.Thread(target=run_ingestion_background, args=(file_bytes, dbx_rev))
+        thread = threading.Thread(target=run_ingestion_background,
+                                  args=(file_bytes, dbx_rev, sql_full))
         thread.daemon = True
         thread.start()
         return ({
@@ -753,7 +952,7 @@ def parse_visits_cloud_function(request):
 
     # 5. Synchronous fast execution (<4s)
     csv_stream = io.StringIO(file_bytes.decode('utf-8-sig', errors='replace'))
-    payload, storage_ok = process_visit_data(csv_stream, push_to_postgres=False)
+    payload, storage_ok = process_visit_data(csv_stream, sql_full=sql_full)
 
     if storage_ok and dbx_rev:
         _LAST_PROCESSED_METADATA['rev'] = dbx_rev
@@ -770,6 +969,7 @@ def parse_visits_cloud_function(request):
         'dealers_tracked': len(payload['dealers']),
         'districts_tracked': len(payload['districts']),
         'field_reps_tracked': len(payload['employees']),
+        'postgres': payload['meta'].get('postgres'),
         'summary': payload['summary'],
         'timestamp': datetime.now(timezone.utc).isoformat()
     }
@@ -780,4 +980,4 @@ if __name__ == '__main__':
     local_csv = 'VISIT_TRACKER_SEPT.csv'
     if os.path.exists(local_csv):
         with open(local_csv, 'r', encoding='utf-8-sig', errors='replace') as f:
-            process_visit_data(f, push_to_postgres=False)
+            process_visit_data(f, push_to_postgres=False)  # local dry run
