@@ -63,6 +63,7 @@ export const NAV_ITEMS = [
   { path: '/states',    label: 'State Overview', icon: 'Map' },
   { path: '/districts', label: 'District Overview', icon: 'MapPin' },
   { path: '/dealers',   label: 'Dealer Network', icon: 'Store' },
+  { path: '/visits',    label: 'Field Visits & Tracker', icon: 'Briefcase' },
   { path: '/war-room',  label: 'AI Insights & Actions', icon: 'Brain' },
   { path: '/alerts',    label: 'Alerts & Risks', icon: 'Activity' },
   { path: '/geo',       label: 'Geographic View', icon: 'Globe' },
@@ -72,7 +73,67 @@ export const CLIENT_NAV_ITEMS = [
   { path: '/states',    label: 'State Overview', icon: 'Map' },
   { path: '/districts', label: 'District Overview', icon: 'MapPin' },
   { path: '/dealers',   label: 'Dealer Network', icon: 'Store' },
+  { path: '/visits',    label: 'Field Visits & Tracker', icon: 'Briefcase' },
 ];
+
+// Visit correlation quadrant configurations — Business Strategy Matrix
+export const VISIT_QUADRANTS = {
+  GROWTH_DRIVER: {
+    key: 'GROWTH_DRIVER',
+    label: 'High Growth Accounts',
+    badge: 'High Visits · Ahead of Target',
+    description: 'Dealers where regular field visits directly helped beat sales targets. High return on sales team time.',
+    color: '#22c55e',
+    bgColor: 'rgba(34, 197, 94, 0.12)',
+    borderColor: 'rgba(34, 197, 94, 0.35)',
+    textColor: 'text-emerald-400'
+  },
+  RED_FLAG: {
+    key: 'RED_FLAG',
+    label: 'High Attention, Behind Target',
+    badge: 'High Visits · Behind Target',
+    description: 'Frequent visits but sales are lagging. Requires review of pricing, credit limits, or dealer relationship.',
+    color: '#ef4444',
+    bgColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    textColor: 'text-rose-400'
+  },
+  NEGLECTED: {
+    key: 'NEGLECTED',
+    label: 'Under-Visited Accounts',
+    badge: 'Low Visits · Behind Target',
+    description: 'Sales dropped due to low sales rep contact. Immediate visit required to prevent account loss.',
+    color: '#f59e0b',
+    bgColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    textColor: 'text-amber-400'
+  },
+  ORGANIC: {
+    key: 'ORGANIC',
+    label: 'Steady Growth Accounts',
+    badge: 'Low Visits · Ahead of Target',
+    description: 'Accounts meeting or beating sales targets with minimal visit requirements.',
+    color: '#3b82f6',
+    bgColor: 'rgba(59, 130, 246, 0.12)',
+    borderColor: 'rgba(59, 130, 246, 0.35)',
+    textColor: 'text-blue-400'
+  },
+  // Dealers visited in the field that have no matching account in the sales
+  // feed. Most have never been invoiced at all, so they are prospects rather
+  // than a data error. Previously these were given an invented "ahead" or
+  // "behind" status derived from their visit count alone, which put them in
+  // one of the four quadrants above as though their sales were known.
+  NO_SALES_LINK: {
+    key: 'NO_SALES_LINK',
+    label: 'No Sales Record Yet',
+    badge: 'Visited · No Sales Data',
+    description: 'Visited in the field but not yet linked to any sales account, so target progress cannot be assessed. Mostly prospects and new leads.',
+    color: '#94a3b8',
+    bgColor: 'rgba(148, 163, 184, 0.12)',
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+    textColor: 'text-slate-400'
+  }
+};
 
 export const NORTH_BENGAL_DISTRICTS = [
   'DARJEELING',

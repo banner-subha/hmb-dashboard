@@ -23,6 +23,7 @@ import os
 import time
 import io
 import csv
+import re
 import gzip
 import json
 import tempfile
@@ -98,6 +99,44 @@ _UPSERT_FIELD_VISITS = """
            EXCLUDED.state, EXCLUDED.district,
            EXCLUDED.pincode)
 """
+
+
+def norm_name(s):
+    """Punctuation- and case-insensitive form of a party name.
+
+    Deliberately identical to dim_catalog.value_norm
+    (upper(regexp_replace(value,'[^a-zA-Z0-9]','','g'))) so that a name
+    normalised here and a name normalised in SQL collide on the same key.
+    """
+    return re.sub(r'[^A-Za-z0-9]', '', s or '').upper()
+
+
+def load_dealer_variant_map():
+    """variant_norm -> canonical_norm, from public.dimension_variant_map.
+
+    The sales side already carries 919 dealer-to-billing-name mappings, built
+    when the dealer/invoice puzzle was solved. The visit parser was matching
+    dealer names by bare .upper() and ignoring all of it. Best-effort: an
+    empty map degrades to plain normalised matching, which is still better
+    than what came before.
+    """
+    dsn = os.environ.get('DATABASE_URL') or os.environ.get('HMB_DATABASE_URL')
+    if not dsn:
+        return {}
+    try:
+        import psycopg2
+        with psycopg2.connect(dsn, connect_timeout=15) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "select variant, canonical from public.dimension_variant_map "
+                    "where dimension = 'dealer'"
+                )
+                return {norm_name(v): norm_name(c) for v, c in cur.fetchall()
+                        if v and c}
+    except Exception as err:
+        print('dealer variant map unavailable, falling back to plain '
+              'normalised matching:', err)
+        return {}
 
 
 def upsert_field_visits(rows):
@@ -411,13 +450,19 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
             pin_lookup[pin] = data
 
     dashboard_data = load_dashboard_dealer_master()
+    # Keyed on norm_name, not bare .upper(). The sales feed writes
+    # "M.L.G.BUSINESS PRIVATE LIMITED" where the visit tracker may write
+    # "MLG Business Pvt Ltd"; punctuation alone used to lose the match.
     dealers_pace_map = {}
     districts_pace_map = {}
+    dealer_variant_map = load_dealer_variant_map()
 
     for d in dashboard_data.get('dealers', []):
-        client = (d.get('client') or '').strip().upper()
+        client_raw = (d.get('client') or '').strip()
+        client = norm_name(client_raw)
         if client:
             dealers_pace_map[client] = {
+                '_client': client_raw,
                 'paceStatus': d.get('lossFlag') or ('AHEAD' if (d.get('cur', 0) >= d.get('prev', 0)) else 'BEHIND'),
                 'cur': d.get('cur', 0),
                 'prev': d.get('prev', 0),
@@ -427,8 +472,12 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
                 'state': d.get('state'),
                 'district': d.get('district')
             }
-            if client not in cust_lookup:
-                cust_lookup[client] = {
+            # cust_lookup stays keyed on the raw uppercase name: the geo
+            # enrichment path looks it up with c_upper, not norm_name, and
+            # keying it normalised here would silently stop those lookups
+            # ever hitting.
+            if client_raw.upper() not in cust_lookup:
+                cust_lookup[client_raw.upper()] = {
                     'state': (d.get('state') or '').upper(),
                     'district': (d.get('district') or '').upper(),
                     'city': '',
@@ -451,7 +500,12 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
     seen_dedup = set()
     enriched_count = 0
 
+    # Keyed on norm_name, not the raw spelling. The tracker carries the same
+    # dealer under up to five spellings ("S S Enterprise", "S. S. ENTERPRISE",
+    # "s s enterprise", ...); keying on the raw string split one dealer's
+    # visits across several rows, each then classified separately.
     dealer_monthly_visits = defaultdict(lambda: defaultdict(int))
+    dealer_display = defaultdict(Counter)
     dealer_info = {}
     dealer_durations = defaultdict(list)
     dealer_reps = defaultdict(Counter)
@@ -545,10 +599,12 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
         monthly_totals[m_key]['total'] += 1
         if c_type == 'DEALER':
             monthly_totals[m_key]['dealer'] += 1
-            dealer_monthly_visits[c_name][m_key] += 1
-            dealer_info[c_name] = {'state': state_norm, 'district': dist_norm}
-            if dur > 0: dealer_durations[c_name].append(dur)
-            if emp: dealer_reps[c_name][emp] += 1
+            d_key = norm_name(c_name)
+            dealer_display[d_key][c_name] += 1
+            dealer_monthly_visits[d_key][m_key] += 1
+            dealer_info[d_key] = {'state': state_norm, 'district': dist_norm}
+            if dur > 0: dealer_durations[d_key].append(dur)
+            if emp: dealer_reps[d_key][emp] += 1
         elif c_type == 'FABRICATOR':
             monthly_totals[m_key]['fabricator'] += 1
             dist_key = f"{state_norm}||{dist_norm}"
@@ -601,37 +657,92 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
 
     # 4. Build Dealers Output
     dealers_output = []
-    quadrant_counts = {'GROWTH_DRIVER': 0, 'RED_FLAG': 0, 'NEGLECTED': 0, 'ORGANIC': 0}
-    all_dealers = set(dealer_info.keys()).union(set(k.title() for k in dealers_pace_map.keys()))
+    quadrant_counts = {'GROWTH_DRIVER': 0, 'RED_FLAG': 0, 'NEGLECTED': 0,
+                       'ORGANIC': 0, 'NO_SALES_LINK': 0}
+    # Union of dealers seen in visits and dealers present in the sales feed.
+    # Uses the sales feed's own spelling rather than k.title() of the map key,
+    # which since the key became normalised would have produced names with all
+    # punctuation and spacing stripped.
+    all_dealers = set(dealer_info.keys()).union(dealers_pace_map.keys())
 
-    for d_name in all_dealers:
-        d_upper = d_name.upper()
-        cur_v = dealer_monthly_visits[d_name].get(cur_month_prefix, 0)
-        prev_v = dealer_monthly_visits[d_name].get(prev_month_prefix, 0)
-        hist_sum = sum(dealer_monthly_visits[d_name].get(m, 0) for m in hist_months)
+    def _lookup_pace(name):
+        """Sales pace for a visit dealer name, or None if there is none.
+
+        None is a real answer and must stay distinguishable from a dealer that
+        matched and is simply behind. Three tiers, cheapest first: exact
+        normalised, then the sales side's dealer variant map.
+        """
+        n = norm_name(name)
+        hit = dealers_pace_map.get(n)
+        if hit is None:
+            canonical = dealer_variant_map.get(n)
+            if canonical:
+                hit = dealers_pace_map.get(canonical)
+        return hit
+
+    match_stats = {'matched': 0, 'unmatched': 0}
+
+    for d_key in all_dealers:
+        # Prefer the spelling the field team actually used most often; fall
+        # back to the sales feed's spelling for dealers never visited.
+        if dealer_display.get(d_key):
+            d_name = dealer_display[d_key].most_common(1)[0][0]
+        else:
+            d_name = (dealers_pace_map.get(d_key, {}).get('_client')) or d_key
+        cur_v = dealer_monthly_visits[d_key].get(cur_month_prefix, 0)
+        prev_v = dealer_monthly_visits[d_key].get(prev_month_prefix, 0)
+        hist_sum = sum(dealer_monthly_visits[d_key].get(m, 0) for m in hist_months)
         hist_avg = round(hist_sum / float(num_hist_months), 2)
         visit_growth = round(cur_v - hist_avg, 2)
         visit_status = 'GROWTH' if cur_v > hist_avg else 'DEGROWTH'
 
-        pace_info = dealers_pace_map.get(d_upper, {})
-        pace_status = pace_info.get('paceStatus', 'BEHIND' if cur_v == 0 else 'AHEAD')
+        # This used to read:
+        #   pace_status = pace_info.get('paceStatus',
+        #                               'BEHIND' if cur_v == 0 else 'AHEAD')
+        # i.e. when a dealer had no sales counterpart it invented a pace from
+        # the visit count alone, and that invented value then decided the
+        # quadrant. Any unmatched dealer with visits became AHEAD, so it landed
+        # in GROWTH_DRIVER or ORGANIC. 2,391 of 3,313 visit dealers have no
+        # entry in the sales feed -- 2,178 of them have never been invoiced at
+        # all and are genuinely prospects -- so most of the quadrant map was
+        # built on a number nobody measured. Absent sales data is now reported
+        # as absent.
+        pace_info = _lookup_pace(d_key)
+        sales_matched = pace_info is not None
+        pace_info = pace_info or {}
+
+        pace_status = pace_info.get('paceStatus') if sales_matched else 'UNKNOWN'
         sales_cur = pace_info.get('cur', 0)
         sales_prev = pace_info.get('prev', 0)
 
         is_high_visits = cur_v >= max(1, hist_avg)
-        is_ahead_pace = (pace_status == 'AHEAD')
+        # lossFlag carries three values, not two: AHEAD, BEHIND and STABLE
+        # (75 / 780 / 62 in the current sales feed). Testing == 'AHEAD' put
+        # every STABLE dealer on the behind-target side of the quadrant split,
+        # so 62 dealers holding their run rate were reported as failing.
+        # Holding pace is meeting expectation, so it counts as not-behind.
+        is_ahead_pace = pace_status in ('AHEAD', 'STABLE')
 
-        if is_high_visits and is_ahead_pace: quadrant = 'GROWTH_DRIVER'
+        if not sales_matched:
+            # Visit behaviour is still known and still worth showing; what is
+            # unknown is whether it converted. A bucket of its own rather than
+            # a fifth guess.
+            quadrant = 'NO_SALES_LINK'
+        elif is_high_visits and is_ahead_pace: quadrant = 'GROWTH_DRIVER'
         elif is_high_visits and not is_ahead_pace: quadrant = 'RED_FLAG'
         elif not is_high_visits and not is_ahead_pace: quadrant = 'NEGLECTED'
         else: quadrant = 'ORGANIC'
 
         if cur_v > 0 or hist_sum > 0 or sales_cur > 0 or sales_prev > 0:
             quadrant_counts[quadrant] += 1
-            geo = dealer_info.get(d_name) or {'state': pace_info.get('state', 'Unknown'), 'district': pace_info.get('district', 'Unknown')}
-            durs = dealer_durations.get(d_name, [])
+            # Counted here, not above: a dealer filtered out of the output
+            # must not appear in the match statistics either, or the reported
+            # match rate describes a population the payload does not contain.
+            match_stats['matched' if sales_matched else 'unmatched'] += 1
+            geo = dealer_info.get(d_key) or {'state': pace_info.get('state', 'Unknown'), 'district': pace_info.get('district', 'Unknown')}
+            durs = dealer_durations.get(d_key, [])
             avg_dur = round(sum(durs) / len(durs), 1) if durs else 0
-            top_rep = dealer_reps[d_name].most_common(1)[0][0] if dealer_reps[d_name] else 'Unassigned'
+            top_rep = dealer_reps[d_key].most_common(1)[0][0] if dealer_reps[d_key] else 'Unassigned'
 
             dealers_output.append({
                 'dealer': d_name,
@@ -643,6 +754,7 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
                 'visitGrowth': visit_growth,
                 'visitGrowthStatus': visit_status,
                 'paceStatus': pace_status,
+                'salesMatched': sales_matched,
                 'salesCur': sales_cur,
                 'salesPrev': sales_prev,
                 'dailyAvgQty': pace_info.get('dailyAvgQty', 0),
@@ -748,6 +860,18 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
             'prevPeriod': f"MTD {prev_month_prefix}",
             'totalRecordsProcessed': len(clean_records),
             'geoEnrichedRecords': enriched_count,
+            # Quote this when quoting anything derived from paceStatus or
+            # quadrant: it is the share of dealers for which those fields mean
+            # anything at all.
+            'salesLink': {
+                'matched': match_stats['matched'],
+                'unmatched': match_stats['unmatched'],
+                'matchPct': round(
+                    match_stats['matched'] * 100.0
+                    / max(1, match_stats['matched'] + match_stats['unmatched']), 1),
+                'variantMapEntries': len(dealer_variant_map),
+                'salesFeedDealers': len(dealers_pace_map),
+            },
             'rawRecords': total_raw_rows,
             'parseDurationSeconds': round(time.time() - t0, 2)
         },
@@ -765,7 +889,14 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
             'growthDriversCount': quadrant_counts['GROWTH_DRIVER'],
             'redFlagsCount': quadrant_counts['RED_FLAG'],
             'neglectedCount': quadrant_counts['NEGLECTED'],
-            'organicChampionsCount': quadrant_counts['ORGANIC']
+            'organicChampionsCount': quadrant_counts['ORGANIC'],
+            # Dealers seen in the field with no counterpart in the sales feed.
+            # Their visit behaviour is real; whether it converted is unknown.
+            'noSalesLinkCount': quadrant_counts['NO_SALES_LINK'],
+            'salesLinkedDealers': match_stats['matched'],
+            'salesLinkMatchPct': round(
+                match_stats['matched'] * 100.0
+                / max(1, match_stats['matched'] + match_stats['unmatched']), 1)
         },
         'dealers': dealers_output,
         'districts': districts_output,

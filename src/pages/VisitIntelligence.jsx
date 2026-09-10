@@ -25,6 +25,23 @@ import {
   Check
 } from 'lucide-react';
 
+// Sales target status has four states, not two. Rendering it as a boolean
+// meant "no sales account" and "holding steady" both displayed as
+// "Behind Target".
+function paceDisplay(dealer) {
+  if (!dealer) return { label: '—', text: 'text-text-muted', chip: 'bg-slate-500/15 text-slate-400 border border-slate-500/30' };
+  if (dealer.paceStatus === 'UNKNOWN' || dealer.salesMatched === false) {
+    return { label: 'No Sales Record', text: 'text-slate-400', chip: 'bg-slate-500/15 text-slate-400 border border-slate-500/30' };
+  }
+  if (dealer.paceStatus === 'AHEAD') {
+    return { label: 'Ahead of Target', text: 'text-emerald-400', chip: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' };
+  }
+  if (dealer.paceStatus === 'STABLE') {
+    return { label: 'Holding Steady', text: 'text-blue-400', chip: 'bg-blue-500/15 text-blue-400 border border-blue-500/30' };
+  }
+  return { label: 'Behind Target', text: 'text-rose-400', chip: 'bg-rose-500/15 text-rose-400 border border-rose-500/30' };
+}
+
 export default function VisitIntelligence() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -124,7 +141,10 @@ export default function VisitIntelligence() {
     const totalTracked = stateDealers.length;
     const curFabV = stateDistricts.reduce((sum, d) => sum + (d.curFabricatorVisits || 0), 0);
 
-    const qCounts = { GROWTH_DRIVER: 0, RED_FLAG: 0, NEGLECTED: 0, ORGANIC: 0 };
+    // NO_SALES_LINK must be here too. Without it the per-state tiles silently
+    // drop every unlinked dealer and the quadrant counts stop summing to the
+    // dealer total for that state.
+    const qCounts = { GROWTH_DRIVER: 0, RED_FLAG: 0, NEGLECTED: 0, ORGANIC: 0, NO_SALES_LINK: 0 };
     stateDealers.forEach(d => {
       if (qCounts[d.quadrant] !== undefined) qCounts[d.quadrant]++;
     });
@@ -141,7 +161,9 @@ export default function VisitIntelligence() {
       growthDriversCount: qCounts.GROWTH_DRIVER,
       redFlagsCount: qCounts.RED_FLAG,
       neglectedCount: qCounts.NEGLECTED,
-      organicChampionsCount: qCounts.ORGANIC
+      organicChampionsCount: qCounts.ORGANIC,
+      noSalesLinkCount: qCounts.NO_SALES_LINK,
+      salesLinkedDealers: stateDealers.filter(d => d.salesMatched).length
     };
   }, [data, selectedState]);
 
@@ -495,8 +517,11 @@ export default function VisitIntelligence() {
                 </thead>
                 <tbody className="divide-y divide-border/20">
                   {filteredDealers.slice(0, 50).map((dl, idx) => {
-                    const qCfg = VISIT_QUADRANTS[dl.quadrant] || VISIT_QUADRANTS.ORGANIC;
-                    const isAhead = dl.paceStatus === 'AHEAD';
+                    // Falling back to ORGANIC would label an unrecognised
+                    // quadrant "Steady Growth Accounts", which is a claim
+                    // rather than a default.
+                    const qCfg = VISIT_QUADRANTS[dl.quadrant] || VISIT_QUADRANTS.NO_SALES_LINK;
+                    const pace = paceDisplay(dl);
                     const isGrowth = dl.visitGrowthStatus === 'GROWTH';
 
                     return (
@@ -533,10 +558,8 @@ export default function VisitIntelligence() {
                           </span>
                         </td>
                         <td className="py-3 px-3 text-center whitespace-nowrap">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                            isAhead ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-                          }`}>
-                            {isAhead ? 'Ahead of Target' : 'Behind Target'}
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${pace.chip}`}>
+                            {pace.label}
                           </span>
                         </td>
                         <td className="py-3 px-3 text-right font-semibold text-text-primary whitespace-nowrap">
@@ -852,11 +875,13 @@ export default function VisitIntelligence() {
                 </div>
                 <div className="p-3 bg-bg-secondary/60 rounded-xl border border-border/30">
                   <span className="text-[10.5px] font-bold text-text-muted block">Sales Target Status</span>
-                  <span className={`text-2xl font-black ${selectedDealer.paceStatus === 'AHEAD' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {selectedDealer.paceStatus === 'AHEAD' ? 'Ahead of Target' : 'Behind Target'}
+                  <span className={`text-2xl font-black ${paceDisplay(selectedDealer).text}`}>
+                    {paceDisplay(selectedDealer).label}
                   </span>
                   <span className="text-[10px] text-text-muted block mt-0.5">
-                    Current Rate: {selectedDealer.currentDailyRate} MT/day
+                    {(selectedDealer.paceStatus === 'UNKNOWN' || selectedDealer.salesMatched === false)
+                      ? 'Not linked to a sales account'
+                      : `Current Rate: ${selectedDealer.currentDailyRate} MT/day`}
                   </span>
                 </div>
               </div>
