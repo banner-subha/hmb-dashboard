@@ -39,7 +39,13 @@ gcloud run deploy $ServiceName `
     --cpu-boost `
     --min-instances 0 `
     --timeout 300 `
-    --set-env-vars="DROPBOX_VISITS_PATH=/OFFICE HO/BI DATA/SALES DASHBOARD/VISIT_TRACKER_SEPT.csv"
+    --update-env-vars="DROPBOX_VISITS_PATH=/OFFICE HO/BI DATA/SALES DASHBOARD/VISIT_TRACKER_SEPT.csv"
+
+# --update-env-vars, not --set-env-vars: the latter replaces the whole literal
+# env set. The Dropbox credentials, DATABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+# are Secret Manager references attached to the service and must survive a
+# deploy untouched -- DATABASE_URL in particular is what the Phase 0b Postgres
+# write depends on.
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Successfully deployed $ServiceName to Google Cloud Run!" -ForegroundColor Green
