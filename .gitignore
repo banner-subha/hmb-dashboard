@@ -43,3 +43,7 @@ full_fixed_kpi_node.js
 compute_mom_monthly.js
 validate_merge_v2.js
 
+
+# Python bytecode
+__pycache__/
+*.py[cod]

@@ -1,0 +1,22 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1 \
+    PORT=8080
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements_visit_parser.txt .
+RUN pip install --no-cache-dir -r requirements_visit_parser.txt
+
+COPY visit_tracker_parser.py .
+
+EXPOSE 8080
+
+# Run Google Functions Framework on port 8080
+CMD ["functions-framework", "--target=parse_visits_cloud_function", "--port=8080"]
