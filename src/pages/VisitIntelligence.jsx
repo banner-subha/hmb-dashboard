@@ -562,7 +562,12 @@ export default function VisitIntelligence() {
                           <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-accent transition-opacity" />
                         </td>
                         <td className="py-3 px-3 text-text-secondary whitespace-nowrap">
-                          {dl.district ? `${dl.district}, ${dl.state}` : dl.state}
+                          {/* An empty cell reads as a rendering fault. These
+                              dealers carry no state, district or resolvable
+                              pincode on any row of the export. */}
+                          {dl.district
+                            ? `${dl.district}, ${dl.state}`
+                            : dl.state || <span className="text-text-muted/60 italic">Location not recorded</span>}
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
                           <span

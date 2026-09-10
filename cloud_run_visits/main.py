@@ -401,7 +401,21 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
     # 2. First Pass: Read rows & learn geo lookup dictionaries
     raw_parsed = []
     pin_counts = defaultdict(lambda: {'state': Counter(), 'district': Counter(), 'city': Counter()})
-    cust_lookup = {}
+    # Per-customer geo evidence, accumulated across every row the way pincodes
+    # already were, rather than snapshotted from one row.
+    #
+    # The previous version stored the first row carrying any of
+    # state/district/pincode, verbatim -- so a dealer whose rows carry only a
+    # pincode was recorded with state='' and district='', and the replace
+    # condition never fired because it tested only state. KAMALA STEEL has 185
+    # rows, 18 carrying pincode 722122 and none carrying state or district; it
+    # came out blank, along with 1,045 other dealers.
+    #
+    # Keyed on norm_name so the five spellings of one dealer pool their
+    # evidence instead of each starting from nothing.
+    cust_counts = defaultdict(lambda: {'state': Counter(), 'district': Counter(),
+                                       'city': Counter(), 'pincode': Counter(),
+                                       'type': Counter()})
 
     for row in reader:
         c_name = get_val(row, idx_cust)
@@ -422,32 +436,52 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
             if dt: pin_counts[pin]['district'][dt] += 1
             if ct: pin_counts[pin]['city'][ct] += 1
 
-        c_upper = c_name.upper()
-        if c_upper and (st or dt or pin):
-            if c_upper not in cust_lookup or (not cust_lookup[c_upper].get('state') and st):
-                cust_lookup[c_upper] = {
-                    'state': st,
-                    'district': dt,
-                    'city': ct,
-                    'pincode': pin,
-                    'type': c_type or 'DEALER'
-                }
+        c_key = norm_name(c_name)
+        if c_key:
+            cc = cust_counts[c_key]
+            if st: cc['state'][st] += 1
+            if dt: cc['district'][dt] += 1
+            if ct: cc['city'][ct] += 1
+            if pin: cc['pincode'][pin] += 1
+            if c_type: cc['type'][c_type] += 1
 
         raw_parsed.append(row)
 
     total_raw_rows = len(raw_parsed)
 
+    def _top(counter):
+        return counter.most_common(1)[0][0] if counter else ''
+
     # Resolve pincode dictionary
     pin_lookup = {}
     for pin, data in pin_counts.items():
-        s = data['state'].most_common(1)[0][0] if data['state'] else ''
-        d = data['district'].most_common(1)[0][0] if data['district'] else ''
-        c = data['city'].most_common(1)[0][0] if data['city'] else ''
-        pin_lookup[pin] = {'state': s, 'district': d, 'city': c}
+        pin_lookup[pin] = {
+            'state': _top(data['state']),
+            'district': _top(data['district']),
+            'city': _top(data['city']),
+        }
 
     for pin, data in PINCODE_REGISTRY.items():
         if pin not in pin_lookup or not pin_lookup[pin].get('district'):
             pin_lookup[pin] = data
+
+    # Resolve customer dictionary. Each field independently takes the most
+    # frequent non-empty value seen for that dealer, so a dealer whose state
+    # appears on one row and district on another ends up with both.
+    cust_lookup = {}
+    for key, data in cust_counts.items():
+        cust_lookup[key] = {
+            'state': _top(data['state']),
+            'district': _top(data['district']),
+            'city': _top(data['city']),
+            'pincode': _top(data['pincode']),
+            # No 'or DEALER' default. cust_counts now covers every customer,
+            # not just those with geo, so defaulting here would classify every
+            # customer that never recorded a type as a dealer and pre-empt the
+            # name heuristic below -- which moved 711 fabricators into the
+            # dealer list. Left empty, the heuristic still runs.
+            'type': _top(data['type']),
+        }
 
     dashboard_data = load_dashboard_dealer_master()
     # Keyed on norm_name, not bare .upper(). The sales feed writes
@@ -472,18 +506,23 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
                 'state': d.get('state'),
                 'district': d.get('district')
             }
-            # cust_lookup stays keyed on the raw uppercase name: the geo
-            # enrichment path looks it up with c_upper, not norm_name, and
-            # keying it normalised here would silently stop those lookups
-            # ever hitting.
-            if client_raw.upper() not in cust_lookup:
-                cust_lookup[client_raw.upper()] = {
+            # cust_lookup is keyed on norm_name, matching how the geo
+            # enrichment path now looks it up. Only fills gaps: a location the
+            # field team recorded outranks the sales feed's billing address.
+            existing = cust_lookup.get(client)
+            if existing is None:
+                cust_lookup[client] = {
                     'state': (d.get('state') or '').upper(),
                     'district': (d.get('district') or '').upper(),
                     'city': '',
                     'pincode': '',
                     'type': 'DEALER'
                 }
+            else:
+                if not existing.get('state'):
+                    existing['state'] = (d.get('state') or '').upper()
+                if not existing.get('district'):
+                    existing['district'] = (d.get('district') or '').upper()
 
     for dt in dashboard_data.get('districts', []):
         d_key = f"{norm_name(dt.get('state', ''))}||{norm_name(dt.get('district', ''))}"
@@ -589,17 +628,38 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
         pin = get_val(row, idx_pin).replace(' ', '')
         c_type = get_val(row, idx_cust_type).upper()
 
-        # Multi-stage geo enrichment
-        if not st and not dt:
+        # Multi-stage geo enrichment.
+        #
+        # Was `if not st and not dt`, so a row with a state but no district was
+        # never completed, and the two branches were exclusive: a row whose
+        # pincode was unknown never fell through to the customer dictionary.
+        # Each tier now fills only the fields still missing, and the row is
+        # carried through all three.
+        #
+        # 80,348 rows (26.1%) arrive with neither state nor district. On the
+        # current export these tiers recover 53,679 of them (66.8%); the rest
+        # carry no locating signal anywhere in the file.
+        c_key = norm_name(c_name)
+        if not st or not dt:
+            # 1. the pincode on this row -- the most specific evidence there is
             if pin and pin in pin_lookup:
-                st = pin_lookup[pin]['state']
-                dt = pin_lookup[pin]['district']
-                ct = pin_lookup[pin]['city']
-            elif c_upper in cust_lookup:
-                info = cust_lookup[c_upper]
-                st = info['state']
-                dt = info['district']
-                ct = info['city']
+                st = st or pin_lookup[pin]['state']
+                dt = dt or pin_lookup[pin]['district']
+                ct = ct or pin_lookup[pin]['city']
+            # 2. what this dealer recorded on its other rows
+            info = cust_lookup.get(c_key)
+            if info and (not st or not dt):
+                st = st or info['state']
+                dt = dt or info['district']
+                ct = ct or info['city']
+            # 3. this dealer's pincode from its other rows, resolved globally
+            if info and (not st or not dt):
+                cpin = info.get('pincode')
+                if cpin and cpin in pin_lookup:
+                    st = st or pin_lookup[cpin]['state']
+                    dt = dt or pin_lookup[cpin]['district']
+                    ct = ct or pin_lookup[cpin]['city']
+            if info:
                 if not pin: pin = info['pincode']
                 if not c_type: c_type = info['type']
             if st or dt:
@@ -620,7 +680,15 @@ def process_visit_data(csv_file_or_stream, push_to_postgres=None, sql_full=False
             dealer_display[d_key][c_name] += 1
             dealer_monthly_visits[d_key][m_key] += 1
             if within_mtd: dealer_mtd_visits[d_key][m_key] += 1
-            dealer_info[d_key] = {'state': state_norm, 'district': dist_norm}
+            # Do not let a later blank row overwrite geo already established
+            # for this dealer: the assignment used to be unconditional, so a
+            # dealer's district depended on whichever of its rows happened to
+            # be processed last.
+            prev_geo = dealer_info.get(d_key)
+            if prev_geo is None or (not prev_geo.get('district') and dist_norm):
+                dealer_info[d_key] = {'state': state_norm, 'district': dist_norm}
+            elif not prev_geo.get('state') and state_norm:
+                prev_geo['state'] = state_norm
             if dur > 0: dealer_durations[d_key].append(dur)
             if emp: dealer_reps[d_key][emp] += 1
         elif c_type == 'FABRICATOR':
