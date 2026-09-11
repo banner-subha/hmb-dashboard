@@ -17,19 +17,19 @@ const PERCENT = new Set(['pct_of_total', 'achievement_pct', 'match_pct']);
 const RUPEES = new Set(['revenue', 'avg_rate']);
 
 const HEADER = {
-  tonnage: 'Tonnage (t)',
-  actual_pending: 'Pending (t)',
-  pending_gross: 'Gross pending (t)',
-  order_qty: 'Ordered (t)',
-  despatch_qty: 'Despatched (t)',
-  cancelled_qty: 'Cancelled (t)',
-  avg_line_tonnes: 'Avg line (t)',
-  target_derived: 'Target (t)',
-  total_despatch: 'Despatch (t)',
-  scheme_despatch: 'Scheme (t)',
-  invoiced_despatch: 'Invoiced (t)',
-  gap: 'Gap (t)',
-  variance: 'Variance (t)',
+  tonnage: 'Tonnage (MT)',
+  actual_pending: 'Pending (MT)',
+  pending_gross: 'Gross pending (MT)',
+  order_qty: 'Ordered (MT)',
+  despatch_qty: 'Despatched (MT)',
+  cancelled_qty: 'Cancelled (MT)',
+  avg_line_tonnes: 'Avg line (MT)',
+  target_derived: 'Target (MT)',
+  total_despatch: 'Despatch (MT)',
+  scheme_despatch: 'Scheme (MT)',
+  invoiced_despatch: 'Invoiced (MT)',
+  gap: 'Gap (MT)',
+  variance: 'Variance (MT)',
   pct_of_total: 'Share',
   achievement_pct: 'Achievement',
   match_pct: 'Matched',
@@ -57,17 +57,17 @@ function display(key, value) {
   const n = Number(value);
   if (Number.isNaN(n)) return String(value);
   if (RUPEES.has(key)) {
-    if (key === 'avg_rate') return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/t`;
-    if (Math.abs(n) >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`;
-    if (Math.abs(n) >= 1e5) return `₹${(n / 1e5).toFixed(2)} L`;
+    if (key === 'avg_rate') return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/MT`;
+    if (Math.abs(n) >= 1e7) return `₹${(n / 1e7).toFixed(1)} Cr`;
+    if (Math.abs(n) >= 1e5) return `₹${(n / 1e5).toFixed(1)} L`;
     return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
   }
-  if (PERCENT.has(key)) return `${n.toFixed(2)}%`;
+  if (PERCENT.has(key)) return `${n.toFixed(1)}%`;
   if (TONNES.has(key)) {
-    return n.toLocaleString('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    return n.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   }
   if (Number.isInteger(n)) return n.toLocaleString('en-IN');
-  return n.toLocaleString('en-IN', { maximumFractionDigits: 3 });
+  return n.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
 // Flatten grp into real columns so both the table and the CSV are one row per

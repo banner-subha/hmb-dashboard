@@ -72,15 +72,15 @@ function formatValue(v, metric) {
   const n = Number(v);
   if (Number.isNaN(n)) return String(v);
   if (metric === 'revenue') {
-    if (Math.abs(n) >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`;
-    if (Math.abs(n) >= 1e5) return `₹${(n / 1e5).toFixed(2)} L`;
+    if (Math.abs(n) >= 1e7) return `₹${(n / 1e7).toFixed(1)} Cr`;
+    if (Math.abs(n) >= 1e5) return `₹${(n / 1e5).toFixed(1)} L`;
     return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
   }
   if (metric === 'avg_rate') {
-    return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/t`;
+    return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/MT`;
   }
   const unit = UNIT[metric] ?? '';
-  const decimals = unit === '%' ? 2 : Number.isInteger(n) ? 0 : 3;
+  const decimals = Number.isInteger(n) ? 0 : 1;
   return `${n.toLocaleString('en-IN', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -113,7 +113,7 @@ function ChartTooltip({ active, payload, metric }) {
       {row.share != null && metric !== 'pct_of_total' && (
         <div className="flex justify-between gap-4 text-xs">
           <span className="text-text-muted">Share</span>
-          <span className="font-mono text-text-secondary">{Number(row.share).toFixed(2)}%</span>
+          <span className="font-mono text-text-secondary">{Number(row.share).toFixed(1)}%</span>
         </div>
       )}
     </div>
