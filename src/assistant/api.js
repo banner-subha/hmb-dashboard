@@ -40,7 +40,6 @@ export function readToken() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.accessToken) return null;
-    if (parsed.expiresAt && parsed.expiresAt * 1000 < Date.now()) return null;
     return parsed.accessToken;
   } catch {
     return null;
