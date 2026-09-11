@@ -9,6 +9,7 @@ import {
   Map,
   MapPin,
   Store,
+  Briefcase,
   Brain,
   Activity,
   Globe,
@@ -29,6 +30,7 @@ const NAV_ICON_MAP = {
   Map,
   MapPin,
   Store,
+  Briefcase,
   Brain,
   Activity,
   Globe,
@@ -306,22 +308,39 @@ export default function DashboardLayout() {
         {/* Page Content */}
         <div className="flex-1 overflow-auto p-4 sm:p-5 pb-12" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)' }}>
           <div className="max-w-[1680px] mx-auto space-y-6 min-h-full relative">
-            <AnimatePresence mode="wait">
-              <AnimatedPage key={location.pathname}>
-                <Suspense fallback={
-                  <div className="space-y-6">
-                    <div className="glass-card p-6 min-h-[400px] flex items-center justify-center text-text-muted">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-8 h-8 rounded-full border-2 border-accent-blue/30 border-t-accent-blue animate-spin" />
-                        <span className="text-xs font-medium tracking-wide">Loading component...</span>
-                      </div>
-                    </div>
+            {/*
+              Suspense sits ABOVE the animated wrapper, and there is no
+              AnimatePresence around the page any more.
+
+              Both were the cause of the tab going blank. `AnimatePresence
+              mode="wait"` keeps the outgoing page mounted — already faded to
+              opacity 0 — until every motion component inside it reports that
+              its exit animation finished. When the incoming route is a lazy
+              chunk, it suspends; React throws away that render pass, the
+              exit-complete callback never arrives, and AnimatePresence goes on
+              rendering the invisible old page instead of mounting the new one.
+              The screen stays empty until some unrelated state change forces a
+              re-evaluation — which is why clicking another tab brought the
+              first page back and blanked the second.
+
+              Nothing needs an exit animation on a route change: the old page
+              is gone the instant you click. A keyed fade-in is the whole
+              effect, and it cannot stall.
+            */}
+            <Suspense fallback={
+              <div className="space-y-6">
+                <div className="glass-card p-6 min-h-[400px] flex items-center justify-center text-text-muted">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 rounded-full border-2 border-accent-blue/30 border-t-accent-blue animate-spin" />
+                    <span className="text-xs font-medium tracking-wide">Loading component...</span>
                   </div>
-                }>
-                  <Outlet />
-                </Suspense>
+                </div>
+              </div>
+            }>
+              <AnimatedPage key={location.pathname}>
+                <Outlet />
               </AnimatedPage>
-            </AnimatePresence>
+            </Suspense>
           </div>
         </div>
       </main>

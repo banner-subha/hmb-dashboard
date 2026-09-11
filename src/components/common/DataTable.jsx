@@ -35,7 +35,15 @@ const TableRow = memo(function TableRow({ row, onRowClick }) {
          prevProps.onRowClick === nextProps.onRowClick;
 });
 
-export default function DataTable({ data, columns, onRowClick, pageSize = 15, renderHeader, defaultSort = [] }) {
+/**
+ * `fixedLayout` switches the table to `table-layout: fixed`, so the percentage
+ * widths in each column's `meta` are honoured and long cell content wraps
+ * instead of widening its column. Default off: with auto layout a column can
+ * quietly grow past its declared width to fit its content, which pushes the
+ * last columns behind a horizontal scrollbar. Tables whose columns are sized
+ * to add up to 100% should pass it.
+ */
+export default function DataTable({ data, columns, onRowClick, pageSize = 15, renderHeader, defaultSort = [], fixedLayout = false }) {
   const [sorting, setSorting] = useState(defaultSort);
   const isMobile = useMediaQuery('(max-width: 767px)');
 
@@ -180,7 +188,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
       {renderHeader && renderHeader(paginationControls)}
 
       <div className="w-full overflow-x-auto rounded-xl border border-border bg-bg-card shadow-sm">
-        <table className="w-full text-[14.5px] text-left border-collapse">
+        <table className={`w-full text-[14.5px] text-left border-collapse ${fixedLayout ? 'table-fixed' : ''}`}>
           <thead className="text-[12.5px] font-semibold text-text-muted bg-bg-secondary border-b border-border">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="border-b border-border">

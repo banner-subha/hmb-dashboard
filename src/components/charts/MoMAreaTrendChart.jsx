@@ -4,7 +4,13 @@ import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 import { useChartVisible } from '../../hooks/useChartVisible';
 import { formatNumber } from '../../utils/formatters';
 
-const CustomTooltip = ({ active, payload, label }) => {
+/**
+ * `valueLabel`/`valueUnit` default to the dispatch wording every existing
+ * caller wants. The visits tab plots visit counts on this same chart, and a
+ * tooltip reading "Shipped: 12,345 MT" over a visit count is simply false, so
+ * the words are a prop rather than baked in.
+ */
+const CustomTooltip = ({ active, payload, label, valueLabel = 'Shipped', valueUnit = 'MT', valueDecimals = 2 }) => {
   if (active && payload && payload.length) {
     const item = payload[0].payload;
     const vol = item.volume ?? item.cur ?? 0;
@@ -15,8 +21,12 @@ const CustomTooltip = ({ active, payload, label }) => {
         <p className="font-bold text-text-primary text-xs mb-1.5">{label || item.monthLabel}</p>
         <div className="space-y-1 text-xs">
           <div className="flex justify-between items-center gap-4">
-            <span className="text-text-muted">Shipped:</span>
-            <span className="font-extrabold text-text-primary">{formatNumber(vol)} MT</span>
+            <span className="text-text-muted">{valueLabel}:</span>
+            <span className="font-extrabold text-text-primary">
+              {valueDecimals === 0
+                ? Number(vol).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+                : formatNumber(vol)}{valueUnit ? ` ${valueUnit}` : ''}
+            </span>
           </div>
           {mom !== undefined && mom !== null && (
             <div className="flex justify-between items-center gap-4 pt-1 border-t border-border/40 mt-1">
@@ -84,7 +94,18 @@ const GradientCursor = (props) => {
   );
 };
 
-function MoMAreaTrendChart({ data, nameKey = "monthLabel", dataKey = "volume", height = 200, accentColor = "#3b82f6" }) {
+function MoMAreaTrendChart({
+  data,
+  nameKey = "monthLabel",
+  dataKey = "volume",
+  height = 200,
+  accentColor = "#3b82f6",
+  valueLabel = "Shipped",
+  valueUnit = "MT",
+  // Tonnage wants two decimals; a count of visits does not.
+  valueDecimals = 2,
+  emptyMessage = "No monthly trend data available",
+}) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
   const isVisible = useChartVisible(containerRef);
@@ -105,7 +126,7 @@ function MoMAreaTrendChart({ data, nameKey = "monthLabel", dataKey = "volume", h
   if (!data || data.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-text-muted text-xs py-8">
-        No monthly trend data available
+        {emptyMessage}
       </div>
     );
   }
@@ -155,7 +176,11 @@ function MoMAreaTrendChart({ data, nameKey = "monthLabel", dataKey = "volume", h
             axisLine={false}
             tickFormatter={(val) => `${val >= 1000 ? (val / 1000).toFixed(1) + 'k' : val}`} 
           />
-          <Tooltip content={<CustomTooltip />} cursor={<GradientCursor />} isAnimationActive={false} />
+          <Tooltip
+            content={<CustomTooltip valueLabel={valueLabel} valueUnit={valueUnit} valueDecimals={valueDecimals} />}
+            cursor={<GradientCursor />}
+            isAnimationActive={false}
+          />
           <Area
             type="monotone"
             dataKey={dataKey}

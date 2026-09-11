@@ -18,6 +18,7 @@ import { AlertTriangle, ChevronDown, Info, SearchX } from 'lucide-react';
 // repeating what the answer says.
 
 const CONFIDENCE_LABEL = {
+  exact: 'exact match',
   spelling_variant: 'spelling variant',
   suffix_or_prefix: 'suffix or prefix',
   possible_mismatch: 'possible mismatch',
@@ -83,32 +84,45 @@ function DealerDisclosure({ disclosure }) {
           {caution && (
             <p className="mb-2 text-[0.8rem] leading-relaxed text-text-secondary">
               The filter “{disclosure.input}” folded in{' '}
-              {suspect.map((m, i) => (
-                <span key={m.matched_name}>
-                  {i > 0 && ', '}
-                  <strong className="font-semibold text-severity-high">{m.matched_name}</strong>
-                </span>
-              ))}
+              {suspect.map((m, i) => {
+                const name = m.matched_name || m.customer_name;
+                return (
+                  <span key={name}>
+                    {i > 0 && ', '}
+                    <strong className="font-semibold text-severity-high">{name}</strong>
+                  </span>
+                );
+              })}
               , which may not be the dealer you meant.
             </p>
           )}
           <table className="w-full text-[0.78rem]">
             <tbody>
-              {matches.map((m) => (
-                <tr
-                  key={m.matched_name}
-                  className={
-                    m.confidence === 'possible_mismatch'
-                      ? 'text-severity-high'
-                      : 'text-text-muted'
-                  }
-                >
-                  <td className="py-[3px] pr-2 font-medium">{m.matched_name}</td>
-                  <td className="whitespace-nowrap py-[3px] text-right text-[0.72rem]">
-                    {CONFIDENCE_LABEL[m.confidence] || m.confidence}
-                  </td>
-                </tr>
-              ))}
+              {matches.map((m) => {
+                const name = m.matched_name || m.customer_name;
+                return (
+                  <tr
+                    key={name}
+                    className={
+                      m.confidence === 'possible_mismatch'
+                        ? 'text-severity-high'
+                        : 'text-text-muted'
+                    }
+                  >
+                    <td className="py-[3px] pr-2 font-medium">
+                      {name}
+                      {m.customer_type && (
+                        <span className="ml-2 inline-block rounded bg-bg-card/70 px-1 py-0.5 text-[0.68rem] text-text-muted">
+                          {m.customer_type}
+                        </span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap py-[3px] text-right text-[0.72rem]">
+                      {CONFIDENCE_LABEL[m.confidence] || m.confidence}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

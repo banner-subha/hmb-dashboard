@@ -20,6 +20,10 @@ export const TOOL_PHRASES = {
   query_kro_performance: ['Checking field-force numbers'],
   resolve_dimension_value: ['Matching names'],
   explain_dealer_match: ['Confirming the dealer'],
+  query_visits: ['Checking field visit logs', 'Counting dealer touchpoints'],
+  query_dealer_visit_correlation: ['Correlating visits with sales pace', 'Analyzing visit ROI'],
+  query_district_fabricator_visits: ['Analyzing fabricator demand pull', 'Checking grassroots coverage'],
+  query_rep_productivity: ['Calculating field rep hours', 'Checking visit durations'],
 };
 
 export const OPENING = ['Thinking', 'Working out the numbers', 'Still on it'];

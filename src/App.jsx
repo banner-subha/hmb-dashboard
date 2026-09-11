@@ -18,6 +18,7 @@ const DealerIntelligence = lazy(() => import('./pages/DealerIntelligence'));
 const AIWarRoom = lazy(() => import('./pages/AIWarRoom'));
 const AlertIntelligence = lazy(() => import('./pages/AlertIntelligence'));
 const GeoIntelligence = lazy(() => import('./pages/GeoIntelligence'));
+const VisitIntelligence = lazy(() => import('./pages/VisitIntelligence'));
 // The surface is lazy so that nothing it pulls in — the panel, markdown,
 // recharts, the result table — lands in the dashboard's initial bundle.
 const AssistantSurface = lazy(() => import('./assistant/AssistantSurface'));
@@ -313,6 +314,7 @@ function App() {
                   <Route path="states" element={<StateIntelligenceWrapper />} />
                   <Route path="districts" element={<DistrictIntelligenceWrapper />} />
                   <Route path="dealers" element={<DealerIntelligenceWrapper />} />
+                  <Route path="visits" element={<VisitIntelligence />} />
                   <Route path="risk" element={<Navigate to="/alerts" replace />} />
                   <Route path="war-room" element={<RequireAdminRoute><AIWarRoom /></RequireAdminRoute>} />
                   <Route path="alerts" element={<RequireAdminRoute><AlertIntelligence /></RequireAdminRoute>} />

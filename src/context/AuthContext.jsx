@@ -60,8 +60,7 @@ function readStoredUser() {
  * dashboard carries on and only the assistant needs signing in again.
  */
 function tokenUsable(stored) {
-  if (!stored?.accessToken) return false;
-  return !stored.expiresAt || stored.expiresAt * 1000 > Date.now();
+  return Boolean(stored?.accessToken);
 }
 
 export function AuthProvider({ children }) {

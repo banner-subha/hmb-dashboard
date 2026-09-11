@@ -41,9 +41,19 @@ latest.json
 TEST_Dashboard (2).json
 full_fixed_kpi_node.js
 compute_mom_monthly.js
-validate_merge_v2.js
+validate_*.js
+verify_*.js
+test_*.js
+updated_validate_merge.js
+telegram_chatIDs.xlsx
 
-
-# Python bytecode
+# Python bytecode and scripts
 __pycache__/
 *.py[cod]
+*.py
+cloud_run_visits/
+_deprecated/
+
+# Markdown documentation
+*.md
+docs/

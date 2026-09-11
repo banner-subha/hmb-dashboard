@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { Briefcase, MapPin, AlertTriangle, Info } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Briefcase, AlertTriangle, RotateCcw } from 'lucide-react';
 
-import AnimatedPage from '../components/common/AnimatedPage';
 import SearchInput from '../components/common/SearchInput';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 import ErrorBoundary from '../components/common/ErrorBoundary';
@@ -16,24 +15,25 @@ import DealerScorecardModal from '../components/visits/DealerScorecardModal';
 
 import { useVisitData } from '../hooks/useVisitData';
 import { VISIT_SECTIONS } from '../utils/visits';
-import { formatPct } from '../utils/formatters';
-
-const SEARCH_PLACEHOLDERS = {
-  dealers: 'Search dealer, district, executive...',
-  districts: 'Search district or state...',
-  reps: 'Search sales executive...',
-  trends: 'Search is not used on this view',
-};
 
 /**
- * Field Visits & Sales Performance.
+ * Field Visits & Tracker.
  *
- * This page was a 955-line single component that shared nothing with the rest
- * of the dashboard: it reimplemented KPI tiles, tables, formatting and trend
- * logic, and the knowledge graph showed it with zero edges to formatMT,
- * calculateMoM, getSeverityTheme, MoMIndicator, SkeletonLoader or DataTable
- * while every other page used all of them. It now orchestrates; the views,
- * the derivations and the domain vocabulary live in their own modules.
+ * Two things this page deliberately does NOT do any more.
+ *
+ * It does not wrap itself in AnimatedPage. DashboardLayout already animates
+ * whatever the router puts in the outlet, and this was the only page that
+ * added a second motion wrapper inside that one. Nested inside the layout's
+ * old `AnimatePresence mode="wait"`, that extra wrapper is what made the tab
+ * blank out: the outgoing page stayed mounted at opacity 0 waiting for an
+ * exit-complete that never arrived, so the new page never mounted until an
+ * unrelated click forced a re-render.
+ *
+ * It does not set its own padding or max-width. The layout supplies
+ * `p-4 sm:p-5` and `max-w-[1680px] mx-auto`; adding `p-8 max-w-7xl` on top
+ * made this the one tab that sat narrower and further from the edges than
+ * every other tab. The root is now `animate-fade-in space-y-6`, the same as
+ * Dealer Network and State Overview.
  */
 export default function VisitIntelligence() {
   const [section, setSection] = useState('dealers');
@@ -48,159 +48,193 @@ export default function VisitIntelligence() {
     summary, stateOptions, salesLink, counts,
   } = useVisitData({ state, quadrant, query });
 
+  /**
+   * The group cards filter the dealer table, so picking one moves you there.
+   * Clicking "Needs Attention" while the District view was open used to look
+   * like a dead control: the card lit up and nothing on screen changed,
+   * because a group is a dealer-level classification and the district table
+   * deliberately ignores it.
+   */
+  const selectQuadrant = key => {
+    setQuadrant(key);
+    if (key !== 'ALL') setSection('dealers');
+  };
+
+  const active = useMemo(
+    () => VISIT_SECTIONS.find(s => s.key === section) || VISIT_SECTIONS[0],
+    [section]
+  );
+
   if (loading) {
     return (
-      <AnimatedPage>
-        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-          <SkeletonLoader variant="card" count={1} className="h-16" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <SkeletonLoader variant="kpi" count={5} />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <SkeletonLoader variant="kpi" count={5} />
-          </div>
-          <div className="bg-bg-card rounded-2xl border border-border/40 overflow-hidden">
-            <SkeletonLoader variant="table-row" count={8} />
-          </div>
+      <div className="animate-fade-in space-y-6">
+        <SkeletonLoader variant="card" count={1} className="h-16" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <SkeletonLoader variant="kpi" count={5} />
         </div>
-      </AnimatedPage>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <SkeletonLoader variant="kpi" count={5} />
+        </div>
+        <div className="glass-card overflow-hidden">
+          <SkeletonLoader variant="table-row" count={8} />
+        </div>
+      </div>
     );
   }
 
   if (error || !data) {
     return (
-      <AnimatedPage>
-        <div className="p-6 max-w-7xl mx-auto text-center py-20">
+      <div className="animate-fade-in">
+        <div className="glass-card p-10 text-center">
           <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-text-primary mb-2">Field Visit Data Unavailable</h2>
-          <p className="text-sm text-text-muted mb-6">{error || 'Could not load the visits dataset.'}</p>
+          <p className="text-sm text-text-muted mb-6">{error || 'The visits dataset could not be loaded.'}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent/90"
+            className="px-4 py-2 bg-accent-blue text-white rounded-xl text-sm font-bold hover:opacity-90 cursor-pointer"
           >
-            Retry Connection
+            Try Again
           </button>
         </div>
-      </AnimatedPage>
+      </div>
     );
   }
 
   const rowsFor = { dealers, districts, reps };
+  const visibleCount = rowsFor[section]?.length ?? 0;
+  const filtersOn = state !== 'ALL' || quadrant !== 'ALL' || query !== '';
 
   return (
-    <AnimatedPage>
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+    <div className="animate-fade-in space-y-6">
 
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-6">
+      {/* Page title — same block every other tab uses */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4 mb-4">
+        <div className="flex items-start gap-3">
+          <Briefcase className="w-7 h-7 text-accent-blue mt-1 shrink-0" />
           <div>
-            <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-              <div className="w-9 h-9 rounded-xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent shadow-xs">
-                <Briefcase className="w-5 h-5" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-text-primary">
-                Field Visits &amp; Sales Performance
-              </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-accent/15 text-accent border border-accent/25">
-                Current Month MTD
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-text-muted">
-              Connecting customer field touchpoints with sales target achievement across dealers and districts.
+            <h2 className="text-3xl font-extrabold text-text-primary leading-tight">
+              Field Visits &amp; Tracker
+            </h2>
+            <p className="text-sm text-text-muted mt-1">
+              Dealer and fabricator visits this month, matched against sales results.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="flex items-center gap-1.5 bg-bg-card px-3 py-1.5 rounded-xl border border-border/50 text-xs font-medium text-text-secondary">
-              <MapPin className="w-3.5 h-3.5 text-accent" />
-              <select
-                value={state}
-                onChange={e => setState(e.target.value)}
-                aria-label="Filter by state"
-                className="bg-transparent border-none outline-none font-semibold text-text-primary cursor-pointer"
-              >
-                {stateOptions.map(st => (
-                  <option key={st} value={st} className="bg-bg-secondary text-text-primary">
-                    {st === 'ALL' ? 'All States' : st}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="text-[11px] font-semibold text-text-muted px-2.5 py-1.5 rounded-xl bg-bg-card/60 border border-border/30">
-              Period: {data.meta?.curPeriod || 'Active Month'}
-            </div>
           </div>
         </div>
 
-        <ErrorBoundary>
-          <VisitKPIRow summary={summary} meta={data.meta} />
-        </ErrorBoundary>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            className="filter-select text-sm py-2 px-3 w-full sm:w-[165px]"
+            value={state}
+            onChange={e => setState(e.target.value)}
+            aria-label="Filter by state"
+          >
+            {stateOptions.map(st => (
+              <option key={st} value={st}>{st === 'ALL' ? 'All States' : st}</option>
+            ))}
+          </select>
 
-        {/*
-          States plainly how much of this page rests on a sales link. Every
-          quadrant except "No Sales Record Yet", and every target status, is
-          meaningless without one — and only about a third of dealers have one.
-        */}
-        {salesLink && (
-          <div className="flex items-start gap-2 text-[11.5px] text-text-muted bg-bg-card/60 border border-border/30 rounded-xl px-3 py-2.5">
-            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent" />
-            <span>
-              {salesLink.matched.toLocaleString('en-IN')} of{' '}
-              {(salesLink.matched + salesLink.unmatched).toLocaleString('en-IN')} dealers
-              ({formatPct(salesLink.matchPct)}) are linked to a sales account. Target
-              status and visit-versus-sales categories apply only to those; the rest
-              are visited prospects with no sales record to compare against.
-            </span>
-          </div>
-        )}
+          <span className="px-3.5 py-2 rounded-xl bg-bg-card/60 border border-border/40 text-[13px] font-bold text-text-secondary whitespace-nowrap">
+            {data.meta?.curPeriod || 'This Month'}
+            {data.meta?.elapsedDays ? ` · ${data.meta.elapsedDays} Days So Far` : ''}
+          </span>
 
-        <ErrorBoundary>
-          <VisitAlignmentCards
-            summary={summary}
-            selected={quadrant}
-            onSelect={setQuadrant}
-          />
-        </ErrorBoundary>
+          {filtersOn && (
+            <button
+              type="button"
+              onClick={() => { setState('ALL'); setQuadrant('ALL'); setQuery(''); }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Clear Filters
+            </button>
+          )}
+        </div>
+      </div>
 
-        {/* Section tabs + search */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3 justify-between">
-          <div className="flex gap-2 flex-wrap">
+      <ErrorBoundary>
+        <VisitKPIRow summary={summary} meta={data.meta} />
+      </ErrorBoundary>
+
+      <ErrorBoundary>
+        <VisitAlignmentCards
+          summary={summary}
+          selected={quadrant}
+          onSelect={selectQuadrant}
+          salesLink={salesLink}
+        />
+      </ErrorBoundary>
+
+      {/* One card holds the view switcher, the search box and the active view,
+          the way Dealer Network holds its controls and table together. */}
+      <div className="glass-card p-4 sm:p-5 lg:p-6 space-y-5">
+
+        <div className="flex flex-col xl:flex-row xl:items-center gap-3 justify-between pb-5 border-b border-border/40">
+          {/*
+            The view switcher. Built here rather than on the shared
+            .toggle-pill-* classes because those hard-force a pill radius and a
+            small font through !important, and this control needs to read as
+            the primary navigation of the page, not as a minor filter.
+          */}
+          <div
+            role="tablist"
+            aria-label="Field visit views"
+            className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-bg-secondary/70 border border-border/50 flex-wrap"
+          >
             {VISIT_SECTIONS.map(s => {
               const count = s.countKey ? counts[s.countKey] : null;
-              const active = section === s.key;
+              const isActive = section === s.key;
               return (
                 <button
                   key={s.key}
                   type="button"
-                  aria-pressed={active}
+                  role="tab"
+                  aria-selected={isActive}
                   onClick={() => setSection(s.key)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors border ${
-                    active
-                      ? 'bg-accent text-white border-accent'
-                      : 'bg-bg-card text-text-secondary border-border/50 hover:bg-bg-card-hover'
+                  className={`flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'bg-accent-blue text-white shadow-md'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-bg-card'
                   }`}
                 >
                   {s.label}
                   {count != null && (
-                    <span className={active ? 'opacity-80' : 'text-text-muted'}> ({count.toLocaleString('en-IN')})</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-md text-[11.5px] font-bold tabular-nums ${
+                        isActive ? 'bg-white/25 text-white' : 'bg-bg-card text-text-muted'
+                      }`}
+                    >
+                      {count.toLocaleString('en-IN')}
+                    </span>
                   )}
                 </button>
               );
             })}
           </div>
 
-          {section !== 'trends' && (
-            <div className="w-full lg:w-80">
+          {active.searchHint && (
+            <div className="w-full xl:w-[22rem]">
               <SearchInput
+                size="lg"
                 value={query}
                 onChange={setQuery}
-                placeholder={SEARCH_PLACEHOLDERS[section]}
+                placeholder={active.searchHint}
               />
             </div>
           )}
         </div>
 
-        {/* Views */}
+        <div>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h3 className="text-xl font-extrabold text-text-primary leading-tight">{active.title}</h3>
+            {active.countKey && (
+              <span className="text-[13px] font-bold text-text-muted whitespace-nowrap">
+                Showing {visibleCount.toLocaleString('en-IN')} of{' '}
+                {(counts[active.countKey] ?? 0).toLocaleString('en-IN')}
+              </span>
+            )}
+          </div>
+          <p className="text-[13.5px] text-text-muted mt-1.5 max-w-3xl leading-relaxed">{active.blurb}</p>
+        </div>
+
         <ErrorBoundary>
           {section === 'dealers' && (
             <DealerVisitTable rows={dealers} onRowClick={setSelectedDealer} />
@@ -216,17 +250,17 @@ export default function VisitIntelligence() {
           )}
         </ErrorBoundary>
 
-        {section !== 'trends' && rowsFor[section]?.length === 0 && (
-          <p className="text-center text-sm text-text-muted py-10">
-            No rows match the current filters.
+        {active.countKey && visibleCount === 0 && (
+          <p className="text-center text-sm text-text-muted py-8">
+            No rows match the current filters. Clear them to see everything again.
           </p>
         )}
-
-        <DealerScorecardModal
-          dealer={selectedDealer}
-          onClose={() => setSelectedDealer(null)}
-        />
       </div>
-    </AnimatedPage>
+
+      <DealerScorecardModal
+        dealer={selectedDealer}
+        onClose={() => setSelectedDealer(null)}
+      />
+    </div>
   );
 }

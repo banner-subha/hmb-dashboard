@@ -14,12 +14,37 @@ import { useState, useEffect, useRef } from 'react';
  * global filter for other pages while the page's own searchQuery never moved,
  * and the box did nothing visible.
  */
+/**
+ * Two sizes. `sm` is the original compact pill, and stays the default so the
+ * three pages already using this box are untouched. `lg` matches the height of
+ * the segmented controls it sits beside, which is what the visits tab needs —
+ * a 12px input next to a 44px tab strip reads as an afterthought.
+ */
+const SIZES = {
+  sm: {
+    field: 'rounded-full pl-8 pr-7 py-1.5 text-xs',
+    iconWrap: 'pl-3',
+    icon: 'h-3.5 w-3.5',
+    clearWrap: 'pr-2.5',
+    clear: 'h-3.5 w-3.5',
+  },
+  lg: {
+    field: 'rounded-xl pl-11 pr-11 py-2.5 text-sm font-medium',
+    iconWrap: 'pl-3.5',
+    icon: 'h-[18px] w-[18px]',
+    clearWrap: 'pr-3',
+    clear: 'h-4 w-4',
+  },
+};
+
 export default function SearchInput({
   placeholder = "Search dealers, districts...",
   className = "",
   value,
   onChange,
+  size = "sm",
 }) {
+  const sz = SIZES[size] || SIZES.sm;
   const { filters, dispatch } = useFilterState();
   const controlled = typeof onChange === 'function';
   const externalValue = controlled ? (value || '') : (filters.searchQuery || '');
@@ -71,12 +96,12 @@ export default function SearchInput({
 
   return (
     <div className={`relative w-full ${className}`}>
-      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <Search className="h-3.5 w-3.5 text-text-muted/80" />
+      <div className={`absolute inset-y-0 left-0 ${sz.iconWrap} flex items-center pointer-events-none`}>
+        <Search className={`${sz.icon} text-text-muted/80`} />
       </div>
       <input
         type="text"
-        className="w-full bg-bg-input border border-border/70 hover:border-accent-blue/50 focus:border-accent-blue focus:bg-bg-card-hover focus:ring-2 focus:ring-accent-blue/20 rounded-full pl-8 pr-7 py-1.5 text-xs text-text-primary placeholder-text-muted/70 focus:outline-none transition-all duration-200"
+        className={`w-full bg-bg-input border border-border/70 hover:border-accent-blue/50 focus:border-accent-blue focus:bg-bg-card-hover focus:ring-2 focus:ring-accent-blue/20 ${sz.field} text-text-primary placeholder-text-muted/70 focus:outline-none transition-all duration-200`}
         placeholder={placeholder}
         value={localValue}
         onChange={handleChange}
@@ -84,10 +109,11 @@ export default function SearchInput({
       {localValue && (
         <button
           type="button"
+          aria-label="Clear search"
           onClick={handleClear}
-          className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+          className={`absolute inset-y-0 right-0 ${sz.clearWrap} flex items-center text-text-muted hover:text-text-primary transition-colors cursor-pointer`}
         >
-          <X className="h-3.5 w-3.5" />
+          <X className={sz.clear} />
         </button>
       )}
     </div>

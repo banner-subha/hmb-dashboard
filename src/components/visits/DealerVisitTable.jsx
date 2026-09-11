@@ -7,45 +7,51 @@ import { paceDisplay, quadrantConfig, comparableAvg, visitTrend } from '../../ut
 /**
  * Dealer view, on the shared DataTable.
  *
- * The old markup was a hand-rolled <table> over filteredDealers.slice(0, 50):
- * no sorting, no paging, and 2,380 of 2,430 dealers unreachable unless you
- * happened to search for them.
+ * Six columns, not ten. At the larger type the ten-column version ran past the
+ * right edge of the card and put the sales executive behind a horizontal
+ * scroll. Nothing was dropped to fix it — the columns that answer one question
+ * were stacked into one cell instead:
+ *
+ *   dealer + location            → who and where
+ *   visits + change + normal     → how much contact, against what is normal
+ *   target status + daily rate   → how sales are doing
+ *
+ * That is also how the numbers are read: the change figure is meaningless
+ * without the count beside it, and the daily rate is meaningless without the
+ * target status.
  */
 function DealerVisitTable({ rows, onRowClick }) {
   const columns = useMemo(() => [
     {
       accessorKey: 'dealer',
-      header: 'Dealer Name',
-      meta: { width: '20%', minWidth: '160px' },
-      cell: info => (
-        <span className="font-bold text-sm text-text-primary whitespace-normal break-words leading-tight">
-          {String(info.getValue() ?? '')}
-        </span>
-      ),
-    },
-    {
-      id: 'geo',
-      header: 'District & State',
-      accessorFn: r => r.district ? `${r.district}, ${r.state}` : (r.state || ''),
-      meta: { minWidth: '150px' },
+      header: 'Dealer',
+      meta: { width: '22%', minWidth: '185px' },
       cell: info => {
-        const v = String(info.getValue() ?? '');
-        // An empty cell reads as a rendering fault. These dealers carry no
-        // state, district or resolvable pincode on any row of the export.
-        return v
-          ? <span className="text-text-secondary text-xs">{v}</span>
-          : <span className="text-text-muted/60 italic text-xs">Location not recorded</span>;
+        const r = info.row.original;
+        const geo = r.district ? `${r.district}, ${r.state}` : (r.state || '');
+        return (
+          <div>
+            <span className="block font-bold text-[15px] text-text-primary whitespace-normal break-words leading-tight">
+              {String(info.getValue() ?? '')}
+            </span>
+            {/* An empty cell reads as a rendering fault. These dealers carry no
+                state, district or resolvable pincode on any row of the export. */}
+            <span className={`block text-[12px] mt-1 leading-tight ${geo ? 'text-text-muted' : 'text-text-muted/60 italic'}`}>
+              {geo || 'Location not recorded'}
+            </span>
+          </div>
+        );
       },
     },
     {
       accessorKey: 'quadrant',
-      header: 'Sales & Visit Category',
-      meta: { minWidth: '170px' },
+      header: 'Account Group',
+      meta: { width: '18%', minWidth: '185px' },
       cell: info => {
         const cfg = quadrantConfig(info.getValue());
         return (
           <span
-            className="px-2 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap"
+            className="inline-block px-2.5 py-1 rounded-full text-[12px] font-bold whitespace-nowrap"
             style={{ backgroundColor: cfg.bgColor, color: cfg.color, border: `1px solid ${cfg.borderColor}` }}
           >
             {cfg.label}
@@ -56,69 +62,66 @@ function DealerVisitTable({ rows, onRowClick }) {
     {
       accessorKey: 'curVisits',
       header: 'Visits This Month',
-      meta: { minWidth: '95px' },
-      cell: info => <span className="font-black text-text-primary">{info.getValue() ?? 0}</span>,
-    },
-    {
-      id: 'histAvgVisitsMtd',
-      // Shows the comparable window, because the change column beside it is
-      // computed from that and not from the whole-month average.
-      header: 'Same Period, 6-Mo Avg',
-      accessorFn: comparableAvg,
-      meta: { minWidth: '110px' },
-      cell: info => <span className="text-text-muted">{info.getValue()}</span>,
-    },
-    {
-      accessorKey: 'visitGrowth',
-      header: 'Change vs Avg',
-      meta: { minWidth: '100px' },
+      meta: { width: '15%', minWidth: '140px' },
       cell: info => {
-        const { growth, isUp } = visitTrend(info.row.original);
+        const r = info.row.original;
+        const { growth, isUp } = visitTrend(r);
         return (
-          <span className={`inline-flex items-center gap-0.5 font-bold whitespace-nowrap ${isUp ? 'text-emerald-400' : 'text-text-muted'}`}>
-            {isUp ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-            {growth > 0 ? `+${growth}` : growth}
-          </span>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="font-black text-[17px] text-text-primary leading-none">
+                {info.getValue() ?? 0}
+              </span>
+              <span className={`inline-flex items-center gap-0.5 text-[12.5px] font-bold whitespace-nowrap ${isUp ? 'text-emerald-400' : 'text-text-muted'}`}>
+                {isUp ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                {growth > 0 ? `+${growth}` : growth}
+              </span>
+            </div>
+            {/* The comparable window, because the change figure above is
+                computed from that and not from the whole-month average. */}
+            <span className="block text-[11.5px] text-text-muted mt-1 whitespace-nowrap">
+              Normal by now: {comparableAvg(r)}
+            </span>
+          </div>
         );
       },
     },
     {
       id: 'paceStatus',
-      header: 'Target Status',
+      header: 'Sales vs Target',
       accessorFn: r => paceDisplay(r).label,
-      meta: { minWidth: '125px' },
+      meta: { width: '17%', minWidth: '150px' },
       cell: info => {
-        const pace = paceDisplay(info.row.original);
+        const r = info.row.original;
+        const pace = paceDisplay(r);
         return (
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${pace.chip}`}>
-            {pace.label}
-          </span>
+          <div>
+            <span className={`inline-block px-2.5 py-1 rounded-full text-[12px] font-bold whitespace-nowrap ${pace.chip}`}>
+              {pace.label}
+            </span>
+            <span className="block text-[11.5px] text-text-muted mt-1 whitespace-nowrap">
+              {r.salesMatched
+                ? `${r.currentDailyRate ? formatMT(r.currentDailyRate) : formatMT(0)}/day`
+                : 'No sales record'}
+            </span>
+          </div>
         );
       },
     },
     {
-      accessorKey: 'currentDailyRate',
-      header: 'Current Sales Rate',
-      meta: { minWidth: '110px' },
-      cell: info => {
-        const r = info.row.original;
-        if (!r.salesMatched) return <span className="text-text-muted/60 text-xs">—</span>;
-        const v = info.getValue();
-        return <span className="text-text-secondary whitespace-nowrap">{v ? `${formatMT(v)}/day` : formatMT(0)}</span>;
-      },
-    },
-    {
       accessorKey: 'avgDurationMins',
-      header: 'Avg Visit Length',
-      meta: { minWidth: '95px' },
-      cell: info => <span className="text-text-secondary whitespace-nowrap">{info.getValue() ?? 0} min</span>,
+      header: 'Visit Length',
+      meta: { width: '11%', minWidth: '110px' },
+      cell: info => (
+        <span className="text-text-secondary whitespace-nowrap">{info.getValue() ?? 0} min</span>
+      ),
     },
     {
       accessorKey: 'primaryRep',
-      header: 'Assigned Sales Executive',
-      meta: { minWidth: '150px' },
+      header: 'Sales Executive',
+      meta: { width: '17%', minWidth: '130px' },
       cell: info => (
-        <span className="text-text-secondary text-xs whitespace-normal break-words leading-tight">
+        <span className="text-text-secondary text-[13.5px] whitespace-normal break-words leading-tight">
           {String(info.getValue() ?? 'Unassigned')}
         </span>
       ),
@@ -131,6 +134,7 @@ function DealerVisitTable({ rows, onRowClick }) {
       columns={columns}
       onRowClick={onRowClick}
       pageSize={25}
+      fixedLayout
       defaultSort={[{ id: 'curVisits', desc: true }]}
     />
   );
