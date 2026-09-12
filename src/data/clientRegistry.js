@@ -299,6 +299,14 @@ export const CLIENT_USERS = [
     states: ["JHARKHAND", "NORTH EAST"],
     districts: [],
     labels: []
+  },
+  {
+    name: "Dipankar Das",
+    chatId: "",
+    role: "KRO",
+    states: ["Odisha", "Bihar"],
+    districts: [],
+    labels: []
   }
 ];
 

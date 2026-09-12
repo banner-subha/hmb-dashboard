@@ -465,6 +465,22 @@ export function cleanData(data) {
       return level !== 'OVERALL';
     });
 
+    // Canonicalise the territory an alert names, exactly as districts, dealers
+    // and states are canonicalised above. Skipping this step left alerts as the
+    // one collection still carrying the source spelling, so anything that joined
+    // an alert back to its own data — the drill-down hierarchy, the pending
+    // order lookup — silently found nothing for a state the canonicaliser
+    // renames. Odisha ("Orissa" everywhere else) was the live example: its
+    // critical alert opened onto an empty tree while every other state drilled
+    // down normally.
+    data.alerts.forEach(alert => {
+      if (!alert) return;
+      if (alert.state) alert.state = normalizeStateName(alert.state);
+      if (alert.district != null && String(alert.district).trim() !== '') {
+        alert.district = normalizeDistrict(alert.district, alert.state);
+      }
+    });
+
     // Recalculate root counts directly from the backend-provided alert severities
     let criticalCount = 0;
     let highCount = 0;
