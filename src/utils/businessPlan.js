@@ -152,9 +152,18 @@ export const toPlanMonth = (iso) => {
 export const normalizePlanRow = (row, grpKey) => {
   if (!row) return null;
   const grp = row.grp || {};
+  const rawKey = grpKey ? grp[grpKey] ?? null : null;
+  let label = 'National';
+  if (grpKey) {
+    if (!rawKey || rawKey === 'UNASSIGNED') {
+      label = grpKey === 'kro' ? 'Direct Accounts (No Rep Assigned)' : 'Unassigned Accounts';
+    } else {
+      label = rawKey;
+    }
+  }
   return {
-    key: grpKey ? grp[grpKey] ?? null : '__total__',
-    label: grpKey ? grp[grpKey] ?? 'Unassigned' : 'National',
+    key: grpKey ? rawKey : '__total__',
+    label,
     grp,
     potential: num(row.total_potential),
     spTarget: num(row.total_sp_target),

@@ -22,7 +22,9 @@ function AccountStatusCell({ row }) {
     row.reviewed > 0 ? 'Reviewed' : row.pending > 0 ? 'Awaiting review' : 'Review not applicable';
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    // Left-aligned to sit under its header: DataTable renders every header
+    // left-aligned, so an items-end stack reads as a column of orphaned values.
+    <div className="flex flex-col items-start gap-1">
       <span
         className="inline-flex items-center gap-1.5 font-bold text-[12.5px] whitespace-nowrap"
         style={{ color: plan.color }}
@@ -45,7 +47,7 @@ function SubmissionCell({ row }) {
   const tone = pct === null ? '#6b7280' : pct >= 95 ? '#22c55e' : pct >= 80 ? '#f59e0b' : '#ef4444';
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex flex-col items-start gap-1">
       <span className="font-bold tabular-nums" style={{ color: tone }}>
         {formatPct1(pct)}
       </span>
@@ -84,7 +86,7 @@ function PlanDimensionTable({
       {
         accessorKey: 'label',
         header: meta.entity,
-        meta: { width: '26%', minWidth: '180px' },
+        meta: { width: meta.key === 'customer' ? '36%' : '26%', minWidth: '180px' },
         cell: ({ getValue }) => (
           <span className="font-semibold text-text-primary break-words">{getValue()}</span>
         ),
@@ -139,7 +141,7 @@ function PlanDimensionTable({
               id: 'accountStatus',
               accessorFn: (row) => (row.submitted > 0 ? 2 : row.missing > 0 ? 0 : 1),
               header: 'Plan Status',
-              meta: { width: '30%' },
+              meta: { width: '20%' },
               cell: ({ row }) => <AccountStatusCell row={row.original} />,
             },
           ]

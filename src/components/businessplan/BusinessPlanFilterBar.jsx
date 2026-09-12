@@ -7,7 +7,15 @@ import {
   formatMonthLabel,
 } from '../../utils/businessPlan';
 
-function Select({ label, value, onChange, options, placeholder, disabled }) {
+function Select({ label, value, onChange, options = [], placeholder, disabled }) {
+  const cleanOptions = (options || []).filter((o) => {
+    const val = typeof o === 'string' ? o : o?.value;
+    const text = typeof o === 'string' ? o : o?.label;
+    if (!val && !text) return false;
+    const s = String(val || text).trim().toUpperCase();
+    return s !== 'UNASSIGNED' && !s.startsWith('UNASSIGNED');
+  });
+
   return (
     <label className="flex flex-col gap-1.5 min-w-0">
       <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">{label}</span>
@@ -18,15 +26,12 @@ function Select({ label, value, onChange, options, placeholder, disabled }) {
         onChange={(e) => onChange(e.target.value)}
       >
         <option value="">{placeholder}</option>
-        {options.map((o) => {
+        {cleanOptions.map((o) => {
           const val = typeof o === 'string' ? o : o.value;
           const text = typeof o === 'string' ? o : o.label;
-          // The RPC files rows with no rep or manager under this sentinel. Spell
-          // that out, so a bucket of unowned accounts does not read as a person.
-          const display = val === 'UNASSIGNED' ? 'Unassigned (not mapped)' : text;
           return (
             <option key={val || text} value={val}>
-              {display}
+              {text}
             </option>
           );
         })}

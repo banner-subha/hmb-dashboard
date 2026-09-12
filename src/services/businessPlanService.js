@@ -309,7 +309,13 @@ export async function fetchDimensionValues(dimension, { month, state, district }
 
   return rows
     .map((r) => r.grp?.[dimension])
-    .filter((v) => v != null && String(v).trim() !== '')
+    .filter((v) => {
+      if (v == null) return false;
+      const str = String(v).trim();
+      if (str === '') return false;
+      if (str.toUpperCase() === 'UNASSIGNED') return false;
+      return true;
+    })
     .map(String)
     .sort((a, b) => a.localeCompare(b));
 }

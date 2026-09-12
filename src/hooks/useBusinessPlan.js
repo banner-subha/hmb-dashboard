@@ -265,7 +265,12 @@ export function useBusinessPlan() {
         limit: limitFor(dimensionMeta.key),
         sort: dimensionSort,
       });
-      return rows.map((r) => normalizePlanRow(r, dimensionMeta.grpKey)).filter(Boolean);
+      const normalized = rows.map((r) => normalizePlanRow(r, dimensionMeta.grpKey)).filter(Boolean);
+      // For Regional Manager (KRM), omit the unassigned 0-target boundary row so the breakdown strictly lists active managers
+      if (dimensionMeta.key === 'krm') {
+        return normalized.filter((r) => r.key !== 'UNASSIGNED' && (r.spTarget > 0 || r.potential > 0));
+      }
+      return normalized;
     },
     `dimension:${dimensionMeta.key}:${dimensionSort}:${filterKey}`,
     { initial: [], enabled: ready }

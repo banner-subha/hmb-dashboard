@@ -226,7 +226,7 @@ function PlanVsActualSection({
             cell: ({ row }) => {
               const r = row.original;
               return (
-                <div className="flex flex-col items-end gap-0.5">
+                <div className="flex flex-col items-start gap-0.5">
                   <span className="font-bold text-text-primary tabular-nums whitespace-nowrap">
                     {formatCount(r.activeDealers)} / {formatCount(r.bpDealers)}
                   </span>
