@@ -204,6 +204,11 @@ export default function AssistantPanel() {
       style={{
         '--panel-w': `${width}px`,
         maxWidth: '100vw',
+        // Height alone was not enough: inset-y-0 pins the sheet to the top of
+        // the layout viewport, so whenever the visual viewport was offset the
+        // composer ran off the bottom of the screen. Anchor the top too.
+        top: isMobile ? 'var(--visual-viewport-top, 0px)' : undefined,
+        bottom: isMobile ? 'auto' : undefined,
         height: isMobile ? 'var(--visual-viewport-h, 100dvh)' : undefined,
         maxHeight: isMobile ? 'var(--visual-viewport-h, 100dvh)' : undefined,
       }}

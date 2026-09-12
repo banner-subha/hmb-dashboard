@@ -163,11 +163,18 @@ body,
   --color-border: #DFE5EF;
   --color-border-accent: #C2D1E8;
 
-  /* ── Text ramp — deep navy-slate ── */
+  /* ── Text ramp — deep navy-slate ──
+     Contrast against the white card (#FFFFFF) and the page (#F2F4F8), since
+     most of this ramp is spent on 11–13px labels sitting on one or the other:
+       primary   16.9 : 1
+       secondary  8.6 : 1
+       muted      7.3 : 1  (was #62708A, 4.5 : 1 — legible in isolation but it
+                            washed out at 11.5px and blurred into white cards)
+       dim        5.4 : 1  (was #8290AC, 3.2 : 1 — under AA at any size) */
   --color-text-primary: #111B2E;
   --color-text-secondary: #38465F;
-  --color-text-muted: #62708A;
-  --color-text-dim: #8290AC;
+  --color-text-muted: #4A5771;
+  --color-text-dim: #5E6B85;
 
   /* ── Accent — royal azure tuned for white surfaces ── */
   --color-accent-blue: #1D5BD8;
@@ -204,6 +211,17 @@ body,
   --shadow-chart-tooltip: 0 8px 24px rgba(17, 27, 46, 0.12);
   --card-hover-border: rgba(29, 91, 216, 0.38);
   --ring-focus: rgba(29, 91, 216, 0.14);
+
+  /* ── Severity hues — darkened for white surfaces ──
+     The dark theme's #ef4444 / #22c55e / #f59e0b are tuned for a navy ground
+     and only reach ~2–3.8 : 1 on porcelain, which is what made status text
+     dissolve into white cards. Same hues, enough depth to read at 11–14px:
+     red 6.6 : 1, amber 5.2 : 1, blue 7.1 : 1, green 5.7 : 1, slate 7.3 : 1. */
+  --color-severity-critical: #B42318;
+  --color-severity-high: #A15C07;
+  --color-severity-medium: #A15C07;
+  --color-severity-low: #4A5771;
+  --color-severity-none: #067647;
 
   /* ── Severity surfaces — pale tints + darkened text for white cards ── */
   --color-severity-critical-bg: #FCEBEB;
@@ -709,6 +727,39 @@ body,
   color: var(--color-severity-none-text) !important;
   border-color: var(--color-severity-none-border) !important;
 }
+
+/* Status hues in light mode.
+   The palette shades below (-300/-400) and the accent hexes the visit cards
+   pass inline are chosen for dark surfaces; on porcelain they wash out. Remap
+   the *text* only — a saturated 4px ribbon or a 15% tint fill still reads
+   correctly, so fills are left alone. The utility rules win on specificity;
+   the data-accent ones need !important to beat an inline style. */
+[data-theme="light"] .text-rose-400,
+[data-theme="light"] .text-red-400,
+[data-theme="light"] .text-red-300 {
+  color: #B42318;
+}
+[data-theme="light"] .text-emerald-400 {
+  color: #067647;
+}
+[data-theme="light"] .text-blue-400 {
+  color: #1750C4;
+}
+[data-theme="light"] .text-amber-400,
+[data-theme="light"] .text-amber-300,
+[data-theme="light"] .text-yellow-400 {
+  color: #A15C07;
+}
+[data-theme="light"] .text-slate-400 {
+  color: #4A5771;
+}
+
+[data-theme="light"] [data-accent='critical'] { color: #B42318 !important; }
+[data-theme="light"] [data-accent='high']     { color: #A15C07 !important; }
+[data-theme="light"] [data-accent='medium']   { color: #A15C07 !important; }
+[data-theme="light"] [data-accent='info']     { color: #1750C4 !important; }
+[data-theme="light"] [data-accent='none']     { color: #067647 !important; }
+[data-theme="light"] [data-accent='low']      { color: #4A5771 !important; }
 
 /* Geo map — light landmass fill. CSS fill !important overrides the SVG
    presentation attribute while D3's sel.attr('fill') still returns the

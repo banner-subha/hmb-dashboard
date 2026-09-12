@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { m } from 'framer-motion';
 import { TrendingUp, AlertTriangle, Target, CheckCircle2, Compass, Info } from 'lucide-react';
-import { QUADRANT_ORDER, QUADRANT_COUNT_KEYS, quadrantConfig } from '../../utils/visits';
+import { QUADRANT_ORDER, QUADRANT_COUNT_KEYS, quadrantConfig, accentBucket } from '../../utils/visits';
 import { formatPct } from '../../utils/formatters';
 import { staggerContainer, kpiCard } from '../../utils/motionVariants';
 
@@ -107,6 +107,7 @@ function VisitAlignmentCards({ summary, selected, onSelect, salesLink }) {
                 />
 
                 <span
+                  data-accent={accentBucket(cfg.color)}
                   className="text-[14.5px] font-black leading-tight flex items-start gap-2 mb-2.5"
                   style={{ color: cfg.color }}
                 >

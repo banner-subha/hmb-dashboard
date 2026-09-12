@@ -2,7 +2,7 @@ import { memo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, MapPin, User } from 'lucide-react';
 import { formatMT } from '../../utils/formatters';
-import { paceDisplay, quadrantConfig, isUnlinked, comparableAvg } from '../../utils/visits';
+import { paceDisplay, quadrantConfig, isUnlinked, comparableAvg, accentBucket } from '../../utils/visits';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
 /**
@@ -63,6 +63,7 @@ function DealerScorecardModal({ dealer, onClose }) {
         <div>
           <span
             className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[12.5px] font-bold mb-2.5"
+            data-accent={accentBucket(cfg.color)}
             style={{ backgroundColor: cfg.bgColor, color: cfg.color, border: `1px solid ${cfg.borderColor}` }}
           >
             {cfg.label}

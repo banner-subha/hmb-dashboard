@@ -56,19 +56,24 @@ export default function AssistantSurface() {
   // is meant to stay scrollable.
   useBodyScrollLock(open && isMobile);
 
-  // Synchronize mobile viewport metrics so fixed buttons and full-screen sheets
-  // never overflow or sit underneath dynamic address bars or on-screen keyboards.
+  // Publish the visual viewport to CSS, so fixed children can be anchored to
+  // the part of the screen the user can actually see.
+  //
+  // `position: fixed` resolves against the *layout* viewport, which on Android
+  // runs edge to edge underneath the address bar, the gesture pill and the
+  // keyboard — anything pinned with `bottom` ends up beneath them. The visual
+  // viewport is what is on screen; its height and its offset within the layout
+  // viewport are all a child needs to sit inside it.
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
     const updateMetrics = () => {
       const vv = window.visualViewport;
-      const vh = window.innerHeight;
-      const offset = vv ? Math.max(0, vh - (vv.height + vv.offsetTop)) : 0;
-      document.documentElement.style.setProperty('--mobile-bottom-offset', `${offset}px`);
-      if (vv) {
-        document.documentElement.style.setProperty('--visual-viewport-h', `${vv.height}px`);
-      }
+      const root = document.documentElement.style;
+      const height = vv ? vv.height : window.innerHeight;
+      const top = vv ? vv.offsetTop : 0;
+      root.setProperty('--visual-viewport-h', `${height}px`);
+      root.setProperty('--visual-viewport-top', `${top}px`);
     };
 
     updateMetrics();

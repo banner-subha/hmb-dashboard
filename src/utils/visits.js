@@ -81,6 +81,28 @@ export function quadrantConfig(key) {
   return VISIT_QUADRANTS[key] || VISIT_QUADRANTS.NO_SALES_LINK;
 }
 
+/**
+ * Names the hue behind a quadrant colour, for `data-accent`.
+ *
+ * The quadrant palette is tuned for the dark theme and drops to 2–3 : 1 on a
+ * white card. Tagging the element with its hue lets light mode substitute a
+ * readable tone of the same colour in CSS (see index.css) while the fills,
+ * ribbons and tints keep the original, which reads correctly on either ground.
+ */
+const ACCENT_BY_HEX = {
+  '#22c55e': 'none',
+  '#ef4444': 'critical',
+  '#f59e0b': 'high',
+  '#eab308': 'medium',
+  '#3b82f6': 'info',
+  '#94a3b8': 'low',
+  '#6b7280': 'low',
+};
+
+export function accentBucket(hex) {
+  return ACCENT_BY_HEX[String(hex).toLowerCase()] || 'none';
+}
+
 /** Group keys in ribbon order, so the cards and the counts cannot drift. */
 export const QUADRANT_ORDER = [
   'GROWTH_DRIVER', 'RED_FLAG', 'NEGLECTED', 'ORGANIC', 'NO_SALES_LINK',

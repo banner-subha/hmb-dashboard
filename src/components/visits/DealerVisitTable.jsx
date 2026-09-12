@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import DataTable from '../common/DataTable';
 import { formatMT } from '../../utils/formatters';
-import { paceDisplay, quadrantConfig, comparableAvg, visitTrend } from '../../utils/visits';
+import { paceDisplay, quadrantConfig, comparableAvg, visitTrend, accentBucket } from '../../utils/visits';
 
 /**
  * Dealer view, on the shared DataTable.
@@ -52,6 +52,7 @@ function DealerVisitTable({ rows, onRowClick }) {
         return (
           <span
             className="inline-block px-2.5 py-1 rounded-full text-[12px] font-bold whitespace-nowrap"
+            data-accent={accentBucket(cfg.color)}
             style={{ backgroundColor: cfg.bgColor, color: cfg.color, border: `1px solid ${cfg.borderColor}` }}
           >
             {cfg.label}
