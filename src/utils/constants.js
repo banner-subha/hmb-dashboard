@@ -75,6 +75,7 @@ export const CLIENT_NAV_ITEMS = [
   { path: '/districts', label: 'District Overview', icon: 'MapPin' },
   { path: '/dealers',   label: 'Dealer Network', icon: 'Store' },
   { path: '/visits',    label: 'Field Visits & Tracker', icon: 'Briefcase' },
+  { path: '/business-plan', label: 'Business Plan', icon: 'ClipboardList' },
 ];
 
 // Visit correlation quadrant configurations — Business Strategy Matrix

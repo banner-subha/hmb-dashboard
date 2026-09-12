@@ -281,17 +281,14 @@ function GeoPrefetcher() {
  * — two waits in series, on a link that felt instant everywhere else. This
  * pulls the chunk in early and lets it prime its own month lookup, so the
  * click starts from a warm cache.
- *
- * Admins only: /business-plan is behind RequireAdminRoute, so for a client
- * this would be pure download with nothing behind it.
  */
 function BusinessPlanPrefetcher() {
   const { rawData } = useRawData();
   const { user } = useAuth();
-  const isAdmin = user?.role !== 'client' && Boolean(user);
+  const isAuth = Boolean(user);
 
   React.useEffect(() => {
-    if (!rawData || !isAdmin || typeof window === 'undefined') return undefined;
+    if (!rawData || !isAuth || typeof window === 'undefined') return undefined;
 
     const idle = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 1200));
     const cancel = window.cancelIdleCallback || window.clearTimeout;
@@ -304,7 +301,7 @@ function BusinessPlanPrefetcher() {
     });
 
     return () => cancel(handle);
-  }, [rawData, isAdmin]);
+  }, [rawData, isAuth]);
 
   return null;
 }
@@ -354,7 +351,7 @@ function App() {
                   <Route path="districts" element={<DistrictIntelligenceWrapper />} />
                   <Route path="dealers" element={<DealerIntelligenceWrapper />} />
                   <Route path="visits" element={<VisitIntelligence />} />
-                  <Route path="business-plan" element={<RequireAdminRoute><BusinessPlan /></RequireAdminRoute>} />
+                  <Route path="business-plan" element={<BusinessPlan />} />
                   <Route path="risk" element={<Navigate to="/alerts" replace />} />
                   <Route path="war-room" element={<RequireAdminRoute><AIWarRoom /></RequireAdminRoute>} />
                   <Route path="alerts" element={<RequireAdminRoute><AlertIntelligence /></RequireAdminRoute>} />
