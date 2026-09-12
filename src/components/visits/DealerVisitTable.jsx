@@ -80,7 +80,7 @@ function DealerVisitTable({ rows, onRowClick }) {
             {/* The comparable window, because the change figure above is
                 computed from that and not from the whole-month average. */}
             <span className="block text-[11.5px] text-text-muted mt-1 whitespace-nowrap">
-              Normal by now: {comparableAvg(r)}
+              Benchmark (MTD): {comparableAvg(r)}
             </span>
           </div>
         );

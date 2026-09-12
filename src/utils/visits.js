@@ -104,17 +104,20 @@ export const QUADRANT_COUNT_KEYS = {
  */
 export function comparableAvg(row) {
   if (!row) return 0;
-  return row.histAvgVisitsMtd ?? row.histAvgVisits ?? 0;
+  const raw = row.histAvgVisitsMtd ?? row.histAvgVisits ?? 0;
+  return Math.round(raw);
 }
 
 export function comparableFabricatorAvg(row) {
   if (!row) return 0;
-  return row.histAvgFabricatorVisitsMtd ?? row.histAvgFabricatorVisits ?? 0;
+  const raw = row.histAvgFabricatorVisitsMtd ?? row.histAvgFabricatorVisits ?? 0;
+  return Math.round(raw);
 }
 
 /** Visit intensity relative to the comparable average. */
 export function visitTrend(row) {
-  const growth = row?.visitGrowth ?? 0;
+  const rawGrowth = row?.visitGrowth ?? 0;
+  const growth = Math.round(rawGrowth) || 0;
   return {
     growth,
     isUp: (row?.visitGrowthStatus ?? (growth > 0 ? 'GROWTH' : 'DEGROWTH')) === 'GROWTH',

@@ -34,7 +34,7 @@ function DistrictDemandTable({ rows }) {
       cell: info => {
         const r = info.row.original;
         const accel = r.fabricatorTrend === 'ACCELERATING';
-        const g = r.fabricatorGrowth ?? 0;
+        const g = Math.round(r.fabricatorGrowth ?? 0) || 0;
         return (
           <div>
             <div className="flex items-baseline gap-2">
@@ -47,7 +47,7 @@ function DistrictDemandTable({ rows }) {
               </span>
             </div>
             <span className="block text-[11.5px] text-text-muted mt-1 whitespace-nowrap">
-              Normal by now: {comparableFabricatorAvg(r)}
+              Benchmark (MTD): {comparableFabricatorAvg(r)}
             </span>
           </div>
         );

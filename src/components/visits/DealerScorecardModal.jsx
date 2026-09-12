@@ -86,11 +86,11 @@ function DealerScorecardModal({ dealer, onClose }) {
                 the whole-month one answers "how many in a typical month". */}
             <span className="text-[12.5px] text-text-secondary block mt-2 font-semibold">
               {diff === 0
-                ? 'Same as normal by this date'
-                : `${diff > 0 ? '+' : ''}${diff} vs the normal ${usual} by this date`}
+                ? 'On pace with MTD benchmark'
+                : `${diff > 0 ? '+' : ''}${diff} vs MTD benchmark (${usual})`}
             </span>
             <span className="text-[12px] text-text-muted block mt-1">
-              Normal full month: {dealer.histAvgVisits ?? '—'} visits
+              Full month benchmark: {dealer.histAvgVisits != null ? Math.round(dealer.histAvgVisits) : '—'} visits
             </span>
           </div>
           <div className="p-3.5 bg-bg-secondary/60 rounded-xl border border-border/30">
