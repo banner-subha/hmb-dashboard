@@ -237,7 +237,7 @@ function EmptyState({ onPick }) {
                 every tile in a row stays the same width either way. */}
             <div
               className="grid gap-1.5"
-              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))' }}
+              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr))' }}
             >
               {group.openers.map((opener) => (
                 <OpenerTile

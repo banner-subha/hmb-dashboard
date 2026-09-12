@@ -200,8 +200,13 @@ export default function AssistantPanel() {
       role="dialog"
       aria-modal={isMobile ? 'true' : 'false'}
       aria-label="Sales Assistant"
-      className="fixed inset-y-0 right-0 z-[60] flex w-full flex-col border-l border-border bg-bg-secondary shadow-2xl sm:w-[var(--panel-w)]"
-      style={{ '--panel-w': `${width}px`, maxWidth: '100vw' }}
+      className="fixed inset-y-0 right-0 z-[60] flex w-full flex-col border-l border-border bg-bg-secondary shadow-2xl sm:h-full sm:w-[var(--panel-w)]"
+      style={{
+        '--panel-w': `${width}px`,
+        maxWidth: '100vw',
+        height: isMobile ? 'var(--visual-viewport-h, 100dvh)' : undefined,
+        maxHeight: isMobile ? 'var(--visual-viewport-h, 100dvh)' : undefined,
+      }}
     >
       {/* Resize handle. Desktop only — a 6px drag target is meaningless on a
           touch screen, where the panel is full width anyway. */}
@@ -223,7 +228,10 @@ export default function AssistantPanel() {
         }`}
       />
 
-      <header className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-2.5 sm:px-4">
+      <header
+        className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-2.5 sm:px-4"
+        style={{ paddingTop: 'max(0.625rem, env(safe-area-inset-top, 0px))' }}
+      >
         {history ? (
           <>
             <button
@@ -231,7 +239,7 @@ export default function AssistantPanel() {
               onClick={() => setView('conversation')}
               aria-label="Back to conversation"
               title="Back"
-              className="-ml-1 rounded-lg p-1.5 text-text-muted transition-colors hover:bg-bg-card-hover hover:text-text-primary"
+              className="-ml-1 rounded-lg p-2 text-text-muted transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95 sm:p-1.5"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -243,7 +251,7 @@ export default function AssistantPanel() {
               onClick={newConversation}
               aria-label="New conversation"
               title="New conversation"
-              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-bg-card-hover hover:text-text-primary"
+              className="rounded-lg p-2 text-text-muted transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95 sm:p-1.5"
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -263,7 +271,7 @@ export default function AssistantPanel() {
               }}
               aria-label="Open full page"
               title="Open full page"
-              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-bg-card-hover hover:text-text-primary"
+              className="rounded-lg p-2 text-text-muted transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95 sm:p-1.5"
             >
               <Maximize2 className="h-4 w-4" />
             </button>
@@ -272,7 +280,7 @@ export default function AssistantPanel() {
               onClick={() => setView('history')}
               aria-label="Past conversations"
               title="Past conversations"
-              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-bg-card-hover hover:text-text-primary"
+              className="rounded-lg p-2 text-text-muted transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95 sm:p-1.5"
             >
               <Clock className="h-4 w-4" />
             </button>
@@ -281,7 +289,7 @@ export default function AssistantPanel() {
               onClick={newConversation}
               aria-label="New conversation"
               title="New conversation"
-              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-bg-card-hover hover:text-text-primary"
+              className="rounded-lg p-2 text-text-muted transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95 sm:p-1.5"
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -292,7 +300,7 @@ export default function AssistantPanel() {
           onClick={closePanel}
           aria-label="Close assistant"
           title="Close"
-          className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-bg-card-hover hover:text-text-primary"
+          className="rounded-lg p-2 text-text-muted transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95 sm:p-1.5"
         >
           <X className="h-4 w-4" />
         </button>

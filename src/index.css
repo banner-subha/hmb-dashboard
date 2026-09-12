@@ -64,6 +64,17 @@
   --font-family-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
 :root {
   /* ── Flat, elegant gradients — tonal shifts only, no radial bloom ── */
   --gradient-page: linear-gradient(180deg, #0D1220 0%, #0B0F17 38%, #090D14 100%);

@@ -50,8 +50,10 @@ export default function Composer({ ref, onSend, onStop, streaming }) {
 
   return (
     <div
-      className="shrink-0 border-t border-border px-3 pt-3 sm:px-4"
-      style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      className="shrink-0 border-t border-border px-3 pt-2.5 sm:px-4"
+      style={{
+        paddingBottom: 'max(0.85rem, calc(env(safe-area-inset-bottom, 0px) + 0.65rem))',
+      }}
     >
       <div className="flex items-end gap-2 rounded-2xl border border-border bg-bg-input px-3 py-2 transition-colors focus-within:border-border-accent">
         <textarea
@@ -63,7 +65,7 @@ export default function Composer({ ref, onSend, onStop, streaming }) {
           placeholder="Ask about despatch, backlog, targets or rates"
           aria-label="Ask the sales assistant"
           title="Enter to send, Shift+Enter for a new line"
-          className="max-h-[13rem] flex-1 resize-none border-0 bg-transparent py-1.5 text-[0.9rem] leading-[1.45] text-text-primary outline-none placeholder:text-text-dim"
+          className="max-h-[13rem] flex-1 resize-none border-0 bg-transparent py-1.5 text-base leading-[1.45] text-text-primary outline-none placeholder:text-text-dim sm:text-[0.9rem]"
         />
         {streaming ? (
           <button
@@ -71,7 +73,7 @@ export default function Composer({ ref, onSend, onStop, streaming }) {
             onClick={onStop}
             aria-label="Stop generating"
             title="Stop"
-            className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border text-text-muted transition-colors hover:border-border-accent hover:text-text-primary"
+            className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border text-text-muted transition-colors hover:border-border-accent hover:text-text-primary active:scale-95"
           >
             <Square className="h-3.5 w-3.5 fill-current" />
           </button>
@@ -82,7 +84,7 @@ export default function Composer({ ref, onSend, onStop, streaming }) {
             disabled={!value.trim()}
             aria-label="Send"
             title="Send"
-            className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white transition-opacity disabled:opacity-30"
+            className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white transition-all hover:brightness-110 active:scale-95 disabled:opacity-30"
             style={{ background: 'var(--gradient-accent)' }}
           >
             <ArrowUp className="h-4 w-4" />

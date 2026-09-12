@@ -21,9 +21,12 @@ function Select({ label, value, onChange, options, placeholder, disabled }) {
         {options.map((o) => {
           const val = typeof o === 'string' ? o : o.value;
           const text = typeof o === 'string' ? o : o.label;
+          // The RPC files rows with no rep or manager under this sentinel. Spell
+          // that out, so a bucket of unowned accounts does not read as a person.
+          const display = val === 'UNASSIGNED' ? 'Unassigned (not mapped)' : text;
           return (
             <option key={val || text} value={val}>
-              {text}
+              {display}
             </option>
           );
         })}

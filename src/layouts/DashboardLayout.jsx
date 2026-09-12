@@ -308,7 +308,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-4 sm:p-5 pb-12" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)' }}>
+        <div className="flex-1 overflow-auto p-4 sm:p-5 pb-28 sm:pb-12" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)' }}>
           <div className="max-w-[1680px] mx-auto space-y-6 min-h-full relative">
             {/*
               Suspense sits ABOVE the animated wrapper, and there is no

@@ -56,6 +56,39 @@ export default function AssistantSurface() {
   // is meant to stay scrollable.
   useBodyScrollLock(open && isMobile);
 
+  // Synchronize mobile viewport metrics so fixed buttons and full-screen sheets
+  // never overflow or sit underneath dynamic address bars or on-screen keyboards.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const updateMetrics = () => {
+      const vv = window.visualViewport;
+      const vh = window.innerHeight;
+      const offset = vv ? Math.max(0, vh - (vv.height + vv.offsetTop)) : 0;
+      document.documentElement.style.setProperty('--mobile-bottom-offset', `${offset}px`);
+      if (vv) {
+        document.documentElement.style.setProperty('--visual-viewport-h', `${vv.height}px`);
+      }
+    };
+
+    updateMetrics();
+
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', updateMetrics);
+      vv.addEventListener('scroll', updateMetrics);
+    }
+    window.addEventListener('resize', updateMetrics);
+
+    return () => {
+      if (vv) {
+        vv.removeEventListener('resize', updateMetrics);
+        vv.removeEventListener('scroll', updateMetrics);
+      }
+      window.removeEventListener('resize', updateMetrics);
+    };
+  }, []);
+
   useEffect(() => {
     const onKey = (e) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
