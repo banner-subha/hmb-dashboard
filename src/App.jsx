@@ -19,6 +19,7 @@ const AIWarRoom = lazy(() => import('./pages/AIWarRoom'));
 const AlertIntelligence = lazy(() => import('./pages/AlertIntelligence'));
 const GeoIntelligence = lazy(() => import('./pages/GeoIntelligence'));
 const VisitIntelligence = lazy(() => import('./pages/VisitIntelligence'));
+const BusinessPlan = lazy(() => import('./pages/BusinessPlan'));
 // The surface is lazy so that nothing it pulls in — the panel, markdown,
 // recharts, the result table — lands in the dashboard's initial bundle.
 const AssistantSurface = lazy(() => import('./assistant/AssistantSurface'));
@@ -271,6 +272,43 @@ function GeoPrefetcher() {
   return null;
 }
 
+/**
+ * Warms the Business Plan tab while the browser is idle.
+ *
+ * That tab is the one page whose figures come from Supabase RPCs rather than
+ * the pre-aggregated payload every other page shares, so opening it used to
+ * mean downloading its chunk and only then starting a round trip to us-east-1
+ * — two waits in series, on a link that felt instant everywhere else. This
+ * pulls the chunk in early and lets it prime its own month lookup, so the
+ * click starts from a warm cache.
+ *
+ * Admins only: /business-plan is behind RequireAdminRoute, so for a client
+ * this would be pure download with nothing behind it.
+ */
+function BusinessPlanPrefetcher() {
+  const { rawData } = useRawData();
+  const { user } = useAuth();
+  const isAdmin = user?.role !== 'client' && Boolean(user);
+
+  React.useEffect(() => {
+    if (!rawData || !isAdmin || typeof window === 'undefined') return undefined;
+
+    const idle = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 1200));
+    const cancel = window.cancelIdleCallback || window.clearTimeout;
+
+    const handle = idle(() => {
+      import('./pages/BusinessPlan')
+        .then(() => import('./services/businessPlanService'))
+        .then((mod) => mod.fetchLatestPlanMonth())
+        .catch(() => {});
+    });
+
+    return () => cancel(handle);
+  }, [rawData, isAdmin]);
+
+  return null;
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -278,6 +316,7 @@ function App() {
       <AuthProvider>
         <DataProvider>
           <GeoPrefetcher />
+          <BusinessPlanPrefetcher />
           <BrowserRouter>
             <AssistantProvider>
               <Routes>
@@ -315,6 +354,7 @@ function App() {
                   <Route path="districts" element={<DistrictIntelligenceWrapper />} />
                   <Route path="dealers" element={<DealerIntelligenceWrapper />} />
                   <Route path="visits" element={<VisitIntelligence />} />
+                  <Route path="business-plan" element={<RequireAdminRoute><BusinessPlan /></RequireAdminRoute>} />
                   <Route path="risk" element={<Navigate to="/alerts" replace />} />
                   <Route path="war-room" element={<RequireAdminRoute><AIWarRoom /></RequireAdminRoute>} />
                   <Route path="alerts" element={<RequireAdminRoute><AlertIntelligence /></RequireAdminRoute>} />

@@ -64,6 +64,7 @@ export const NAV_ITEMS = [
   { path: '/districts', label: 'District Overview', icon: 'MapPin' },
   { path: '/dealers',   label: 'Dealer Network', icon: 'Store' },
   { path: '/visits',    label: 'Field Visits & Tracker', icon: 'Briefcase' },
+  { path: '/business-plan', label: 'Business Plan', icon: 'ClipboardList' },
   { path: '/war-room',  label: 'AI Insights & Actions', icon: 'Brain' },
   { path: '/alerts',    label: 'Alerts & Risks', icon: 'Activity' },
   { path: '/geo',       label: 'Geographic View', icon: 'Globe' },
