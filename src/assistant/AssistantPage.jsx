@@ -83,6 +83,13 @@ export default function AssistantPage() {
     composerRef.current?.focus({ preventScroll: true });
   };
 
+  const handleNewConversation = () => {
+    newConversation();
+    syncedRef.current = null;
+    navigate('/chat', { replace: true });
+    composerRef.current?.focus({ preventScroll: true });
+  };
+
   // Wide enough for a permanent list; narrow screens switch views the way the
   // panel does.
   const sidebar = wideEnoughForSidebar;
@@ -108,7 +115,7 @@ export default function AssistantPage() {
             <span className="flex-1 text-[0.9rem] font-semibold">History</span>
             <button
               type="button"
-              onClick={newConversation}
+              onClick={handleNewConversation}
               aria-label="New conversation"
               title="New conversation"
               className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-bg-card-hover hover:text-text-primary"
@@ -153,7 +160,7 @@ export default function AssistantPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={newConversation}
+                    onClick={handleNewConversation}
                     aria-label="New conversation"
                     title="New conversation"
                     className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-bg-card-hover hover:text-text-primary"

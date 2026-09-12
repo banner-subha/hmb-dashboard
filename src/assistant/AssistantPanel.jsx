@@ -238,6 +238,15 @@ export default function AssistantPanel() {
             <span className="flex-1 truncate text-[0.9rem] font-semibold text-text-primary">
               History
             </span>
+            <button
+              type="button"
+              onClick={newConversation}
+              aria-label="New conversation"
+              title="New conversation"
+              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-bg-card-hover hover:text-text-primary"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
           </>
         ) : (
           <>

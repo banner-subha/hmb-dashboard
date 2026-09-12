@@ -16,16 +16,110 @@ import { Award, Calendar, ArrowRight, Activity } from 'lucide-react';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 import { useChartVisible } from '../../hooks/useChartVisible';
 
-const MONTH_NAMES = {
-  '2026-01': 'Jan',
-  '2026-02': 'Feb',
-  '2026-03': 'Mar',
-  '2026-04': 'Apr',
-  '2026-05': 'May',
-  '2026-06': 'Jun',
-  '2026-07': 'Jul',
-  '2026-08': 'Aug (MTD)'
-};
+const MONTH_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+const MONTH_LONG = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/** 'YYYY-MM' -> 'Aug'. Falls back to the raw key so an odd bucket still labels. */
+const shortMonth = (key) => MONTH_SHORT[Number(String(key).slice(5, 7)) - 1] || key;
+const longMonth = (key) => MONTH_LONG[Number(String(key).slice(5, 7)) - 1] || key;
+const yearOf = (key) => String(key).slice(0, 4);
+
+// Custom Chart Tooltip
+function CustomTooltip({ active, payload, avgMonthly = 0, completedCount = 0 }) {
+  if (active && payload && payload.length) {
+    const d = payload[0].payload;
+    const vsAvg = avgMonthly > 0 
+      ? Math.round(((d.volume - avgMonthly) / avgMonthly) * 100) 
+      : 0;
+
+    return (
+      <div className="p-3.5 bg-bg-card border border-border/80 rounded-xl shadow-xl space-y-1.5 min-w-[160px]">
+        <div className="flex items-center justify-between text-xs border-b border-border/40 pb-1.5">
+          <span className="font-black text-text-primary text-sm">{d.monthKey} ({d.month})</span>
+          {d.isCurrent && (
+            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-accent-blue/15 text-accent-blue">
+              This Month (MTD)
+            </span>
+          )}
+        </div>
+        <div className="flex justify-between items-baseline gap-3 pt-0.5">
+          <span className="text-xs text-text-muted font-medium">Shipped:</span>
+          <span className="text-sm font-black font-mono text-text-primary">{formatMT(d.volume)}</span>
+        </div>
+        <div className="flex justify-between items-center text-xs text-text-muted font-medium">
+          <span>Active States:</span>
+          <span className="font-bold text-text-primary">{d.states} States</span>
+        </div>
+        {!d.isCurrent && (
+          <div className="flex justify-between items-center text-xs pt-1 border-t border-border/30">
+            <span className="text-text-muted">vs {completedCount}-Month Average:</span>
+            <span className={`font-bold ${vsAvg >= 0 ? 'text-severity-none' : 'text-severity-critical'}`}>
+              {vsAvg >= 0 ? `+${vsAvg}%` : `${vsAvg}%`}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+return null;
+}
+
+// Custom Distinct & Visible Gradient Cursor Line
+function GradientCursor(props) {
+  const { points, x, width: itemWidth, height: itemHeight, top = 8, bottom } = props;
+  let posX = null;
+  let startY = 8;
+  let endY = 270;
+
+  if (points && points.length >= 2) {
+    posX = points[0].x;
+    startY = points[0].y;
+    endY = points[1].y;
+  } else if (points && points.length === 1) {
+    posX = points[0].x;
+    startY = top;
+    endY = bottom !== undefined ? bottom : (itemHeight ? top + itemHeight : 270);
+  } else if (x !== undefined && x !== null) {
+    posX = itemWidth ? x + itemWidth / 2 : x;
+    startY = top;
+    endY = bottom !== undefined ? bottom : (itemHeight ? top + itemHeight : 270);
+  }
+
+  if (posX === null || posX === undefined || isNaN(posX)) return null;
+
+  const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
+
+  return (
+    <g className="pointer-events-none">
+      {/* Soft aura glow line */}
+      <line
+        x1={posX}
+        y1={startY}
+        x2={posX}
+        y2={endY}
+        stroke={isLight ? "rgba(30, 41, 59, 0.2)" : "rgba(255, 255, 255, 0.2)"}
+        strokeWidth={4}
+        strokeLinecap="round"
+      />
+      {/* Main visible vertical gradient hairline */}
+      <line
+        x1={posX}
+        y1={startY}
+        x2={posX}
+        y2={endY}
+        stroke={isLight ? "url(#macroCursorGradientLight)" : "url(#macroCursorGradient)"}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </g>
+  );
+}
 
 function MultiMonthTrajectoryCard({ rawData, data }) {
   const navigate = useNavigate();
@@ -37,32 +131,40 @@ function MultiMonthTrajectoryCard({ rawData, data }) {
     const monthlyHistory = rawData?.monthlyHistory || {};
     const entries = Object.entries(monthlyHistory).sort(([a], [b]) => a.localeCompare(b));
 
-    if (entries.length === 0) {
-      // Fallback historical sample if history is empty
-      const fallback = [
-        { monthKey: '2026-01', month: 'Jan', volume: 23296.89, states: 9, isCurrent: false },
-        { monthKey: '2026-02', month: 'Feb', volume: 18517.95, states: 7, isCurrent: false },
-        { monthKey: '2026-03', month: 'Mar', volume: 20730.36, states: 8, isCurrent: false },
-        { monthKey: '2026-04', month: 'Apr', volume: 21781.31, states: 8, isCurrent: false },
-        { monthKey: '2026-05', month: 'May', volume: 21716.56, states: 8, isCurrent: false },
-        { monthKey: '2026-06', month: 'Jun', volume: 22277.93, states: 9, isCurrent: false },
-        { monthKey: '2026-07', month: 'Jul', volume: 22756.26, states: 8, isCurrent: false },
-        { monthKey: '2026-08', month: 'Aug (MTD)', volume: data?.totalCur || 6949.53, states: 10, isCurrent: true }
-      ];
-      return fallback;
-    }
+    const rows = entries.length > 0
+      ? entries.map(([key, val]) => {
+          const states = val.states || [];
+          const totalMT = states.reduce((sum, s) => sum + (s.cur || s.qty || 0), 0);
+          return {
+            monthKey: key,
+            volume: Math.round(totalMT * 100) / 100,
+            states: states.length,
+          };
+        })
+      : [
+          // Fallback historical sample if history is empty
+          { monthKey: '2026-01', volume: 23296.89, states: 9 },
+          { monthKey: '2026-02', volume: 18517.95, states: 7 },
+          { monthKey: '2026-03', volume: 20730.36, states: 8 },
+          { monthKey: '2026-04', volume: 21781.31, states: 8 },
+          { monthKey: '2026-05', volume: 21716.56, states: 8 },
+          { monthKey: '2026-06', volume: 22277.93, states: 9 },
+          { monthKey: '2026-07', volume: 22756.26, states: 8 },
+          { monthKey: '2026-08', volume: data?.totalCur || 6949.53, states: 10 },
+        ];
 
-    return entries.map(([key, val]) => {
-      const states = val.states || [];
-      const totalMT = states.reduce((sum, s) => sum + (s.cur || s.qty || 0), 0);
-      const isCurrent = key === '2026-08';
+    // The in-progress month is whichever bucket the history ends on — never a
+    // hard-coded key. Pinning it meant that once the calendar rolled into
+    // September the card still badged August as MTD and left the real current
+    // month on the axis as a bare '09'.
+    const currentKey = rows.length > 0 ? rows[rows.length - 1].monthKey : null;
 
+    return rows.map((r) => {
+      const isCurrent = r.monthKey === currentKey;
       return {
-        monthKey: key,
-        month: MONTH_NAMES[key] || key.slice(5),
-        volume: Math.round(totalMT * 100) / 100,
-        states: states.length,
-        isCurrent
+        ...r,
+        isCurrent,
+        month: isCurrent ? `${shortMonth(r.monthKey)} (MTD)` : shortMonth(r.monthKey),
       };
     });
   }, [rawData, data]);
@@ -70,14 +172,19 @@ function MultiMonthTrajectoryCard({ rawData, data }) {
   // Calculate high-level summary KPIs and quarterly benchmarks
   const stats = useMemo(() => {
     if (!chartData || chartData.length === 0) {
-      return { 
-        ytdTotal: 0, 
-        avgMonthly: 0, 
-        peakMonth: 'Jan', 
-        peakVolume: 0, 
-        q1Avg: 0, 
+      return {
+        ytdTotal: 0,
+        avgMonthly: 0,
+        peakMonth: 'Jan',
+        peakVolume: 0,
+        q1Avg: 0,
         q2Avg: 0,
-        q2Growth: 0
+        q2Growth: 0,
+        completedCount: 0,
+        completedLabel: '',
+        rangeLabel: '',
+        currentMonthLong: 'This month',
+        currentVolume: 0,
       };
     }
 
@@ -87,9 +194,11 @@ function MultiMonthTrajectoryCard({ rawData, data }) {
       ? completedMonths.reduce((sum, d) => sum + d.volume, 0) / completedMonths.length
       : chartData[0]?.volume || 0;
 
+    // Best month is judged on finished months only — a month that is three days
+    // old has no business competing with, or winning, the record.
     let peakVolume = 0;
-    let peakMonth = 'Jan';
-    chartData.forEach(d => {
+    let peakMonth = completedMonths[0]?.month || chartData[0]?.month || 'Jan';
+    (completedMonths.length > 0 ? completedMonths : chartData).forEach(d => {
       if (d.volume > peakVolume) {
         peakVolume = d.volume;
         peakMonth = d.month;
@@ -109,6 +218,12 @@ function MultiMonthTrajectoryCard({ rawData, data }) {
 
     const q2Growth = q1Avg > 0 ? Math.round(((q2Avg - q1Avg) / q1Avg) * 1000) / 10 : 0;
 
+    const first = chartData[0];
+    const last = chartData[chartData.length - 1];
+    const firstDone = completedMonths[0];
+    const lastDone = completedMonths[completedMonths.length - 1];
+    const current = chartData.find(d => d.isCurrent);
+
     return {
       ytdTotal: Math.round(ytdTotal * 100) / 100,
       avgMonthly: Math.round(avgMonthly * 10) / 10,
@@ -116,104 +231,22 @@ function MultiMonthTrajectoryCard({ rawData, data }) {
       peakVolume,
       q1Avg: Math.round(q1Avg * 10) / 10,
       q2Avg: Math.round(q2Avg * 10) / 10,
-      q2Growth
+      q2Growth,
+      completedCount: completedMonths.length,
+      completedLabel: firstDone
+        ? `${shortMonth(firstDone.monthKey)}–${shortMonth(lastDone.monthKey)}`
+        : '',
+      rangeLabel: first
+        ? `${shortMonth(first.monthKey)}–${shortMonth(last.monthKey)} ${yearOf(last.monthKey)}`
+        : '',
+      currentMonthLong: current ? longMonth(current.monthKey) : 'This month',
+      currentVolume: current ? current.volume : 0,
     };
   }, [chartData]);
 
-  // Custom Chart Tooltip
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      const d = payload[0].payload;
-      const vsAvg = stats.avgMonthly > 0 
-        ? Math.round(((d.volume - stats.avgMonthly) / stats.avgMonthly) * 100) 
-        : 0;
-
-      return (
-        <div className="p-3.5 bg-bg-card border border-border/80 rounded-xl shadow-xl space-y-1.5 min-w-[160px]">
-          <div className="flex items-center justify-between text-xs border-b border-border/40 pb-1.5">
-            <span className="font-black text-text-primary text-sm">{d.monthKey} ({d.month})</span>
-            {d.isCurrent && (
-              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-accent-blue/15 text-accent-blue">
-                This Month (MTD)
-              </span>
-            )}
-          </div>
-          <div className="flex justify-between items-baseline gap-3 pt-0.5">
-            <span className="text-xs text-text-muted font-medium">Shipped:</span>
-            <span className="text-sm font-black font-mono text-text-primary">{formatMT(d.volume)}</span>
-          </div>
-          <div className="flex justify-between items-center text-xs text-text-muted font-medium">
-            <span>Active States:</span>
-            <span className="font-bold text-text-primary">{d.states} States</span>
-          </div>
-          {!d.isCurrent && (
-            <div className="flex justify-between items-center text-xs pt-1 border-t border-border/30">
-              <span className="text-text-muted">vs 7-Month Average:</span>
-              <span className={`font-bold ${vsAvg >= 0 ? 'text-severity-none' : 'text-severity-critical'}`}>
-                {vsAvg >= 0 ? `+${vsAvg}%` : `${vsAvg}%`}
-              </span>
-            </div>
-          )}
-        </div>
-      );
-    }
-    return null;
-  };
-
-  // Custom Distinct & Visible Gradient Cursor Line
-  const GradientCursor = (props) => {
-    const { points, x, width: itemWidth, height: itemHeight, top = 8, bottom } = props;
-    let posX = null;
-    let startY = 8;
-    let endY = 270;
-
-    if (points && points.length >= 2) {
-      posX = points[0].x;
-      startY = points[0].y;
-      endY = points[1].y;
-    } else if (points && points.length === 1) {
-      posX = points[0].x;
-      startY = top;
-      endY = bottom !== undefined ? bottom : (itemHeight ? top + itemHeight : 270);
-    } else if (x !== undefined && x !== null) {
-      posX = itemWidth ? x + itemWidth / 2 : x;
-      startY = top;
-      endY = bottom !== undefined ? bottom : (itemHeight ? top + itemHeight : 270);
-    }
-
-    if (posX === null || posX === undefined || isNaN(posX)) return null;
-
-    const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
-
-    return (
-      <g className="pointer-events-none">
-        {/* Soft aura glow line */}
-        <line
-          x1={posX}
-          y1={startY}
-          x2={posX}
-          y2={endY}
-          stroke={isLight ? "rgba(30, 41, 59, 0.2)" : "rgba(255, 255, 255, 0.2)"}
-          strokeWidth={4}
-          strokeLinecap="round"
-        />
-        {/* Main visible vertical gradient hairline */}
-        <line
-          x1={posX}
-          y1={startY}
-          x2={posX}
-          y2={endY}
-          stroke={isLight ? "url(#macroCursorGradientLight)" : "url(#macroCursorGradient)"}
-          strokeWidth={2}
-          strokeLinecap="round"
-        />
-      </g>
-    );
-  };
-
   return (
     <CollapsibleCard
-      title="8-Month Dispatch History"
+      title={`${chartData.length}-Month Dispatch History`}
       badge={
         <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 whitespace-nowrap shadow-xs badge-theme-blue">
           This Year So Far: {formatMT(stats.ytdTotal)}
@@ -247,17 +280,17 @@ function MultiMonthTrajectoryCard({ rawData, data }) {
               {formatMT(stats.avgMonthly)}
             </div>
             <div className="text-xs text-text-muted font-medium mt-1 leading-snug">
-              Based on Jan–Jul
+              Based on {stats.completedLabel}
             </div>
           </div>
 
           <div className="p-3 sm:p-3.5 rounded-xl bg-bg-secondary/80 border border-border/60 shadow-xs flex flex-col justify-between">
             <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wide">
               <Calendar className="w-3.5 h-3.5 text-accent-blue shrink-0" />
-              <span className="leading-tight">August So Far</span>
+              <span className="leading-tight">{stats.currentMonthLong} So Far</span>
             </div>
             <div className="text-base sm:text-lg lg:text-xl font-black text-text-primary tracking-tight leading-tight mt-1.5 break-words">
-              {formatMT(data?.totalCur || 6949.53)}
+              {formatMT(stats.currentVolume || data?.totalCur || 0)}
             </div>
             <div className="text-xs text-text-muted font-medium mt-1 leading-snug">
               Ongoing this month
@@ -316,7 +349,13 @@ function MultiMonthTrajectoryCard({ rawData, data }) {
                   axisLine={false}
                   tickFormatter={(val) => `${Math.round(val / 1000)}k`}
                 />
-                <Tooltip content={<CustomTooltip />} cursor={<GradientCursor />} isAnimationActive={false} />
+                <Tooltip
+                  content={
+                    <CustomTooltip
+                      avgMonthly={stats.avgMonthly}
+                      completedCount={stats.completedCount}
+                    />
+                  } cursor={<GradientCursor />} isAnimationActive={false} />
                 
                 {/* 7-Month Average Benchmark Line */}
                 <ReferenceLine 
@@ -377,7 +416,7 @@ function MultiMonthTrajectoryCard({ rawData, data }) {
         {/* Footer Deep-Link with Uniform Theme Pill Style */}
         <div className="pt-3 border-t border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <span className="text-xs text-text-muted font-medium min-w-0">
-            Jan–Aug 2026 Monthly Dispatch Summary
+            {stats.rangeLabel} Monthly Dispatch Summary
           </span>
           <button
             onClick={() => navigate('/geo')}

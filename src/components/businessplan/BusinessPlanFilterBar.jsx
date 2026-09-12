@@ -153,12 +153,12 @@ function BusinessPlanFilterBar({
           </span>
         </label>
 
-        <div className="flex flex-col justify-end min-w-0">
+        <div className="flex flex-col justify-end items-start min-w-0">
           <button
             type="button"
             onClick={onReset}
             disabled={activeFilterCount === 0}
-            className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-bg-card disabled:hover:text-text-secondary"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-bg-card disabled:hover:text-text-secondary"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             {activeFilterCount > 0

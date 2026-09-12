@@ -162,9 +162,10 @@ export function AssistantProvider({ children }) {
   }, []);
 
   const newConversation = useCallback(() => {
+    stream.reset();
     setSessionId(null);
     setView('conversation');
-  }, []);
+  }, [stream]);
 
   const selectSession = useCallback((id) => {
     setSessionId(id);

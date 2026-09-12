@@ -325,6 +325,19 @@ export default function useAssistantStream({ sessionId, onSessionCreated }) {
     [results],
   );
 
+  /** Clear the active conversation immediately, aborting any stream in flight. */
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    justCreatedRef.current = null;
+    runningRef.current = [];
+    setStreaming(false);
+    setMessages([]);
+    setResults({});
+    setPhases([]);
+    setLoadError(null);
+  }, []);
+
   useEffect(() => () => abortRef.current?.abort(), []);
 
   return {
@@ -332,6 +345,7 @@ export default function useAssistantStream({ sessionId, onSessionCreated }) {
     send,
     stop,
     retry,
+    reset,
     streaming,
     phases,
     loadError,
