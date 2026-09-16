@@ -303,7 +303,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
       {
         accessorKey: 'district',
         header: 'District',
-        meta: { width: '20%', minWidth: '120px' },
+        meta: { width: '18%', minWidth: '120px' },
         cell: info => {
           const row = info.row.original;
           const val = String(info.getValue() ?? '');
@@ -326,23 +326,29 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
       {
         accessorKey: 'cur',
         header: 'Vol (MT)',
-        meta: { width: '12%', minWidth: '85px' },
-        cell: info => <span className="font-bold text-text-primary">{formatMT(info.getValue())}</span>,
+        meta: { width: '11%', minWidth: '80px' },
+        cell: info => <span className="font-bold text-text-primary whitespace-nowrap">{formatMT(info.getValue())}</span>,
+      },
+      {
+        accessorKey: 'prev',
+        header: 'Prev MTD (MT)',
+        meta: { width: '11%', minWidth: '85px' },
+        cell: info => <span className="font-medium text-text-muted whitespace-nowrap">{formatMT(info.getValue())}</span>,
       },
       {
         header: 'MoM',
         accessorKey: 'mom',
-        meta: { width: '10%', minWidth: '80px' },
+        meta: { width: '9%', minWidth: '70px' },
         cell: info => {
           const row = info.row.original;
-          return <MoMIndicator cur={row.cur} prev={row.prev} />;
+          return <MoMIndicator cur={row.cur} prev={row.prev} className="whitespace-nowrap" />;
         },
       },
       {
         accessorKey: 'avgPeriod',
         header: 'Avg Period',
-        meta: { width: '12%', minWidth: '85px' },
-        cell: info => <span className="font-semibold text-text-primary">{formatDays(info.getValue())}</span>,
+        meta: { width: '10%', minWidth: '75px' },
+        cell: info => <span className="font-semibold text-text-primary whitespace-nowrap">{formatDays(info.getValue())}</span>,
       },
       {
         id: 'pace',

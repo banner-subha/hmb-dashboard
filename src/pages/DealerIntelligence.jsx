@@ -347,7 +347,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
       {
         accessorKey: 'client',
         header: 'Dealer',
-        meta: { width: '28%', minWidth: '120px' },
+        meta: { width: '25%', minWidth: '120px' },
         cell: info => {
           const val = String(info.getValue() ?? '');
           const isPlaceholder = val === '0' || val.toUpperCase() === 'VERBAL';
@@ -368,7 +368,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
       {
         accessorKey: 'district',
         header: 'Location',
-        meta: { width: '18%', minWidth: '90px' },
+        meta: { width: '16%', minWidth: '90px' },
         cell: info => {
           const dVal = String(info.getValue() ?? '');
           const isDistPlaceholder = dVal === '0' || dVal.toUpperCase() === 'VERBAL';
@@ -387,9 +387,15 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
         cell: info => <span className="font-bold text-text-primary whitespace-nowrap">{formatMT(info.getValue())}</span>,
       },
       {
+        accessorKey: 'prev',
+        header: 'Prev MTD (MT)',
+        meta: { width: '11%', minWidth: '85px' },
+        cell: info => <span className="font-medium text-text-muted whitespace-nowrap">{formatMT(info.getValue())}</span>,
+      },
+      {
         header: 'MoM',
         accessorKey: 'mom',
-        meta: { width: '10%', minWidth: '75px' },
+        meta: { width: '9%', minWidth: '70px' },
         cell: info => {
           const row = info.row.original;
           return <MoMIndicator cur={row.cur} prev={row.prev} className="whitespace-nowrap" />;
@@ -398,7 +404,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
       {
         accessorKey: 'avgPeriod',
         header: 'Avg Period',
-        meta: { width: '11%', minWidth: '80px' },
+        meta: { width: '10%', minWidth: '75px' },
         cell: info => <span className="font-semibold text-text-primary whitespace-nowrap">{formatDays(info.getValue())}</span>,
       },
       {
@@ -926,11 +932,16 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                       );
                     })()
                   ) : (
-                    <MoMIndicator 
-                      cur={selectedDealer.cur}
-                      prev={selectedDealer.prev}
-                      className="text-base" 
-                    />
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-text-muted">
+                        Prev MTD: <strong className="text-text-primary font-semibold">{formatMT(selectedDealer.prev)}</strong>
+                      </span>
+                      <MoMIndicator 
+                        cur={selectedDealer.cur}
+                        prev={selectedDealer.prev}
+                        className="text-base" 
+                      />
+                    </div>
                   )}
                 </div>
               </div>
