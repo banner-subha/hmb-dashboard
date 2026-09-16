@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useRef } from 'react';
+import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
@@ -13,7 +13,7 @@ import SkeletonLoader from '../components/common/SkeletonLoader';
 import { formatMT, formatDays } from '../utils/formatters';
 import { calculateMoM, getSeverityTheme } from '../utils/trendEngine';
 import { getPendingForPeriod, getBacklogClearance } from '../utils/pending';
-import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalDealers } from '../utils/despatch';
+import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalDealers, dealerIdentity } from '../utils/despatch';
 import { isWestBengalUser } from '../utils/constants';
 import { Store } from 'lucide-react';
 import ExportDropdown from '../components/common/ExportDropdown';
@@ -24,31 +24,20 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
   const { user } = useAuth();
   const showNorthBengal = isWestBengalUser(user, filterOptions);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedDealer, setSelectedDealer] = useState(null);
+  // The open profile is held as the dealer's identity, never as a copy of its
+  // row.
+  //
+  // A row is one month's figures. Storing the object the user clicked froze
+  // those figures in the panel: the table rebuilt for every month change, and
+  // the profile beside it went on reporting the month the click happened in —
+  // despatch, daily target and product mix all stale together.
+  const [selectedDealerRef, setSelectedDealerRef] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
   const [metricMode, setMetricMode] = useState("DESPATCH");
   const [selectedPendingMonth, setSelectedPendingMonth] = useState(
     () => (metricMode === 'PENDING' ? 'ALL' : getCurMonthKey(rawData)),
   );
   const lastSyncedParamsRef = useRef(null);
-
-  useDashboardTelemetry({
-    tabName: 'Dealer Network',
-    filters: {
-      state: filters?.selectedState,
-      district: filters?.selectedDistrict,
-      product: filters?.selectedProduct,
-      search: filters?.searchQuery,
-      status: statusFilter,
-    },
-    selectedEntity: selectedDealer ? {
-      type: 'dealer',
-      name: selectedDealer.dealer || selectedDealer.dealer_name,
-      state: selectedDealer.state,
-      district: selectedDealer.district,
-      volume: selectedDealer.cur ? `${Number(selectedDealer.cur).toFixed(1)} MT` : undefined,
-    } : null,
-  });
 
   // Sync URL params → Context: runs only when the URL itself changes.
   useEffect(() => {
@@ -163,6 +152,63 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
     }
   }, [data?.dealers, rawData, statusFilter, metricMode, selectedPendingMonth, filters, searchParams]);
 
+  /**
+   * The row the open profile describes, resolved against the list on screen.
+   *
+   * Looked up by identity on every render rather than carried in state, so the
+   * panel and the table can never disagree: change the month, the product or
+   * the territory and the profile re-reads the same dealer out of the new list.
+   *
+   * A dealer the current filters have no row for is rendered at zero rather
+   * than vanishing or keeping the last month's numbers — "nothing despatched
+   * in June" is the answer, and closing the panel would look like a misclick.
+   */
+  const selectedDealer = useMemo(() => {
+    if (!selectedDealerRef) return null;
+    const hit = filteredDealers.find(d => dealerIdentity(d) === selectedDealerRef.key);
+    if (hit) return hit;
+    return {
+      client: selectedDealerRef.client,
+      state: selectedDealerRef.state,
+      district: selectedDealerRef.district,
+      cur: 0,
+      prev: 0,
+      products: [],
+      isInactive: true,
+    };
+  }, [filteredDealers, selectedDealerRef]);
+
+  const selectDealer = useCallback((dealer) => {
+    setSelectedDealerRef(
+      dealer
+        ? {
+            key: dealerIdentity(dealer),
+            client: dealer.client,
+            state: dealer.state,
+            district: dealer.district,
+          }
+        : null,
+    );
+  }, []);
+
+  useDashboardTelemetry({
+    tabName: 'Dealer Network',
+    filters: {
+      state: filters?.selectedState,
+      district: filters?.selectedDistrict,
+      product: filters?.selectedProduct,
+      search: filters?.searchQuery,
+      status: statusFilter,
+    },
+    selectedEntity: selectedDealer ? {
+      type: 'dealer',
+      name: selectedDealer.dealer || selectedDealer.dealer_name,
+      state: selectedDealer.state,
+      district: selectedDealer.district,
+      volume: selectedDealer.cur ? `${Number(selectedDealer.cur).toFixed(1)} MT` : undefined,
+    } : null,
+  });
+
   // Auto-select dealer if search query isolates a single dealer.
   //
   // Keyed on the dealer the search has isolated, so it opens once per new
@@ -173,7 +219,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
   const [prevIsolatedDealer, setPrevIsolatedDealer] = useState(isolatedDealer);
   if (prevIsolatedDealer !== isolatedDealer) {
     setPrevIsolatedDealer(isolatedDealer);
-    if (isolatedDealer && !selectedDealer) setSelectedDealer(isolatedDealer);
+    if (isolatedDealer && !selectedDealerRef) selectDealer(isolatedDealer);
   }
 
   const columns = useMemo(() => {
@@ -788,7 +834,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                   ? [{ id: 'avgPeriod', desc: true }]
                   : [{ id: metricMode === 'PENDING' ? 'pendingQty' : 'cur', desc: true }]
               }
-              onRowClick={setSelectedDealer}
+              onRowClick={selectDealer}
             />
           </div>
         </div>
@@ -800,7 +846,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               title="Dealer Profile" 
               accentColor={selectedAccentColor}
               badge={<button 
-                onClick={(e) => { e.stopPropagation(); setSelectedDealer(null); }}
+                onClick={(e) => { e.stopPropagation(); selectDealer(null); }}
                 className="text-xs text-text-muted hover:text-text-primary underline"
               >Close</button>}
             >
