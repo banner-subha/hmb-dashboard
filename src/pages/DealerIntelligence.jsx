@@ -165,18 +165,33 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
    */
   const selectedDealer = useMemo(() => {
     if (!selectedDealerRef) return null;
-    const hit = filteredDealers.find(d => dealerIdentity(d) === selectedDealerRef.key);
-    if (hit) return hit;
-    return {
-      client: selectedDealerRef.client,
-      state: selectedDealerRef.state,
-      district: selectedDealerRef.district,
-      cur: 0,
-      prev: 0,
-      products: [],
-      isInactive: true,
-    };
-  }, [filteredDealers, selectedDealerRef]);
+    const { key, client, state, district } = selectedDealerRef;
+
+    // Exact match first. Two separate dealer records here can differ only in
+    // the casing of the name — Murshidabad has both a "KALIMATA HARDWARE"
+    // (active) and a "Kalimata Hardware" (inactive) — and the case-insensitive
+    // key cannot tell them apart, so on its own it can open the wrong one.
+    const exact = filteredDealers.find(
+      d => d.client === client && d.state === state && d.district === district,
+    );
+    if (exact) return exact;
+
+    // Then the loose key — but only when nothing is being guessed at. It exists
+    // for casing that drifts between the live rows and a history slice, so it
+    // is allowed only where the name identifies one dealer on both sides: one
+    // candidate row here, and one record bearing that name in the full list.
+    // Murshidabad's two Kalimata Hardwares are why the second test is needed;
+    // without it, opening one of them and changing month silently swaps in the
+    // other one's figures.
+    const ambiguous =
+      (data?.dealers || []).filter(d => dealerIdentity(d) === key).length > 1;
+    if (!ambiguous) {
+      const loose = filteredDealers.filter(d => dealerIdentity(d) === key);
+      if (loose.length === 1) return loose[0];
+    }
+
+    return { client, state, district, cur: 0, prev: 0, products: [], isInactive: true };
+  }, [filteredDealers, selectedDealerRef, data?.dealers]);
 
   const selectDealer = useCallback((dealer) => {
     setSelectedDealerRef(
@@ -924,7 +939,13 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               {(selectedDealer.dailyAvgQty !== undefined || selectedDealer.currentDailyRate !== undefined) && (() => {
                 const dailyAvg = Number(selectedDealer.dailyAvgQty || 0);
                 const curRate = Number(selectedDealer.currentDailyRate || 0);
-                const actualMtd = selectedDealer.actualMtd ?? selectedDealer.cur ?? 0;
+                // Every figure in this card is live-cycle pace, which the
+                // monthlyHistory slices do not carry. On a historical month the
+                // actual therefore comes from the live row too, and the heading
+                // says so — rather than setting June's despatch against
+                // September's target and calling the dealer behind.
+                const actualMtd =
+                  selectedDealer.actualMtd ?? selectedDealer.currentCycleCur ?? selectedDealer.cur ?? 0;
                 const expectedMtd = selectedDealer.expectedMtd || (dailyAvg > 0 ? dailyAvg * 10 : 0);
                 const delta = (selectedDealer.lossDelta !== undefined && selectedDealer.lossDelta !== 0)
                   ? Number(selectedDealer.lossDelta)
@@ -936,6 +957,11 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                     <div className="flex items-center justify-between gap-2">
                       <h4 className="text-[11px] sm:text-xs font-bold text-text-muted uppercase tracking-wider leading-snug">
                         Daily Dispatch Target
+                        {selectedPendingMonth && selectedPendingMonth !== getCurMonthKey(rawData) && (
+                          <span className="ml-1.5 normal-case font-normal text-text-muted/70">
+                            (Current Cycle)
+                          </span>
+                        )}
                       </h4>
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-[11px] font-bold shrink-0 whitespace-nowrap shadow-xs ${
                         isBehind 

@@ -280,6 +280,11 @@ export function getHistoricalDealers(rawData, filters, periodKey) {
       dailyAvgQty: mainDl?.dailyAvgQty ?? 0,
       currentDailyRate: mainDl?.currentDailyRate ?? 0,
       expectedMtd: mainDl?.expectedMtd ?? 0,
+      // The pace fields above all describe the live cycle, so the actual they
+      // are judged against has to come from the same cycle. `cur` on this row
+      // is the historical month's despatch, and pairing it with a live target
+      // would compare two different windows.
+      currentCycleCur: mainDl?.cur ?? 0,
       lossFlag: mainDl?.lossFlag ?? 'NO_DATA',
       lossDeltaPct: mainDl?.lossDeltaPct ?? 0,
     };

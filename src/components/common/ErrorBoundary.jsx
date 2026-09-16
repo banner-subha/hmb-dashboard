@@ -13,6 +13,14 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('ErrorBoundary caught:', error, info);
+    const isModuleError = error?.message?.includes('Failed to fetch dynamically imported module') ||
+                          error?.name === 'ChunkLoadError' ||
+                          error?.message?.includes('error loading dynamically imported module');
+    if (isModuleError && !window.sessionStorage.getItem('chunk_reload_triggered')) {
+      window.sessionStorage.setItem('chunk_reload_triggered', 'true');
+      window.location.reload();
+      return;
+    }
     // An owner that supplies its own fallback usually also owns the state that
     // produced the crash, and has to know a catch happened to clear it. Without
     // this it can only offer a retry that re-renders the same poisoned input.

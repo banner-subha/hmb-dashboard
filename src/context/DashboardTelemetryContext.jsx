@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 
 const ROUTE_NAMES = {
@@ -30,7 +30,6 @@ export function DashboardTelemetryProvider({ children }) {
   const location = useLocation();
   const activeRoute = location.pathname;
 
-  const [pageTelemetry, setPageTelemetry] = useState({});
   const telemetryRef = useRef({
     route: activeRoute,
     tabName: resolveRouteName(activeRoute),
@@ -39,56 +38,51 @@ export function DashboardTelemetryProvider({ children }) {
     visibleKpis: null,
   });
 
-  // Keep route updated when location changes
+  // Keep route & default tab name updated when location changes
   useEffect(() => {
+    telemetryRef.current.route = activeRoute;
+    telemetryRef.current.tabName = resolveRouteName(activeRoute);
+  }, [activeRoute]);
+
+  const updateTelemetry = useCallback((data) => {
+    if (!data) return;
+    const current = telemetryRef.current;
+    const next = typeof data === 'function' ? data(current) : data;
     telemetryRef.current = {
-      ...telemetryRef.current,
-      route: activeRoute,
-      tabName: pageTelemetry.tabName || resolveRouteName(activeRoute),
+      route: window.location.pathname,
+      tabName: next.tabName || resolveRouteName(window.location.pathname),
+      filters: next.filters || {},
+      selectedEntity: next.selectedEntity || null,
+      visibleKpis: next.visibleKpis || next.kpis || null,
     };
-  }, [activeRoute, pageTelemetry.tabName]);
+  }, []);
 
-  const updateTelemetry = (data) => {
-    setPageTelemetry((prev) => {
-      const next = typeof data === 'function' ? data(prev) : { ...prev, ...data };
-      telemetryRef.current = {
-        route: activeRoute,
-        tabName: next.tabName || resolveRouteName(activeRoute),
-        filters: next.filters || {},
-        selectedEntity: next.selectedEntity || null,
-        visibleKpis: next.visibleKpis || next.kpis || null,
-      };
-      return next;
-    });
-  };
-
-  const clearTelemetry = () => {
-    setPageTelemetry({});
+  const clearTelemetry = useCallback(() => {
     telemetryRef.current = {
-      route: activeRoute,
-      tabName: resolveRouteName(activeRoute),
+      route: window.location.pathname,
+      tabName: resolveRouteName(window.location.pathname),
       filters: {},
       selectedEntity: null,
       visibleKpis: null,
     };
-  };
+  }, []);
 
-  const getTelemetrySnapshot = () => ({
-    route: telemetryRef.current.route,
-    tab_name: telemetryRef.current.tabName,
-    filters: telemetryRef.current.filters,
-    selected_entity: telemetryRef.current.selectedEntity,
-    visible_kpis: telemetryRef.current.visibleKpis,
-  });
+  const getTelemetrySnapshot = useCallback(() => ({
+    route: telemetryRef.current.route || window.location.pathname,
+    tab_name: telemetryRef.current.tabName || resolveRouteName(window.location.pathname),
+    filters: telemetryRef.current.filters || {},
+    selected_entity: telemetryRef.current.selectedEntity || null,
+    visible_kpis: telemetryRef.current.visibleKpis || null,
+  }), []);
 
+  // Perfectly stable context value that NEVER triggers re-renders on consumers
   const value = useMemo(
     () => ({
-      telemetry: telemetryRef.current,
       updateTelemetry,
       clearTelemetry,
       getTelemetrySnapshot,
     }),
-    [activeRoute, pageTelemetry]
+    [updateTelemetry, clearTelemetry, getTelemetrySnapshot]
   );
 
   return (
@@ -101,25 +95,43 @@ export function DashboardTelemetryProvider({ children }) {
 /**
  * Hook for pages and modal components to broadcast their active view,
  * filters, inspected entity, and headline KPIs to the sales assistant.
+ * 
+ * Silently stores telemetry in a ref without triggering any React re-render cycles.
  */
 export function useDashboardTelemetry(data) {
   const ctx = useContext(DashboardTelemetryContext);
   const dataRef = useRef(data);
   dataRef.current = data;
 
-  useEffect(() => {
-    if (!ctx || !data) return;
-    ctx.updateTelemetry(data);
+  const serialized = useMemo(() => {
+    try {
+      return JSON.stringify({
+        tabName: data?.tabName,
+        filters: data?.filters,
+        selectedEntity: data?.selectedEntity,
+        visibleKpis: data?.visibleKpis || data?.kpis,
+      });
+    } catch {
+      return '';
+    }
   }, [
-    ctx,
     data?.tabName,
-    JSON.stringify(data?.filters || {}),
-    JSON.stringify(data?.selectedEntity || null),
-    JSON.stringify(data?.visibleKpis || data?.kpis || null),
+    data?.filters,
+    data?.selectedEntity,
+    data?.visibleKpis,
+    data?.kpis,
   ]);
+
+  useEffect(() => {
+    if (!ctx || !dataRef.current) return;
+    ctx.updateTelemetry(dataRef.current);
+  }, [ctx, serialized]);
 }
 
 export function useGetDashboardTelemetry() {
   const ctx = useContext(DashboardTelemetryContext);
-  return ctx?.getTelemetrySnapshot || (() => ({ route: window.location.pathname, tab_name: resolveRouteName(window.location.pathname) }));
+  return ctx?.getTelemetrySnapshot || (() => ({
+    route: window.location.pathname,
+    tab_name: resolveRouteName(window.location.pathname),
+  }));
 }

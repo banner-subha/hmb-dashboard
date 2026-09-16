@@ -12,19 +12,40 @@ import { DashboardTelemetryProvider } from './context/DashboardTelemetryContext'
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
 
-const ExecutiveOverview = lazy(() => import('./pages/ExecutiveOverview'));
-const StateIntelligence = lazy(() => import('./pages/StateIntelligence'));
-const DistrictIntelligence = lazy(() => import('./pages/DistrictIntelligence'));
-const DealerIntelligence = lazy(() => import('./pages/DealerIntelligence'));
-const AIWarRoom = lazy(() => import('./pages/AIWarRoom'));
-const AlertIntelligence = lazy(() => import('./pages/AlertIntelligence'));
-const GeoIntelligence = lazy(() => import('./pages/GeoIntelligence'));
-const VisitIntelligence = lazy(() => import('./pages/VisitIntelligence'));
-const BusinessPlan = lazy(() => import('./pages/BusinessPlan'));
+function lazyWithRetry(importer) {
+  return lazy(async () => {
+    try {
+      const mod = await importer();
+      window.sessionStorage.removeItem('chunk_reload_triggered');
+      return mod;
+    } catch (err) {
+      const isChunkError =
+        err?.message?.includes('Failed to fetch dynamically imported module') ||
+        err?.name === 'ChunkLoadError' ||
+        err?.message?.includes('error loading dynamically imported module');
+      if (isChunkError && !window.sessionStorage.getItem('chunk_reload_triggered')) {
+        window.sessionStorage.setItem('chunk_reload_triggered', 'true');
+        window.location.reload();
+        return new Promise(() => {});
+      }
+      throw err;
+    }
+  });
+}
+
+const ExecutiveOverview = lazyWithRetry(() => import('./pages/ExecutiveOverview'));
+const StateIntelligence = lazyWithRetry(() => import('./pages/StateIntelligence'));
+const DistrictIntelligence = lazyWithRetry(() => import('./pages/DistrictIntelligence'));
+const DealerIntelligence = lazyWithRetry(() => import('./pages/DealerIntelligence'));
+const AIWarRoom = lazyWithRetry(() => import('./pages/AIWarRoom'));
+const AlertIntelligence = lazyWithRetry(() => import('./pages/AlertIntelligence'));
+const GeoIntelligence = lazyWithRetry(() => import('./pages/GeoIntelligence'));
+const VisitIntelligence = lazyWithRetry(() => import('./pages/VisitIntelligence'));
+const BusinessPlan = lazyWithRetry(() => import('./pages/BusinessPlan'));
 // The surface is lazy so that nothing it pulls in — the panel, markdown,
 // recharts, the result table — lands in the dashboard's initial bundle.
-const AssistantSurface = lazy(() => import('./assistant/AssistantSurface'));
-const AssistantPage = lazy(() => import('./assistant/AssistantPage'));
+const AssistantSurface = lazyWithRetry(() => import('./assistant/AssistantSurface'));
+const AssistantPage = lazyWithRetry(() => import('./assistant/AssistantPage'));
 
 // ─── GeoIntelligence wrapper — transforms rawData → salesData prop ─────────────
 function GeoIntelligenceWrapper() {
