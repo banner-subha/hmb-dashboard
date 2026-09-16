@@ -274,14 +274,16 @@ export async function fetchPlanMonths() {
  * so the limit is one API page: asking for more would only add round trips
  * fetching pages that come back empty.
  */
-export async function fetchDimensionValues(dimension, { month, state, district } = {}) {
+export async function fetchDimensionValues(dimension, { month, state, district, kro, krm } = {}) {
   const rows = await queryBusinessPlan({
     dimensions: [dimension],
     month,
-    // Districts and reps are scoped by the territory already chosen, so the
-    // dropdowns cascade instead of listing every district in the country.
+    // Districts, reps, and regional managers are scoped by the territory and hierarchy chosen,
+    // so all dropdowns cascade instead of listing options outside the active scope.
     state: dimension === 'state' ? null : state,
     district: dimension === 'state' || dimension === 'district' ? null : district,
+    kro: dimension === 'state' || dimension === 'kro' ? null : kro,
+    krm: dimension === 'state' || dimension === 'krm' ? null : krm,
     limit: API_PAGE_SIZE,
     sort: 'group_asc',
   });

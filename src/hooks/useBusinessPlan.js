@@ -175,8 +175,14 @@ export function useBusinessPlan() {
       if (key === 'state') {
         next.district = '';
         next.kro = '';
+        next.krm = '';
       }
-      if (key === 'district') next.kro = '';
+      if (key === 'district') {
+        next.kro = '';
+      }
+      if (key === 'krm') {
+        next.kro = '';
+      }
       return next;
     });
   }, []);
@@ -380,18 +386,56 @@ export function useBusinessPlan() {
     async () => {
       const [states, districts, kros, krms] = await Promise.all([
         fetchDimensionValues('state', { month }),
-        fetchDimensionValues('district', { month, state: filters.state }),
-        fetchDimensionValues('kro', { month, state: filters.state, district: filters.district }),
-        fetchDimensionValues('krm', { month }),
+        fetchDimensionValues('district', {
+          month,
+          state: filters.state,
+          krm: filters.krm,
+          kro: filters.kro,
+        }),
+        fetchDimensionValues('kro', {
+          month,
+          state: filters.state,
+          district: filters.district,
+          krm: filters.krm,
+        }),
+        fetchDimensionValues('krm', {
+          month,
+          state: filters.state,
+          district: filters.district,
+          kro: filters.kro,
+        }),
       ]);
       return { states, districts, kros, krms };
     },
-    `options:${month}:${filters.state}:${filters.district}`,
+    `options:${month}:${filters.state}:${filters.district}:${filters.kro}:${filters.krm}`,
     {
       initial: { states: [], districts: [], kros: [], krms: [] },
       enabled: ready,
     }
   );
+
+  // Auto-prune any active selection that is no longer valid within the updated cascading options list
+  useEffect(() => {
+    if (!optionsQuery.data || optionsQuery.loading) return;
+    const { districts = [], kros = [], krms = [] } = optionsQuery.data;
+    setFilters((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      if (prev.district && !districts.includes(prev.district)) {
+        next.district = '';
+        changed = true;
+      }
+      if (prev.kro && !kros.includes(prev.kro)) {
+        next.kro = '';
+        changed = true;
+      }
+      if (prev.krm && !krms.includes(prev.krm)) {
+        next.krm = '';
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [optionsQuery.data, optionsQuery.loading]);
 
   const reloadLatestMonth = latestMonthQuery.reload;
   const reloadMonths = monthsQuery.reload;
