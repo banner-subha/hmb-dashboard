@@ -192,6 +192,18 @@ export function getHistoricalDistricts(rawData, filters, periodKey) {
 }
 
 /**
+ * One dealer's identity, independent of the month being viewed.
+ *
+ * There is no id on these rows, so state + district + name is the key that
+ * matches the same dealer across `rawData.dealers` and every monthlyHistory
+ * slice. Exported because the profile panel resolves its selection with it: if
+ * the two spellings of this key ever drifted apart, the lookup would quietly
+ * miss and the panel would blank instead of following the month.
+ */
+export const dealerIdentity = (d) =>
+  d ? `${d.state ?? ''}_${d.district ?? ''}_${d.client ?? ''}`.toLowerCase() : null;
+
+/**
  * Loads and filters dealers for a given historical month.
  */
 export function getHistoricalDealers(rawData, filters, periodKey) {
@@ -228,9 +240,9 @@ export function getHistoricalDealers(rawData, filters, periodKey) {
   
   // 4. Map and compute
   let mapped = dealers.map(hd => {
-    const key = hd.state + '_' + hd.district + '_' + hd.client;
-    const prevDl = prevHistorySlice?.dealers?.find(pd => (pd.state + '_' + pd.district + '_' + pd.client).toLowerCase() === key.toLowerCase());
-    const mainDl = rawData.dealers?.find(pd => (pd.state + '_' + pd.district + '_' + pd.client).toLowerCase() === key.toLowerCase());
+    const key = dealerIdentity(hd);
+    const prevDl = prevHistorySlice?.dealers?.find(pd => dealerIdentity(pd) === key);
+    const mainDl = rawData.dealers?.find(pd => dealerIdentity(pd) === key);
     
     let cur = hd.cur ?? hd.qty ?? 0;
     let prev = prevDl ? (prevDl.cur ?? prevDl.qty ?? 0) : 0;
