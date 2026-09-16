@@ -132,7 +132,7 @@ export function AuthProvider({ children }) {
         // Signed in: the dashboard is yours. Survives a lapsed agent token.
         isAuthenticated: !!user,
         // Cleared to talk to the agent. The assistant checks this one.
-        agentReady: !!user && !tokenRejected && tokenUsable(user),
+        agentReady: !!user && user.role !== 'client' && !tokenRejected && tokenUsable(user),
       }}
     >
       {children}

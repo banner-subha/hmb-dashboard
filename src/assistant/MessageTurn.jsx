@@ -1,4 +1,5 @@
 import { AlertCircle, RotateCcw } from 'lucide-react';
+import ErrorBoundary from '../components/common/ErrorBoundary';
 import Markdown from './Markdown';
 import TurnProvenance from './Provenance';
 import ChartBlock from './ChartBlock';
@@ -26,7 +27,13 @@ function Caret() {
 }
 
 function AssistantTurn({ message, onRetry, loadResult }) {
-  const { text, tools = [], charts = [], state, error, stopped } = message;
+  const { text, state, error, stopped } = message;
+  // `|| []` rather than a destructuring default: a default only fills in for
+  // `undefined`, and these arrive from the server's persisted transcript, where
+  // an absent list is null. `null.map` inside a render throws past every guard
+  // in this file and takes the whole panel with it.
+  const tools = Array.isArray(message.tools) ? message.tools : [];
+  const charts = Array.isArray(message.charts) ? message.charts : [];
   const streaming = state === 'streaming';
 
   // Only a grouped result is worth a table. A single total row is already in
@@ -52,7 +59,11 @@ function AssistantTurn({ message, onRetry, loadResult }) {
         </>
       )}
 
-      {charts.map((spec, i) => (
+      {/* A spec with no source names no cached result, so ChartBlock has
+          nothing to fetch and would throw in its loader. The model emits these
+          specs, so a malformed one is a normal failure, not an impossible one:
+          the chart is dropped and the prose above it still answers. */}
+      {charts.filter((spec) => spec?.source).map((spec, i) => (
         <ChartBlock key={`${spec.source}-${spec.y}-${i}`} spec={spec} loadResult={loadResult} />
       ))}
 
@@ -102,6 +113,20 @@ function AssistantTurn({ message, onRetry, loadResult }) {
 }
 
 export default function MessageTurn({ message, onRetry, loadResult }) {
-  if (message.role === 'user') return <UserTurn text={message.text} />;
-  return <AssistantTurn message={message} onRetry={onRetry} loadResult={loadResult} />;
+  return (
+    <ErrorBoundary
+      fallback={({ error }) => (
+        <div className="my-2 rounded-xl border border-border bg-bg-card p-3 text-[0.82rem] text-text-muted">
+          <p className="font-medium text-text-secondary">Could not render this response</p>
+          {error?.message && <p className="mt-1 text-[0.75rem] text-text-dim">{error.message}</p>}
+        </div>
+      )}
+    >
+      {message.role === 'user' ? (
+        <UserTurn text={message.text} />
+      ) : (
+        <AssistantTurn message={message} onRetry={onRetry} loadResult={loadResult} />
+      )}
+    </ErrorBoundary>
+  );
 }

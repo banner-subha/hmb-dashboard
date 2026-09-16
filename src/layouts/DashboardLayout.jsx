@@ -45,7 +45,6 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [syncAgoText, setSyncAgoText] = useState('just now');
 
   const navItemsToRender = useMemo(() => {
@@ -58,13 +57,14 @@ export default function DashboardLayout() {
   // Track backend payload timestamp (generatedAt) so "last updated" only updates when backend data updates
   const backendGenAt = rawData?.meta?.generatedAt || rawData?.generatedAt || null;
 
-  useEffect(() => {
-    if (backendGenAt) {
-      const parsedDate = new Date(backendGenAt);
-      if (!isNaN(parsedDate.getTime())) {
-        setLastSyncedAt(parsedDate);
-      }
-    }
+  // Parsed, not stored. This is a pure function of the payload timestamp, so
+  // holding it in state and filling it from an effect only bought an extra
+  // render per payload — and a window where the header claimed "just now"
+  // against a timestamp it had not read yet.
+  const lastSyncedAt = useMemo(() => {
+    if (!backendGenAt) return null;
+    const parsed = new Date(backendGenAt);
+    return isNaN(parsed.getTime()) ? null : parsed;
   }, [backendGenAt]);
 
   // Update the "X min ago" text every 30 seconds based on backend generatedAt
@@ -270,7 +270,7 @@ export default function DashboardLayout() {
               {/* Assistant trigger and live sync chip — right on mobile, end
                   of row on desktop */}
               <div className="order-2 sm:order-3 ml-auto sm:ml-0 shrink-0 flex items-center gap-2">
-                <AssistantLauncher />
+                {user?.role !== 'client' && <AssistantLauncher />}
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.07] text-xs text-white/75 whitespace-nowrap">
                   <span className="relative flex w-2 h-2 shrink-0">
                     <span className="absolute inline-flex w-full h-full rounded-full bg-severity-none opacity-40 animate-pulse-subtle" />

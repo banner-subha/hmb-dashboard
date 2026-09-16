@@ -62,7 +62,7 @@ export function AssistantProvider({ children }) {
   // signed in, so the session list is the one thing that must not be requested
   // with a token the agent will reject. Asking a question with a dead token
   // simply fails inline, which is the whole of the handling it needs.
-  const { isAuthenticated, agentReady } = useAuth();
+  const { isAuthenticated, agentReady, user } = useAuth();
 
   // Restored from the tab, so a refresh mid-conversation comes back to it.
   const [open, setOpen] = useState(() => readStored(OPEN_KEY) === '1');
@@ -77,7 +77,7 @@ export function AssistantProvider({ children }) {
   useEffect(() => writeStored(SESSION_KEY, sessionId), [sessionId]);
 
   const refreshSessions = useCallback(() => {
-    if (!agentReady) return Promise.resolve();
+    if (!agentReady || user?.role === 'client') return Promise.resolve();
     return api.listSessions().then(
       (data) => {
         setSessions(data.sessions || []);
@@ -89,7 +89,7 @@ export function AssistantProvider({ children }) {
         setSessionsLoading(false);
       },
     );
-  }, [agentReady]);
+  }, [agentReady, user]);
 
   useEffect(() => {
     refreshSessions();
@@ -98,14 +98,30 @@ export function AssistantProvider({ children }) {
   // Signing out has to clear the conversation, not just hide it. The next
   // person to sign in on this tab must not find someone else's questions
   // restored from sessionStorage.
-  useEffect(() => {
-    if (isAuthenticated) return;
+  //
+  // Adjusted during render rather than in an effect. The old effect committed
+  // the signed-out tree first and only then wiped it, so a sign-out painted one
+  // frame of the previous person's conversation before clearing — and every
+  // setState in it was a second render pass on top of the first. React re-runs
+  // this component immediately on a render-phase update, before anything is
+  // committed or any child renders, so the cleared state is the only state that
+  // ever reaches the screen.
+  const [prevAuthenticated, setPrevAuthenticated] = useState(isAuthenticated);
+  if (prevAuthenticated !== isAuthenticated) {
+    setPrevAuthenticated(isAuthenticated);
+    if (!isAuthenticated) {
+      setOpen(false);
+      setSessionId(null);
+      setSessions([]);
+      setView('conversation');
+      setUnread(false);
+    }
+  }
+
+  // If user is client, ensure panel cannot stay open
+  if (user?.role === 'client' && open) {
     setOpen(false);
-    setSessionId(null);
-    setSessions([]);
-    setView('conversation');
-    setUnread(false);
-  }, [isAuthenticated]);
+  }
 
   // A session minted mid-stream. State only — never navigation.
   const onSessionCreated = useCallback(
@@ -119,32 +135,46 @@ export function AssistantProvider({ children }) {
   const stream = useAssistantStream({ sessionId, onSessionCreated });
   const { streaming } = stream;
 
-  // The generated title lands shortly after the answer, in a background task.
   // An answer that finished while the panel was shut is worth a dot on the
-  // launcher; the user asked for it and then looked away.
+  // launcher; the user asked for it and then looked away. That is derived from
+  // the streaming edge, not synchronised with anything outside React, so it is
+  // read during the render that carries the edge rather than set from an effect
+  // afterwards — which used to mark the dot a render late, and re-run on every
+  // open and close besides.
+  const [prevStreaming, setPrevStreaming] = useState(streaming);
+  if (prevStreaming !== streaming) {
+    setPrevStreaming(streaming);
+    // The falling edge, read during the render that carries it. `open` is read
+    // directly: this branch is reached only when `streaming` itself changed, so
+    // opening or closing the panel cannot trigger it.
+    if (prevStreaming && !streaming && !open) setUnread(true);
+  }
+
+  // The generated title lands shortly after the answer, in a background task,
+  // so the refresh that picks it up is a timer — an external system, which is
+  // what an effect is for. It needs the same edge, and cannot read it from
+  // `prevStreaming`: that has already caught up by the time this commits. Hence
+  // the ref. `open` is no longer a dependency, so opening the panel mid-wait no
+  // longer cancels and reschedules a refresh that is already pending.
   const wasStreaming = useRef(false);
 
   useEffect(() => {
-    // Only the streaming edge matters. This effect also re-runs when the panel
-    // opens or closes, and on those runs both sides of the guard agree, so it
-    // does nothing — which is why `open` can be read directly here instead of
-    // being mirrored into a ref during render.
     if (wasStreaming.current && !streaming) {
-      if (!open) setUnread(true);
-      const t = setTimeout(refreshSessions, 1200);
       wasStreaming.current = streaming;
+      const t = setTimeout(refreshSessions, 1200);
       return () => clearTimeout(t);
     }
     wasStreaming.current = streaming;
     return undefined;
-  }, [streaming, open, refreshSessions]);
+  }, [streaming, refreshSessions]);
 
   // ── surface control ────────────────────────────────────────────────────────
 
   const openPanel = useCallback(() => {
+    if (user?.role === 'client') return;
     setOpen(true);
     setUnread(false);
-  }, []);
+  }, [user]);
 
   // Closing returns to the conversation. The panel exists to be asked things,
   // so reopening it should land on the composer rather than wherever the last
@@ -155,11 +185,12 @@ export function AssistantProvider({ children }) {
   }, []);
 
   const togglePanel = useCallback(() => {
+    if (user?.role === 'client') return;
     setOpen((v) => {
       if (!v) setUnread(false);
       return !v;
     });
-  }, []);
+  }, [user]);
 
   const newConversation = useCallback(() => {
     stream.reset();

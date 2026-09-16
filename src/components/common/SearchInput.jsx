@@ -51,10 +51,16 @@ export default function SearchInput({
   const [localValue, setLocalValue] = useState(externalValue);
   const timerRef = useRef(null);
 
-  // Keep local value in sync if filters are reset or updated externally
-  useEffect(() => {
+  // Keep local value in sync if filters are reset or updated externally.
+  //
+  // During render, not in an effect: an effect would let the box paint the old
+  // text for a frame after a "clear filters" elsewhere on the page, which read
+  // as the reset having missed the search field.
+  const [prevExternalValue, setPrevExternalValue] = useState(externalValue);
+  if (prevExternalValue !== externalValue) {
+    setPrevExternalValue(externalValue);
     setLocalValue(externalValue);
-  }, [externalValue]);
+  }
 
   const handleChange = (e) => {
     const val = e.target.value;

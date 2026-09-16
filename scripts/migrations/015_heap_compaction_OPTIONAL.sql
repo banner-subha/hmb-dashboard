@@ -1,0 +1,164 @@
+-- ============================================================================
+-- 015  OPTIONAL heap compaction. STEPS 1 AND 2 APPLIED, step 3 not.
+-- ============================================================================
+-- Numbers below re-measured 2026-09-15 AFTER 012, 013, 014 and 014b, so they
+-- reflect the current database rather than the original audit.
+--
+-- MEASURED STATE (pgstattuple, database at 372 MB, 500 MB ceiling)
+--   table              total    heap    idx    heap free   free_pct
+--   despatch_orders     51 MB   35 MB   16 MB    14.4 MB     41.5%
+--   dia_wise_despatch  124 MB   80 MB   44 MB    17.3 MB     21.7%
+--   field_visits       135 MB   67 MB   68 MB     7.9 MB     11.9%
+--                                               --------
+--                                                39.6 MB reclaimable heap
+--
+--   dead_tuple_percent is ~0 on all three; autovacuum is keeping up. This is
+--   not dead rows, it is free space inside pages.
+--
+--   despatch_orders is the worst of the three at 41.5%, and that is recent:
+--   migration 014 updated 59,940 of its rows, almost none of them HOT. Before
+--   014 it was 21.2%.
+--
+-- PLAIN VACUUM DOES NOT HELP -- already tried, 2026-09-15
+--   vacuum (analyze) public.despatch_orders;  reclaimed 0 bytes. Expected:
+--   dead tuples were already zero, and the free space is scattered mid-table
+--   rather than in trailing pages that VACUUM could truncate. Only a full
+--   rewrite returns this space to the operating system.
+--
+-- TWO WAYS TO DO THE REWRITE
+--
+--   A. pg_repack -- PREFERRED, no maintenance window needed.
+--      pg_repack 1.5.2 is AVAILABLE on this instance (not yet installed):
+--        select name, default_version, installed_version
+--        from pg_available_extensions where name = 'pg_repack';
+--        -- pg_repack | 1.5.2 | null
+--      It rewrites a table holding only brief ACCESS EXCLUSIVE locks at the
+--      start and end; reads and writes continue throughout.
+--
+--      The catch: the SQL extension only ships helper functions. The rewrite is
+--      driven by the pg_repack CLIENT BINARY, which connects and orchestrates
+--      it. There is no SQL-only entry point, so this cannot be done from a SQL
+--      console.
+--        create extension pg_repack;   -- server side, additive
+--        pg_repack -h <host> -U postgres -d postgres -t public.despatch_orders
+--
+--      (An earlier version of this file said no non-blocking rewrite existed
+--      here. That was wrong: it checked pg_extension, what is installed,
+--      instead of pg_available_extensions, what can be installed.)
+--
+--   B. VACUUM FULL -- works from SQL, but takes an ACCESS EXCLUSIVE lock for
+--      the whole rewrite. READS BLOCK TOO, not just writes. field_visits and
+--      dia_wise_despatch are touched by nearly every chatbot tool, so for those
+--      minutes the agent returns errors rather than slow answers. Needs a
+--      window.
+--
+-- WHY THIS IS OPTIONAL
+--   The 39.6 MB is not leaked. Postgres reuses it for the next 39.6 MB of
+--   inserts, it costs nothing in query time, and it is not growing. It is
+--   headroom you can choose to claim, not a bleed you have to stop. At 372 MB
+--   against a 500 MB ceiling there is no pressure to claim it today.
+--
+-- ****************************************************************************
+-- SPACE TRAP -- READ THIS BEFORE CHOOSING AN ORDER
+--   A rewrite builds the new copy before dropping the old one, so it needs
+--   transient room roughly equal to the finished table plus its indexes, ON TOP
+--   of the current database size.
+--
+--   Projected from 372 MB, smallest new-copy first so each step funds the next:
+--
+--     step                new copy   peak      ends at
+--     despatch_orders       ~37 MB   ~409 MB   ~358 MB
+--     dia_wise_despatch    ~107 MB   ~465 MB   ~341 MB
+--     field_visits         ~127 MB   ~468 MB   ~333 MB
+--
+--   Peaks land 30 to 35 MB under the ceiling. That is real but not generous, so
+--   re-check between every step and stop if a peak would exceed ~480 MB:
+--       select pg_size_pretty(pg_database_size(current_database()));
+--
+--   NOTE the order differs from the earlier draft of this file, which ran
+--   field_visits second. dia_wise_despatch goes second because its new copy is
+--   smaller (107 MB against 127 MB) even though its total is smaller too.
+--
+--   Ratio check before spending the lock: field_visits returns only 7.9 MB for
+--   the highest peak of the three and a lock on the table every visit RPC uses.
+--   It is the weakest of the three by a wide margin. despatch_orders returns
+--   14.4 MB for the lowest peak and is clearly worth doing.
+-- ****************************************************************************
+--
+-- NOTE: a full rewrite also rebuilds every index from scratch, so it delivers
+-- what 012 and 013 did with REINDEX CONCURRENTLY. Those reindexes are not
+-- wasted, they are what makes these peaks fit under the ceiling, but do not
+-- expect the index sizes to shrink a second time.
+--
+-- Each statement must run on its own, outside a transaction block.
+-- ============================================================================
+
+-- Step 1 -- APPLIED 2026-09-15. Best ratio of the three, and the table 014
+-- had just bloated.
+--
+--   database         372 MB -> 358 MB   (14 MB back, as projected)
+--   despatch_orders   51 MB -> 36 MB    (heap 35 -> 20 MB, indexes 16 MB flat)
+--   heap free_percent  41.5% -> 1.3%
+--   rows 93,836 unchanged, sum(qty) 694,095.82 unchanged
+--   all 7 indexes present, none invalid
+--
+-- Caches warmed afterwards per the note below; every agent path re-checked:
+--   agent.despatch 60,016 rows / 694,095.82 MT, agent.pending 619,
+--   alerts 153, board_dealer 819, board_total 6,632.50 MT,
+--   visits_value_exists true, v_data_freshness days_behind 2,
+--   outstanding = '< 7 Days' still 28,405
+vacuum full analyze public.despatch_orders;
+
+-- Step 2 -- APPLIED 2026-09-15. Projected peak 464.5 MB against the 500 MB
+-- ceiling (35.5 MB margin), measured immediately before running.
+--
+--   database            358 MB -> 340 MB   (18 MB back, projected 17)
+--   dia_wise_despatch   124 MB -> 106 MB   (heap 80 -> 64, indexes 44 -> 42)
+--   heap free_percent    21.7% -> 2.0%
+--   rows 189,533 unchanged
+--   sum(item_sales_qty)  433,045.74 unchanged
+--   sum(invoice_amount)  174,697,251,452.38 unchanged
+--   all 5 indexes present at ~90% density, none invalid
+--
+-- Bonus: idx_dia_wise_inv_norm was not in 012's reindex list and was still at
+-- 47.25% density. The rewrite compacted it too, 3,976 kB -> 2,432 kB.
+--
+-- Post-rewrite checks. The first query after this is a cold cache, and it
+-- shows: the despatch analytics shape ran 424 ms cold (493 blocks read from
+-- disk) and 9.2 ms once warm. Warm the paths before handing the agent back.
+--
+-- ANALYZE reset the planner statistics here, so the audit's key claim was
+-- re-tested: idx_dia_wise_date_size still serves
+--   Index Only Scan ... Heap Fetches: 0
+-- on a selective (invoice_date, clean_size) lookup, which is what the INCLUDE
+-- payload exists for. Broad date-range scans pick a Bitmap Heap Scan instead,
+-- and bitmap scans are never index-only, so the payload does not help those.
+-- Keeping these indexes at full width was the right call.
+vacuum full analyze public.dia_wise_despatch;
+
+-- Step 3 -- NOT APPLIED. Weakest ratio of the three: 7.9 MB back for the
+-- highest peak (~468 MB from 341 MB) and a lock on the table every visit RPC
+-- uses. Consider skipping unless the headroom is actually needed.
+vacuum full analyze public.field_visits;
+
+-- AFTER: ANALYZE refreshed the planner statistics, which is what you want, but
+-- the first query against each table hits a cold cache. Warm the chatbot's main
+-- paths before handing it back:
+--   select public.visits_latest_month();
+--   select count(*) from agent.mv_despatch;
+--   select * from v_data_freshness;
+--   select public.visits_value_exists('customer','KAMALA');
+--
+-- VERIFY
+--   select pg_size_pretty(pg_database_size(current_database()));
+--   -- step 1 gave 358 MB, step 2 gave 340 MB (both confirmed).
+--   -- ~332 MB if step 3 is also run.
+--
+--   select relname, (pgstattuple(relid)).free_percent
+--   from pg_stat_user_tables
+--   where relname in ('field_visits','dia_wise_despatch','despatch_orders');
+--   -- expect low single digits on each
+--
+-- ROLLBACK
+--   None needed and none possible. A rewrite changes no data, only physical
+--   layout. If it is interrupted the original table is left untouched.

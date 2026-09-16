@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { useMatch, useNavigate } from 'react-router-dom';
+import { useMatch, useNavigate, Navigate } from 'react-router-dom';
 import { ArrowLeft, Clock, LayoutDashboard, Plus } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useAssistant } from './AssistantProvider';
 import ConversationView from './ConversationView';
@@ -21,6 +22,11 @@ import HistoryPane from './HistoryPane';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function AssistantPage() {
+  const { user } = useAuth();
+  if (user?.role === 'client') {
+    return <Navigate to="/states" replace />;
+  }
+
   const match = useMatch('/chat/:sessionId');
   const raw = match?.params?.sessionId;
   const param = raw && UUID.test(raw) ? raw : null;

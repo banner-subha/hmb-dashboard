@@ -761,6 +761,67 @@ body,
 [data-theme="light"] [data-accent='none']     { color: #067647 !important; }
 [data-theme="light"] [data-accent='low']      { color: #4A5771 !important; }
 
+/* Sales executive role tags (KRM / KRO / REP).
+ *
+ * One definition, because the same three tags are drawn in the dealer table,
+ * the scorecard modal and the sales team table. They were three copies of a
+ * Tailwind class string built on -300 text, which is a dark-surface shade: on
+ * the porcelain theme the fill, the border and the text all sat within a few
+ * percent of the card behind them and the tag stopped reading as a tag.
+ *
+ * KRM is amber rather than purple. Purple was the only hue on this page with
+ * no meaning attached to it elsewhere, and at 10px it was hard to tell from
+ * the blue of KRO at a glance.
+ */
+.role-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.role-tag[data-role='KRM'] {
+  background: rgba(245, 158, 11, 0.20);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+.role-tag[data-role='KRO'] {
+  background: rgba(56, 189, 248, 0.20);
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.45);
+}
+/* REP shares the KRO blue at a lower weight - only blue and yellow carry
+   role meaning on this page. */
+.role-tag[data-role='REP'] {
+  background: rgba(56, 189, 248, 0.10);
+  color: #bae6fd;
+  border-color: rgba(56, 189, 248, 0.28);
+}
+
+/* Light mode: the tint alone cannot carry a 10px tag on white, so the text
+   drops to the readable tone already used for that hue elsewhere and the
+   border takes over the work of separating tag from card. */
+[data-theme="light"] .role-tag[data-role='KRM'] {
+  background: rgba(245, 158, 11, 0.18);
+  color: #7A4200;
+  border-color: rgba(161, 92, 7, 0.50);
+}
+[data-theme="light"] .role-tag[data-role='KRO'] {
+  background: rgba(23, 80, 196, 0.13);
+  color: #14459F;
+  border-color: rgba(23, 80, 196, 0.46);
+}
+[data-theme="light"] .role-tag[data-role='REP'] {
+  background: rgba(23, 80, 196, 0.07);
+  color: #3A5E9E;
+  border-color: rgba(23, 80, 196, 0.30);
+}
+
 /* Geo map — light landmass fill. CSS fill !important overrides the SVG
    presentation attribute while D3's sel.attr('fill') still returns the
    no-data hex, so map logic is unaffected. */

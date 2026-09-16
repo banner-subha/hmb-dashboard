@@ -219,70 +219,49 @@ export async function businessPlanValueExists(dimension, value) {
   return data === true;
 }
 
-/** Never walk further than three years of plan months. */
-const MAX_PLAN_MONTHS = 36;
-
 /**
- * The newest month that has a plan — one request, and the only thing the rest
- * of the page has to wait for.
+ * The newest month that has a plan — the first thing every other section waits
+ * for.
  *
- * This is split out from `fetchPlanMonths` deliberately. Every section of the
- * tab needs a month before it can ask for anything, so whatever discovers the
- * month sits alone on the critical path. The full distinct-month walk costs a
- * round trip per month plus one to prove there are no more; putting that in
- * front of the first paint added most of a second to a page whose queries
- * take the database about 20ms each. The dropdown can fill in afterwards.
+ * Read from the month list rather than from `business_plan` directly. RLS on
+ * that table is deny-all for client roles by design — access goes through the
+ * SECURITY DEFINER RPCs — so the direct `.from('business_plan')` select this
+ * used to run returned zero rows and, worse, zero rows is not an error: it
+ * resolved to null and the page quietly fell back to a hard-coded month.
+ *
+ * The round trip this used to save no longer exists either. `get_plan_months()`
+ * resolves every month in one call, so the list is as cheap as the latest, and
+ * `cached` collapses the two callers onto a single in-flight request.
  */
 export async function fetchLatestPlanMonth() {
-  return cached('latestPlanMonth', async () => {
-    const { data, error } = await supabase
-      .from('business_plan')
-      .select('plan_month')
-      .not('plan_month', 'is', null)
-      .order('plan_month', { ascending: false })
-      .limit(1);
-
-    if (error) throw new Error(`business_plan months: ${error.message}`);
-    return data?.length ? toPlanMonth(data[0].plan_month) : null;
-  });
+  const months = await fetchPlanMonths();
+  return months[0] ?? null;
 }
 
 /**
- * Every month that has a plan, newest first — for the month dropdown.
+ * Every month that has a plan, newest first — for the month dropdown, and the
+ * source of the selected month.
  *
- * There is no RPC for this and PostgREST has no DISTINCT, so this walks the
- * distinct values with a keyset scan: one row at a time, each time asking for
- * the smallest `plan_month` greater than the last. That is a handful of tiny
- * requests instead of pulling all ~2,000 plan rows to read one column, and
- * unlike a bulk select it cannot be truncated by the API's row cap into a list
- * that silently misses a month. Nothing blocks on it — the page is already
- * showing the latest month's figures while this resolves.
+ * `get_plan_months()` resolves all distinct plan months in one round trip. It
+ * must be SECURITY DEFINER to do so: `business_plan` carries RLS with no
+ * policies, so an invoker-rights function reads it as the caller, matches
+ * nothing and returns an empty array — which is what emptied this dropdown
+ * while the rest of the page, served by the SECURITY DEFINER
+ * `query_business_plan`, showed real figures.
+ *
+ * A genuine failure throws rather than resolving empty. The silent empty array
+ * that used to come back here was indistinguishable from "this database has no
+ * plans", and the caller cannot tell a broken page from an empty one.
  */
 export async function fetchPlanMonths() {
   return cached('planMonths', async () => {
-    const months = [];
-    let cursor = null;
+    const { data, error } = await supabase.rpc('get_plan_months');
+    if (error) throw new Error(`business_plan months: ${error.message}`);
 
-    for (let i = 0; i < MAX_PLAN_MONTHS; i += 1) {
-      let q = supabase
-        .from('business_plan')
-        .select('plan_month')
-        .not('plan_month', 'is', null)
-        .order('plan_month', { ascending: true })
-        .limit(1);
-
-      if (cursor) q = q.gt('plan_month', cursor);
-
-      const { data, error } = await q;
-      if (error) throw new Error(`business_plan months: ${error.message}`);
-      if (!data || data.length === 0) break;
-
-      cursor = data[0].plan_month;
-      const normalised = toPlanMonth(cursor);
-      if (normalised && !months.includes(normalised)) months.push(normalised);
-    }
-
-    return months.sort((a, b) => b.localeCompare(a));
+    return (Array.isArray(data) ? data : [])
+      .map(toPlanMonth)
+      .filter(Boolean)
+      .sort((a, b) => b.localeCompare(a));
   });
 }
 

@@ -521,6 +521,18 @@ export function DataProvider({ children }) {
   const [error, setError] = useState(null);
   const [filters, dispatch] = useReducer(filterReducer, initialFilters);
 
+  // Signing in puts the dashboard back into loading, and does it during the
+  // render that carries the transition. The fetch effect below used to open
+  // with `setLoading(true)`, which committed a not-loading tree first and then
+  // immediately replaced it — a flash of the empty dashboard between signing in
+  // and the payload arriving. `loading` already starts true for a first visit;
+  // this covers signing back in after a sign-out, when it is false.
+  const [prevAuthed, setPrevAuthed] = useState(authed);
+  if (prevAuthed !== authed) {
+    setPrevAuthed(authed);
+    if (authed) setLoading(true);
+  }
+
   useEffect(() => {
     // Nothing to fetch until someone is signed in.
     //
@@ -533,7 +545,6 @@ export function DataProvider({ children }) {
     if (!authed) return undefined;
 
     let mounted = true;
-    setLoading(true);
     const timeout = setTimeout(() => {
       if (mounted) {
         setError('Loading timed out. Please check your connection and try again.');

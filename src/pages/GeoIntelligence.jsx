@@ -252,7 +252,17 @@ function trendStr(t) {
 // ─── Tooltip (fixed-positioned, follows mouse/touch) ────────────────────────────────
 function Tooltip({ tooltipRef, visible, name, data, filterType, selectedPendingMonth, selectedMonth, isDistrictView, onClose, rawData = null }) {
   const isPending = filterType === "PENDING";
-  const activeMonthKey = isPending ? selectedPendingMonth : (selectedMonth || null);
+
+  // Pending is scoped by month only in pending mode, where the user picked the
+  // month and the whole view is about backlog.
+  //
+  // In despatch mode the month selector governs despatch, and pending rides
+  // alongside it as the standing figure: the entire open backlog, whichever
+  // month is being read. Scoping it to the viewed month instead answers a
+  // question nobody asked — "orders booked in July that are still open" is a
+  // sliver of the backlog, and reads as zero for most districts in most
+  // months, which is exactly what it looked like.
+  const activeMonthKey = isPending ? selectedPendingMonth : 'ALL';
 
   // Backlog age label for pending mode, derived from actual entity pending history and selected period
   const backlogAgeLabel = (() => {
@@ -262,12 +272,10 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, selectedPendingM
 
   const despatchQty = data ? (data.despatchQty ?? (isPending ? (data.rawCur ?? data.despatchCur ?? 0) : (data.volume ?? data.cur ?? 0))) : 0;
   
-  // Resolve pending quantity for active month (or entity pending history / fallback)
-  const pendingQty = data ? (
-    data.pendingQty !== undefined
-      ? (getPendingForPeriod(data, activeMonthKey || 'ALL', rawData) || data.pendingQty)
-      : getPendingForPeriod(data, activeMonthKey || 'ALL', rawData)
-  ) : 0;
+  // The `|| data.pendingQty` that used to sit on this is gone. It could not
+  // tell a real zero from a failed lookup, so a district with its backlog
+  // genuinely cleared silently borrowed the entity's all-time total.
+  const pendingQty = data ? getPendingForPeriod(data, activeMonthKey || 'ALL', rawData) : 0;
 
   // Resolve daily average pace and clearance duration
   const dailyAvg = data ? (data.dailyAvgQty ?? data.currentDailyRate ?? 0) : 0;
@@ -322,10 +330,15 @@ function Tooltip({ tooltipRef, visible, name, data, filterType, selectedPendingM
             value={formatMT(despatchQty)} 
           />
 
-          {/* Pending Orders Volume */}
-          <Row 
-            label="Pending Orders" 
-            value={pendingQty > 0 ? formatMT(pendingQty) : '0 MT'} 
+          {/* Pending Orders Volume.
+
+              Called "Total Pending" in despatch mode, because that is the one
+              row here that does not move with the month selector above it. A
+              bare "Pending Orders" sitting under "Jul 2026" invites the reader
+              to take it for July's. */}
+          <Row
+            label={isPending ? 'Pending Orders' : 'Total Pending'}
+            value={pendingQty > 0 ? formatMT(pendingQty) : '0 MT'}
           />
 
           {/* Backlog Age (pending mode only) */}
@@ -437,10 +450,7 @@ function findAvailableMonth(selMonth, availMonths) {
 function resolvePeriodKey(selectedMonth, availableMonths, monthlyHistory) {
   if (availableMonths?.length) {
     const match = findAvailableMonth(selectedMonth, availableMonths);
-    if (match?.periodKey) {
-      console.log(`[resolvePeriodKey] Found via availableMonths: "${selectedMonth}" → periodKey="${match.periodKey}"`);
-      return match.periodKey;
-    }
+    if (match?.periodKey) return match.periodKey;
   }
   if (selectedMonth && monthlyHistory) {
     const parsed = String(selectedMonth).match(/([a-zA-Z]+)\s+(\d{4})/);
@@ -449,17 +459,9 @@ function resolvePeriodKey(selectedMonth, availableMonths, monthlyHistory) {
       const idx = months.findIndex(m => parsed[1].toLowerCase().startsWith(m));
       if (idx !== -1) {
         const key = `${parsed[2]}-${String(idx + 1).padStart(2, '0')}`;
-        const exists = !!monthlyHistory[key];
-        console.log(`[resolvePeriodKey] Fallback: "${selectedMonth}" → key="${key}" exists=${exists}`);
         if (monthlyHistory[key]) return key;
-      } else {
-        console.log(`[resolvePeriodKey] Fallback FAILED: could not parse month from "${selectedMonth}"`);
       }
-    } else {
-      console.log(`[resolvePeriodKey] Fallback FAILED: regex no match for "${selectedMonth}"`);
     }
-  } else {
-    console.log(`[resolvePeriodKey] No monthlyHistory available, selectedMonth="${selectedMonth}"`);
   }
   return null;
 }
@@ -488,11 +490,16 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
+  // Entering pending mode shows the whole backlog. Applied during the render
+  // that carries the switch, so the map never paints one frame of pending
+  // figures still scoped to the previously selected month.
+  const [prevFilterType, setPrevFilterType] = useState(filterState.type);
+  if (prevFilterType !== filterState.type) {
+    setPrevFilterType(filterState.type);
     if (filterState.type === 'PENDING') {
       setSelectedPendingMonth('ALL');
     }
-  }, [filterState.type]);
+  }
 
   const sortedPendingMonths = useMemo(() => {
     return [...pendingAvailableMonths].sort((a, b) => {
@@ -605,11 +612,17 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     };
   }, [rawData]);
 
-  useEffect(() => {
+  // The month list is derived from the payload, so the default cannot be an
+  // initial state value — there is no payload on the first render. Adopt it
+  // during the render in which it first becomes known, rather than an effect
+  // afterwards that left the month buttons briefly showing none selected.
+  const [prevCurMonthKey, setPrevCurMonthKey] = useState(monthButtons.curMonthKey);
+  if (prevCurMonthKey !== monthButtons.curMonthKey) {
+    setPrevCurMonthKey(monthButtons.curMonthKey);
     if (monthButtons.curMonthKey && !selectedMonth) {
       setSelectedMonth(monthButtons.curMonthKey);
     }
-  }, [monthButtons.curMonthKey, selectedMonth]);
+  }
 
   // ── dynamic total volume calculation for share percentage ──
   const totalVolume = useMemo(() => {
@@ -762,7 +775,6 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
     // Despatch / All filter Month
     const isCur = selectedMonth === monthButtons.curMonthKey;
     const isPrev = selectedMonth === monthButtons.prevMonthKey;
-    console.log(`[filteredSalesData] type=DESPATCH selectedMonth="${selectedMonth}" isCur=${isCur} isPrev=${isPrev} curKey="${monthButtons.curMonthKey}" prevKey="${monthButtons.prevMonthKey}"`);
 
     const getPrevPeriodKey = (pKey) => {
       if (!pKey) return null;
@@ -807,6 +819,13 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         const stateObj = {
           ...rawState,
           ...hs,
+          // Pinned after the history spread. A monthly slice describes despatch
+          // in that month and carries no backlog of its own, so whatever it has
+          // in these two fields must not displace the live snapshot's — the
+          // tooltip reads the backlog for the selected month out of
+          // pendingHistory, and an overwritten one reads as zero.
+          pendingQty: rawState.pendingQty,
+          pendingHistory: rawState.pendingHistory,
           name: stateName,
           cur,
           prev,
@@ -866,6 +885,9 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         const distObj = {
           ...rawDist,
           ...hd,
+          // Pinned after the history spread — see the state object above.
+          pendingQty: rawDist.pendingQty,
+          pendingHistory: rawDist.pendingHistory,
           name: districtName,
           lookupKey: hd.lookupKey || rawDist.lookupKey || normalizeName(districtName),
           cur,
@@ -883,7 +905,6 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         districts[stateName][districtName] = distObj;
       });
 
-        console.log('[GEO DEBUG] Returning historical states:', Object.keys(states), states['West Bengal'] || states['WEST BENGAL']);
         return { states, districts };
       }
     }
@@ -1136,21 +1157,6 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       .finally(() => setGeoLoading(false));
   }, []);
 
-
-  // ── district name comparison log ──
-  useEffect(() => {
-    if (selectedState && districtGeo && salesData?.districts?.[selectedState]) {
-      const topoNames = districtGeo.map(d => d.properties?.district || d.properties?.NAME_2 || d.properties?.name || d.properties?.NAME_1 || "");
-      const resolvedTopoNames = topoNames.map(name => resolveDistrict(name));
-      const rawDataNames = Object.keys(salesData.districts[selectedState]);
-      const resolvedRawDataNames = rawDataNames.map(name => resolveDistrict(name));
-      
-      console.log(`[GeoIntelligence] District names in TopoJSON for ${selectedState}:`, topoNames);
-      console.log(`[GeoIntelligence] Resolved District names in TopoJSON:`, resolvedTopoNames);
-      console.log(`[GeoIntelligence] District names in rawData for ${selectedState}:`, rawDataNames);
-      console.log(`[GeoIntelligence] Resolved District names in rawData:`, resolvedRawDataNames);
-    }
-  }, [selectedState, districtGeo, salesData]);
 
   // ── load district TopoJSON when state selected ──
   const handleStateClick = useCallback(async (name) => {
@@ -1450,7 +1456,6 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         deduped.push(item);
       }
     }
-    console.log('[GEO DEBUG] rankedStates output:', deduped);
     return deduped;
   }, [stateMap, filterState.type]);
 

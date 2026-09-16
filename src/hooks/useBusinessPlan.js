@@ -131,22 +131,17 @@ export function useBusinessPlan() {
 
   // ── Months ────────────────────────────────────────────────────────────────
   //
-  // Two queries, on purpose. The latest month is one request and gates every
-  // other section, so it is the only thing on the critical path; the full list
-  // of months costs a round trip per month and exists solely to fill the
-  // dropdown, so it resolves alongside the figures rather than ahead of them.
+  // Both of these now resolve from one `get_plan_months()` round trip, which
+  // the service layer caches — the latest month is simply the head of the
+  // list. They stay as two queries because the latest is what gates every
+  // other section, and the error and loading flags below are wired to it.
   const latestMonthQuery = useLatest(() => fetchLatestPlanMonth(), 'latestMonth');
   const monthsQuery = useLatest(() => fetchPlanMonths(), 'months', { initial: [] });
 
   const latestMonth = latestMonthQuery.data ?? null;
-
-  const months = useMemo(() => {
-    const list = monthsQuery.data || [];
-    // Until the walk finishes, the dropdown still has to offer the month the
-    // page is actually showing.
-    if (list.length === 0 && latestMonth) return [latestMonth];
-    return list;
-  }, [monthsQuery.data, latestMonth]);
+  // Memoised for identity, not for cost: this array is a prop of the memoised
+  // filter bar, and a fresh [] each render would defeat that.
+  const months = useMemo(() => monthsQuery.data || [], [monthsQuery.data]);
 
   /**
    * The month in force, derived rather than stored.
@@ -155,6 +150,12 @@ export function useBusinessPlan() {
    * default, and an explicit choice only holds while that month still exists
    * in the list — so a stale selection cannot leave the page querying a month
    * the database no longer has.
+   *
+   * It resolves to null rather than to a hard-coded month when there is no
+   * list. A literal '2026-08' here is what hid an RLS fault that emptied both
+   * month lookups: the dropdown read "No plan months" while every figure below
+   * it loaded, because the default happened to name the one month the table
+   * held. A page with no month must query nothing and say so.
    */
   const month = useMemo(() => {
     if (monthChoice && months.includes(monthChoice)) return monthChoice;
@@ -388,7 +389,7 @@ export function useBusinessPlan() {
     `options:${month}:${filters.state}:${filters.district}`,
     {
       initial: { states: [], districts: [], kros: [], krms: [] },
-      enabled: ready && !summaryInFlight,
+      enabled: ready,
     }
   );
 

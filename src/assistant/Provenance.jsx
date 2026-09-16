@@ -33,8 +33,8 @@ const CONFIDENCE_LABEL = {
  * difference between a right and a wrong number, not a detail.
  */
 function DealerDisclosure({ disclosure }) {
-  const matches = disclosure?.matches || [];
-  const suspect = matches.filter((m) => m.confidence === 'possible_mismatch');
+  const matches = Array.isArray(disclosure?.matches) ? disclosure.matches : [];
+  const suspect = matches.filter((m) => m && m.confidence === 'possible_mismatch');
   const caution = suspect.length > 0;
   const [toggled, setToggled] = useState(null);
 
@@ -85,9 +85,9 @@ function DealerDisclosure({ disclosure }) {
             <p className="mb-2 text-[0.8rem] leading-relaxed text-text-secondary">
               The filter “{disclosure.input}” folded in{' '}
               {suspect.map((m, i) => {
-                const name = m.matched_name || m.customer_name;
+                const name = m?.matched_name || m?.customer_name || (typeof m === 'string' ? m : `Dealer ${i + 1}`);
                 return (
-                  <span key={name}>
+                  <span key={`${name}-${i}`}>
                     {i > 0 && ', '}
                     <strong className="font-semibold text-severity-high">{name}</strong>
                   </span>
@@ -98,27 +98,27 @@ function DealerDisclosure({ disclosure }) {
           )}
           <table className="w-full text-[0.78rem]">
             <tbody>
-              {matches.map((m) => {
-                const name = m.matched_name || m.customer_name;
+              {matches.map((m, idx) => {
+                const name = m?.matched_name || m?.customer_name || (typeof m === 'string' ? m : `Dealer ${idx + 1}`);
                 return (
                   <tr
-                    key={name}
+                    key={`${name}-${idx}`}
                     className={
-                      m.confidence === 'possible_mismatch'
+                      m?.confidence === 'possible_mismatch'
                         ? 'text-severity-high'
                         : 'text-text-muted'
                     }
                   >
                     <td className="py-[3px] pr-2 font-medium">
                       {name}
-                      {m.customer_type && (
+                      {m?.customer_type && (
                         <span className="ml-2 inline-block rounded bg-bg-card/70 px-1 py-0.5 text-[0.68rem] text-text-muted">
                           {m.customer_type}
                         </span>
                       )}
                     </td>
                     <td className="whitespace-nowrap py-[3px] text-right text-[0.72rem]">
-                      {CONFIDENCE_LABEL[m.confidence] || m.confidence}
+                      {CONFIDENCE_LABEL[m?.confidence] || m?.confidence || 'matched'}
                     </td>
                   </tr>
                 );
@@ -205,19 +205,21 @@ export default function TurnProvenance({ tools = [], loadResult }) {
         seen.add(d.input);
         return true;
       })
-      .sort(
-        (a, b) =>
-          Number(b.matches?.some((m) => m.confidence === 'possible_mismatch')) -
-          Number(a.matches?.some((m) => m.confidence === 'possible_mismatch')),
-      );
+      .sort((a, b) => {
+        const aMatches = Array.isArray(a?.matches) ? a.matches : [];
+        const bMatches = Array.isArray(b?.matches) ? b.matches : [];
+        return (
+          Number(bMatches.some((m) => m?.confidence === 'possible_mismatch')) -
+          Number(aMatches.some((m) => m?.confidence === 'possible_mismatch'))
+        );
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, fetched, tools]);
 
-  const worthShowing = unique.filter(
-    (d) =>
-      (d.matches || []).length > 1 ||
-      (d.matches || []).some((m) => m.confidence === 'possible_mismatch'),
-  );
+  const worthShowing = unique.filter((d) => {
+    const matches = Array.isArray(d?.matches) ? d.matches : [];
+    return matches.length > 1 || matches.some((m) => m?.confidence === 'possible_mismatch');
+  });
 
   if (!worthShowing.length && !tools.some((t) => t.notFound || t.noData)) return null;
 

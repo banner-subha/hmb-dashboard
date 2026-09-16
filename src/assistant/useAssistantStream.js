@@ -23,21 +23,23 @@ function fromHistory(messages) {
         args: c.args,
         state: 'done',
       }));
-      if (tools.length) {
+      if (tools.length && !m.text) {
         pendingTools = pendingTools.concat(tools);
       } else {
         out.push({
           id: nextId(),
           role: 'assistant',
           text: m.text || '',
-          tools: pendingTools,
+          tools: pendingTools.concat(tools),
           charts: [],
           state: 'done',
         });
         pendingTools = [];
       }
     } else if (m.role === 'tool') {
-      const result = m.tool_result || {};
+      const result = typeof m.tool_result === 'object' && m.tool_result !== null
+        ? m.tool_result
+        : { error: String(m.tool_result || '') };
       resultsById[m.tool_call_id] = { ...result, tool: m.tool_name };
       const hit = pendingTools.find((t) => t.id === m.tool_call_id);
       if (hit) {
@@ -139,7 +141,13 @@ export default function useAssistantStream({ sessionId, onSessionCreated }) {
         setResults(resultsById);
       })
       .catch((err) => {
-        if (!cancelled) setLoadError(err.message);
+        if (!cancelled) {
+          setLoadError(err.message);
+          // If session is 404 or missing, automatically clear the broken session ID
+          if (err.status === 404 || String(err.message).toLowerCase().includes('not found')) {
+            onSessionCreated?.(null);
+          }
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingHistory(false);
@@ -277,6 +285,9 @@ export default function useAssistantStream({ sessionId, onSessionCreated }) {
               case 'error':
                 patch((m) => ({ ...m, state: 'error', error: data.message }));
                 setPhases([]);
+                if (String(data.message).toLowerCase().includes('session not found') || String(data.message).startsWith('404')) {
+                  onSessionCreated?.(null);
+                }
                 break;
 
               default:
@@ -287,6 +298,9 @@ export default function useAssistantStream({ sessionId, onSessionCreated }) {
       } catch (err) {
         if (err.name !== 'AbortError') {
           patch((m) => ({ ...m, state: 'error', error: err.message }));
+          if (err.status === 404 || String(err.message).toLowerCase().includes('session not found')) {
+            onSessionCreated?.(null);
+          }
         }
       } finally {
         abortRef.current = null;

@@ -18,6 +18,8 @@ import { PRODUCT_COLORS, PRODUCT_LABELS, getProductFullName, isWestBengalUser } 
 import { getPendingForPeriod, getBacklogClearance } from '../utils/pending';
 import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalDistricts } from '../utils/despatch';
 import { AGING_BUCKETS, getEntityAging, agingTotal } from '../utils/backlogAging';
+import ExportDropdown from '../components/common/ExportDropdown';
+import { downloadCsv, getExportFilename } from '../utils/csvExport';
 
 export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
   const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
@@ -27,7 +29,9 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
   const navigate = useNavigate();
 
   const [metricMode, setMetricMode] = useState("DESPATCH");
-  const [selectedPendingMonth, setSelectedPendingMonth] = useState("");
+  const [selectedPendingMonth, setSelectedPendingMonth] = useState(
+    () => (metricMode === 'PENDING' ? 'ALL' : getCurMonthKey(rawData)),
+  );
   const lastSyncedParamsRef = useRef(null);
 
   const sortedPendingMonths = useMemo(() => {
@@ -39,14 +43,17 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
   const despatchAvailableMonths = useMemo(() => getDespatchAvailableMonths(rawData), [rawData]);
 
-  // Default pending filter date to "Total Backlog" ('ALL') when switching to PENDING mode
-  useEffect(() => {
-    if (metricMode === 'PENDING') {
-      setSelectedPendingMonth('ALL');
-    } else {
-      setSelectedPendingMonth(getCurMonthKey(rawData));
-    }
-  }, [metricMode, rawData]);
+  // Default pending filter date to "Total Backlog" ('ALL') when switching to
+  // PENDING mode, and back to the current despatch month on the way out.
+  //
+  // Applied during the render that carries the change rather than from an
+  // effect: an effect committed one frame of the new mode still holding the old
+  // mode's month, which reads as a wrong figure rather than as a transition.
+  const [monthResetDeps, setMonthResetDeps] = useState({ metricMode, rawData });
+  if (monthResetDeps.metricMode !== metricMode || monthResetDeps.rawData !== rawData) {
+    setMonthResetDeps({ metricMode, rawData });
+    setSelectedPendingMonth(metricMode === 'PENDING' ? 'ALL' : getCurMonthKey(rawData));
+  }
 
   const filteredDistricts = useMemo(() => {
     if (!data) return [];
@@ -391,6 +398,79 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
     ];
   }, [metricMode, selectedPendingMonth, data]);
 
+  const handleExportFiltered = () => {
+    const isPending = metricMode === 'PENDING';
+    const totalVolume = filteredDistricts.reduce((sum, r) => sum + (Number(r.cur) || 0), 0);
+    const cols = isPending ? [
+      { label: 'State', key: 'state' },
+      { label: 'District', key: 'district' },
+      { label: 'Pending Orders (MT)', getValue: r => (getPendingForPeriod(r, selectedPendingMonth) || 0).toFixed(1) },
+      { label: 'Clearance (Days)', getValue: r => {
+        const p = getPendingForPeriod(r, selectedPendingMonth);
+        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
+        const days = getBacklogClearance(p, d).days;
+        return days != null && !isNaN(days) && isFinite(days) ? Number(days).toFixed(1) : '—';
+      }},
+      { label: 'Clearance Status', getValue: r => {
+        const p = getPendingForPeriod(r, selectedPendingMonth);
+        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
+        return getBacklogClearance(p, d).status || 'NORMAL';
+      }},
+      { label: 'Daily Average Run Rate (MT/d)', getValue: r => (r.dailyAvgQty ?? r.currentDailyRate ?? 0).toFixed(1) },
+      { label: 'Oldest Order Date', getValue: r => r.oldestPendingDate || '—' },
+      { label: 'All-Time Backlog (MT)', getValue: r => (getPendingForPeriod(r, 'ALL') || 0).toFixed(1) },
+    ] : [
+      { label: 'State', key: 'state' },
+      { label: 'District', key: 'district' },
+      { label: 'Despatch Volume (MT)', getValue: r => (r.cur != null ? Number(r.cur).toFixed(1) : '0.0') },
+      { label: 'Previous Volume (MT)', getValue: r => (r.prev != null ? Number(r.prev).toFixed(1) : '0.0') },
+      { label: 'MoM Growth %', getValue: r => (r.mom != null ? Number(r.mom).toFixed(1) + '%' : '—') },
+      { label: 'Volume Share %', getValue: r => (totalVolume > 0 && r.cur > 0 ? ((r.cur / totalVolume) * 100).toFixed(1) + '%' : (r.share != null ? Number(r.share).toFixed(1) + '%' : '0.0%')) },
+      { label: 'Avg Period (Days)', getValue: r => (r.avgPeriod != null ? Number(r.avgPeriod).toFixed(1) : '—') },
+      { label: 'Pace Status', getValue: r => r.lossFlag || '—' },
+      { label: 'Pace vs Avg %', getValue: r => (r.lossDeltaPct != null ? (r.lossFlag === 'BEHIND' ? '-' : '+') + Number(r.lossDeltaPct).toFixed(1) + '%' : '—') },
+      { label: 'Current Daily Rate (MT/d)', getValue: r => (r.currentDailyRate != null ? Number(r.currentDailyRate).toFixed(1) : '—') },
+      { label: 'Historical Daily Avg (MT/d)', getValue: r => (r.dailyAvgQty != null ? Number(r.dailyAvgQty).toFixed(1) : '—') },
+    ];
+
+    const filename = getExportFilename(`districts_${metricMode.toLowerCase()}_${selectedPendingMonth || 'current'}`, 'filtered');
+    downloadCsv(filename, cols, filteredDistricts);
+  };
+
+  const handleExportRaw = () => {
+    const rawDistricts = rawData?.districts || [];
+    const totalVolume = rawDistricts.reduce((sum, r) => sum + (Number(r.cur) || 0), 0);
+    const cols = [
+      { label: 'State', key: 'state' },
+      { label: 'District', key: 'district' },
+      { label: 'Despatch Volume (MT)', getValue: r => (r.cur != null ? Number(r.cur).toFixed(1) : '0.0') },
+      { label: 'Previous Volume (MT)', getValue: r => (r.prev != null ? Number(r.prev).toFixed(1) : '0.0') },
+      { label: 'MoM Growth %', getValue: r => (r.mom != null ? Number(r.mom).toFixed(1) + '%' : '—') },
+      { label: 'Volume Share %', getValue: r => (totalVolume > 0 && r.cur > 0 ? ((r.cur / totalVolume) * 100).toFixed(1) + '%' : (r.share != null ? Number(r.share).toFixed(1) + '%' : '0.0%')) },
+      { label: 'Total Pending Backlog (MT)', getValue: r => (getPendingForPeriod(r, 'ALL') || 0).toFixed(1) },
+      { label: 'Clearance (Days)', getValue: r => {
+        const p = getPendingForPeriod(r, 'ALL');
+        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
+        const days = getBacklogClearance(p, d).days;
+        return days != null && !isNaN(days) && isFinite(days) ? Number(days).toFixed(1) : '—';
+      }},
+      { label: 'Clearance Status', getValue: r => {
+        const p = getPendingForPeriod(r, 'ALL');
+        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
+        return getBacklogClearance(p, d).status || 'NORMAL';
+      }},
+      { label: 'Avg Period (Days)', getValue: r => (r.avgPeriod != null ? Number(r.avgPeriod).toFixed(1) : '—') },
+      { label: 'Daily Avg Despatch (MT/d)', getValue: r => (r.dailyAvgQty != null ? Number(r.dailyAvgQty).toFixed(1) : '—') },
+      { label: 'Current Daily Rate (MT/d)', getValue: r => (r.currentDailyRate != null ? Number(r.currentDailyRate).toFixed(1) : '—') },
+      { label: 'Pace Status', getValue: r => r.lossFlag || '—' },
+      { label: 'Oldest Pending Date', getValue: r => r.oldestPendingDate || '—' },
+      { label: 'Product Breakdown (MT)', getValue: r => (r.products || []).map(p => `${p.product}: ${p.cur || 0} MT`).join('; ') },
+    ];
+
+    const filename = getExportFilename('districts', 'raw_all');
+    downloadCsv(filename, cols, rawDistricts);
+  };
+
   // NOTE: Must be declared before any early returns to satisfy Rules of Hooks.
   const products = data?.products || [];
 
@@ -625,6 +705,15 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
               <div className="shrink-0 w-[150px] sm:w-[180px]">
                 <SearchInput placeholder="Search district name..." />
               </div>
+
+              <ExportDropdown
+                label="CSV"
+                entityName="Districts"
+                filteredCount={filteredDistricts.length}
+                rawCount={(rawData?.districts || []).length}
+                onExportFiltered={handleExportFiltered}
+                onExportRaw={handleExportRaw}
+              />
             </div>
 
             <DataTable 

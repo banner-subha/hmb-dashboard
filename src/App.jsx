@@ -208,11 +208,12 @@ function StateIntelligenceWrapper() {
  * floating over the full-page view would be the same conversation twice.
  */
 function AssistantMount() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const location = useLocation();
 
   const suppressed =
     !isAuthenticated ||
+    user?.role === 'client' ||
     location.pathname === '/login' ||
     location.pathname.startsWith('/chat');
 
@@ -329,18 +330,20 @@ function App() {
                   path="/chat/*"
                   element={
                     <RequireAuth>
-                      <Suspense
-                        fallback={
-                          <div className="flex h-[100dvh] items-center justify-center bg-bg-primary text-text-muted">
-                            <div className="flex flex-col items-center gap-3">
-                              <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-blue/30 border-t-accent-blue" />
-                              <span className="text-xs font-medium tracking-wide">Loading the assistant…</span>
+                      <RequireAdminRoute>
+                        <Suspense
+                          fallback={
+                            <div className="flex h-[100dvh] items-center justify-center bg-bg-primary text-text-muted">
+                              <div className="flex flex-col items-center gap-3">
+                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-blue/30 border-t-accent-blue" />
+                                <span className="text-xs font-medium tracking-wide">Loading the assistant…</span>
+                              </div>
                             </div>
-                          </div>
-                        }
-                      >
-                        <AssistantPage />
-                      </Suspense>
+                          }
+                        >
+                          <AssistantPage />
+                        </Suspense>
+                      </RequireAdminRoute>
                     </RequireAuth>
                   }
                 />

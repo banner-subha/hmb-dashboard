@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import ErrorBoundary from '../components/common/ErrorBoundary';
 import {
   Area,
   AreaChart,
@@ -46,6 +47,17 @@ const UNIT = {
   pct_of_total: '%',
   achievement_pct: '%',
   match_pct: '%',
+  sp_target_pct: '%',
+  participation_pct: '%',
+  sp_target: ' t',
+  potential: ' t',
+  actual: ' t',
+  bp_sp_target: ' t',
+  bp_potential: ' t',
+  actual_despatch: ' t',
+  total_sp_target: ' t',
+  total_potential: ' t',
+  cur_despatch_mt: ' t',
   avg_rate: '',
   revenue: '',
 };
@@ -65,6 +77,17 @@ const METRIC_LABEL = {
   gap: 'Gap',
   max_age_days: 'Oldest (days)',
   avg_age_days: 'Average age (days)',
+  line_count: 'Dispatches',
+  invoice_count: 'Invoices',
+  avg_line_tonnes: 'Avg per Dispatch',
+  visit_count: 'Visits',
+  cur_visits: 'Visits',
+  unique_customers: 'Customers Visited',
+  total_sp_target: 'SP Target',
+  total_potential: 'Market Potential',
+  actual_despatch: 'Actual Despatch',
+  bp_dealers: 'Planned Dealers',
+  active_dealers: 'Active Dealers',
 };
 
 function formatValue(v, metric) {
@@ -146,12 +169,19 @@ export default function ChartBlock({ spec, loadResult }) {
   const data = useMemo(() => {
     if (!payload?.rows) return [];
     return payload.rows
-      .map((r) => ({
-        name: String(r.grp?.[spec.x] ?? '—'),
-        value: r[spec.y] == null ? null : Number(r[spec.y]),
-        share: r.pct_of_total == null ? null : Number(r.pct_of_total),
-      }))
-      .filter((d) => d.value != null)
+      .map((r) => {
+        const rawName = r.grp?.[spec.x] ?? r[spec.x] ?? '—';
+        const rawVal = r[spec.y];
+        const val = rawVal == null ? null : Number(rawVal);
+        const rawShare = r.pct_of_total;
+        const share = rawShare == null ? null : Number(rawShare);
+        return {
+          name: String(rawName),
+          value: Number.isFinite(val) ? val : null,
+          share: Number.isFinite(share) ? share : null,
+        };
+      })
+      .filter((d) => d.value !== null)
       .slice(0, 24);
   }, [payload, spec.x, spec.y]);
 
@@ -209,80 +239,88 @@ export default function ChartBlock({ spec, loadResult }) {
         </figcaption>
       )}
       <div className="rounded-xl border border-border bg-bg-card p-3">
-        <ResponsiveContainer width="100%" height={spec.chart === 'pie' ? 300 : 280}>
-          {spec.chart === 'bar' ? (
-            <BarChart {...common}>
-              {grid}
-              {xAxis}
-              {yAxis}
-              {tip}
-              <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={52}>
-                {data.map((d, i) => (
-                  <Cell key={d.name} fill={PALETTE[i % PALETTE.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          ) : spec.chart === 'line' ? (
-            <LineChart {...common}>
-              {grid}
-              {xAxis}
-              {yAxis}
-              {tip}
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke={PALETTE[1]}
-                strokeWidth={2}
-                dot={{ r: 3, fill: PALETTE[1] }}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          ) : spec.chart === 'area' ? (
-            <AreaChart {...common}>
-              <defs>
-                <linearGradient id={`fill-${spec.source}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={PALETTE[1]} stopOpacity={0.34} />
-                  <stop offset="100%" stopColor={PALETTE[1]} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              {grid}
-              {xAxis}
-              {yAxis}
-              {tip}
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke={PALETTE[1]}
-                strokeWidth={2}
-                fill={`url(#fill-${spec.source})`}
-              />
-            </AreaChart>
-          ) : (
-            <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-              {tip}
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="name"
-                innerRadius="46%"
-                outerRadius="72%"
-                paddingAngle={1.5}
-                stroke="var(--color-bg-card)"
-                strokeWidth={2}
-              >
-                {data.map((d, i) => (
-                  <Cell key={d.name} fill={PALETTE[i % PALETTE.length]} />
-                ))}
-              </Pie>
-              <Legend
-                verticalAlign="bottom"
-                iconType="circle"
-                iconSize={8}
-                wrapperStyle={{ fontSize: 11, color: 'var(--color-text-muted)' }}
-              />
-            </PieChart>
-          )}
-        </ResponsiveContainer>
+        <ErrorBoundary
+          fallback={
+            <div className="flex h-[200px] items-center justify-center text-center text-[0.82rem] text-text-muted">
+              Chart could not be rendered for this dataset.
+            </div>
+          }
+        >
+          <ResponsiveContainer width="100%" height={spec.chart === 'pie' ? 300 : 280}>
+            {spec.chart === 'bar' ? (
+              <BarChart {...common}>
+                {grid}
+                {xAxis}
+                {yAxis}
+                {tip}
+                <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={52}>
+                  {data.map((d, i) => (
+                    <Cell key={d.name} fill={PALETTE[i % PALETTE.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            ) : spec.chart === 'line' ? (
+              <LineChart {...common}>
+                {grid}
+                {xAxis}
+                {yAxis}
+                {tip}
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke={PALETTE[1]}
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: PALETTE[1] }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            ) : spec.chart === 'area' ? (
+              <AreaChart {...common}>
+                <defs>
+                  <linearGradient id={`fill-${spec.source}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={PALETTE[1]} stopOpacity={0.34} />
+                    <stop offset="100%" stopColor={PALETTE[1]} stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                {grid}
+                {xAxis}
+                {yAxis}
+                {tip}
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke={PALETTE[1]}
+                  strokeWidth={2}
+                  fill={`url(#fill-${spec.source})`}
+                />
+              </AreaChart>
+            ) : (
+              <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+                {tip}
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius="46%"
+                  outerRadius="72%"
+                  paddingAngle={1.5}
+                  stroke="var(--color-bg-card)"
+                  strokeWidth={2}
+                >
+                  {data.map((d, i) => (
+                    <Cell key={d.name} fill={PALETTE[i % PALETTE.length]} />
+                  ))}
+                </Pie>
+                <Legend
+                  verticalAlign="bottom"
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 11, color: 'var(--color-text-muted)' }}
+                />
+              </PieChart>
+            )}
+          </ResponsiveContainer>
+        </ErrorBoundary>
       </div>
     </figure>
   );

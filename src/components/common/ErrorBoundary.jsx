@@ -13,6 +13,10 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('ErrorBoundary caught:', error, info);
+    // An owner that supplies its own fallback usually also owns the state that
+    // produced the crash, and has to know a catch happened to clear it. Without
+    // this it can only offer a retry that re-renders the same poisoned input.
+    this.props.onError?.(error, info);
   }
 
   handleRetry = () => {

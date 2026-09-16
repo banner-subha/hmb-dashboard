@@ -118,14 +118,18 @@ function getEntityPendingOrders(row, fullData) {
 // ── Collapsible Hierarchy Tree Node Component ─────────────────────────────
 function HierarchyTreeNodeItem({ node, depth = 1 }) {
   const hasChildren = Array.isArray(node.children) && node.children.length > 0;
-  // Initialize and sync isExpanded from node.autoExpand
+  // Initialize and sync isExpanded from node.autoExpand. Synced during render,
+  // so a search that auto-expands the tree paints expanded rather than painting
+  // collapsed and then opening.
   const [isExpanded, setIsExpanded] = useState(Boolean(node.autoExpand));
 
-  useEffect(() => {
+  const [prevAutoExpand, setPrevAutoExpand] = useState(node.autoExpand);
+  if (prevAutoExpand !== node.autoExpand) {
+    setPrevAutoExpand(node.autoExpand);
     if (node.autoExpand !== undefined) {
       setIsExpanded(Boolean(node.autoExpand));
     }
-  }, [node.autoExpand]);
+  }
 
   const isProduct = node.type === 'PRODUCT';
   const labelText = isProduct ? (PRODUCT_LABELS[node.name] || node.name) : node.name;
@@ -1019,8 +1023,28 @@ export default function AlertIntelligence() {
     return unifiedRows.slice(startIndex, startIndex + pageSize);
   }, [unifiedRows, currentPage, viewMode]);
 
-  // Auto-expand rows when search query is active so hierarchy is immediately visible
-  useEffect(() => {
+  // Changing any filter returns to page one and resets which rows are open; a
+  // search of two characters or more also auto-expands the first screenful so
+  // the hierarchy is immediately visible.
+  //
+  // Done during render. As an effect this was the cascading case the rule warns
+  // about and then some: it set `currentPage`, which feeds `paginatedRows`,
+  // whose length was one of its own dependencies — so a filter change committed
+  // a page of stale rows, re-ran, and committed again.
+  const rowResetKey = [
+    debouncedSearchQuery,
+    selectedState,
+    dispatchSeverityFilter,
+    riskSeverityFilter,
+    selectedLevel,
+    selectedProduct,
+    viewMode,
+    paginatedRows.length,
+  ].join(' ');
+
+  const [prevRowResetKey, setPrevRowResetKey] = useState(rowResetKey);
+  if (prevRowResetKey !== rowResetKey) {
+    setPrevRowResetKey(rowResetKey);
     setCurrentPage(1);
     if (debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2) {
       const indices = new Set();
@@ -1031,7 +1055,7 @@ export default function AlertIntelligence() {
     } else {
       setExpandedRows(new Set());
     }
-  }, [debouncedSearchQuery, selectedState, dispatchSeverityFilter, riskSeverityFilter, selectedLevel, selectedProduct, viewMode, paginatedRows.length]);
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER

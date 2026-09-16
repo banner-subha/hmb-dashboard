@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Briefcase, AlertTriangle, RotateCcw } from 'lucide-react';
 
 import SearchInput from '../components/common/SearchInput';
@@ -14,7 +14,24 @@ import VisitTrendsPanel from '../components/visits/VisitTrendsPanel';
 import DealerScorecardModal from '../components/visits/DealerScorecardModal';
 
 import { useVisitData } from '../hooks/useVisitData';
-import { VISIT_SECTIONS } from '../utils/visits';
+import { useRawData } from '../context/DataContext';
+import {
+  VISIT_SECTIONS,
+  buildDespatchIndex,
+  buildBusinessPlanDistrictIndex,
+  buildBusinessPlanDealerIndex,
+  buildRepRoleIndex,
+  attachDistrictSales,
+  REP_ROLES,
+  quadrantConfig,
+  comparableAvg,
+  comparableFabricatorAvg,
+  visitTrend,
+  isUnlinked,
+} from '../utils/visits';
+import { queryBusinessPlan } from '../services/businessPlanService';
+import ExportDropdown from '../components/common/ExportDropdown';
+import { downloadCsv, getExportFilename } from '../utils/csvExport';
 
 /**
  * Field Visits & Tracker.
@@ -41,12 +58,111 @@ export default function VisitIntelligence() {
   const [quadrant, setQuadrant] = useState('ALL');
   const [query, setQuery] = useState('');
   const [selectedDealer, setSelectedDealer] = useState(null);
+  const [repRole, setRepRole] = useState('ALL');
 
+  // The dispatch feed lives in the dashboard payload, not the visit payload, so
+  // the sales side of this tab is joined here rather than in the parser. It
+  // also repairs the parser's own join: 16 districts the two feeds spell
+  // differently were reporting no sales at all.
+  const { rawData } = useRawData();
+  const despatchIndex = useMemo(
+    () => buildDespatchIndex(rawData?.districts || []),
+    [rawData]
+  );
+  const despatchElapsedDays = rawData?.meta?.curElapsedDays ?? 0;
+
+  // Live Business Plan targets from public.business_plan.
+  //
+  // Two grains, two requests. The dealer rows do not roll up into the district
+  // figures: a district's plan covers accounts that never appear in the visit
+  // tracker, so summing the dealer grain would quietly understate every
+  // district. Asking for each grain separately keeps the two tabs reporting
+  // what the plan actually says at their own level.
+  const [bpDistrictTargets, setBpDistrictTargets] = useState(null);
+  const [bpDealerTargets, setBpDealerTargets] = useState(null);
+  const [repRoleNames, setRepRoleNames] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    queryBusinessPlan({ dimensions: ['state', 'district'], limit: 1000 })
+      .then(rows => {
+        if (mounted && Array.isArray(rows) && rows.length > 0) {
+          setBpDistrictTargets(rows);
+        }
+      })
+      .catch(err => {
+        console.warn('[VisitIntelligence] Live BP district targets fetch warning:', err);
+      });
+
+    // Roughly 2,000 rows against ~2,400 dealers in the tracker, so the ceiling
+    // is headroom rather than a page size.
+    queryBusinessPlan({ dimensions: ['state', 'district', 'dealer'], limit: 5000 })
+      .then(rows => {
+        if (mounted && Array.isArray(rows) && rows.length > 0) {
+          setBpDealerTargets(rows);
+        }
+      })
+      .catch(err => {
+        console.warn('[VisitIntelligence] Live BP dealer targets fetch warning:', err);
+      });
+
+    // Who is a KRM and who is a KRO. Three one-column reads rather than one
+    // wide one: the RPC groups by the dimensions it is given, so asking for all
+    // three at once returns their cross product instead of three lists.
+    Promise.all([
+      queryBusinessPlan({ dimensions: ['krm'], limit: 2000 }),
+      queryBusinessPlan({ dimensions: ['kro'], limit: 2000 }),
+      queryBusinessPlan({ dimensions: ['jr_kro'], limit: 2000 }),
+    ])
+      .then(([krmRows, kroRows, jrRows]) => {
+        if (!mounted) return;
+        setRepRoleNames({
+          krm: krmRows.map(r => r.grp?.krm).filter(Boolean),
+          kro: kroRows.map(r => r.grp?.kro).filter(Boolean),
+          jrKro: jrRows.map(r => r.grp?.jr_kro).filter(Boolean),
+        });
+      })
+      .catch(err => {
+        console.warn('[VisitIntelligence] Rep role fetch warning:', err);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const repRoleIndex = useMemo(
+    () => (repRoleNames ? buildRepRoleIndex(repRoleNames) : null),
+    [repRoleNames]
+  );
+
+  const bpIndex = useMemo(
+    () => (bpDistrictTargets ? buildBusinessPlanDistrictIndex(bpDistrictTargets) : null),
+    [bpDistrictTargets]
+  );
+
+  const bpDealerIndex = useMemo(
+    () => (bpDealerTargets ? buildBusinessPlanDealerIndex(bpDealerTargets) : null),
+    [bpDealerTargets]
+  );
+
+  // The dealer index goes in rather than being applied to the result: the group
+  // cards filter on `quadrant`, which this recomputes, so it has to land before
+  // the filtering rather than after it.
   const {
     data, loading, error,
     dealers, districts, reps,
     summary, stateOptions, salesLink, counts,
-  } = useVisitData({ state, quadrant, query });
+  } = useVisitData({
+    state,
+    quadrant,
+    query,
+    role: repRole,
+    bpDealerIndex,
+    repRoleIndex,
+    elapsedDays: despatchElapsedDays,
+  });
 
   /**
    * The group cards filter the dealer table, so picking one moves you there.
@@ -64,6 +180,110 @@ export default function VisitIntelligence() {
     () => VISIT_SECTIONS.find(s => s.key === section) || VISIT_SECTIONS[0],
     [section]
   );
+
+  const districtsWithSales = useMemo(
+    () => attachDistrictSales(districts, despatchIndex, despatchElapsedDays, bpIndex),
+    [districts, despatchIndex, despatchElapsedDays, bpIndex]
+  );
+
+  const handleExportFiltered = () => {
+    if (section === 'dealers') {
+      const cols = [
+        { label: 'Dealer Name', key: 'dealer' },
+        { label: 'State', getValue: r => r.state || 'Not recorded' },
+        { label: 'District', getValue: r => r.district || 'Not recorded' },
+        { label: 'Pincode', getValue: r => r.pincode || '—' },
+        { label: 'Account Group', getValue: r => quadrantConfig(r.quadrant)?.label || r.quadrant || '—' },
+        { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
+        { label: 'Historical Benchmark Visits', getValue: r => comparableAvg(r) },
+        { label: 'Visit Net Growth', getValue: r => visitTrend(r).growth },
+        { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : (isUnlinked(r) ? 'Unbilled' : '0.0')) },
+        { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
+        { label: 'Target Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
+        { label: 'Market Potential (MT)', getValue: r => (r.bpPotential != null ? Number(r.bpPotential).toFixed(1) : '—') },
+      ];
+      downloadCsv(getExportFilename('field_dealers', 'filtered'), cols, dealers);
+    } else if (section === 'districts') {
+      const cols = [
+        { label: 'District', key: 'district' },
+        { label: 'State', key: 'state' },
+        { label: 'Fabricator Visits This Month', getValue: r => r.curFabricatorVisits || 0 },
+        { label: 'Historical Benchmark Visits', getValue: r => comparableFabricatorAvg(r) },
+        { label: 'Fabricator Visit Growth', getValue: r => Math.round(r.fabricatorGrowth ?? 0) || 0 },
+        { label: 'Dealer Coverage %', getValue: r => (r.dealerCoveragePct != null ? Number(r.dealerCoveragePct).toFixed(1) + '%' : '—') },
+        { label: 'Dealers Visited', getValue: r => r.dealersVisited || 0 },
+        { label: 'Total Dealers in District', getValue: r => r.dealersTotal || 0 },
+        { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : '0.0') },
+        { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
+        { label: 'Plan Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
+      ];
+      downloadCsv(getExportFilename('field_districts', 'filtered'), cols, districtsWithSales);
+    } else if (section === 'reps') {
+      const cols = [
+        { label: 'Sales Representative', key: 'rep' },
+        { label: 'Role', getValue: r => r.role || 'Field Rep' },
+        { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
+        { label: 'Previous Month Visits (MTD)', getValue: r => (r.prevVisitsMtd != null ? r.prevVisitsMtd : '—') },
+        { label: 'Net Change in Visits', getValue: r => (r.prevVisitsMtd != null ? (r.curVisits - r.prevVisitsMtd) : '—') },
+        { label: 'Visits Per Active Day', getValue: r => (r.visitsPerActiveDay != null ? Number(r.visitsPerActiveDay).toFixed(1) : '—') },
+        { label: 'Active Working Days', getValue: r => r.activeDays || 0 },
+        { label: 'Unique Accounts Visited', getValue: r => r.uniqueCustomers || 0 },
+        { label: 'Dealer Visits', getValue: r => r.dealerVisits || 0 },
+        { label: 'Fabricator Visits', getValue: r => r.fabricatorVisits || 0 },
+      ];
+      downloadCsv(getExportFilename('field_sales_team', 'filtered'), cols, reps);
+    }
+  };
+
+  const handleExportRaw = () => {
+    if (section === 'dealers') {
+      const cols = [
+        { label: 'Dealer Name', key: 'dealer' },
+        { label: 'State', getValue: r => r.state || 'Not recorded' },
+        { label: 'District', getValue: r => r.district || 'Not recorded' },
+        { label: 'Pincode', getValue: r => r.pincode || '—' },
+        { label: 'Account Group', getValue: r => quadrantConfig(r.quadrant)?.label || r.quadrant || '—' },
+        { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
+        { label: 'Historical Benchmark Visits', getValue: r => comparableAvg(r) },
+        { label: 'Visit Net Growth', getValue: r => visitTrend(r).growth },
+        { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : (isUnlinked(r) ? 'Unbilled' : '0.0')) },
+        { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
+        { label: 'Target Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
+        { label: 'Market Potential (MT)', getValue: r => (r.bpPotential != null ? Number(r.bpPotential).toFixed(1) : '—') },
+      ];
+      downloadCsv(getExportFilename('field_dealers', 'raw_all'), cols, data?.dealers || []);
+    } else if (section === 'districts') {
+      const allDistrictsWithSales = attachDistrictSales(data?.districts || [], despatchIndex, despatchElapsedDays, bpIndex);
+      const cols = [
+        { label: 'District', key: 'district' },
+        { label: 'State', key: 'state' },
+        { label: 'Fabricator Visits This Month', getValue: r => r.curFabricatorVisits || 0 },
+        { label: 'Historical Benchmark Visits', getValue: r => comparableFabricatorAvg(r) },
+        { label: 'Fabricator Visit Growth', getValue: r => Math.round(r.fabricatorGrowth ?? 0) || 0 },
+        { label: 'Dealer Coverage %', getValue: r => (r.dealerCoveragePct != null ? Number(r.dealerCoveragePct).toFixed(1) + '%' : '—') },
+        { label: 'Dealers Visited', getValue: r => r.dealersVisited || 0 },
+        { label: 'Total Dealers in District', getValue: r => r.dealersTotal || 0 },
+        { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : '0.0') },
+        { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
+        { label: 'Plan Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
+      ];
+      downloadCsv(getExportFilename('field_districts', 'raw_all'), cols, allDistrictsWithSales);
+    } else if (section === 'reps') {
+      const cols = [
+        { label: 'Sales Representative', key: 'rep' },
+        { label: 'Role', getValue: r => r.role || 'Field Rep' },
+        { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
+        { label: 'Previous Month Visits (MTD)', getValue: r => (r.prevVisitsMtd != null ? r.prevVisitsMtd : '—') },
+        { label: 'Net Change in Visits', getValue: r => (r.prevVisitsMtd != null ? (r.curVisits - r.prevVisitsMtd) : '—') },
+        { label: 'Visits Per Active Day', getValue: r => (r.visitsPerActiveDay != null ? Number(r.visitsPerActiveDay).toFixed(1) : '—') },
+        { label: 'Active Working Days', getValue: r => r.activeDays || 0 },
+        { label: 'Unique Accounts Visited', getValue: r => r.uniqueCustomers || 0 },
+        { label: 'Dealer Visits', getValue: r => r.dealerVisits || 0 },
+        { label: 'Fabricator Visits', getValue: r => r.fabricatorVisits || 0 },
+      ];
+      downloadCsv(getExportFilename('field_sales_team', 'raw_all'), cols, data?.reps || []);
+    }
+  };
 
   if (loading) {
     return (
@@ -100,7 +320,7 @@ export default function VisitIntelligence() {
     );
   }
 
-  const rowsFor = { dealers, districts, reps };
+  const rowsFor = { dealers, districts: districtsWithSales, reps };
   const visibleCount = rowsFor[section]?.length ?? 0;
   const filtersOn = state !== 'ALL' || quadrant !== 'ALL' || query !== '';
 
@@ -210,16 +430,66 @@ export default function VisitIntelligence() {
             })}
           </div>
 
-          {active.searchHint && (
-            <div className="w-full xl:w-[22rem]">
-              <SearchInput
-                size="lg"
-                value={query}
-                onChange={setQuery}
-                placeholder={active.searchHint}
+          <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+            {/* Role is a sales-team fact, so the control only exists on that
+                view. KRM, KRO and everyone else — field staff who carry visits
+                but hold no account in the Business Plan — are the three groups
+                the plan itself recognises. */}
+            {section === 'reps' && (
+              <div
+                role="group"
+                aria-label="Filter by role"
+                className="flex items-center gap-1 p-1 bg-bg-secondary/60 rounded-xl border border-border/40"
+              >
+                {REP_ROLES.map(r => {
+                  const on = repRole === r.key;
+                  return (
+                    <button
+                      key={r.key}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setRepRole(r.key)}
+                      className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap ${
+                        on
+                          ? 'bg-accent-blue text-white shadow-sm'
+                          : 'text-text-secondary hover:text-text-primary hover:bg-bg-card'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {active.searchHint && (
+              <div className="w-full xl:w-[22rem]">
+                <SearchInput
+                  size="lg"
+                  value={query}
+                  onChange={setQuery}
+                  placeholder={active.searchHint}
+                />
+              </div>
+            )}
+
+            {section !== 'trends' && (
+              <ExportDropdown
+                label="CSV"
+                entityName={section === 'dealers' ? 'Dealers' : section === 'districts' ? 'Districts' : 'Sales Reps'}
+                filteredCount={visibleCount}
+                rawCount={
+                  section === 'dealers' 
+                    ? (data?.dealers || []).length 
+                    : section === 'districts' 
+                      ? (data?.districts || []).length 
+                      : (data?.reps || []).length
+                }
+                onExportFiltered={handleExportFiltered}
+                onExportRaw={handleExportRaw}
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <div>
@@ -237,9 +507,19 @@ export default function VisitIntelligence() {
 
         <ErrorBoundary>
           {section === 'dealers' && (
-            <DealerVisitTable rows={dealers} onRowClick={setSelectedDealer} />
+            <DealerVisitTable
+              rows={dealers}
+              onRowClick={setSelectedDealer}
+              elapsedDays={data.meta?.elapsedDays}
+            />
           )}
-          {section === 'districts' && <DistrictDemandTable rows={districts} />}
+          {section === 'districts' && (
+            <DistrictDemandTable
+              rows={districtsWithSales}
+              elapsedDays={data.meta?.elapsedDays}
+              salesDays={despatchElapsedDays}
+            />
+          )}
           {section === 'reps' && <RepPerformanceTable rows={reps} />}
           {section === 'trends' && (
             <VisitTrendsPanel

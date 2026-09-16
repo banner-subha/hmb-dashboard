@@ -15,6 +15,8 @@ import { getPendingForPeriod, getBacklogClearance } from '../utils/pending';
 import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalDealers } from '../utils/despatch';
 import { isWestBengalUser } from '../utils/constants';
 import { Store } from 'lucide-react';
+import ExportDropdown from '../components/common/ExportDropdown';
+import { downloadCsv, getExportFilename } from '../utils/csvExport';
 
 export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
   const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
@@ -24,7 +26,9 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
   const [selectedDealer, setSelectedDealer] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
   const [metricMode, setMetricMode] = useState("DESPATCH");
-  const [selectedPendingMonth, setSelectedPendingMonth] = useState("");
+  const [selectedPendingMonth, setSelectedPendingMonth] = useState(
+    () => (metricMode === 'PENDING' ? 'ALL' : getCurMonthKey(rawData)),
+  );
   const lastSyncedParamsRef = useRef(null);
 
   // Sync URL params → Context: runs only when the URL itself changes.
@@ -96,14 +100,17 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
 
   const despatchAvailableMonths = useMemo(() => getDespatchAvailableMonths(rawData), [rawData]);
 
-  // Default pending filter date to "Total Backlog" ('ALL') when switching to PENDING mode
-  useEffect(() => {
-    if (metricMode === 'PENDING') {
-      setSelectedPendingMonth('ALL');
-    } else {
-      setSelectedPendingMonth(getCurMonthKey(rawData));
-    }
-  }, [metricMode, rawData]);
+  // Default pending filter date to "Total Backlog" ('ALL') when switching to
+  // PENDING mode, and back to the current despatch month on the way out.
+  //
+  // Applied during the render that carries the change rather than from an
+  // effect: an effect committed one frame of the new mode still holding the old
+  // mode's month, which reads as a wrong figure rather than as a transition.
+  const [monthResetDeps, setMonthResetDeps] = useState({ metricMode, rawData });
+  if (monthResetDeps.metricMode !== metricMode || monthResetDeps.rawData !== rawData) {
+    setMonthResetDeps({ metricMode, rawData });
+    setSelectedPendingMonth(metricMode === 'PENDING' ? 'ALL' : getCurMonthKey(rawData));
+  }
 
   const filteredDealers = useMemo(() => {
     if (metricMode === 'PENDING') {
@@ -137,12 +144,18 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
     }
   }, [data?.dealers, rawData, statusFilter, metricMode, selectedPendingMonth, filters, searchParams]);
 
-  // Auto-select dealer if search query isolates a single dealer
-  useEffect(() => {
-    if (filters.searchQuery && filteredDealers.length === 1 && !selectedDealer) {
-      setSelectedDealer(filteredDealers[0]);
-    }
-  }, [filters.searchQuery, filteredDealers, selectedDealer]);
+  // Auto-select dealer if search query isolates a single dealer.
+  //
+  // Keyed on the dealer the search has isolated, so it opens once per new
+  // isolation: closing the card does not immediately reopen it, and the card
+  // opens in the same commit as the filtered list rather than a frame behind.
+  const isolatedDealer =
+    filters.searchQuery && filteredDealers.length === 1 ? filteredDealers[0] : null;
+  const [prevIsolatedDealer, setPrevIsolatedDealer] = useState(isolatedDealer);
+  if (prevIsolatedDealer !== isolatedDealer) {
+    setPrevIsolatedDealer(isolatedDealer);
+    if (isolatedDealer && !selectedDealer) setSelectedDealer(isolatedDealer);
+  }
 
   const columns = useMemo(() => {
     if (metricMode === 'PENDING') {
@@ -424,6 +437,87 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
     ];
   }, [metricMode, selectedPendingMonth, data, rawData]);
 
+  const handleExportFiltered = () => {
+    const isPending = metricMode === 'PENDING';
+    const totalVolume = filteredDealers.reduce((sum, r) => sum + (Number(r.cur) || 0), 0);
+    const cols = isPending ? [
+      { label: 'Dealer Name', key: 'client' },
+      { label: 'State', key: 'state' },
+      { label: 'District', key: 'district' },
+      { label: 'Account Status', getValue: r => r.status || (r.cur > 0 ? 'ACTIVE' : 'INACTIVE') },
+      { label: 'Pending Orders (MT)', getValue: r => (getPendingForPeriod(r, selectedPendingMonth) || 0).toFixed(1) },
+      { label: 'Clearance (Days)', getValue: r => {
+        const p = getPendingForPeriod(r, selectedPendingMonth);
+        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
+        const days = getBacklogClearance(p, d).days;
+        return days != null && !isNaN(days) && isFinite(days) ? Number(days).toFixed(1) : '—';
+      }},
+      { label: 'Clearance Status', getValue: r => {
+        const p = getPendingForPeriod(r, selectedPendingMonth);
+        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
+        return getBacklogClearance(p, d).status || 'NORMAL';
+      }},
+      { label: 'Daily Average Run Rate (MT/d)', getValue: r => (r.dailyAvgQty ?? r.currentDailyRate ?? 0).toFixed(1) },
+      { label: 'Oldest Order Date', getValue: r => r.oldestPendingDate || '—' },
+      { label: 'All-Time Backlog (MT)', getValue: r => (getPendingForPeriod(r, 'ALL') || 0).toFixed(1) },
+      { label: 'Products', getValue: r => (r.products || []).map(p => p.product).join(', ') },
+    ] : [
+      { label: 'Dealer Name', key: 'client' },
+      { label: 'State', key: 'state' },
+      { label: 'District', key: 'district' },
+      { label: 'Account Status', getValue: r => r.status || (r.cur > 0 ? 'ACTIVE' : 'INACTIVE') },
+      { label: 'Despatch Volume (MT)', getValue: r => (r.cur != null ? Number(r.cur).toFixed(1) : '0.0') },
+      { label: 'Previous Volume (MT)', getValue: r => (r.prev != null ? Number(r.prev).toFixed(1) : '0.0') },
+      { label: 'MoM Growth %', getValue: r => (r.mom != null ? Number(r.mom).toFixed(1) + '%' : '—') },
+      { label: 'Volume Share %', getValue: r => (totalVolume > 0 && r.cur > 0 ? ((r.cur / totalVolume) * 100).toFixed(1) + '%' : (r.share != null ? Number(r.share).toFixed(1) + '%' : '0.0%')) },
+      { label: 'Avg Period (Days)', getValue: r => (r.avgPeriod != null ? Number(r.avgPeriod).toFixed(1) : '—') },
+      { label: 'Pace Status', getValue: r => r.lossFlag || '—' },
+      { label: 'Pace vs Avg %', getValue: r => (r.lossDeltaPct != null ? (r.lossFlag === 'BEHIND' ? '-' : '+') + Number(r.lossDeltaPct).toFixed(1) + '%' : '—') },
+      { label: 'Current Daily Rate (MT/d)', getValue: r => (r.currentDailyRate != null ? Number(r.currentDailyRate).toFixed(1) : '—') },
+      { label: 'Historical Daily Avg (MT/d)', getValue: r => (r.dailyAvgQty != null ? Number(r.dailyAvgQty).toFixed(1) : '—') },
+      { label: 'Products', getValue: r => (r.products || []).map(p => p.product).join(', ') },
+    ];
+
+    const filename = getExportFilename(`dealers_${metricMode.toLowerCase()}_${selectedPendingMonth || 'current'}`, 'filtered');
+    downloadCsv(filename, cols, filteredDealers);
+  };
+
+  const handleExportRaw = () => {
+    const rawDealers = rawData?.dealers || data?.dealers || [];
+    const totalVolume = rawDealers.reduce((sum, r) => sum + (Number(r.cur) || 0), 0);
+    const cols = [
+      { label: 'Dealer Name', key: 'client' },
+      { label: 'State', key: 'state' },
+      { label: 'District', key: 'district' },
+      { label: 'Account Status', getValue: r => r.status || (r.cur > 0 ? 'ACTIVE' : 'INACTIVE') },
+      { label: 'Despatch Volume (MT)', getValue: r => (r.cur != null ? Number(r.cur).toFixed(1) : '0.0') },
+      { label: 'Previous Volume (MT)', getValue: r => (r.prev != null ? Number(r.prev).toFixed(1) : '0.0') },
+      { label: 'MoM Growth %', getValue: r => (r.mom != null ? Number(r.mom).toFixed(1) + '%' : '—') },
+      { label: 'Volume Share %', getValue: r => (totalVolume > 0 && r.cur > 0 ? ((r.cur / totalVolume) * 100).toFixed(1) + '%' : (r.share != null ? Number(r.share).toFixed(1) + '%' : '0.0%')) },
+      { label: 'Total Pending Backlog (MT)', getValue: r => (getPendingForPeriod(r, 'ALL') || 0).toFixed(1) },
+      { label: 'Clearance (Days)', getValue: r => {
+        const p = getPendingForPeriod(r, 'ALL');
+        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
+        const days = getBacklogClearance(p, d).days;
+        return days != null && !isNaN(days) && isFinite(days) ? Number(days).toFixed(1) : '—';
+      }},
+      { label: 'Clearance Status', getValue: r => {
+        const p = getPendingForPeriod(r, 'ALL');
+        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
+        return getBacklogClearance(p, d).status || 'NORMAL';
+      }},
+      { label: 'Avg Period (Days)', getValue: r => (r.avgPeriod != null ? Number(r.avgPeriod).toFixed(1) : '—') },
+      { label: 'Daily Avg Despatch (MT/d)', getValue: r => (r.dailyAvgQty != null ? Number(r.dailyAvgQty).toFixed(1) : '—') },
+      { label: 'Current Daily Rate (MT/d)', getValue: r => (r.currentDailyRate != null ? Number(r.currentDailyRate).toFixed(1) : '—') },
+      { label: 'Pace Status', getValue: r => r.lossFlag || '—' },
+      { label: 'Oldest Pending Date', getValue: r => r.oldestPendingDate || '—' },
+      { label: 'Products', getValue: r => (r.products || []).map(p => p.product).join(', ') },
+    ];
+
+    const filename = getExportFilename('dealers', 'raw_all');
+    downloadCsv(filename, cols, rawDealers);
+  };
+
   // NOTE: Must be declared before any early returns to satisfy Rules of Hooks.
   const dealerAlerts = data?.alerts?.filter(a => a.category === 'DEALER' && a.data?.client === selectedDealer?.client) || [];
   const aiRisk = data?.intelligence?.dealer_risks?.find(r => r.dealer === selectedDealer?.client);
@@ -655,6 +749,15 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               <div className="shrink-0 w-[170px] sm:w-[190px]">
                 <SearchInput placeholder="Search dealer name..." />
               </div>
+
+              <ExportDropdown
+                label="CSV"
+                entityName="Dealers"
+                filteredCount={filteredDealers.length}
+                rawCount={(rawData?.dealers || data?.dealers || []).length}
+                onExportFiltered={handleExportFiltered}
+                onExportRaw={handleExportRaw}
+              />
             </div>
 
             <DataTable 

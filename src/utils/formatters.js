@@ -3,12 +3,12 @@
 // are derived from trendEngine.js. These are pure display formatters only.
 
 /** Format a number as MT (metric tons) */
-export const formatMT = (n) => {
+export const formatMT = (n, decimals = 2) => {
   if (n == null || isNaN(n)) return '—';
   const val = parseFloat(n);
   const formatter = new Intl.NumberFormat('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
   });
   return `${formatter.format(val)} MT`;
 };

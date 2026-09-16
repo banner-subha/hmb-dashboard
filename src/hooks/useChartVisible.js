@@ -5,17 +5,18 @@ import { useState, useEffect, useRef } from 'react';
  * Animations only play when the chart is actually visible.
  */
 export function useChartVisible(ref) {
-  const [isVisible, setIsVisible] = useState(false);
+  // Without IntersectionObserver there is nothing to wait for, so the chart is
+  // visible from the first render rather than being switched on by an effect a
+  // render later.
+  const [isVisible, setIsVisible] = useState(
+    () => typeof IntersectionObserver === 'undefined',
+  );
   const hasAnimated = useRef(false);
 
   useEffect(() => {
     if (!ref.current || hasAnimated.current) return;
-    
-    // Check if IntersectionObserver is available
-    if (typeof IntersectionObserver === 'undefined') {
-      setIsVisible(true);
-      return;
-    }
+
+    if (typeof IntersectionObserver === 'undefined') return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {

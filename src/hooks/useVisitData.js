@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getVisitData } from '../services/dataService';
-import { matchesFilters, summariseState } from '../utils/visits';
+import {
+  matchesFilters,
+  summariseState,
+  attachDealerSales,
+  classifyRep,
+} from '../utils/visits';
 
 /**
  * Loads the field visit payload and derives everything the views need.
@@ -10,7 +15,15 @@ import { matchesFilters, summariseState } from '../utils/visits';
  * loading and the deriving are separate concerns from the rendering, so they
  * live here.
  */
-export function useVisitData({ state = 'ALL', quadrant = 'ALL', query = '' } = {}) {
+export function useVisitData({
+  state = 'ALL',
+  quadrant = 'ALL',
+  query = '',
+  role = 'ALL',
+  bpDealerIndex = null,
+  repRoleIndex = null,
+  elapsedDays = 0,
+} = {}) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,55 +46,80 @@ export function useVisitData({ state = 'ALL', quadrant = 'ALL', query = '' } = {
     return () => { mounted = false; };
   }, []);
 
+  /**
+   * Business Plan enrichment, applied before anything here filters or counts.
+   *
+   * It has to sit upstream of the filters, not beside them in the page. The
+   * quadrant card filters on `quadrant`, and re-deriving that field after the
+   * filtering had already run meant picking "Needs Attention" selected dealers
+   * by the parser's historical classification while the table rendered the
+   * Business Plan one — the card count and the rows beneath it describing two
+   * different populations.
+   */
+  const enriched = useMemo(() => {
+    if (!data) return data;
+    return {
+      ...data,
+      dealers: attachDealerSales(data.dealers || [], bpDealerIndex, elapsedDays),
+      // The role is not in the payload, so it is stamped on here — once, rather
+      // than per render inside the table's filter.
+      employees: (data.employees || []).map(r => ({
+        ...r,
+        role: classifyRep(r.employee_name, repRoleIndex),
+      })),
+    };
+  }, [data, bpDealerIndex, repRoleIndex, elapsedDays]);
+
   const stateOptions = useMemo(() => {
-    if (!data?.dealers) return ['ALL'];
+    if (!enriched?.dealers) return ['ALL'];
     const set = new Set(
-      data.dealers.map(d => d.state).filter(s => s && s !== 'Unknown')
+      enriched.dealers.map(d => d.state).filter(s => s && s !== 'Unknown')
     );
     return ['ALL', ...Array.from(set).sort()];
-  }, [data]);
+  }, [enriched]);
 
   const dealers = useMemo(() => {
-    if (!data?.dealers) return [];
-    return data.dealers.filter(d =>
+    if (!enriched?.dealers) return [];
+    return enriched.dealers.filter(d =>
       matchesFilters(d, { state, quadrant, query },
-                     ['dealer', 'district', 'primaryRep'])
+                     ['dealer', 'district', 'primaryRep', 'assignedKrm', 'assignedKro', 'krmVisits', 'kroVisits'])
     );
-  }, [data, state, quadrant, query]);
+  }, [enriched, state, quadrant, query]);
 
   const districts = useMemo(() => {
-    if (!data?.districts) return [];
+    if (!enriched?.districts) return [];
     // Quadrant is a dealer-level classification; applying it here would empty
     // the table whenever a quadrant card is selected.
-    return data.districts.filter(d =>
+    return enriched.districts.filter(d =>
       matchesFilters(d, { state, query }, ['district', 'state'])
     );
-  }, [data, state, query]);
+  }, [enriched, state, query]);
 
   const reps = useMemo(() => {
-    if (!data?.employees) return [];
-    return data.employees.filter(r =>
+    if (!enriched?.employees) return [];
+    return enriched.employees.filter(r =>
+      (role === 'ALL' || r.role === role) &&
       matchesFilters(r, { query }, ['employee_name'])
     );
-  }, [data, query]);
+  }, [enriched, query, role]);
 
-  const summary = useMemo(() => summariseState(data, state), [data, state]);
+  const summary = useMemo(() => summariseState(enriched, state), [enriched, state]);
 
   /**
    * How much of the page's own output rests on a sales link. Quoted in the UI
    * because paceStatus and every quadrant except NO_SALES_LINK are meaningless
    * without one, and on the current data only about a third of dealers have it.
    */
-  const salesLink = useMemo(() => data?.meta?.salesLink ?? null, [data]);
+  const salesLink = useMemo(() => enriched?.meta?.salesLink ?? null, [enriched]);
 
   return {
-    data, loading, error,
+    data: enriched, loading, error,
     dealers, districts, reps,
     summary, stateOptions, salesLink,
     counts: {
-      dealers: data?.dealers?.length ?? 0,
-      districts: data?.districts?.length ?? 0,
-      employees: data?.employees?.length ?? 0,
+      dealers: enriched?.dealers?.length ?? 0,
+      districts: enriched?.districts?.length ?? 0,
+      employees: enriched?.employees?.length ?? 0,
     },
   };
 }
