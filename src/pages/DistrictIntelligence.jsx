@@ -122,6 +122,9 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
   });
 
   // Sync URL params → Context: runs only when the URL itself changes.
+  const hasHydratedRef = useRef(false);
+
+  // Sync URL params to Context filters
   useEffect(() => {
     const state = searchParams.get('state') || null;
     const district = searchParams.get('district') || null;
@@ -133,12 +136,19 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
     if (lastSyncedParamsRef.current !== currentUrlParamString) {
       lastSyncedParamsRef.current = currentUrlParamString;
       dispatch({ type: 'SYNC_FILTERS', payload: { state, district, product, search } });
+      hasHydratedRef.current = true;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Sync Context filters to URL params
   useEffect(() => {
+    if (!hasHydratedRef.current && searchParams.toString() !== '') {
+      // Awaiting initial hydration from URL params into DataContext
+      return;
+    }
+    hasHydratedRef.current = true;
+
     const currentState = searchParams.get('state') || null;
     const currentDistrict = searchParams.get('district') || null;
     const currentProduct = searchParams.get('product') || null;
@@ -149,18 +159,6 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
     const nextDistrict = filters.selectedDistrict || null;
     const nextProduct = filters.selectedProduct || null;
     const nextSearch = filters.searchQuery || '';
-
-    const urlHasParams = !!(currentState || currentDistrict || currentProduct || currentSearch || currentTrend);
-    const isContextPendingHydration = urlHasParams && (
-      (currentState && nextState !== currentState) ||
-      (currentDistrict && nextDistrict !== currentDistrict) ||
-      (currentProduct && nextProduct !== currentProduct) ||
-      (currentSearch && nextSearch !== currentSearch)
-    );
-
-    if (isContextPendingHydration) {
-      return;
-    }
 
     if (
       currentState !== nextState ||

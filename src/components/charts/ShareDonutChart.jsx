@@ -37,6 +37,10 @@ export default function ShareDonutChart({ data, dataKey = "cur", nameKey = "prod
   const { width } = useDebouncedResize(containerRef, 150);
   const isVisible = useChartVisible(containerRef);
 
+  const activeWidth = width > 0 
+    ? width 
+    : (containerRef.current?.getBoundingClientRect?.()?.width || containerRef.current?.clientWidth || containerRef.current?.parentElement?.clientWidth || 320);
+
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
     let totalValue = data.reduce((sum, item) => sum + (item[dataKey] > 0 ? item[dataKey] : 0), 0);
@@ -66,14 +70,22 @@ export default function ShareDonutChart({ data, dataKey = "cur", nameKey = "prod
       .sort((a, b) => b.value - a.value);
   }, [data, dataKey, nameKey]);
 
-  if (!data || data.length === 0) {
-    return <div className="flex items-center justify-center h-full text-text-muted text-sm">No data available</div>;
+  if (!data || data.length === 0 || chartData.length === 0) {
+    return (
+      <div 
+        ref={containerRef} 
+        className="flex items-center justify-center text-text-muted text-xs border border-dashed border-border/40 rounded-xl"
+        style={{ height: `${height}px`, width: '100%' }}
+      >
+        No product breakdown available
+      </div>
+    );
   }
 
   return (
-    <div ref={containerRef} className="animate-fade-in" style={{ height: `${height}px`, width: '100%' }}>
-      {width > 0 && (
-        <PieChart width={width} height={height}>
+    <div ref={containerRef} className="animate-fade-in w-full" style={{ height: `${height}px`, minHeight: `${height}px` }}>
+      {activeWidth > 0 && (
+        <PieChart width={activeWidth} height={height}>
           <Pie
             data={chartData}
             cx="50%"

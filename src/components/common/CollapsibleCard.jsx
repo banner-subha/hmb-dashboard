@@ -47,7 +47,7 @@ function CollapsibleCard({
         {isOpen && (
           <m.div
             variants={collapseVariants}
-            initial="closed"
+            initial={false}
             animate="open"
             exit="closed"
             className={`overflow-hidden ${fullHeight ? 'flex-1 flex flex-col' : ''}`}

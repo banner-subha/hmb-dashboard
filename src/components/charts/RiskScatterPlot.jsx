@@ -57,17 +57,22 @@ export default function RiskScatterPlot({ data, height = 300 }) {
   const { width } = useDebouncedResize(containerRef, 150);
   const isVisible = useChartVisible(containerRef);
 
+  const activeWidth = width > 0 
+    ? width 
+    : (containerRef.current?.getBoundingClientRect?.()?.width || containerRef.current?.clientWidth || containerRef.current?.parentElement?.clientWidth || 320);
+
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
     return data.map(item => {
+      const vol = item.activePendingVal !== undefined ? item.activePendingVal : (item.cur || 0);
       const mom = calculateMoM(item.cur, item.prev);
       const trendColor = getTrendColor(mom, item.cur, item.prev);
       const trendDisplay = formatTrend(mom);
-      const severity = getSeverityTheme(item.impactTier);
+      const severity = getSeverityTheme(item.impactTier || item.severity);
 
       return {
         ...item,
-        volume: item.cur,
+        volume: vol,
         impactScore: item.impactScore || 0,
         name: (item.client != null && String(item.client).trim() !== '') ? String(item.client) : ((item.district != null && String(item.district).trim() !== '') ? String(item.district) : item.state),
         _mom: mom,
@@ -75,18 +80,26 @@ export default function RiskScatterPlot({ data, height = 300 }) {
         _trendColor: trendColor,
         _trendDisplay: trendDisplay,
       };
-    }).filter(d => d.volume > 0 || d.prev > 0);
+    }).filter(d => d.volume > 0 || d.prev > 0 || (d.activePendingVal && d.activePendingVal > 0));
   }, [data]);
 
-  if (!data || data.length === 0) {
-    return <div className="flex items-center justify-center h-full text-text-muted text-sm">No data available</div>;
+  if (!data || data.length === 0 || chartData.length === 0) {
+    return (
+      <div 
+        ref={containerRef} 
+        className="flex items-center justify-center text-text-muted text-xs border border-dashed border-border/40 rounded-xl"
+        style={{ height: `${height}px`, width: '100%' }}
+      >
+        No volume data available for selected scope
+      </div>
+    );
   }
 
   return (
-    <div ref={containerRef} className="animate-fade-in" style={{ height: `${height}px`, width: '100%' }}>
-      {width > 0 && (
+    <div ref={containerRef} className="animate-fade-in w-full" style={{ height: `${height}px`, minHeight: `${height}px` }}>
+      {activeWidth > 0 && (
         <ScatterChart 
-          width={width} 
+          width={activeWidth} 
           height={height} 
           margin={{ top: 10, right: 10, bottom: 10, left: -20 }}
         >
@@ -97,6 +110,7 @@ export default function RiskScatterPlot({ data, height = 300 }) {
             name="Volume" 
             stroke="var(--color-text-dim)" 
             fontSize={12}
+            domain={[0, 'auto']}
             tickFormatter={(val) => `${val} MT`}
           />
           <YAxis 
@@ -118,3 +132,4 @@ export default function RiskScatterPlot({ data, height = 300 }) {
     </div>
   );
 }
+
