@@ -15,6 +15,7 @@ import DealerScorecardModal from '../components/visits/DealerScorecardModal';
 
 import { useVisitData } from '../hooks/useVisitData';
 import { useRawData } from '../context/DataContext';
+import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import {
   VISIT_SECTIONS,
   buildDespatchIndex,
@@ -185,6 +186,29 @@ export default function VisitIntelligence() {
     () => attachDistrictSales(districts, despatchIndex, despatchElapsedDays, bpIndex),
     [districts, despatchIndex, despatchElapsedDays, bpIndex]
   );
+
+  useDashboardTelemetry({
+    tabName: 'Field Visits & Tracker',
+    filters: {
+      section,
+      state,
+      quadrant,
+      search: query || '',
+      repRole,
+    },
+    selectedEntity: selectedDealer ? {
+      type: 'dealer',
+      name: selectedDealer.dealer || selectedDealer.name,
+      state: selectedDealer.state,
+      district: selectedDealer.district,
+    } : null,
+    visibleKpis: {
+      totalVisits: summary?.totalVisits ?? 0,
+      visitedDealersCount: summary?.visitedDealers ?? (dealers?.length || 0),
+      activeFieldRepsCount: summary?.activeReps ?? (reps?.length || 0),
+      sectionName: active?.label || section,
+    },
+  });
 
   const handleExportFiltered = () => {
     if (section === 'dealers') {

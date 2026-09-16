@@ -196,12 +196,16 @@ export async function deleteSessions(ids, { onProgress, concurrency = 4 } = {}) 
  * POST /chat and dispatch each typed SSE event to onEvent(name, data).
  * The `session` event always arrives first, before any token.
  */
-export async function streamChat({ message, sessionId, onEvent, signal }) {
+export async function streamChat({ message, sessionId, context, onEvent, signal }) {
   const res = await fetch(`${base()}/chat`, {
     method: 'POST',
     signal,
     headers: { ...authHeader(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, session_id: sessionId ?? null }),
+    body: JSON.stringify({
+      message,
+      session_id: sessionId ?? null,
+      context: context ?? null,
+    }),
   });
 
   if (res.status === 401) {

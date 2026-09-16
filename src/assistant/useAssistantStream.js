@@ -78,7 +78,7 @@ function fromHistory(messages) {
  * Nothing in here renders. It reports what it is doing as a log of phases and
  * leaves the wording, and the timing of the wording, to statusPhrases.
  */
-export default function useAssistantStream({ sessionId, onSessionCreated }) {
+export default function useAssistantStream({ sessionId, onSessionCreated, getContext }) {
   const [messages, setMessages] = useState([]);
   const [streaming, setStreaming] = useState(false);
   // An append-only log of what the assistant has been doing this turn, not a
@@ -172,9 +172,11 @@ export default function useAssistantStream({ sessionId, onSessionCreated }) {
   }, []);
 
   const send = useCallback(
-    async (text) => {
+    async (text, contextOverride) => {
       const question = String(text || '').trim();
       if (!question || streaming) return;
+
+      const context = contextOverride ?? (getContext ? getContext() : null);
 
       lastQuestionRef.current = question;
       runningRef.current = [];
@@ -206,6 +208,7 @@ export default function useAssistantStream({ sessionId, onSessionCreated }) {
         await api.streamChat({
           message: question,
           sessionId: sessionId ?? null,
+          context,
           signal: controller.signal,
           onEvent: (name, data) => {
             switch (name) {

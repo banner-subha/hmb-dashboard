@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
+import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import { useAuth } from '../context/AuthContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import SearchInput from '../components/common/SearchInput';
@@ -102,6 +103,23 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
     return list;
   }, [data, rawData, metricMode, selectedPendingMonth, filters, searchParams]);
+
+  useDashboardTelemetry({
+    tabName: 'District Intelligence',
+    filters: {
+      state: filters.selectedState || 'ALL',
+      district: filters.selectedDistrict || 'ALL',
+      product: filters.selectedProduct || 'ALL',
+      metricMode,
+      selectedMonth: selectedPendingMonth,
+      search: filters.searchQuery || '',
+    },
+    visibleKpis: {
+      districtCount: filteredDistricts?.length || 0,
+      totalCurrentMT: data?.totalCur ? Math.round(data.totalCur * 10) / 10 : 0,
+      metricMode,
+    },
+  });
 
   // Sync URL params → Context: runs only when the URL itself changes.
   useEffect(() => {

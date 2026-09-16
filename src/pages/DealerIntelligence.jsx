@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import { useSearchParams } from 'react-router-dom';
 import SearchInput from '../components/common/SearchInput';
 import DataTable from '../components/common/DataTable';
@@ -30,6 +31,24 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
     () => (metricMode === 'PENDING' ? 'ALL' : getCurMonthKey(rawData)),
   );
   const lastSyncedParamsRef = useRef(null);
+
+  useDashboardTelemetry({
+    tabName: 'Dealer Network',
+    filters: {
+      state: filters?.selectedState,
+      district: filters?.selectedDistrict,
+      product: filters?.selectedProduct,
+      search: filters?.searchQuery,
+      status: statusFilter,
+    },
+    selectedEntity: selectedDealer ? {
+      type: 'dealer',
+      name: selectedDealer.dealer || selectedDealer.dealer_name,
+      state: selectedDealer.state,
+      district: selectedDealer.district,
+      volume: selectedDealer.cur ? `${Number(selectedDealer.cur).toFixed(1)} MT` : undefined,
+    } : null,
+  });
 
   // Sync URL params → Context: runs only when the URL itself changes.
   useEffect(() => {

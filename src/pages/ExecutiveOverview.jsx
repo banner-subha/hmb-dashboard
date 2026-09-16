@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useData } from '../context/DataContext';
+import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import KPICard from '../components/common/KPICard';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import ProductBarChart from '../components/charts/ProductBarChart';
@@ -132,6 +133,20 @@ export default function ExecutiveOverview() {
       totalTrendColor: getTrendColor(mom)
     };
   }, [totalCur, totalPrev]);
+
+  useDashboardTelemetry({
+    tabName: 'Executive Overview',
+    filters: {},
+    visibleKpis: {
+      totalCurrentMT: Math.round(totalCur * 10) / 10,
+      totalPreviousMT: Math.round(totalPrev * 10) / 10,
+      momPace: totalTrendDisplay,
+      activeStatesCount: states?.length || 0,
+      activeDistrictsCount: districts?.length || 0,
+      activeDealersCount: dealers?.length || 0,
+      alertCount: alertCount || 0,
+    },
+  });
 
   const topStates = useMemo(() => {
     return [...(states || [])]

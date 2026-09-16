@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState, useRef } from 'react';
 import { useData } from '../context/DataContext';
+import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import DataTable from '../components/common/DataTable';
 import CollapsibleCard from '../components/common/CollapsibleCard';
@@ -160,6 +161,23 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       return (b.cur || 0) - (a.cur || 0);
     });
   }, [data, rawData, metricMode, selectedPendingMonth, filters, searchParams]);
+
+  useDashboardTelemetry({
+    tabName: 'State Intelligence',
+    filters: {
+      state: filters.selectedState || 'ALL',
+      district: filters.selectedDistrict || 'ALL',
+      product: filters.selectedProduct || 'ALL',
+      metricMode,
+      selectedMonth: selectedPendingMonth,
+      search: filters.searchQuery || '',
+    },
+    visibleKpis: {
+      stateCount: states?.length || 0,
+      nationalPendingTotalMT: Math.round(nationalPendingTotal * 10) / 10,
+      totalCurrentMT: data?.totalCur ? Math.round(data.totalCur * 10) / 10 : 0,
+    },
+  });
 
   const columns = useMemo(() => {
     if (metricMode === 'PENDING') {

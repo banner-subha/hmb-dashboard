@@ -10,6 +10,7 @@ import PlanDimensionTable from '../components/businessplan/PlanDimensionTable';
 import PlanVsActualSection from '../components/businessplan/PlanVsActualSection';
 
 import { useBusinessPlan } from '../hooks/useBusinessPlan';
+import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import { formatMonthLabel } from '../utils/businessPlan';
 
 /**
@@ -26,6 +27,25 @@ import { formatMonthLabel } from '../utils/businessPlan';
  */
 export default function BusinessPlan() {
   const bp = useBusinessPlan();
+
+  useDashboardTelemetry({
+    tabName: 'Business Plan',
+    filters: {
+      month: bp.month,
+      state: bp.filters.state,
+      district: bp.filters.district,
+      kro: bp.filters.kro,
+      krm: bp.filters.krm,
+      product: bp.filters.product,
+      customer: bp.filters.customer,
+    },
+    visibleKpis: bp.summary ? {
+      total_sp_target: `${bp.summary.totalSpTarget?.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MT`,
+      market_potential: `${bp.summary.marketPotential?.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MT`,
+      target_conversion: `${bp.summary.targetConversion?.toFixed(1)}%`,
+      active_accounts: bp.summary.activeAccounts,
+    } : null,
+  });
 
   const repFilterActive = Boolean(bp.filters.kro || bp.filters.krm);
   const fatal = bp.monthsError || (bp.summaryError && !bp.summary);

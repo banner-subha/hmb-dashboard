@@ -1,4 +1,5 @@
 import { useData } from '../context/DataContext';
+import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import PriorityBadge from '../components/common/PriorityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { 
@@ -31,6 +32,15 @@ const CARD_REGION   = `${CARD} bg-[var(--ai-card-bg)] border-[var(--ai-card-bord
 export default function AIWarRoom() {
   const { data: filteredData, overallData, loading, error } = useData();
   const data = overallData || filteredData;
+
+  useDashboardTelemetry({
+    tabName: 'AI War Room',
+    filters: {},
+    visibleKpis: data ? {
+      alertCount: data.alertCount || 0,
+      totalCurrentMT: data.totalCur ? Math.round(data.totalCur * 10) / 10 : 0,
+    } : null,
+  });
 
   if (loading) return (
     <div className="space-y-6">

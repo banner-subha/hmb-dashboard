@@ -7,6 +7,7 @@ import { calculateMoM, getBusinessImpact } from './utils/trendEngine';
 import { getPendingAvailableMonths } from './utils/pending';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { AssistantProvider } from './assistant/AssistantProvider';
+import { DashboardTelemetryProvider } from './context/DashboardTelemetryContext';
 
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/Login';
@@ -316,54 +317,56 @@ function App() {
           <GeoPrefetcher />
           <BusinessPlanPrefetcher />
           <BrowserRouter>
-            <AssistantProvider>
-              <Routes>
-                <Route path="/login" element={<Login />} />
+            <DashboardTelemetryProvider>
+              <AssistantProvider>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
 
-                {/* The assistant's full-page view — a peer route with its own
-                  shell, not a child of the dashboard layout, because it needs
-                  the whole viewport and controls scrolling itself. This is the
-                  only surface that touches the URL: the provider owns which
-                  session is open and this page mirrors it, which is what makes
-                  deep links, the back button and refresh work. */}
-                <Route
-                  path="/chat/*"
-                  element={
-                    <RequireAuth>
-                      <RequireAdminRoute>
-                        <Suspense
-                          fallback={
-                            <div className="flex h-[100dvh] items-center justify-center bg-bg-primary text-text-muted">
-                              <div className="flex flex-col items-center gap-3">
-                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-blue/30 border-t-accent-blue" />
-                                <span className="text-xs font-medium tracking-wide">Loading the assistant…</span>
+                  {/* The assistant's full-page view — a peer route with its own
+                    shell, not a child of the dashboard layout, because it needs
+                    the whole viewport and controls scrolling itself. This is the
+                    only surface that touches the URL: the provider owns which
+                    session is open and this page mirrors it, which is what makes
+                    deep links, the back button and refresh work. */}
+                  <Route
+                    path="/chat/*"
+                    element={
+                      <RequireAuth>
+                        <RequireAdminRoute>
+                          <Suspense
+                            fallback={
+                              <div className="flex h-[100dvh] items-center justify-center bg-bg-primary text-text-muted">
+                                <div className="flex flex-col items-center gap-3">
+                                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-blue/30 border-t-accent-blue" />
+                                  <span className="text-xs font-medium tracking-wide">Loading the assistant…</span>
+                                </div>
                               </div>
-                            </div>
-                          }
-                        >
-                          <AssistantPage />
-                        </Suspense>
-                      </RequireAdminRoute>
-                    </RequireAuth>
-                  }
-                />
+                            }
+                          >
+                            <AssistantPage />
+                          </Suspense>
+                        </RequireAdminRoute>
+                      </RequireAuth>
+                    }
+                  />
 
-                <Route path="/" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
-                  <Route index element={<IndexElement />} />
-                  <Route path="states" element={<StateIntelligenceWrapper />} />
-                  <Route path="districts" element={<DistrictIntelligenceWrapper />} />
-                  <Route path="dealers" element={<DealerIntelligenceWrapper />} />
-                  <Route path="visits" element={<VisitIntelligence />} />
-                  <Route path="business-plan" element={<BusinessPlan />} />
-                  <Route path="risk" element={<Navigate to="/alerts" replace />} />
-                  <Route path="war-room" element={<RequireAdminRoute><AIWarRoom /></RequireAdminRoute>} />
-                  <Route path="alerts" element={<RequireAdminRoute><AlertIntelligence /></RequireAdminRoute>} />
-                  <Route path="geo" element={<RequireAdminRoute><GeoIntelligenceWrapper /></RequireAdminRoute>} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Route>
-              </Routes>
-              <AssistantMount />
-            </AssistantProvider>
+                  <Route path="/" element={<RequireAuth><DashboardLayout /></RequireAuth>}>
+                    <Route index element={<IndexElement />} />
+                    <Route path="states" element={<StateIntelligenceWrapper />} />
+                    <Route path="districts" element={<DistrictIntelligenceWrapper />} />
+                    <Route path="dealers" element={<DealerIntelligenceWrapper />} />
+                    <Route path="visits" element={<VisitIntelligence />} />
+                    <Route path="business-plan" element={<BusinessPlan />} />
+                    <Route path="risk" element={<Navigate to="/alerts" replace />} />
+                    <Route path="war-room" element={<RequireAdminRoute><AIWarRoom /></RequireAdminRoute>} />
+                    <Route path="alerts" element={<RequireAdminRoute><AlertIntelligence /></RequireAdminRoute>} />
+                    <Route path="geo" element={<RequireAdminRoute><GeoIntelligenceWrapper /></RequireAdminRoute>} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Route>
+                </Routes>
+                <AssistantMount />
+              </AssistantProvider>
+            </DashboardTelemetryProvider>
           </BrowserRouter>
         </DataProvider>
       </AuthProvider>

@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useGetDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import * as api from './api';
 import useAssistantStream from './useAssistantStream';
 
@@ -132,7 +133,8 @@ export function AssistantProvider({ children }) {
     [refreshSessions],
   );
 
-  const stream = useAssistantStream({ sessionId, onSessionCreated });
+  const getTelemetry = useGetDashboardTelemetry();
+  const stream = useAssistantStream({ sessionId, onSessionCreated, getContext: getTelemetry });
   const { streaming } = stream;
 
   // An answer that finished while the panel was shut is worth a dot on the
