@@ -654,35 +654,50 @@ export async function getVisitData() {
           _visitDataCache = json;
           return json;
         }
-        console.warn('[visits] VITE_VISITS_LOCAL=1 but local file missing; falling back to CDN');
+        console.warn('[visits] VITE_VISITS_LOCAL=1 but local file missing; falling back');
       } catch {
-        console.warn('[visits] VITE_VISITS_LOCAL=1 but local file unreadable; falling back to CDN');
+        console.warn('[visits] VITE_VISITS_LOCAL=1 but local file unreadable; falling back');
       }
     }
 
-    // 1. Try remote Supabase Storage public bucket
+    // 1. Fetch remote Supabase Storage public bucket
     const remoteUrl = 'https://jhsttedcvzfkszbzczak.supabase.co/storage/v1/object/public/dashboard-data/visits_intelligence.json';
+    let remoteJson = null;
     try {
       const resp = await fetch(remoteUrl);
       if (resp.ok) {
-        const json = await resp.json();
-        _visitDataCache = json;
-        return json;
+        remoteJson = await resp.json();
       }
     } catch {
-      // ignore and fallback
+      // ignore and check local
     }
 
-    // 2. Fallback to local /visits_intelligence.json
+    // 2. Fetch local bundled /visits_intelligence.json
+    let localJson = null;
     try {
       const localResp = await fetch('/visits_intelligence.json');
       if (localResp.ok) {
-        const json = await localResp.json();
-        _visitDataCache = json;
-        return json;
+        localJson = await localResp.json();
       }
     } catch (err) {
-      console.error('Failed to load visit intelligence from local bundle:', err);
+      console.warn('[visits] local bundled visits_intelligence.json unreadable:', err);
+    }
+
+    // 3. Freshness arbitration:
+    // If both exist, pick whichever dataset has the newest generatedAt timestamp.
+    // This prevents production from serving a stale CDN file when a newer build is deployed.
+    let chosen = null;
+    if (remoteJson && localJson) {
+      const remoteTime = new Date(remoteJson?.meta?.generatedAt || 0).getTime();
+      const localTime = new Date(localJson?.meta?.generatedAt || 0).getTime();
+      chosen = localTime > remoteTime ? localJson : remoteJson;
+    } else {
+      chosen = remoteJson || localJson;
+    }
+
+    if (chosen) {
+      _visitDataCache = chosen;
+      return chosen;
     }
 
     return null;
