@@ -928,7 +928,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                   })()
                 ) : (
                   <>
-                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[76px]">
+                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[80px]">
                       <div className="text-xs text-text-muted mb-1">
                         Dispatched (MT)
                       </div>
@@ -937,7 +937,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                       </div>
                     </div>
 
-                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[76px]">
+                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[80px]">
                       <div className="text-xs text-text-muted mb-1">
                         Previous MTD
                       </div>
@@ -946,28 +946,28 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                       </div>
                     </div>
 
-                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[76px]">
-                      <div className="text-xs text-text-muted mb-1">
+                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[80px]">
+                      <div className="text-xs text-text-muted mb-0.5">
                         vs Last Month
                       </div>
-                      <div className="flex items-baseline justify-between gap-1.5 mt-0.5">
+                      <div>
                         <MoMIndicator 
                           cur={selectedDealer.cur}
                           prev={selectedDealer.prev}
-                          className="text-xl sm:text-2xl font-black leading-tight" 
+                          className="text-xl sm:text-2xl font-black leading-tight block" 
                         />
                         {selectedDealer.cur != null && selectedDealer.prev != null && (
-                          <span className={`text-xs font-bold whitespace-nowrap ${
+                          <div className={`text-[11.5px] font-semibold tracking-tight mt-0.5 ${
                             (Number(selectedDealer.cur) || 0) >= (Number(selectedDealer.prev) || 0) ? 'text-[#22c55e]' : 'text-[#ef4444]'
                           }`}>
                             {(Number(selectedDealer.cur) || 0) >= (Number(selectedDealer.prev) || 0) ? '+' : ''}
                             {formatMT(Number(selectedDealer.cur || 0) - Number(selectedDealer.prev || 0))}
-                          </span>
+                          </div>
                         )}
                       </div>
                     </div>
 
-                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[76px]">
+                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[80px]">
                       <div className="text-xs text-text-muted mb-2">
                         Impact Level
                       </div>
