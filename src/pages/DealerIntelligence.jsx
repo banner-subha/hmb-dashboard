@@ -923,42 +923,50 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                   })()
                 ) : (
                   <>
-                    <div className="p-3 bg-bg-secondary rounded-lg">
+                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[76px]">
                       <div className="text-xs text-text-muted mb-1">
                         Dispatched (MT)
                       </div>
-                      <div className="text-base font-bold text-text-primary">
+                      <div className="text-xl font-extrabold text-text-primary">
                         {formatMT(selectedDealer.cur)}
                       </div>
                     </div>
 
-                    <div className="p-3 bg-bg-secondary rounded-lg">
+                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[76px]">
                       <div className="text-xs text-text-muted mb-1">
                         Previous MTD
                       </div>
-                      <div className="text-base font-bold text-text-primary">
+                      <div className="text-xl font-extrabold text-text-primary">
                         {formatMT(selectedDealer.prev)}
                       </div>
                     </div>
 
-                    <div className="p-3 bg-bg-secondary rounded-lg">
+                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[76px]">
                       <div className="text-xs text-text-muted mb-1">
                         vs Last Month
                       </div>
-                      <div className="mt-1">
+                      <div className="flex items-baseline justify-between gap-1.5 mt-0.5">
                         <MoMIndicator 
                           cur={selectedDealer.cur}
                           prev={selectedDealer.prev}
-                          className="text-base font-bold" 
+                          className="text-xl sm:text-2xl font-black leading-tight" 
                         />
+                        {selectedDealer.cur != null && selectedDealer.prev != null && (
+                          <span className={`text-xs font-bold whitespace-nowrap ${
+                            (Number(selectedDealer.cur) || 0) >= (Number(selectedDealer.prev) || 0) ? 'text-[#22c55e]' : 'text-[#ef4444]'
+                          }`}>
+                            {(Number(selectedDealer.cur) || 0) >= (Number(selectedDealer.prev) || 0) ? '+' : ''}
+                            {formatMT(Number(selectedDealer.cur || 0) - Number(selectedDealer.prev || 0))}
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    <div className="p-3 bg-bg-secondary rounded-lg">
+                    <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[76px]">
                       <div className="text-xs text-text-muted mb-2">
                         Impact Level
                       </div>
-                      <div className="mt-1">
+                      <div className="mt-auto">
                         <ImpactBadge 
                           cur={selectedDealer.cur}
                           prev={selectedDealer.prev}
