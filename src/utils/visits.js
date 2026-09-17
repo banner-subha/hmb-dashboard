@@ -386,6 +386,54 @@ const dealerKey = (state, district, dealer) => {
   return base && nm ? `${base}||${nm}` : null;
 };
 
+// ── Porcelain-safe lightness for the progress ramp ───────────────────────────
+// The ramp's own lightness (45-54%) is tuned for a navy ground. On a white card
+// the gold end of it (hue ~48) lands at 1.3 : 1 — a percentage rendered in a
+// colour nobody can read. Rather than hand-pick a second ramp, the maximum
+// lightness that still clears 4.6 : 1 on white is solved per hue, once, and
+// cached. The hue is untouched, so a 40% still reads amber and a 95% still
+// reads green — only the depth changes, and only in light mode.
+const LIGHT_RAMP_LIGHTNESS = new Map();
+
+function hslChannelsToRgb(h, s, l) {
+  const sN = s / 100;
+  const lN = l / 100;
+  const c = (1 - Math.abs(2 * lN - 1)) * sN;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = lN - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60)       { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else              { r = c; b = x; }
+  return [r + m, g + m, b + m];
+}
+
+function relativeLuminance(h, s, l) {
+  const lin = (v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+  const [r, g, b] = hslChannelsToRgb(h, s, l);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+function porcelainLightness(hue, saturation) {
+  const key = `${hue}:${saturation}`;
+  if (LIGHT_RAMP_LIGHTNESS.has(key)) return LIGHT_RAMP_LIGHTNESS.get(key);
+  // Walk down from the dark-theme value until the swatch clears AA on white.
+  let l = 50;
+  while (l > 18 && (1.05 / (relativeLuminance(hue, saturation, l) + 0.05)) < 4.6) {
+    l -= 1;
+  }
+  LIGHT_RAMP_LIGHTNESS.set(key, l);
+  return l;
+}
+
+function isLightTheme() {
+  return typeof document !== 'undefined'
+    && document.documentElement.getAttribute('data-theme') === 'light';
+}
+
 /**
  * Progress bar colour, interpolated Red -> Gold -> Green across 0-100%.
  *
@@ -395,7 +443,7 @@ const dealerKey = (state, district, dealer) => {
 export function getDynamicProgressColor(pct) {
   if (pct == null || isNaN(pct)) {
     return {
-      color: '#94a3b8',
+      color: isLightTheme() ? '#3B4860' : '#94a3b8',
       glow: 'none',
     };
   }
@@ -409,7 +457,9 @@ export function getDynamicProgressColor(pct) {
     hue = Math.round(48 + ((clamped - 50) / 50) * (142 - 48));
   }
   const saturation = 88;
-  const lightness = clamped < 10 ? 54 : clamped < 70 ? 49 : 45;
+  const lightness = isLightTheme()
+    ? porcelainLightness(hue, saturation)
+    : (clamped < 10 ? 54 : clamped < 70 ? 49 : 45);
   const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   return {
     color,

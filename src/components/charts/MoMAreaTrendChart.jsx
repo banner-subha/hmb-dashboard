@@ -1,7 +1,6 @@
 import React, { useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { useDebouncedResize } from '../../hooks/useDebouncedResize';
-import { useChartVisible } from '../../hooks/useChartVisible';
 import { formatNumber } from '../../utils/formatters';
 
 /**
@@ -94,6 +93,24 @@ const GradientCursor = (props) => {
   );
 };
 
+/**
+ * Entrance animation note.
+ *
+ * The `<Area>` used to draw itself with recharts' own `isAnimationActive`. That
+ * animation is driven by a JS ticker that this page does not reliably feed: on
+ * load the curve sat clipped to zero width for ~950ms — nine dots hanging in an
+ * empty grid — and then snapped in; after a collapse/expand of the card it never
+ * advanced at all, leaving the fill and the line permanently invisible until
+ * some unrelated repaint happened to flush it.
+ *
+ * The reveal is CSS now (`.chart-reveal`, see index.css). It rides the browser's
+ * own animation timeline, so it always runs to completion whether or not React
+ * renders again. Crucially, the stroke curve (.recharts-area-curve) and gradient
+ * fill (.recharts-area-area) are swept smoothly over 1100ms with ease-in-out and
+ * GPU compositing hints, while the data point dots (.recharts-area-dots circle)
+ * bloom in with calibrated staggered delays — completely eliminating the
+ * sliced-circle visual glitch.
+ */
 function MoMAreaTrendChart({
   data,
   nameKey = "monthLabel",
@@ -108,7 +125,6 @@ function MoMAreaTrendChart({
 }) {
   const containerRef = useRef(null);
   const { width } = useDebouncedResize(containerRef, 150);
-  const isVisible = useChartVisible(containerRef);
 
   const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
 
@@ -134,7 +150,7 @@ function MoMAreaTrendChart({
   const gradientId = `areaGradient-${effectiveStroke.replace('#', '')}`;
 
   return (
-    <div ref={containerRef} className="w-full" style={{ height: `${height}px` }}>
+    <div ref={containerRef} className="w-full chart-reveal" style={{ height: `${height}px` }}>
       {width > 0 && (
         <AreaChart
           width={width}
@@ -190,8 +206,7 @@ function MoMAreaTrendChart({
             fill={`url(#${gradientId})`}
             dot={{ r: 3.5, fill: effectiveStroke }}
             activeDot={{ r: 6, fill: effectiveStroke }}
-            isAnimationActive={isVisible}
-            animationDuration={500}
+            isAnimationActive={false}
           />
         </AreaChart>
       )}

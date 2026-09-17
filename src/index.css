@@ -152,16 +152,16 @@ body,
    ═══════════════════════════════════════════════════════════════════════════════ */
 [data-theme="light"] {
   /* ── Core surfaces ── */
-  --color-bg-primary: #F2F4F8;
-  --color-bg-primary-rgb: 242, 244, 248;
-  --color-bg-secondary: #EBEEF4;
-  --color-bg-tertiary: #F5F7FB;
+  --color-bg-primary: #E8ECF4;
+  --color-bg-primary-rgb: 232, 236, 244;
+  --color-bg-secondary: #E0E5EF;
+  --color-bg-tertiary: #EFF3F9;
   --color-bg-card: #FFFFFF;
-  --color-bg-card-hover: #F8FAFD;
+  --color-bg-card-hover: #F5F8FC;
   --color-bg-elevated: #FFFFFF;
   --color-bg-input: #FFFFFF;
-  --color-border: #DFE5EF;
-  --color-border-accent: #C2D1E8;
+  --color-border: #C8D3E4;
+  --color-border-accent: #A4BAD8;
 
   /* ── Text ramp — deep navy-slate ──
      Contrast against the white card (#FFFFFF) and the page (#F2F4F8), since
@@ -172,9 +172,9 @@ body,
                             washed out at 11.5px and blurred into white cards)
        dim        5.4 : 1  (was #8290AC, 3.2 : 1 — under AA at any size) */
   --color-text-primary: #111B2E;
-  --color-text-secondary: #38465F;
-  --color-text-muted: #4A5771;
-  --color-text-dim: #5E6B85;
+  --color-text-secondary: #2B384F;
+  --color-text-muted: #3B4860;
+  --color-text-dim: #4B5872;
 
   /* ── Accent — royal azure tuned for white surfaces ── */
   --color-accent-blue: #1D5BD8;
@@ -194,10 +194,10 @@ body,
   --color-sidebar-border: rgba(151, 180, 224, 0.20);
 
   /* ── Gradients — porcelain, flat ── */
-  --gradient-page: linear-gradient(180deg, #F4F6FA 0%, #F1F3F8 55%, #EFF2F7 100%);
+  --gradient-page: linear-gradient(180deg, #EBEFF6 0%, #E8ECF4 55%, #E4E9F2 100%);
   --gradient-card: linear-gradient(180deg, #FFFFFF 0%, #FDFEFF 100%);
-  --gradient-card-hover: linear-gradient(180deg, #F8FAFD 0%, #FFFFFF 100%);
-  --gradient-surface: linear-gradient(180deg, #EBEEF4 0%, #E9EDF3 100%);
+  --gradient-card-hover: linear-gradient(180deg, #F5F8FC 0%, #FFFFFF 100%);
+  --gradient-surface: linear-gradient(180deg, #E0E5EF 0%, #DDE3EE 100%);
   --gradient-header: linear-gradient(135deg, #0F1D33 0%, #13274A 100%);
   --gradient-accent: linear-gradient(135deg, #2E6BE6 0%, #1D4FC4 100%);
   --gradient-accent-soft: linear-gradient(135deg, rgba(29, 91, 216, 0.10) 0%, rgba(29, 91, 216, 0.03) 100%);
@@ -205,9 +205,9 @@ body,
   --gradient-sidebar: linear-gradient(180deg, #10213B 0%, #0D1A2F 100%);
 
   /* ── Neutral shadows ── */
-  --shadow-card: 0 1px 2px rgba(17, 27, 46, 0.04), 0 4px 16px rgba(17, 27, 46, 0.05);
-  --shadow-card-hover: 0 2px 6px rgba(17, 27, 46, 0.06), 0 10px 28px rgba(17, 27, 46, 0.09);
-  --shadow-pill: 0 1px 2px rgba(17, 27, 46, 0.10);
+  --shadow-card: 0 1px 2px rgba(17, 27, 46, 0.07), 0 4px 16px rgba(17, 27, 46, 0.09);
+  --shadow-card-hover: 0 2px 6px rgba(17, 27, 46, 0.10), 0 10px 28px rgba(17, 27, 46, 0.14);
+  --shadow-pill: 0 1px 3px rgba(17, 27, 46, 0.16);
   --shadow-chart-tooltip: 0 8px 24px rgba(17, 27, 46, 0.12);
   --card-hover-border: rgba(29, 91, 216, 0.38);
   --ring-focus: rgba(29, 91, 216, 0.14);
@@ -246,11 +246,11 @@ body,
   --color-map-stroke: #7488A6;
   --color-chart-tooltip-bg: #FFFFFF;
   --color-chart-tooltip-border: rgba(29, 91, 216, 0.28);
-  --color-chart-cursor: rgba(17, 27, 46, 0.05);
+  --color-chart-cursor: rgba(17, 27, 46, 0.08);
 
   /* ── AI War Room sub-card surface ── */
   --ai-card-bg: #FFFFFF;
-  --ai-card-border: #E2E8F2;
+  --ai-card-border: #CFDAEA;
 
   /* ── Key Directive summary card — deeper steel surface (light) ── */
   --directive-shell: #F2F5FA;
@@ -1148,4 +1148,423 @@ body {
 [data-theme="light"] .clearance-good {
   color: #047857 !important;
   font-weight: 700 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   LIGHT THEME — CONTRAST HARDENING
+   ─────────────────────────────────────────────────────────────────────────────
+   Everything below is scoped to [data-theme="light"]. Dark mode never sees it.
+
+   The token ramp above is only half the story. Two things kept sinking text
+   into the white cards regardless of the tokens:
+
+   1. Status hues arrive as *inline styles* from business logic
+      (getSeverityTheme, the MoM/pace formatters, the plan + backlog cards).
+      Those hexes — #22c55e, #ef4444, #f97316, #eab308, #3b82f6 … — are
+      Tailwind 400/500 shades, picked for a navy ground. On porcelain they
+      land at 1.9–3.8 : 1. A CSS variable cannot reach an inline style, so
+      they are remapped here by matching the serialized style attribute. The
+      match is anchored to "^color:" or "; color:" so a *fill* of the same hue
+      (a legend swatch, a ribbon, a progress bar) is left alone — text only.
+
+   2. Slash-opacity utilities. border-border/40 appears 65 times; at 40% on
+      white the card divider is a 1.1 : 1 ghost. In light mode the dilution is
+      dropped and the hairline does the separating work instead.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Inline status hues → porcelain-legible equivalents ─────────────────── */
+
+/* red — critical / declining (#ef4444, #f87171, #fca5a5) */
+[data-theme="light"] [style^="color: rgb(239, 68, 68)"],
+[data-theme="light"] [style*="; color: rgb(239, 68, 68)"],
+[data-theme="light"] [style^="color: rgb(248, 113, 113)"],
+[data-theme="light"] [style*="; color: rgb(248, 113, 113)"],
+[data-theme="light"] [style^="color: rgb(252, 165, 165)"],
+[data-theme="light"] [style*="; color: rgb(252, 165, 165)"] { color: #A4172A !important; }
+
+/* orange — high (#f97316, #fb923c, #fdba74) */
+[data-theme="light"] [style^="color: rgb(249, 115, 22)"],
+[data-theme="light"] [style*="; color: rgb(249, 115, 22)"],
+[data-theme="light"] [style^="color: rgb(251, 146, 60)"],
+[data-theme="light"] [style*="; color: rgb(251, 146, 60)"],
+[data-theme="light"] [style^="color: rgb(253, 186, 116)"],
+[data-theme="light"] [style*="; color: rgb(253, 186, 116)"] { color: #9A4A0C !important; }
+
+/* amber / yellow — moderate (#f59e0b, #eab308, #facc15, #fbbf24, #fcd34d) */
+[data-theme="light"] [style^="color: rgb(245, 158, 11)"],
+[data-theme="light"] [style*="; color: rgb(245, 158, 11)"],
+[data-theme="light"] [style^="color: rgb(234, 179, 8)"],
+[data-theme="light"] [style*="; color: rgb(234, 179, 8)"],
+[data-theme="light"] [style^="color: rgb(250, 204, 21)"],
+[data-theme="light"] [style*="; color: rgb(250, 204, 21)"],
+[data-theme="light"] [style^="color: rgb(251, 191, 36)"],
+[data-theme="light"] [style*="; color: rgb(251, 191, 36)"],
+[data-theme="light"] [style^="color: rgb(252, 211, 77)"],
+[data-theme="light"] [style*="; color: rgb(252, 211, 77)"] { color: #8A5A06 !important; }
+
+/* green — stable / growing (#22c55e, #10b981, #34d399, #4ade80, #6ee7b7) */
+[data-theme="light"] [style^="color: rgb(34, 197, 94)"],
+[data-theme="light"] [style*="; color: rgb(34, 197, 94)"],
+[data-theme="light"] [style^="color: rgb(16, 185, 129)"],
+[data-theme="light"] [style*="; color: rgb(16, 185, 129)"],
+[data-theme="light"] [style^="color: rgb(52, 211, 153)"],
+[data-theme="light"] [style*="; color: rgb(52, 211, 153)"],
+[data-theme="light"] [style^="color: rgb(74, 222, 128)"],
+[data-theme="light"] [style*="; color: rgb(74, 222, 128)"],
+[data-theme="light"] [style^="color: rgb(110, 231, 183)"],
+[data-theme="light"] [style*="; color: rgb(110, 231, 183)"] { color: #046C40 !important; }
+
+/* blue — info / plan (#3b82f6, #60a5fa, #4e8ff7, #6fa5ff, #93c5fd) */
+[data-theme="light"] [style^="color: rgb(59, 130, 246)"],
+[data-theme="light"] [style*="; color: rgb(59, 130, 246)"],
+[data-theme="light"] [style^="color: rgb(96, 165, 250)"],
+[data-theme="light"] [style*="; color: rgb(96, 165, 250)"],
+[data-theme="light"] [style^="color: rgb(78, 143, 247)"],
+[data-theme="light"] [style*="; color: rgb(78, 143, 247)"],
+[data-theme="light"] [style^="color: rgb(111, 165, 255)"],
+[data-theme="light"] [style*="; color: rgb(111, 165, 255)"],
+[data-theme="light"] [style^="color: rgb(147, 197, 253)"],
+[data-theme="light"] [style*="; color: rgb(147, 197, 253)"] { color: #1750C4 !important; }
+
+/* cyan / sky (#06b6d4, #22d3ee, #38bdf8, #0ea5e9, #7dd3fc, #55bef0) */
+[data-theme="light"] [style^="color: rgb(6, 182, 212)"],
+[data-theme="light"] [style*="; color: rgb(6, 182, 212)"],
+[data-theme="light"] [style^="color: rgb(34, 211, 238)"],
+[data-theme="light"] [style*="; color: rgb(34, 211, 238)"],
+[data-theme="light"] [style^="color: rgb(56, 189, 248)"],
+[data-theme="light"] [style*="; color: rgb(56, 189, 248)"],
+[data-theme="light"] [style^="color: rgb(14, 165, 233)"],
+[data-theme="light"] [style*="; color: rgb(14, 165, 233)"],
+[data-theme="light"] [style^="color: rgb(125, 211, 252)"],
+[data-theme="light"] [style*="; color: rgb(125, 211, 252)"],
+[data-theme="light"] [style^="color: rgb(85, 190, 240)"],
+[data-theme="light"] [style*="; color: rgb(85, 190, 240)"] { color: #0A6285 !important; }
+
+/* violet / purple (#8b5cf6, #a855f7, #c084fc) */
+[data-theme="light"] [style^="color: rgb(139, 92, 246)"],
+[data-theme="light"] [style*="; color: rgb(139, 92, 246)"],
+[data-theme="light"] [style^="color: rgb(168, 85, 247)"],
+[data-theme="light"] [style*="; color: rgb(168, 85, 247)"],
+[data-theme="light"] [style^="color: rgb(192, 132, 252)"],
+[data-theme="light"] [style*="; color: rgb(192, 132, 252)"] { color: #6D28D9 !important; }
+
+/* neutral greys emitted inline (#6b7280, #9ca3af, #94a3b8, #8090a8) */
+[data-theme="light"] [style^="color: rgb(107, 114, 128)"],
+[data-theme="light"] [style*="; color: rgb(107, 114, 128)"],
+[data-theme="light"] [style^="color: rgb(156, 163, 175)"],
+[data-theme="light"] [style*="; color: rgb(156, 163, 175)"],
+[data-theme="light"] [style^="color: rgb(148, 163, 184)"],
+[data-theme="light"] [style*="; color: rgb(148, 163, 184)"],
+[data-theme="light"] [style^="color: rgb(128, 144, 168)"],
+[data-theme="light"] [style*="; color: rgb(128, 144, 168)"] { color: #3B4860 !important; }
+
+/* ── 2. Inline severity pill chrome ────────────────────────────────────────────
+   getSeverityTheme() hands every status pill the same shape: a 12% fill and a
+   45% border of the hue. On navy that fill is a visible wash; on white it is
+   almost nothing, so the pill loses its edge and the label floats. Both stops
+   are deepened — the fill stays pale enough for dark text, the border becomes
+   the thing that draws the pill. Matched on the exact alpha pair, so solid
+   fills of the same hue (ribbons, bars, map shading) are untouched. */
+[data-theme="light"] [style*="background-color: rgba(239, 68, 68, 0.12)"] { background-color: #FBE9E9 !important; }
+[data-theme="light"] [style*="border-color: rgba(239, 68, 68, 0.45)"]     { border-color: #E0A0A0 !important; }
+[data-theme="light"] [style*="background-color: rgba(249, 115, 22, 0.12)"] { background-color: #FCEEE0 !important; }
+[data-theme="light"] [style*="border-color: rgba(249, 115, 22, 0.45)"]     { border-color: #DFAC7C !important; }
+[data-theme="light"] [style*="background-color: rgba(234, 179, 8, 0.12)"] { background-color: #FAF3DC !important; }
+[data-theme="light"] [style*="border-color: rgba(234, 179, 8, 0.45)"]     { border-color: #D4B95F !important; }
+[data-theme="light"] [style*="background-color: rgba(34, 197, 94, 0.12)"] { background-color: #E4F5EA !important; }
+[data-theme="light"] [style*="border-color: rgba(34, 197, 94, 0.45)"]     { border-color: #8CC9A2 !important; }
+[data-theme="light"] [style*="background-color: rgba(107, 114, 128, 0.12)"] { background-color: #EDF0F4 !important; }
+[data-theme="light"] [style*="border-color: rgba(107, 114, 128, 0.45)"]     { border-color: #AEB7C6 !important; }
+
+/* ── 3. Tailwind palette shades used as text on white ──────────────────────── */
+[data-theme="light"] .text-red-500,
+[data-theme="light"] .text-rose-500,
+[data-theme="light"] .text-rose-300   { color: #A4172A; }
+[data-theme="light"] .text-orange-500,
+[data-theme="light"] .text-orange-400 { color: #9A4A0C; }
+[data-theme="light"] .text-amber-500,
+[data-theme="light"] .text-yellow-500,
+[data-theme="light"] .text-yellow-300 { color: #8A5A06; }
+[data-theme="light"] .text-green-500,
+[data-theme="light"] .text-green-400,
+[data-theme="light"] .text-emerald-500,
+[data-theme="light"] .text-emerald-300 { color: #046C40; }
+[data-theme="light"] .text-blue-500,
+[data-theme="light"] .text-blue-300,
+[data-theme="light"] .text-indigo-400  { color: #1750C4; }
+[data-theme="light"] .text-sky-400,
+[data-theme="light"] .text-sky-500,
+[data-theme="light"] .text-sky-300,
+[data-theme="light"] .text-cyan-400,
+[data-theme="light"] .text-cyan-500    { color: #0A6285; }
+[data-theme="light"] .text-violet-400,
+[data-theme="light"] .text-purple-400,
+[data-theme="light"] .text-purple-500  { color: #6D28D9; }
+[data-theme="light"] .text-slate-500,
+[data-theme="light"] .text-slate-300,
+[data-theme="light"] .text-gray-400,
+[data-theme="light"] .text-gray-500    { color: #3B4860; }
+
+/* Arbitrary-value classes the MoM + pace columns use directly. */
+[data-theme="light"] .text-\[\#ef4444\] { color: #A4172A; }
+[data-theme="light"] .text-\[\#22c55e\] { color: #046C40; }
+[data-theme="light"] .text-\[\#f97316\] { color: #9A4A0C; }
+[data-theme="light"] .text-\[\#eab308\] { color: #8A5A06; }
+[data-theme="light"] .text-\[\#3b82f6\] { color: #1750C4; }
+
+/* ── 4. Slash-opacity utilities — undo the dilution on porcelain ───────────── */
+[data-theme="light"] .text-text-muted\/60,
+[data-theme="light"] .text-text-muted\/70,
+[data-theme="light"] .text-text-muted\/80,
+[data-theme="light"] .text-text-muted\/90   { color: var(--color-text-muted); }
+[data-theme="light"] .text-text-primary\/90 { color: var(--color-text-primary); }
+[data-theme="light"] .text-accent-blue\/80  { color: var(--color-accent-blue); }
+
+[data-theme="light"] .border-border\/10,
+[data-theme="light"] .border-border\/20,
+[data-theme="light"] .border-border\/30,
+[data-theme="light"] .border-border\/40,
+[data-theme="light"] .border-border\/50,
+[data-theme="light"] .border-border\/60,
+[data-theme="light"] .border-border\/70,
+[data-theme="light"] .border-border\/80 { border-color: var(--color-border); }
+
+[data-theme="light"] .bg-border\/30,
+[data-theme="light"] .bg-border\/40,
+[data-theme="light"] .bg-text-muted\/40 { background-color: var(--color-border); }
+
+[data-theme="light"] .border-accent-blue\/20,
+[data-theme="light"] .border-accent-blue\/30,
+[data-theme="light"] .border-accent-blue\/40,
+[data-theme="light"] .border-accent-blue\/50,
+[data-theme="light"] .border-accent-sky\/35,
+[data-theme="light"] .border-accent-cyan\/30 { border-color: var(--color-border-accent); }
+
+/* ── 5. Neutral chrome that still read as grey-on-grey ─────────────────────── */
+
+/* Column headers are the map of the table; at 12.5px they have to read as
+   labels, not as a watermark. */
+[data-theme="light"] thead th { color: var(--color-text-secondary); }
+
+/* Small-caps labels carry letter-spacing at 10–11px, which thins the stroke —
+   they take the secondary tone rather than muted. */
+[data-theme="light"] .stat-label,
+[data-theme="light"] .section-header { color: var(--color-text-secondary); }
+
+/* Placeholders sat one step below muted and vanished inside the white field. */
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder { color: var(--color-text-dim); opacity: 1; }
+
+/* The unselected half of a segmented control was reading as disabled. */
+[data-theme="light"] .toggle-pill-inactive { color: var(--color-text-secondary) !important; }
+
+/* Table hairlines: the row rule is the only thing separating 15 white rows. */
+[data-theme="light"] .table-row-separator td,
+[data-theme="light"] .table-cell-separator { border-bottom-color: var(--color-border) !important; }
+
+/* Scroll thumb was invisible against the porcelain track. */
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #AFBBCD; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #8C9BB2; }
+
+/* Disabled controls: 40% of an already-light tone is unreadable. Dim, legible. */
+[data-theme="light"] button:disabled,
+[data-theme="light"] .opacity-40 { opacity: 0.62; }
+
+/* ── 6. The page header banner stays navy in light mode ────────────────────────
+   Every rule above darkens status hues for a white card. The banner at the top
+   of each page is the one light-mode surface that is *not* white — it keeps
+   --gradient-header, a navy strip. A 6.6 : 1-on-white red reads 2.6 : 1 there,
+   so inside the banner the hues go back up the ramp instead of down. */
+[data-theme="light"] .page-header-banner {
+  --color-severity-critical: #FF8A80;
+  --color-severity-high: #FFB067;
+  --color-severity-medium: #F2CE55;
+  --color-severity-low: #B9C5D9;
+  --color-severity-none: #5DDBA0;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #D6E1F2;
+  --color-text-muted: #B8C7DE;
+  --color-text-dim: #A3B4CE;
+  --color-accent-blue: #7FB3FF;
+  --color-accent-sky: #79D2F5;
+  --color-border: rgba(151, 180, 224, 0.28);
+}
+[data-theme="light"] .page-header-banner [style^="color: rgb(239, 68, 68)"],
+[data-theme="light"] .page-header-banner [style*="; color: rgb(239, 68, 68)"] { color: #FF8A80 !important; }
+[data-theme="light"] .page-header-banner [style^="color: rgb(249, 115, 22)"],
+[data-theme="light"] .page-header-banner [style*="; color: rgb(249, 115, 22)"] { color: #FFB067 !important; }
+[data-theme="light"] .page-header-banner [style^="color: rgb(234, 179, 8)"],
+[data-theme="light"] .page-header-banner [style*="; color: rgb(234, 179, 8)"] { color: #F2CE55 !important; }
+[data-theme="light"] .page-header-banner [style^="color: rgb(34, 197, 94)"],
+[data-theme="light"] .page-header-banner [style*="; color: rgb(34, 197, 94)"] { color: #5DDBA0 !important; }
+[data-theme="light"] .page-header-banner .text-emerald-400,
+[data-theme="light"] .page-header-banner .text-green-500,
+[data-theme="light"] .page-header-banner .text-green-400 { color: #5DDBA0; }
+[data-theme="light"] .page-header-banner .text-red-400,
+[data-theme="light"] .page-header-banner .text-red-500,
+[data-theme="light"] .page-header-banner .text-rose-400 { color: #FF8A80; }
+[data-theme="light"] .page-header-banner .text-amber-400,
+[data-theme="light"] .page-header-banner .text-amber-500 { color: #F2CE55; }
+
+/* ── 7. The rest of the inline palette ─────────────────────────────────────────
+   A sweep of every hex literal in src/ turned up a long tail beyond the five
+   status hues: the lime the plan tables grade with, the indigo and slate the
+   secondary series use, and the four-stop pale-blue ramp the visit charts and
+   product-mix cards share. Same rule as above — text only, light mode only. */
+
+/* lime — plan achievement (#84cc16, #a3e635) */
+[data-theme="light"] [style^="color: rgb(132, 204, 22)"],
+[data-theme="light"] [style*="; color: rgb(132, 204, 22)"],
+[data-theme="light"] [style^="color: rgb(163, 230, 53)"],
+[data-theme="light"] [style*="; color: rgb(163, 230, 53)"] { color: #3F6212 !important; }
+
+/* indigo (#818cf8, #6366f1) */
+[data-theme="light"] [style^="color: rgb(129, 140, 248)"],
+[data-theme="light"] [style*="; color: rgb(129, 140, 248)"],
+[data-theme="light"] [style^="color: rgb(99, 102, 241)"],
+[data-theme="light"] [style*="; color: rgb(99, 102, 241)"] { color: #4338CA !important; }
+
+/* teal (#2dd4bf, #14b8a6, #4fa98c) */
+[data-theme="light"] [style^="color: rgb(45, 212, 191)"],
+[data-theme="light"] [style*="; color: rgb(45, 212, 191)"],
+[data-theme="light"] [style^="color: rgb(20, 184, 166)"],
+[data-theme="light"] [style*="; color: rgb(20, 184, 166)"],
+[data-theme="light"] [style^="color: rgb(79, 169, 140)"],
+[data-theme="light"] [style*="; color: rgb(79, 169, 140)"] { color: #0F6E5C !important; }
+
+/* the product/visit pale-blue ramp (#d6edfa, #a9d9f0, #7bc4ea, #4ea8de, #2e86c1) */
+[data-theme="light"] [style^="color: rgb(214, 237, 250)"],
+[data-theme="light"] [style*="; color: rgb(214, 237, 250)"],
+[data-theme="light"] [style^="color: rgb(169, 217, 240)"],
+[data-theme="light"] [style*="; color: rgb(169, 217, 240)"],
+[data-theme="light"] [style^="color: rgb(123, 196, 234)"],
+[data-theme="light"] [style*="; color: rgb(123, 196, 234)"],
+[data-theme="light"] [style^="color: rgb(78, 168, 222)"],
+[data-theme="light"] [style*="; color: rgb(78, 168, 222)"] { color: #0A6285 !important; }
+[data-theme="light"] [style^="color: rgb(46, 134, 193)"],
+[data-theme="light"] [style*="; color: rgb(46, 134, 193)"] { color: #175E8C !important; }
+
+/* remaining inline slates (#64748b, #c4ccd6, #b9c5d9) */
+[data-theme="light"] [style^="color: rgb(100, 116, 139)"],
+[data-theme="light"] [style*="; color: rgb(100, 116, 139)"],
+[data-theme="light"] [style^="color: rgb(196, 204, 214)"],
+[data-theme="light"] [style*="; color: rgb(196, 204, 214)"],
+[data-theme="light"] [style^="color: rgb(185, 197, 217)"],
+[data-theme="light"] [style*="; color: rgb(185, 197, 217)"] { color: #3B4860 !important; }
+
+[data-theme="light"] .text-lime-400,
+[data-theme="light"] .text-lime-500 { color: #3F6212; }
+[data-theme="light"] .text-teal-400,
+[data-theme="light"] .text-teal-500 { color: #0F6E5C; }
+[data-theme="light"] .text-indigo-300,
+[data-theme="light"] .text-indigo-500 { color: #4338CA; }
+[data-theme="light"] .text-slate-400 { color: #3B4860; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   CHART ENTRANCE — CSS-DRIVEN ORGANIC REVEAL
+   ─────────────────────────────────────────────────────────────────────────────
+   recharts animates a series by ticking a clip rect from JS. On this dashboard
+   that ticker is not reliably serviced: on card collapse/expand it stalled,
+   and on load it lagged before snapping in.
+
+   We use browser compositor-driven CSS animations that always run to completion.
+   Crucially, the stroke curve and the gradient fill are smoothly swept with a
+   luxurious 1100ms ease-in-out curve and GPU compositing hints (will-change: clip-path).
+   
+   The dots (.recharts-area-dots) are NOT clipped — clipping circles produces
+   ugly bisected crescents and jagged aliasing edges. Instead, dots bloom in
+   fluidly with a staggered delay calibrated to the exact moment the curve stroke
+   reaches each month on the X axis.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+@keyframes chartCurveSweep {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes chartAreaSweep {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.6;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+@keyframes dotBloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Curve stroke: smooth, organic 1100ms sweep */
+.chart-reveal .recharts-area-curve {
+  will-change: clip-path;
+  animation: chartCurveSweep 1100ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Area gradient fill: swept and softly illuminated alongside the stroke */
+.chart-reveal .recharts-area-area {
+  will-change: clip-path, opacity;
+  animation: chartAreaSweep 1100ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Grid & axes: settle softly in place first */
+.chart-reveal .recharts-cartesian-grid,
+.chart-reveal .recharts-cartesian-axis {
+  animation: fadeIn 380ms ease-out both;
+}
+
+/* Data point dots: bloom in smoothly right as the curve stroke sweeps past them,
+   eliminating the sliced-circle visual glitch entirely. */
+.chart-reveal .recharts-area-dots circle {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dotBloom 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.chart-reveal .recharts-area-dots circle:nth-child(1)  { animation-delay: 160ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(2)  { animation-delay: 240ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(3)  { animation-delay: 300ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(4)  { animation-delay: 360ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(5)  { animation-delay: 430ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(6)  { animation-delay: 510ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(7)  { animation-delay: 600ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(8)  { animation-delay: 720ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(9)  { animation-delay: 880ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(10) { animation-delay: 960ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(11) { animation-delay: 1020ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(12) { animation-delay: 1080ms; }
+.chart-reveal .recharts-area-dots circle:nth-child(n+13){ animation-delay: 1100ms; }
+
+/* Reduced-motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .chart-reveal .recharts-area-curve,
+  .chart-reveal .recharts-area-area,
+  .chart-reveal .recharts-area-dots circle,
+  .chart-reveal .recharts-cartesian-grid,
+  .chart-reveal .recharts-cartesian-axis {
+    animation: none !important;
+    clip-path: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }

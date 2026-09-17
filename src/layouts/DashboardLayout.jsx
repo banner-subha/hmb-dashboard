@@ -242,7 +242,7 @@ export default function DashboardLayout() {
           className="sticky top-0 shrink-0 z-10 px-4 sm:px-5 pt-3 sm:pt-3.5 pb-3.5"
           style={{ background: 'linear-gradient(180deg, rgba(var(--color-bg-primary-rgb), 0.92) 60%, rgba(var(--color-bg-primary-rgb), 0.72) 100%)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}
         >
-          <div className="max-w-[1680px] mx-auto relative flex overflow-hidden rounded-2xl border gradient-glow-top" style={{ background: 'var(--gradient-header)', borderColor: 'var(--color-sidebar-border)' }}>
+          <div className="max-w-[1680px] mx-auto relative flex overflow-hidden rounded-2xl border gradient-glow-top page-header-banner" style={{ background: 'var(--gradient-header)', borderColor: 'var(--color-sidebar-border)' }}>
             {/* Left accent bar */}
             <div className="w-[4px] shrink-0 self-stretch rounded-l-2xl" style={{ background: 'var(--gradient-accent)' }} />
 
