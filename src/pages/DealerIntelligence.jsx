@@ -347,7 +347,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
       {
         accessorKey: 'client',
         header: 'Dealer',
-        meta: { width: '25%', minWidth: '120px' },
+        meta: { width: '22%', minWidth: '115px' },
         cell: info => {
           const val = String(info.getValue() ?? '');
           const isPlaceholder = val === '0' || val.toUpperCase() === 'VERBAL';
@@ -368,15 +368,20 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
       {
         accessorKey: 'district',
         header: 'Location',
-        meta: { width: '16%', minWidth: '90px' },
+        meta: { width: '13%', minWidth: '85px' },
         cell: info => {
           const dVal = String(info.getValue() ?? '');
           const isDistPlaceholder = dVal === '0' || dVal.toUpperCase() === 'VERBAL';
           const displayDist = isDistPlaceholder ? `${dVal} (${dVal === '0' ? 'Unassigned' : 'Verbal'})` : dVal;
           return (
-            <span className="text-text-muted text-xs sm:text-[13px] font-medium truncate inline-block w-full" title={`${dVal}, ${info.row.original.state}`}>
-              {displayDist}, {info.row.original.state}
-            </span>
+            <div className="flex flex-col leading-tight min-w-0" title={`${displayDist}, ${info.row.original.state}`}>
+              <span className="font-semibold text-text-primary text-xs sm:text-[13px] truncate">
+                {displayDist}
+              </span>
+              <span className="text-[10px] text-text-muted tracking-wide uppercase mt-0.5 truncate">
+                {info.row.original.state}
+              </span>
+            </div>
           );
         },
       },
@@ -416,7 +421,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
           return 0;
         },
         header: 'Pace vs Avg',
-        meta: { width: '130px', minWidth: '120px' },
+        meta: { width: '115px', minWidth: '100px' },
         cell: info => {
           const row = info.row.original;
           const { lossFlag, lossDeltaPct, currentDailyRate, dailyAvgQty } = row;
@@ -453,7 +458,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
       {
         header: 'Status',
         accessorKey: 'operationalStatus',
-        meta: { width: '11%', minWidth: '80px' },
+        meta: { width: '105px', minWidth: '95px' },
         cell: info => {
           const row = info.row.original;
           const cur = row.cur ?? 0;
@@ -671,10 +676,10 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
         </h2>
       </div>
  
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+      <div className={`grid grid-cols-1 ${selectedDealer ? 'xl:grid-cols-[1fr_360px] 2xl:grid-cols-[1fr_380px]' : ''} gap-5`}>
         {/* Left Col: Dealer Directory */}
-        <div className={`${selectedDealer ? 'xl:col-span-8' : 'xl:col-span-12'} space-y-6 transition-all duration-300 min-w-0`}>
-          <div className="glass-card p-4 sm:p-5 lg:p-6 space-y-6">
+        <div className="space-y-6 transition-all duration-300 min-w-0">
+          <div className="glass-card p-3.5 sm:p-4 lg:p-5 space-y-6">
             
             {/* Unified Controls Row */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pb-4 border-b border-border/40 w-full">
@@ -862,7 +867,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
 
         {/* Right Col: Dealer Intelligence Panel */}
         {selectedDealer && (
-          <div className="xl:col-span-4 space-y-6 min-w-0">
+          <div className="space-y-6 min-w-0">
             <CollapsibleCard 
               title="Dealer Profile" 
               accentColor={selectedAccentColor}
