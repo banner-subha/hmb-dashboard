@@ -882,68 +882,93 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               </div>
 
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="p-3 bg-bg-secondary rounded-lg">
-                  <div className="text-xs text-text-muted mb-1">
-                    {metricMode === 'PENDING' ? 'Pending (MT)' : 'Dispatched (MT)'}
-                  </div>
-                  <div className="text-base font-bold text-text-primary">
-                    {formatMT(metricMode === 'PENDING' ? getPendingForPeriod(selectedDealer, selectedPendingMonth) : selectedDealer.cur)}
-                  </div>
-                </div>
+                {metricMode === 'PENDING' ? (
+                  (() => {
+                    const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
+                    const stateData = data?.states?.find(s => s.state === selectedDealer.state);
+                    let dailyAvg = selectedDealer.dailyAvgQty || selectedDealer.currentDailyRate || stateData?.dailyAvgQty || 0;
+                    const clearance = getBacklogClearance(pendingQty, dailyAvg);
+                    const theme = getSeverityTheme(clearance.status);
 
-                <div className="p-3 bg-bg-secondary rounded-lg">
-                  <div className="text-xs text-text-muted mb-2">
-                    {metricMode === 'PENDING' ? 'Est. Clearance' : 'Impact Level'}
-                  </div>
-                  <div className="mt-1">
-                    {metricMode === 'PENDING' ? (
-                      (() => {
-                        const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
-                        const stateData = data?.states?.find(s => s.state === selectedDealer.state);
-                        let dailyAvg = selectedDealer.dailyAvgQty || selectedDealer.currentDailyRate || stateData?.dailyAvgQty || 0;
-                        const clearance = getBacklogClearance(pendingQty, dailyAvg);
-                        return <ImpactBadge tier={clearance.status} />;
-                      })()
-                    ) : (
-                      <ImpactBadge 
-                        cur={selectedDealer.cur}
-                        prev={selectedDealer.prev}
-                        tier={selectedDealer.impactTier}
-                        score={selectedDealer.impactScore}
-                      />
-                    )}
-                  </div>
-                </div>
-                <div className="p-3 bg-bg-secondary rounded-lg col-span-2 flex justify-between items-center">
-                  <div className="text-xs text-text-muted">
-                    {metricMode === 'PENDING' ? 'Days to Clear' : 'vs Last Month'}
-                  </div>
-                  {metricMode === 'PENDING' ? (
-                    (() => {
-                      const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
-                      const stateData = data?.states?.find(s => s.state === selectedDealer.state);
-                      let dailyAvg = selectedDealer.dailyAvgQty || selectedDealer.currentDailyRate || stateData?.dailyAvgQty || 0;
-                      const clearance = getBacklogClearance(pendingQty, dailyAvg);
-                      const theme = getSeverityTheme(clearance.status);
-                      return (
-                        <span className="font-bold text-sm" style={{ color: theme.color }}>
-                          {clearance.text}
-                        </span>
-                      );
-                    })()
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-text-muted">
-                        Prev MTD: <strong className="text-text-primary font-semibold">{formatMT(selectedDealer.prev)}</strong>
-                      </span>
-                      <MoMIndicator 
-                        cur={selectedDealer.cur}
-                        prev={selectedDealer.prev}
-                        className="text-base" 
-                      />
+                    return (
+                      <>
+                        <div className="p-3 bg-bg-secondary rounded-lg">
+                          <div className="text-xs text-text-muted mb-1">
+                            Pending (MT)
+                          </div>
+                          <div className="text-base font-bold text-text-primary">
+                            {formatMT(pendingQty)}
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-bg-secondary rounded-lg">
+                          <div className="text-xs text-text-muted mb-2">
+                            Est. Clearance
+                          </div>
+                          <div className="mt-1">
+                            <ImpactBadge tier={clearance.status} />
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-bg-secondary rounded-lg col-span-2 flex justify-between items-center">
+                          <div className="text-xs text-text-muted">
+                            Days to Clear
+                          </div>
+                          <span className="font-bold text-sm" style={{ color: theme.color }}>
+                            {clearance.text}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()
+                ) : (
+                  <>
+                    <div className="p-3 bg-bg-secondary rounded-lg">
+                      <div className="text-xs text-text-muted mb-1">
+                        Dispatched (MT)
+                      </div>
+                      <div className="text-base font-bold text-text-primary">
+                        {formatMT(selectedDealer.cur)}
+                      </div>
                     </div>
-                  )}
-                </div>
+
+                    <div className="p-3 bg-bg-secondary rounded-lg">
+                      <div className="text-xs text-text-muted mb-1">
+                        Previous MTD
+                      </div>
+                      <div className="text-base font-bold text-text-primary">
+                        {formatMT(selectedDealer.prev)}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-bg-secondary rounded-lg">
+                      <div className="text-xs text-text-muted mb-1">
+                        vs Last Month
+                      </div>
+                      <div className="mt-1">
+                        <MoMIndicator 
+                          cur={selectedDealer.cur}
+                          prev={selectedDealer.prev}
+                          className="text-base font-bold" 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-bg-secondary rounded-lg">
+                      <div className="text-xs text-text-muted mb-2">
+                        Impact Level
+                      </div>
+                      <div className="mt-1">
+                        <ImpactBadge 
+                          cur={selectedDealer.cur}
+                          prev={selectedDealer.prev}
+                          tier={selectedDealer.impactTier}
+                          score={selectedDealer.impactScore}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Daily Pace Benchmark vs Current Daily Rate */}
