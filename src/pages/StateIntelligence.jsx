@@ -504,47 +504,64 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       .sort((a, b) => b.pendingQty - a.pendingQty);
   }, [selectedStateData, data?.dealers, selectedPendingMonth, filters.selectedDistrict]);
 
-  // Compute multi-month historical dispatch trend for selected state
+  /**
+   * Multi-month historical dispatch trend for the selected state.
+   *
+   * This used to pin the running cycle to a literal '2026-08': it dropped that
+   * key from the history, then appended the state's current volume back under
+   * it, labelled "Aug MTD". Once the cycle rolled over to September the literal
+   * stopped meaning "now" and the chart broke three ways at once — real August
+   * was filtered out and never plotted, September came through the history loop
+   * and was then followed by the appended point, so the curve ran
+   * "... Jul, Sep, Aug MTD" with September sitting behind August, and that last
+   * point was a duplicate of September's volume carrying a zeroed MoM.
+   *
+   * The running cycle is now whichever month is latest in the data, so the
+   * series stays correct on every rollover. Every point reads from
+   * monthlyHistory, the same source the Executive tab's national trend uses, so
+   * the MoM chain is continuous and one month cannot be measured differently
+   * from the month beside it.
+   */
   const stateMonthlyTrend = useMemo(() => {
     if (!selectedStateData || !rawData) return [];
     const stateNorm = selectedStateData.state?.replace(/\s+/g, '').toUpperCase();
-    const months = rawData.pendingAvailableMonths || rawData.availableMonths || [];
+    const history = rawData.monthlyHistory || {};
 
-    const sortedPastMonths = [...months]
-      .filter(m => (m.key || m.periodKey) !== '2026-08')
-      .sort((a, b) => {
-        const yearDiff = (a.year || 0) - (b.year || 0);
-        if (yearDiff !== 0) return yearDiff;
-        return (a.month || 0) - (b.month || 0);
+    // Labels live on the month lists; the history keys are the source of truth
+    // for which months actually have dispatch behind them.
+    const labelFor = {};
+    [...(rawData.availableMonths || []), ...(rawData.pendingAvailableMonths || [])]
+      .forEach(m => {
+        const key = m.key || m.periodKey;
+        if (key && m.label) labelFor[key] = m.label;
       });
-    
+
+    // 'YYYY-MM' sorts chronologically as a plain string.
+    const monthKeys = Object.keys(history).sort();
+    if (monthKeys.length === 0) return [];
+    const currentKey = monthKeys[monthKeys.length - 1];
+
     let prevVol = 0;
     const trend = [];
 
-    sortedPastMonths.forEach(m => {
-      const hist = rawData.monthlyHistory?.[m.key || m.periodKey];
+    monthKeys.forEach(key => {
+      const hist = history[key];
       if (!hist) return;
       const st = (hist.states || []).find(s => s.state && s.state.replace(/\s+/g, '').toUpperCase() === stateNorm);
       const vol = st ? (st.cur ?? st.qty ?? 0) : 0;
       const mom = prevVol > 0 ? ((vol - prevVol) / prevVol) * 100 : 0;
       if (vol > 0 || prevVol > 0) {
+        // The newest month is only part-run, and the axis should say so rather
+        // than implying a finished month that fell off a cliff.
+        const baseLabel = labelFor[key] || key;
         trend.push({
-          monthKey: m.key || m.periodKey,
-          monthLabel: m.label || `${m.year}-${m.month}`,
+          monthKey: key,
+          monthLabel: key === currentKey ? `${baseLabel.split(' ')[0]} MTD` : baseLabel,
           volume: Math.round(vol * 100) / 100,
           mom: Math.round(mom * 10) / 10
         });
         prevVol = vol;
       }
-    });
-
-    const curVol = selectedStateData.cur || 0;
-    const curMom = prevVol > 0 ? ((curVol - prevVol) / prevVol) * 100 : 0;
-    trend.push({
-      monthKey: '2026-08',
-      monthLabel: 'Aug MTD',
-      volume: Math.round(curVol * 100) / 100,
-      mom: Math.round(curMom * 10) / 10
     });
 
     return trend;

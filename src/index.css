@@ -1461,105 +1461,75 @@ body {
 [data-theme="light"] .text-slate-400 { color: #3B4860; }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   CHART ENTRANCE — CSS-DRIVEN ORGANIC REVEAL
+   CHART ENTRANCE — CSS-DRIVEN REVEAL
    ─────────────────────────────────────────────────────────────────────────────
-   recharts animates a series by ticking a clip rect from JS. On this dashboard
-   that ticker is not reliably serviced: on card collapse/expand it stalled,
-   and on load it lagged before snapping in.
+   Why this is CSS at all: recharts animates a series by ticking a clip rect from
+   JS, and that ticker is not reliably serviced here. On card collapse/expand it
+   never advanced and the curve stayed invisible; on load it sat clipped for
+   ~950ms and then snapped in. So the series is drawn immediately
+   (isAnimationActive={false}) and the entrance happens here, on the browser's
+   own animation timeline, where it always runs to completion.
 
-   We use browser compositor-driven CSS animations that always run to completion.
-   Crucially, the stroke curve and the gradient fill are smoothly swept with a
-   luxurious 1100ms ease-in-out curve and GPU compositing hints (will-change: clip-path).
-   
-   The dots (.recharts-area-dots) are NOT clipped — clipping circles produces
-   ugly bisected crescents and jagged aliasing edges. Instead, dots bloom in
-   fluidly with a staggered delay calibrated to the exact moment the curve stroke
-   reaches each month on the X axis.
+   Why it is ONE animation: the previous pass swept the stroke and the fill as
+   two independent 1100ms clip-path animations and then bloomed each dot with a
+   hand-tuned per-index delay — fifteen animations on a chart, and that is what
+   made the entrance feel jittery on a cold refresh.
+
+     • clip-path is not a compositor-animated property in Chrome. Every frame is
+       main-thread work and a repaint of the clipped region, so two of them cost
+       twice the repaint during the busiest moment in the app's life. The
+       `will-change: clip-path` hint did not buy compositing — clip-path cannot
+       be composited — it only promoted an extra layer.
+     • Two sweeps with separate animations can land a frame apart, which shimmers
+       along the leading edge where the stroke meets its own gradient.
+     • The dot delays were calibrated against one nine-point chart. The same
+       component draws twenty-one points on the Visits tab, where every dot past
+       the twelfth fired at a flat 1100ms — dots arriving nowhere near the stroke
+       that was supposed to be passing them.
+
+   So: a single sweep on the parent `.recharts-area` group. Stroke, gradient and
+   dots share one clip and therefore cannot desync or tear, it is one repaint
+   region instead of two, and it holds for any number of data points.
+
+   The previous pass was right that a clip cutting through a circle leaves an
+   ugly bisected crescent. That is handled by keeping the dots at zero opacity
+   until the sweep is past them and fading the whole dot layer in as one — a
+   single composited opacity animation, with nothing to calibrate per point.
+
+   Duration is 560ms rather than 1100ms: on a cold refresh the entrance overlaps
+   the app's heaviest main-thread work, and the less of it that sits in that
+   window the less there is to drop.
    ═══════════════════════════════════════════════════════════════════════════════ */
-@keyframes chartCurveSweep {
-  0% {
-    clip-path: inset(0 100% 0 0);
-  }
-  100% {
-    clip-path: inset(0 0 0 0);
-  }
+@keyframes chartRevealWipe {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
 }
 
-@keyframes chartAreaSweep {
-  0% {
-    clip-path: inset(0 100% 0 0);
-    opacity: 0;
-  }
-  30% {
-    opacity: 0.6;
-  }
-  100% {
-    clip-path: inset(0 0 0 0);
-    opacity: 1;
-  }
+/* One sweep for the whole series. `both` holds the end state, so a chart whose
+   animation the browser drops (background tab, reduced motion) is left drawn
+   rather than reverting to the clipped-away first frame. The short delay lets
+   the mount commit settle before the first animated frame is asked for. */
+.chart-reveal .recharts-area {
+  animation: chartRevealWipe 560ms cubic-bezier(0.22, 0.61, 0.36, 1) 60ms both;
 }
 
-@keyframes dotBloom {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  70% {
-    opacity: 1;
-    transform: scale(1.18);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
+/* Dots wait for the sweep to clear them, then arrive together — one opacity
+   animation on the layer, not one per circle. */
+.chart-reveal .recharts-area-dots {
+  animation: fadeIn 260ms ease-out 520ms both;
 }
 
-/* Curve stroke: smooth, organic 1100ms sweep */
-.chart-reveal .recharts-area-curve {
-  will-change: clip-path;
-  animation: chartCurveSweep 1100ms cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-
-/* Area gradient fill: swept and softly illuminated alongside the stroke */
-.chart-reveal .recharts-area-area {
-  will-change: clip-path, opacity;
-  animation: chartAreaSweep 1100ms cubic-bezier(0.4, 0, 0.2, 1) both;
-}
-
-/* Grid & axes: settle softly in place first */
+/* Grid and axes are the frame the curve is drawn onto, so they settle first and
+   fade rather than wipe — a second wipe on the same axis reads as the chart
+   being drawn twice. */
 .chart-reveal .recharts-cartesian-grid,
 .chart-reveal .recharts-cartesian-axis {
   animation: fadeIn 380ms ease-out both;
 }
 
-/* Data point dots: bloom in smoothly right as the curve stroke sweeps past them,
-   eliminating the sliced-circle visual glitch entirely. */
-.chart-reveal .recharts-area-dots circle {
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: dotBloom 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-.chart-reveal .recharts-area-dots circle:nth-child(1)  { animation-delay: 160ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(2)  { animation-delay: 240ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(3)  { animation-delay: 300ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(4)  { animation-delay: 360ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(5)  { animation-delay: 430ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(6)  { animation-delay: 510ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(7)  { animation-delay: 600ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(8)  { animation-delay: 720ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(9)  { animation-delay: 880ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(10) { animation-delay: 960ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(11) { animation-delay: 1020ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(12) { animation-delay: 1080ms; }
-.chart-reveal .recharts-area-dots circle:nth-child(n+13){ animation-delay: 1100ms; }
-
-/* Reduced-motion accessibility */
 @media (prefers-reduced-motion: reduce) {
-  .chart-reveal .recharts-area-curve,
-  .chart-reveal .recharts-area-area,
-  .chart-reveal .recharts-area-dots circle,
+  .chart-reveal .recharts-area,
+  .chart-reveal .recharts-area-dots,
   .chart-reveal .recharts-cartesian-grid,
   .chart-reveal .recharts-cartesian-axis {
     animation: none !important;
