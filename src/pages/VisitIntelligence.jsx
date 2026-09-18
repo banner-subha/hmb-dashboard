@@ -11,7 +11,28 @@ import DealerVisitTable from '../components/visits/DealerVisitTable';
 import DistrictDemandTable from '../components/visits/DistrictDemandTable';
 import RepPerformanceTable from '../components/visits/RepPerformanceTable';
 import VisitTrendsPanel from '../components/visits/VisitTrendsPanel';
+import VisitComparisonTab from '../components/visits/VisitComparisonTab';
 import DealerScorecardModal from '../components/visits/DealerScorecardModal';
+
+const MONTH_OPTIONS = [
+  { value: '01', label: 'January' },
+  { value: '02', label: 'February' },
+  { value: '03', label: 'March' },
+  { value: '04', label: 'April' },
+  { value: '05', label: 'May' },
+  { value: '06', label: 'June' },
+  { value: '07', label: 'July' },
+  { value: '08', label: 'August' },
+  { value: '09', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' },
+];
+
+function formatMonthName(m) {
+  const found = MONTH_OPTIONS.find(item => item.value === m);
+  return found ? found.label : m;
+}
 
 import { useVisitData } from '../hooks/useVisitData';
 import { useRawData } from '../context/DataContext';
@@ -60,6 +81,8 @@ export default function VisitIntelligence() {
   const [query, setQuery] = useState('');
   const [selectedDealer, setSelectedDealer] = useState(null);
   const [repRole, setRepRole] = useState('ALL');
+  const [selectedYear, setSelectedYear] = useState('2026');
+  const [selectedMonth, setSelectedMonth] = useState('09');
 
   // The dispatch feed lives in the dashboard payload, not the visit payload, so
   // the sales side of this tab is joined here rather than in the parser. It
@@ -96,9 +119,8 @@ export default function VisitIntelligence() {
         console.warn('[VisitIntelligence] Live BP district targets fetch warning:', err);
       });
 
-    // Roughly 2,000 rows against ~2,400 dealers in the tracker, so the ceiling
-    // is headroom rather than a page size.
-    queryBusinessPlan({ dimensions: ['state', 'district', 'dealer'], limit: 5000 })
+    // 2,004 rows in business_plan, so 2500 ceiling fetches 3 pages without extra round trips.
+    queryBusinessPlan({ dimensions: ['state', 'district', 'dealer'], limit: 2500 })
       .then(rows => {
         if (mounted && Array.isArray(rows) && rows.length > 0) {
           setBpDealerTargets(rows);
@@ -195,6 +217,8 @@ export default function VisitIntelligence() {
       quadrant,
       search: query || '',
       repRole,
+      year: selectedYear,
+      month: selectedMonth,
     },
     selectedEntity: selectedDealer ? {
       type: 'dealer',
@@ -309,7 +333,7 @@ export default function VisitIntelligence() {
     }
   };
 
-  if (loading) {
+  if (loading && section !== 'comparison') {
     return (
       <div className="animate-fade-in space-y-6">
         <SkeletonLoader variant="card" count={1} className="h-16" />
@@ -326,7 +350,7 @@ export default function VisitIntelligence() {
     );
   }
 
-  if (error || !data) {
+  if ((error || !data) && section !== 'comparison') {
     return (
       <div className="animate-fade-in">
         <div className="glass-card p-10 text-center">
@@ -367,7 +391,7 @@ export default function VisitIntelligence() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <select
-            className="filter-select text-sm py-2 px-3 w-full sm:w-[165px]"
+            className="filter-select text-sm py-2 px-3 w-full sm:w-[150px]"
             value={state}
             onChange={e => setState(e.target.value)}
             aria-label="Filter by state"
@@ -377,15 +401,44 @@ export default function VisitIntelligence() {
             ))}
           </select>
 
+          {/* Year Selector */}
+          <select
+            className="filter-select text-sm py-2 px-2.5 w-[100px] font-bold"
+            value={selectedYear}
+            onChange={e => {
+              const yr = e.target.value;
+              setSelectedYear(yr);
+              if (yr === '2026' && Number(selectedMonth) > 9) {
+                setSelectedMonth('09');
+              }
+            }}
+            aria-label="Filter by year"
+          >
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+          </select>
+
+          {/* Month Selector */}
+          <select
+            className="filter-select text-sm py-2 px-2.5 w-[130px] font-bold"
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            aria-label="Filter by month"
+          >
+            {MONTH_OPTIONS.filter(m => selectedYear !== '2026' || Number(m.value) <= 9).map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+
           <span className="px-3.5 py-2 rounded-xl bg-bg-card/60 border border-border/40 text-[13px] font-bold text-text-secondary whitespace-nowrap">
-            {data.meta?.curPeriod || 'This Month'}
-            {data.meta?.elapsedDays ? ` · ${data.meta.elapsedDays} Days So Far` : ''}
+            {selectedYear === '2026' && selectedMonth === '09' ? (data.meta?.curPeriod || 'This Month') : `${formatMonthName(selectedMonth)} ${selectedYear}`}
+            {selectedYear === '2026' && selectedMonth === '09' && data.meta?.elapsedDays ? ` · ${data.meta.elapsedDays} Days So Far` : ''}
           </span>
 
           {filtersOn && (
             <button
               type="button"
-              onClick={() => { setState('ALL'); setQuadrant('ALL'); setQuery(''); }}
+              onClick={() => { setState('ALL'); setQuadrant('ALL'); setQuery(''); setSelectedYear('2026'); setSelectedMonth('09'); }}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer whitespace-nowrap"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Clear Filters
@@ -394,18 +447,22 @@ export default function VisitIntelligence() {
         </div>
       </div>
 
-      <ErrorBoundary>
-        <VisitKPIRow summary={summary} meta={data.meta} />
-      </ErrorBoundary>
+      {section !== 'comparison' && (
+        <>
+          <ErrorBoundary>
+            <VisitKPIRow summary={summary} meta={data.meta} />
+          </ErrorBoundary>
 
-      <ErrorBoundary>
-        <VisitAlignmentCards
-          summary={summary}
-          selected={quadrant}
-          onSelect={selectQuadrant}
-          salesLink={salesLink}
-        />
-      </ErrorBoundary>
+          <ErrorBoundary>
+            <VisitAlignmentCards
+              summary={summary}
+              selected={quadrant}
+              onSelect={selectQuadrant}
+              salesLink={salesLink}
+            />
+          </ErrorBoundary>
+        </>
+      )}
 
       {/* One card holds the view switcher, the search box and the active view,
           the way Dealer Network holds its controls and table together. */}
@@ -497,7 +554,7 @@ export default function VisitIntelligence() {
               </div>
             )}
 
-            {section !== 'trends' && (
+            {section !== 'trends' && section !== 'comparison' && (
               <ExportDropdown
                 label="CSV"
                 entityName={section === 'dealers' ? 'Dealers' : section === 'districts' ? 'Districts' : 'Sales Reps'}
@@ -515,6 +572,26 @@ export default function VisitIntelligence() {
             )}
           </div>
         </div>
+
+        {/* Historical month guidance banner when viewing a past month on non-comparison views */}
+        {section !== 'comparison' && (selectedYear !== '2026' || selectedMonth !== '09') && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-accent-blue/10 border border-accent-blue/30 text-text-primary">
+            <div className="flex items-center gap-2.5">
+              <Briefcase className="w-5 h-5 text-accent-blue shrink-0" />
+              <span className="text-sm font-semibold">
+                Selected period: <strong className="text-accent-blue font-bold">{formatMonthName(selectedMonth)} {selectedYear}</strong>. 
+                Full multi-period comparison and district/sales team breakdowns are available in the Comparison tab.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSection('comparison')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-accent-blue hover:bg-accent-blue/90 text-white font-bold text-xs shrink-0 transition-colors cursor-pointer shadow-sm"
+            >
+              Open Comparison Tab →
+            </button>
+          </div>
+        )}
 
         <div>
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -550,6 +627,13 @@ export default function VisitIntelligence() {
               timeAnalytics={data.timeAnalytics}
               monthlyTrend={data.monthlyTrend}
               elapsedDays={data.meta?.elapsedDays}
+            />
+          )}
+          {section === 'comparison' && (
+            <VisitComparisonTab
+              stateFilter={state}
+              onStateChange={setState}
+              initialPeriodA={`${selectedYear}-${selectedMonth}`}
             />
           )}
         </ErrorBoundary>

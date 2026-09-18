@@ -660,28 +660,15 @@ export async function getVisitData() {
       }
     }
 
-    // 1. Fetch remote Supabase Storage public bucket
+    // 1 & 2. Fetch remote Supabase CDN and local bundled /visits_intelligence.json in parallel
     const remoteUrl = 'https://jhsttedcvzfkszbzczak.supabase.co/storage/v1/object/public/dashboard-data/visits_intelligence.json';
-    let remoteJson = null;
-    try {
-      const resp = await fetch(remoteUrl);
-      if (resp.ok) {
-        remoteJson = await resp.json();
-      }
-    } catch {
-      // ignore and check local
-    }
+    const [remoteRes, localRes] = await Promise.allSettled([
+      fetch(remoteUrl).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/visits_intelligence.json').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
 
-    // 2. Fetch local bundled /visits_intelligence.json
-    let localJson = null;
-    try {
-      const localResp = await fetch('/visits_intelligence.json');
-      if (localResp.ok) {
-        localJson = await localResp.json();
-      }
-    } catch (err) {
-      console.warn('[visits] local bundled visits_intelligence.json unreadable:', err);
-    }
+    const remoteJson = remoteRes.status === 'fulfilled' ? remoteRes.value : null;
+    const localJson = localRes.status === 'fulfilled' ? localRes.value : null;
 
     // 3. Freshness arbitration:
     // If both exist, pick whichever dataset has the newest generatedAt timestamp.

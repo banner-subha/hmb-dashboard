@@ -47,6 +47,14 @@ export const VISIT_SECTIONS = [
     blurb: 'Time of day the team is in the field, length of each call, and the visit count month by month.',
     searchHint: null,
   },
+  {
+    key: 'comparison',
+    label: 'Comparison',
+    countKey: null,
+    title: 'Field Visit Period Comparison',
+    blurb: 'Compare field visits, dealer reach, and sales team productivity across any two months or years.',
+    searchHint: null,
+  },
 ];
 
 /**
