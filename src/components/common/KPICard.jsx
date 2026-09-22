@@ -8,6 +8,7 @@ function KPICard({
   momColor,
   accentColor = '#3b82f6',
   lightAccentColor,
+  loading = false,
   className = ''
 }) {
   const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
@@ -63,8 +64,16 @@ function KPICard({
         {label}
       </div>
 
+      {/*
+        A figure that has not arrived yet is not the same as a figure that does
+        not exist. Rendering the em-dash placeholder while a request is still in
+        flight reads as "no data"; the shimmer reads as "not yet", and it is
+        sized to the figure it replaces so the tile does not reflow on arrival.
+      */}
       <div className="mb-1.5">
-        {renderFormattedValue()}
+        {loading
+          ? <div className="skeleton h-9 sm:h-10 lg:h-11 w-3/5" aria-hidden="true" />
+          : renderFormattedValue()}
       </div>
 
       <div className="text-xs sm:text-[13px] text-text-secondary mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-snug">

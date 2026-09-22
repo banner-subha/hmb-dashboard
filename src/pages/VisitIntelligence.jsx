@@ -14,25 +14,12 @@ import VisitTrendsPanel from '../components/visits/VisitTrendsPanel';
 import VisitComparisonTab from '../components/visits/VisitComparisonTab';
 import DealerScorecardModal from '../components/visits/DealerScorecardModal';
 
-const MONTH_OPTIONS = [
-  { value: '01', label: 'January' },
-  { value: '02', label: 'February' },
-  { value: '03', label: 'March' },
-  { value: '04', label: 'April' },
-  { value: '05', label: 'May' },
-  { value: '06', label: 'June' },
-  { value: '07', label: 'July' },
-  { value: '08', label: 'August' },
-  { value: '09', label: 'September' },
-  { value: '10', label: 'October' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'December' },
-];
-
-function formatMonthName(m) {
-  const found = MONTH_OPTIONS.find(item => item.value === m);
-  return found ? found.label : m;
-}
+/**
+ * The Comparison tab's Period A is seeded from, and written back to, this
+ * page's selected month. Nothing else on the page reads it: the other views
+ * come from the parser payload, which covers the running cycle only.
+ */
+const DEFAULT_PERIOD = { year: '2026', month: '09' };
 
 import { useVisitData } from '../hooks/useVisitData';
 import { useRawData } from '../context/DataContext';
@@ -81,8 +68,8 @@ export default function VisitIntelligence() {
   const [query, setQuery] = useState('');
   const [selectedDealer, setSelectedDealer] = useState(null);
   const [repRole, setRepRole] = useState('ALL');
-  const [selectedYear, setSelectedYear] = useState('2026');
-  const [selectedMonth, setSelectedMonth] = useState('09');
+  const [selectedYear, setSelectedYear] = useState(DEFAULT_PERIOD.year);
+  const [selectedMonth, setSelectedMonth] = useState(DEFAULT_PERIOD.month);
 
   // The dispatch feed lives in the dashboard payload, not the visit payload, so
   // the sales side of this tab is joined here rather than in the parser. It
@@ -234,13 +221,34 @@ export default function VisitIntelligence() {
     },
   });
 
+  const formatKrmValue = r => {
+    if (r?.krmVisits && r.krmVisits.length > 0) {
+      return r.krmVisits.map(k => `${k.name}${k.visits ? ` (${k.visits})` : ''}`).join(', ');
+    }
+    return r?.assignedKrm || '—';
+  };
+
+  const formatKroValue = r => {
+    if (r?.kroVisits && r.kroVisits.length > 0) {
+      return r.kroVisits.map(k => `${k.name}${k.visits ? ` (${k.visits})` : ''}`).join(', ');
+    }
+    if (r?.assignedKro) {
+      return r.assignedKro;
+    }
+    if (r?.otherVisits && r.otherVisits.length > 0) {
+      return r.otherVisits.map(k => `${k.name}${k.visits ? ` (${k.visits})` : ''}`).join(', ');
+    }
+    return r?.primaryRep || '—';
+  };
+
   const handleExportFiltered = () => {
     if (section === 'dealers') {
       const cols = [
         { label: 'Dealer Name', key: 'dealer' },
         { label: 'State', getValue: r => r.state || 'Not recorded' },
         { label: 'District', getValue: r => r.district || 'Not recorded' },
-        { label: 'Pincode', getValue: r => r.pincode || '—' },
+        { label: 'KRM', getValue: formatKrmValue },
+        { label: 'KRO', getValue: formatKroValue },
         { label: 'Account Group', getValue: r => quadrantConfig(r.quadrant)?.label || r.quadrant || '—' },
         { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
         { label: 'Historical Benchmark Visits', getValue: r => comparableAvg(r) },
@@ -289,7 +297,8 @@ export default function VisitIntelligence() {
         { label: 'Dealer Name', key: 'dealer' },
         { label: 'State', getValue: r => r.state || 'Not recorded' },
         { label: 'District', getValue: r => r.district || 'Not recorded' },
-        { label: 'Pincode', getValue: r => r.pincode || '—' },
+        { label: 'KRM', getValue: formatKrmValue },
+        { label: 'KRO', getValue: formatKroValue },
         { label: 'Account Group', getValue: r => quadrantConfig(r.quadrant)?.label || r.quadrant || '—' },
         { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
         { label: 'Historical Benchmark Visits', getValue: r => comparableAvg(r) },
@@ -390,55 +399,48 @@ export default function VisitIntelligence() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <select
-            className="filter-select text-sm py-2 px-3 w-full sm:w-[150px]"
-            value={state}
-            onChange={e => setState(e.target.value)}
-            aria-label="Filter by state"
-          >
-            {stateOptions.map(st => (
-              <option key={st} value={st}>{st === 'ALL' ? 'All States' : st}</option>
-            ))}
-          </select>
+          {/* Comparison carries its own State control next to its District
+              one, so the header drops this while that tab is open rather than
+              showing the same filter twice. */}
+          {section !== 'comparison' && (
+            <select
+              className="filter-select text-sm py-2 px-3 w-full sm:w-[150px]"
+              value={state}
+              onChange={e => setState(e.target.value)}
+              aria-label="Filter by state"
+            >
+              {stateOptions.map(st => (
+                <option key={st} value={st}>{st === 'ALL' ? 'All States' : st}</option>
+              ))}
+            </select>
+          )}
 
-          {/* Year Selector */}
-          <select
-            className="filter-select text-sm py-2 px-2.5 w-[100px] font-bold"
-            value={selectedYear}
-            onChange={e => {
-              const yr = e.target.value;
-              setSelectedYear(yr);
-              if (yr === '2026' && Number(selectedMonth) > 9) {
-                setSelectedMonth('09');
-              }
-            }}
-            aria-label="Filter by year"
-          >
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-          </select>
-
-          {/* Month Selector */}
-          <select
-            className="filter-select text-sm py-2 px-2.5 w-[130px] font-bold"
-            value={selectedMonth}
-            onChange={e => setSelectedMonth(e.target.value)}
-            aria-label="Filter by month"
-          >
-            {MONTH_OPTIONS.filter(m => selectedYear !== '2026' || Number(m.value) <= 9).map(m => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
-          </select>
-
-          <span className="px-3.5 py-2 rounded-xl bg-bg-card/60 border border-border/40 text-[13px] font-bold text-text-secondary whitespace-nowrap">
-            {selectedYear === '2026' && selectedMonth === '09' ? (data.meta?.curPeriod || 'This Month') : `${formatMonthName(selectedMonth)} ${selectedYear}`}
-            {selectedYear === '2026' && selectedMonth === '09' && data.meta?.elapsedDays ? ` · ${data.meta.elapsedDays} Days So Far` : ''}
-          </span>
+          {/* The period the page describes. A label, not a control: the dealer,
+              district and sales-team views are all derived from the parser's
+              payload, which only ever covers the running cycle, so a year and
+              month picker here had nothing to act on. Any other month is the
+              Comparison tab's job, and that tab carries its own period
+              selectors. */}
+          {section !== 'comparison' && (
+            <span className="px-3.5 py-2 rounded-xl bg-bg-card/60 border border-border/40 text-[13px] font-bold text-text-secondary whitespace-nowrap">
+              {data.meta?.curPeriod || 'This Month'}
+              {data.meta?.elapsedDays ? ` · ${data.meta.elapsedDays} Days So Far` : ''}
+            </span>
+          )}
 
           {filtersOn && (
             <button
               type="button"
-              onClick={() => { setState('ALL'); setQuadrant('ALL'); setQuery(''); setSelectedYear('2026'); setSelectedMonth('09'); }}
+              onClick={() => {
+                setState('ALL');
+                setQuadrant('ALL');
+                setQuery('');
+                // The period is left alone. It is no longer a filter over this
+                // page — it belongs to the Comparison tab, where the two
+                // periods are the subject of the view rather than a filter on
+                // it, and clearing them out from under a comparison in
+                // progress is not what this button is asking for.
+              }}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer whitespace-nowrap"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Clear Filters
@@ -573,26 +575,6 @@ export default function VisitIntelligence() {
           </div>
         </div>
 
-        {/* Historical month guidance banner when viewing a past month on non-comparison views */}
-        {section !== 'comparison' && (selectedYear !== '2026' || selectedMonth !== '09') && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-accent-blue/10 border border-accent-blue/30 text-text-primary">
-            <div className="flex items-center gap-2.5">
-              <Briefcase className="w-5 h-5 text-accent-blue shrink-0" />
-              <span className="text-sm font-semibold">
-                Selected period: <strong className="text-accent-blue font-bold">{formatMonthName(selectedMonth)} {selectedYear}</strong>. 
-                Full multi-period comparison and district/sales team breakdowns are available in the Comparison tab.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSection('comparison')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-accent-blue hover:bg-accent-blue/90 text-white font-bold text-xs shrink-0 transition-colors cursor-pointer shadow-sm"
-            >
-              Open Comparison Tab →
-            </button>
-          </div>
-        )}
-
         <div>
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <h3 className="text-xl font-extrabold text-text-primary leading-tight">{active.title}</h3>
@@ -633,7 +615,13 @@ export default function VisitIntelligence() {
             <VisitComparisonTab
               stateFilter={state}
               onStateChange={setState}
-              initialPeriodA={`${selectedYear}-${selectedMonth}`}
+              stateOptions={stateOptions}
+              periodA={`${selectedYear}-${selectedMonth}`}
+              onPeriodAChange={ym => {
+                const [y, m] = ym.split('-');
+                setSelectedYear(y);
+                setSelectedMonth(m);
+              }}
             />
           )}
         </ErrorBoundary>

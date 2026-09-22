@@ -30,6 +30,7 @@ temp_script.js
 
 # Scratch, data, and dev tool artifacts
 scratch/
+.impeccable/
 *.csv
 *.txt
 .opencode/

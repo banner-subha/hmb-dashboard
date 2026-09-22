@@ -39,7 +39,7 @@ gcloud run deploy $ServiceName `
     --cpu-boost `
     --min-instances 0 `
     --timeout 300 `
-    --update-env-vars="DROPBOX_VISITS_PATH=/OFFICE HO/BI DATA/SALES DASHBOARD/VISIT_TRACKER_SEPT.csv"
+    --update-env-vars="DROPBOX_VISITS_PATH=/OFFICE HO/BI DATA/VISITS_BP/VISIT COUNT DATA.csv"
 
 # --update-env-vars, not --set-env-vars: the latter replaces the whole literal
 # env set. The Dropbox credentials, DATABASE_URL and SUPABASE_SERVICE_ROLE_KEY

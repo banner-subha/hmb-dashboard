@@ -60,15 +60,22 @@ export async function fetchVisitsCalendar() {
 
 /**
  * Compare field visits between two periods (e.g. '2026-08' vs '2025-08' or '2026-08' vs '2026-07')
- * with optional state scoping.
+ * with optional state and district scoping.
+ *
+ * District scoping is applied by the RPC, not here. Everything but the
+ * districts list — the KPI figures, the sales team rows, the customer-type
+ * mix — is aggregated server side, so a district narrowed in the browser
+ * would leave three of the four breakdowns showing state-wide numbers.
+ * Migration 012 added `p_district` for exactly this reason.
  */
-export async function compareVisitsPeriods({ periodA, periodB, state = null }) {
+export async function compareVisitsPeriods({ periodA, periodB, state = null, district = null }) {
   if (!periodA || !periodB) {
     throw new Error('Both periodA and periodB are required (format: YYYY-MM)');
   }
 
   const cleanState = clean(state);
-  const cacheKey = `comp:${periodA}:${periodB}:${cleanState || 'ALL'}`;
+  const cleanDistrict = clean(district);
+  const cacheKey = `comp:${periodA}:${periodB}:${cleanState || 'ALL'}:${cleanDistrict || 'ALL'}`;
   const now = Date.now();
 
   const cached = comparisonCache.get(cacheKey);
@@ -86,6 +93,7 @@ export async function compareVisitsPeriods({ periodA, periodB, state = null }) {
         p_period_a: periodA,
         p_period_b: periodB,
         p_state: cleanState,
+        p_district: cleanDistrict,
       });
       const data = unwrap(res, 'compare_visits_periods');
       comparisonCache.set(cacheKey, { data, timestamp: Date.now() });

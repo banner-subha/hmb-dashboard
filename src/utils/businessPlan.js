@@ -99,6 +99,16 @@ export const formatMT1 = (n) => {
   return `${v.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MT`;
 };
 
+/**
+ * The same tonnage without the unit, for the left side of an "x of y MT" pair
+ * where repeating "MT" on both figures is noise rather than information.
+ */
+export const formatMT1Bare = (n) => {
+  const v = numOrNull(n);
+  if (v === null) return '—';
+  return v.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+};
+
 /** Tonnage with an explicit sign — used for the shortfall / surplus column. */
 export const formatVariance = (n) => {
   const v = numOrNull(n);
@@ -236,4 +246,20 @@ export const achievementTone = (pct) => {
   if (pct >= 80) return { color: '#84cc16', label: 'On Track' };
   if (pct >= 60) return { color: '#f59e0b', label: 'Behind' };
   return { color: '#ef4444', label: 'Critical Gap' };
+};
+
+/**
+ * Coverage banding — how many of the planned dealers billed at all.
+ *
+ * Separate thresholds from `achievementTone` on purpose: this measures breadth
+ * rather than tonnage, and a month can hit its target on a handful of large
+ * accounts while most of the planned base stays dormant. Judging that by the
+ * achievement ladder would colour a real coverage problem green.
+ */
+export const coverageTone = (pct) => {
+  if (pct === null || pct === undefined) return { color: '#6b7280', label: 'No Plan' };
+  if (pct >= 85) return { color: '#22c55e', label: 'Broad' };
+  if (pct >= 70) return { color: '#84cc16', label: 'Healthy' };
+  if (pct >= 50) return { color: '#f59e0b', label: 'Patchy' };
+  return { color: '#ef4444', label: 'Narrow' };
 };

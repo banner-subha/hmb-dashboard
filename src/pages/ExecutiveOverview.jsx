@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
+import { useExecutivePlanSnapshot } from '../hooks/useExecutivePlanSnapshot';
 import KPICard from '../components/common/KPICard';
 import CollapsibleCard from '../components/common/CollapsibleCard';
 import ProductBarChart from '../components/charts/ProductBarChart';
@@ -9,6 +10,9 @@ import SeverityBadge from '../components/common/SeverityBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
+import { achievementTone, coverageTone, formatMT1, formatPct1, formatCount, formatMonthLabel } from '../utils/businessPlan';
+import { formatPct } from '../utils/formatters';
+import { useVisitData } from '../hooks/useVisitData';
 import { calculateMoM, formatTrend, getTrendColor } from '../utils/trendEngine';
 import { useNavigate } from 'react-router-dom';
 import SkeletonLoader from '../components/common/SkeletonLoader';
@@ -24,6 +28,9 @@ import MultiMonthTrajectoryCard from '../components/common/MultiMonthTrajectoryC
 import { ArrowRight, Info } from 'lucide-react';
 import DeclineDriversCard from '../components/common/DeclineDriversCard';
 import BacklogRegionCard from '../components/common/BacklogRegionCard';
+import TargetVsActualCard from '../components/common/TargetVsActualCard';
+import PlanCoverageCard from '../components/common/PlanCoverageCard';
+import FieldCoverageCard from '../components/common/FieldCoverageCard';
 
 export default function ExecutiveOverview() {
   const { data: filteredData, overallData, rawData, loading, error } = useData();
@@ -31,6 +38,20 @@ export default function ExecutiveOverview() {
   const navigate = useNavigate();
 
   const { totalCur = 0, totalPrev = 0, products = [], states = [], districts = [], dealers = [], intelligence = {}, alertCount = 0, intel = {} } = data || {};
+
+  // Business Plan position — its own month, its own request, and its own
+  // failure mode, so an unavailable plan never disturbs the despatch figures.
+  const plan = useExecutivePlanSnapshot();
+  const planTone = achievementTone(plan.totals?.achievementPct ?? null);
+  const planCoverageTone = coverageTone(plan.totals?.coveragePct ?? null);
+
+  // Field visit payload, derived once here and handed to the card below, so
+  // the KPI tile and the card can never report different figures.
+  const visits = useVisitData();
+  const visitsMoM =
+    visits.summary?.prevTotalVisits != null
+      ? calculateMoM(visits.summary.curTotalVisits, visits.summary.prevTotalVisits)
+      : null;
 
   // Root cause findings derived from backend intelligence + product insights
   const rootCauses = useMemo(() => {
@@ -141,6 +162,16 @@ export default function ExecutiveOverview() {
       totalCurrentMT: Math.round(totalCur * 10) / 10,
       totalPreviousMT: Math.round(totalPrev * 10) / 10,
       momPace: totalTrendDisplay,
+      planMonth: plan.month || null,
+      planTargetMT: plan.totals ? Math.round(plan.totals.spTarget * 10) / 10 : null,
+      planAchievementPct: plan.totals?.achievementPct != null
+        ? Math.round(plan.totals.achievementPct * 10) / 10
+        : null,
+      planDealerCoveragePct: plan.totals?.coveragePct != null
+        ? Math.round(plan.totals.coveragePct * 10) / 10
+        : null,
+      fieldVisitsTotal: visits.summary?.curTotalVisits ?? null,
+      fieldDealerCoveragePct: visits.summary?.dealerCoveragePct ?? null,
       activeStatesCount: states?.length || 0,
       activeDistrictsCount: districts?.length || 0,
       activeDealersCount: dealers?.length || 0,
@@ -236,18 +267,24 @@ export default function ExecutiveOverview() {
   return (
     <div className="space-y-6">
 
-      {/* KPI Row */}
-      <m.div 
+      {/*
+        KPI Row — four across rather than eight. "14,695.74 MT" needs roughly
+        250px at the tile's display size, and an eighth of this row is nowhere
+        near that; a single row of eight clipped the unit off to "14,695.74 M".
+        Four columns give every tile room for its figure and its caption, and
+        the row falls to two, then one, as the viewport narrows.
+      */}
+      <m.div
         variants={staggerContainer}
         initial="initial"
         animate="animate"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2.4fr_2.4fr_2.05fr_1.85fr_1.85fr] gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4"
       >
         {/* 1. Total Dispatch */}
         <m.div variants={kpiCard}>
-          <KPICard 
-            label="Dispatched This Month" 
-            value={formatMT(data.totalCur)} 
+          <KPICard
+            label="Dispatched This Month"
+            value={formatMT(data.totalCur)}
             momDisplay={totalTrendDisplay}
             momColor={totalTrendColor}
             subtitle="vs Last Month"
@@ -257,18 +294,35 @@ export default function ExecutiveOverview() {
 
         {/* 2. Total Pending Orders */}
         <m.div variants={kpiCard}>
-          <KPICard 
-            label="Pending Orders" 
-            value={formatMT(data.pendingTotal)} 
+          <KPICard
+            label="Pending Orders"
+            value={formatMT(data.pendingTotal)}
             subtitle={data.pendingTotal > 0 ? "Awaiting dispatch" : "No active backlog"}
             accentColor="#f97316"
           />
         </m.div>
 
-        {/* 3. Avg Delivery Time */}
+        {/* 3. Plan Achievement */}
         <m.div variants={kpiCard}>
-          <KPICard 
-            label="Avg Delivery Time" 
+          <KPICard
+            label="Plan Achievement"
+            value={plan.totals?.achievementPct != null ? formatPct1(plan.totals.achievementPct) : '—'}
+            loading={plan.loading}
+            subtitle={
+              plan.loading
+                ? 'Loading business plan'
+                : plan.totals
+                ? `${formatMT1(plan.totals.actual)} of ${formatMT1(plan.totals.spTarget)} · ${formatMonthLabel(plan.month)}`
+                : 'No plan published for this month'
+            }
+            accentColor={planTone.color}
+          />
+        </m.div>
+
+        {/* 4. Avg Delivery Time */}
+        <m.div variants={kpiCard}>
+          <KPICard
+            label="Avg Delivery Time"
             value={
               data.avgPeriod != null
                 ? `${data.avgPeriod} Days`
@@ -276,34 +330,77 @@ export default function ExecutiveOverview() {
                 ? `${data.meta.avgPeriod} Days`
                 : data.operationalContext?.overall_performance?.avg_period != null
                 ? `${data.operationalContext.overall_performance.avg_period} Days`
-                : '16.6 Days'
-            } 
+                // Was a literal '16.6 Days'. A fallback that invents a figure
+                // reads as measured; the dash says the number is not in hand.
+                : '—'
+            }
             subtitle="Order-to-dispatch avg"
             accentColor="#06b6d4"
           />
         </m.div>
 
-        {/* 4. Active Alerts */}
+        {/* 5. Active Alerts */}
         <m.div variants={kpiCard}>
-          <KPICard 
-            label="Active Alerts" 
-            value={alertCount || 0} 
+          <KPICard
+            label="Active Alerts"
+            value={alertCount || 0}
             subtitle="Requires attention"
             accentColor={alertCount > 0 ? "#ef4444" : "#22c55e"}
           />
         </m.div>
 
-        {/* 5. Active Dealers */}
+        {/* 6. Active Dealers */}
         <m.div variants={kpiCard}>
-          <KPICard 
-            label="Active Dealers" 
-            value={data.dealers?.filter(d => d.cur > 0).length || 0} 
+          <KPICard
+            label="Active Dealers"
+            value={data.dealers?.filter(d => d.cur > 0).length || 0}
             subtitle={
               dealerMovement.lost > 0 || dealerMovement.reactivated > 0
                 ? [dealerMovement.lost > 0 ? `${dealerMovement.lost} lost` : null, dealerMovement.reactivated > 0 ? `${dealerMovement.reactivated} returned` : null].filter(Boolean).join(' · ')
                 : "Transacting this month"
             }
             accentColor="#8b5cf6"
+          />
+        </m.div>
+
+        {/*
+          7. Plan Dealer Coverage — the breadth half of the plan. Plan
+          Achievement above reports tonnage, which a few large accounts can
+          carry on their own; this reports how much of the planned dealer base
+          actually billed, so a narrow month cannot hide behind a good total.
+        */}
+        <m.div variants={kpiCard}>
+          <KPICard
+            label="Plan Dealer Coverage"
+            value={plan.totals?.coveragePct != null ? formatPct1(plan.totals.coveragePct) : '—'}
+            loading={plan.loading}
+            subtitle={
+              plan.loading
+                ? 'Loading business plan'
+                : plan.totals?.bpDealers
+                ? `${formatCount(plan.totals.activeDealers)} of ${formatCount(plan.totals.bpDealers)} planned dealers billed`
+                : 'No dealer targets for this month'
+            }
+            accentColor={planCoverageTone.color}
+          />
+        </m.div>
+
+        {/* 8. Field Visits */}
+        <m.div variants={kpiCard}>
+          <KPICard
+            label="Field Visits"
+            value={visits.summary ? (visits.summary.curTotalVisits ?? 0).toLocaleString('en-IN') : '—'}
+            loading={visits.loading}
+            momDisplay={visitsMoM != null ? formatTrend(visitsMoM) : undefined}
+            momColor={visitsMoM != null ? getTrendColor(visitsMoM) : undefined}
+            subtitle={
+              visits.loading
+                ? 'Loading visit tracker'
+                : visits.summary
+                ? `${formatPct(visits.summary.dealerCoveragePct)} of tracked dealers seen`
+                : 'Visit tracker unavailable'
+            }
+            accentColor="#06b6d4"
           />
         </m.div>
       </m.div>
@@ -319,7 +416,7 @@ export default function ExecutiveOverview() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
-        
+
         {/* Left Column - Sales Analytics (5 cols) */}
         <div className="lg:col-span-5 space-y-4 sm:space-y-4.5">
           {nationalMonthlyTrend.length > 1 && (
@@ -336,23 +433,34 @@ export default function ExecutiveOverview() {
             </CollapsibleCard>
           </div>
 
+          {/* Plan target vs invoiced despatch, by state */}
           <div>
-            <CollapsibleCard 
-              title="Regions Falling Behind" 
+            <TargetVsActualCard
+              month={plan.month}
+              states={plan.states}
+              totals={plan.totals}
+              loading={plan.loading}
+              error={plan.error}
+            />
+          </div>
+
+          <div>
+            <CollapsibleCard
+              title="Regions Falling Behind"
               badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-red">{topStates.length}</span>}
               accentColor="#ef4444"
             >
               <div className="space-y-2.5">
                 {topStates.length === 0 && <div className="text-text-muted text-sm">All regions on track</div>}
                 {topStates.map(s => (
-                  <div 
-                    key={s.state} 
-                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
+                  <div
+                    key={s.state}
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2"
                     onClick={() => navigate(`/states?state=${encodeURIComponent(s.state)}`)}
                   >
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                       <div className="shrink-0">
-                        <ImpactBadge 
+                        <ImpactBadge
                           tier={s.impactTier}
                           score={s.impactScore}
                         />
@@ -372,22 +480,22 @@ export default function ExecutiveOverview() {
           </div>
 
           <div>
-            <CollapsibleCard 
-              title="Districts at Risk" 
+            <CollapsibleCard
+              title="Districts at Risk"
               badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-amber">{topDistricts.length}</span>}
               accentColor="#f97316"
             >
               <div className="space-y-2.5">
                 {topDistricts.length === 0 && <div className="text-text-muted text-sm">No district issues found</div>}
                 {topDistricts.map(d => (
-                  <div 
-                    key={d.district} 
-                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
+                  <div
+                    key={d.district}
+                    className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2"
                     onClick={() => navigate(`/districts?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}`)}
                   >
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                       <div className="shrink-0">
-                        <ImpactBadge 
+                        <ImpactBadge
                           tier={d.impactTier}
                           score={d.impactScore}
                         />
@@ -414,8 +522,8 @@ export default function ExecutiveOverview() {
 
           {/* 8-Month Macro Trajectory Chart */}
           <div>
-            <MultiMonthTrajectoryCard 
-              rawData={rawData} 
+            <MultiMonthTrajectoryCard
+              rawData={rawData}
               data={data}
             />
           </div>
@@ -423,7 +531,7 @@ export default function ExecutiveOverview() {
 
         {/* Right Column - Intelligence (7 cols) */}
         <div className="lg:col-span-7 space-y-4 sm:space-y-4.5">
-          
+
           {/* AI Exec Summary */}
           {intelligence?.executive_summary && (
             <div>
@@ -452,26 +560,32 @@ export default function ExecutiveOverview() {
 
           {/* Dynamic 2-Column Responsive Masonry Flow */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-4.5 items-start">
-            
+
             {/* Sub-Column 1: Daily Pace -> Root Cause & Insights -> Top Growth Leaders */}
             <div className="space-y-4 sm:space-y-4.5 flex flex-col">
               <PaceTrackerCard data={data} rawData={rawData} />
-              <RootCauseAndInsightsCard 
-                rootCauses={rootCauses} 
-                productInsights={data?.intelligence?.product_insights || []} 
+              <RootCauseAndInsightsCard
+                rootCauses={rootCauses}
+                productInsights={data?.intelligence?.product_insights || []}
                 productsData={data?.products || []}
                 dealerRisks={data?.intelligence?.dealer_risks || []}
               />
               <TopGrowthLeadersCard intel={intel} />
-              <CollapsibleCard 
-                title="Dealer Alerts" 
+              <FieldCoverageCard
+                data={visits.data}
+                summary={visits.summary}
+                loading={visits.loading}
+                error={visits.error}
+              />
+              <CollapsibleCard
+                title="Dealer Alerts"
                 badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-red">{inactiveDealers.length + decliningDealers.length}</span>}
                 accentColor="#ef4444"
               >
                 <div className="space-y-2.5">
                   {inactiveDealers.map((d, i) => (
-                    <div key={`in-${i}`} 
-                      className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
+                    <div key={`in-${i}`}
+                      className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2"
                       onClick={() => navigate(`/dealers?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}&search=${encodeURIComponent(d.client)}`)}
                     >
                       <div className="min-w-0 flex-1 pr-1">
@@ -482,8 +596,8 @@ export default function ExecutiveOverview() {
                     </div>
                   ))}
                   {decliningDealers.map((d, i) => (
-                    <div key={`dec-${i}`} 
-                      className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2" 
+                    <div key={`dec-${i}`}
+                      className="flex items-center justify-between p-2.5 sm:p-3 rounded-lg bg-bg-secondary/60 hover:bg-bg-card border border-border/40 hover:border-accent-blue/40 transition-all cursor-pointer shadow-xs gap-2"
                       onClick={() => navigate(`/dealers?state=${encodeURIComponent(d.state)}&district=${encodeURIComponent(d.district)}&search=${encodeURIComponent(d.client)}`)}
                     >
                       <div className="min-w-0 flex-1 pr-1">
@@ -500,7 +614,14 @@ export default function ExecutiveOverview() {
             {/* Sub-Column 2: Order Backlog -> Recommended Actions -> Order Velocity */}
             <div className="space-y-4 sm:space-y-4.5 flex flex-col">
               <BacklogClearanceCard data={data} />
-              <CollapsibleCard 
+              <PlanCoverageCard
+                month={plan.month}
+                states={plan.states}
+                totals={plan.totals}
+                loading={plan.loading}
+                error={plan.error}
+              />
+              <CollapsibleCard
                 title="Action Plan"
                 badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-blue">{intelligence?.recommended_actions?.length || 0} Actions Ready</span>}
                 accentColor="#06b6d4"

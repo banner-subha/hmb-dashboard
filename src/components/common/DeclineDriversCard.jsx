@@ -64,7 +64,7 @@ function DeclineDriversCard({ data }) {
       title="Decline Drivers"
       badge={
         <span className="text-xs font-mono font-bold px-3 py-0.5 rounded-full shadow-xs badge-theme-red">
-          −{formatMT(totalGross)} MT
+          −{formatMT(totalGross)}
         </span>
       }
       accentColor="#ef4444"
@@ -105,7 +105,7 @@ function DeclineDriversCard({ data }) {
                   <div
                     className={`h-full rounded-full transition-all duration-300 ${meta.solidClass}`}
                     style={{ width: `${Math.max(6, Math.round((drv.drop / maxDrop) * 100))}%` }}
-                    title={`${drv.name}: ${formatMT(drv.drop)} MT (${drv.pctOfTotal}% of decline)`}
+                    title={`${drv.name}: ${formatMT(drv.drop)} (${drv.pctOfTotal}% of decline)`}
                   />
                 </div>
               </m.button>
