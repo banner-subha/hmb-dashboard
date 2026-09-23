@@ -96,7 +96,9 @@ export async function compareVisitsPeriods({ periodA, periodB, state = null, dis
         p_district: cleanDistrict,
       });
       const data = unwrap(res, 'compare_visits_periods');
-      comparisonCache.set(cacheKey, { data, timestamp: Date.now() });
+      if (data && (data.kpi_a?.total_visits > 0 || data.kpi_b?.total_visits > 0)) {
+        comparisonCache.set(cacheKey, { data, timestamp: Date.now() });
+      }
       return data;
     } finally {
       inFlight.delete(cacheKey);
@@ -105,4 +107,8 @@ export async function compareVisitsPeriods({ periodA, periodB, state = null, dis
 
   inFlight.set(cacheKey, promise);
   return promise;
+}
+
+export function clearComparisonCache() {
+  comparisonCache.clear();
 }

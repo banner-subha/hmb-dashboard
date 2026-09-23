@@ -17,7 +17,7 @@ import {
 import SkeletonLoader from '../common/SkeletonLoader';
 import SearchInput from '../common/SearchInput';
 import KPICard from '../common/KPICard';
-import { compareVisitsPeriods, fetchVisitsCalendar } from '../../services/visitService';
+import { compareVisitsPeriods, fetchVisitsCalendar, clearComparisonCache } from '../../services/visitService';
 import { formatTrend, getTrendColor } from '../../utils/trendEngine';
 import { downloadCsv } from '../../utils/csvExport';
 
@@ -857,6 +857,7 @@ export default function VisitComparisonTab({
           <button
             type="button"
             onClick={() => {
+              clearComparisonCache();
               setLoading(true);
               setError(null);
               compareVisitsPeriods({ periodA, periodB, state: stateFilter })
