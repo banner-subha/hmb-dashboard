@@ -626,14 +626,19 @@ class DataService {
 export const dataService = new DataService();
 
 let _visitDataCache = null;
+let _visitCachedAt = 0;
 let _visitFetchPromise = null;
+// Without an expiry the first payload a tab loaded stayed for the life of the
+// tab, so a refresh published while the dashboard was open never showed up
+// until a hard reload. Same window as visitService's RPC cache.
+const VISIT_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /**
  * Loads pre-aggregated Field Visit Intelligence data.
  * Tries Supabase Storage public CDN first, with fallback to local public/visits_intelligence.json.
  */
 export async function getVisitData() {
-  if (_visitDataCache) return _visitDataCache;
+  if (_visitDataCache && Date.now() - _visitCachedAt < VISIT_CACHE_TTL_MS) return _visitDataCache;
   if (_visitFetchPromise) return _visitFetchPromise;
 
   _visitFetchPromise = (async () => {
@@ -652,6 +657,7 @@ export async function getVisitData() {
             { generatedAt: json?.meta?.generatedAt, dealers: json?.dealers?.length }
           );
           _visitDataCache = json;
+          _visitCachedAt = Date.now();
           return json;
         }
         console.warn('[visits] VITE_VISITS_LOCAL=1 but local file missing; falling back');
@@ -670,20 +676,29 @@ export async function getVisitData() {
     const remoteJson = remoteRes.status === 'fulfilled' ? remoteRes.value : null;
     const localJson = localRes.status === 'fulfilled' ? localRes.value : null;
 
-    // 3. Freshness arbitration:
-    // If both exist, pick whichever dataset has the newest generatedAt timestamp.
-    // This prevents production from serving a stale CDN file when a newer build is deployed.
-    let chosen = null;
+    // 3. Freshness arbitration: the copy whose data runs later wins.
+    // Compared on latestVisitDate, not generatedAt. generatedAt is when a parse
+    // ran, so re-parsing an old export locally stamps a newer time on older
+    // data, and the bundled copy then beat a CDN file a day ahead of it.
+    // generatedAt only breaks a tie.
+    let chosen;
     if (remoteJson && localJson) {
-      const remoteTime = new Date(remoteJson?.meta?.generatedAt || 0).getTime();
-      const localTime = new Date(localJson?.meta?.generatedAt || 0).getTime();
-      chosen = localTime > remoteTime ? localJson : remoteJson;
+      const remoteDay = remoteJson?.meta?.latestVisitDate || '';
+      const localDay = localJson?.meta?.latestVisitDate || '';
+      if (localDay !== remoteDay) {
+        chosen = localDay > remoteDay ? localJson : remoteJson;
+      } else {
+        const remoteTime = new Date(remoteJson?.meta?.generatedAt || 0).getTime();
+        const localTime = new Date(localJson?.meta?.generatedAt || 0).getTime();
+        chosen = localTime > remoteTime ? localJson : remoteJson;
+      }
     } else {
       chosen = remoteJson || localJson;
     }
 
     if (chosen) {
       _visitDataCache = chosen;
+      _visitCachedAt = Date.now();
       return chosen;
     }
 
