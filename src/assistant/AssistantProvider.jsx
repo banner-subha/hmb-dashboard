@@ -63,7 +63,7 @@ export function AssistantProvider({ children }) {
   // signed in, so the session list is the one thing that must not be requested
   // with a token the agent will reject. Asking a question with a dead token
   // simply fails inline, which is the whole of the handling it needs.
-  const { isAuthenticated, agentReady, user } = useAuth();
+  const { isAuthenticated, agentReady } = useAuth();
 
   // Restored from the tab, so a refresh mid-conversation comes back to it.
   const [open, setOpen] = useState(() => readStored(OPEN_KEY) === '1');
@@ -78,7 +78,7 @@ export function AssistantProvider({ children }) {
   useEffect(() => writeStored(SESSION_KEY, sessionId), [sessionId]);
 
   const refreshSessions = useCallback(() => {
-    if (!agentReady || user?.role === 'client') return Promise.resolve();
+    if (!agentReady) return Promise.resolve();
     return api.listSessions().then(
       (data) => {
         setSessions(data.sessions || []);
@@ -90,7 +90,7 @@ export function AssistantProvider({ children }) {
         setSessionsLoading(false);
       },
     );
-  }, [agentReady, user]);
+  }, [agentReady]);
 
   useEffect(() => {
     refreshSessions();
@@ -119,10 +119,6 @@ export function AssistantProvider({ children }) {
     }
   }
 
-  // If user is client, ensure panel cannot stay open
-  if (user?.role === 'client' && open) {
-    setOpen(false);
-  }
 
   // A session minted mid-stream. State only — never navigation.
   const onSessionCreated = useCallback(
@@ -173,10 +169,9 @@ export function AssistantProvider({ children }) {
   // ── surface control ────────────────────────────────────────────────────────
 
   const openPanel = useCallback(() => {
-    if (user?.role === 'client') return;
     setOpen(true);
     setUnread(false);
-  }, [user]);
+  }, []);
 
   // Closing returns to the conversation. The panel exists to be asked things,
   // so reopening it should land on the composer rather than wherever the last
@@ -187,12 +182,11 @@ export function AssistantProvider({ children }) {
   }, []);
 
   const togglePanel = useCallback(() => {
-    if (user?.role === 'client') return;
     setOpen((v) => {
       if (!v) setUnread(false);
       return !v;
     });
-  }, [user]);
+  }, []);
 
   const newConversation = useCallback(() => {
     stream.reset();

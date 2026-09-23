@@ -1,5 +1,5 @@
-import { memo, useMemo } from 'react';
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import { memo, useMemo, useCallback } from 'react';
+import { TrendingDown, TrendingUp, Download } from 'lucide-react';
 import DataTable from '../common/DataTable';
 import SkeletonLoader from '../common/SkeletonLoader';
 import {
@@ -10,6 +10,7 @@ import {
   formatVariance,
   formatCount,
 } from '../../utils/businessPlan';
+import { downloadCsv, getExportFilename } from '../../utils/csvExport';
 
 /** A bar that stops at 100% but keeps reporting the real figure beside it. */
 function AchievementBar({ pct }) {
@@ -128,11 +129,53 @@ function PlanVsActualSection({
   totalsLoading,
   truncatedAt,
   repFilterActive,
+  month,
 }) {
   const meta = useMemo(
     () => BP_ACTUAL_DIMENSIONS.find((d) => d.key === dimension) || BP_ACTUAL_DIMENSIONS[0],
     [dimension]
   );
+
+  const handleExportCsv = useCallback(() => {
+    if (!rows || rows.length === 0) return;
+
+    let cols = [];
+    if (meta.key === 'customer') {
+      cols = [
+        { label: 'Customer Name', getValue: (r) => r.label || '—' },
+        { label: 'State', getValue: (r) => r.grp?.state || '—' },
+        { label: 'District', getValue: (r) => r.grp?.district || '—' },
+        { label: 'Planned Target (MT)', getValue: (r) => (r.spTarget != null ? Number(r.spTarget).toFixed(1) : '0.0') },
+        { label: 'Invoiced Despatch (MT)', getValue: (r) => (r.actual != null ? Number(r.actual).toFixed(1) : '0.0') },
+        { label: 'Variance (MT)', getValue: (r) => (r.variance != null ? Number(r.variance).toFixed(1) : '0.0') },
+        {
+          label: 'Achievement %',
+          getValue: (r) => (r.achievementPct != null ? Number(r.achievementPct).toFixed(1) + '%' : '—'),
+        },
+        { label: 'Status', getValue: (r) => (r.unplanned ? 'Unplanned' : r.actual > 0 ? 'Billed' : 'Unbilled') },
+      ];
+    } else {
+      cols = [
+        { label: meta.entity, getValue: (r) => r.label || '—' },
+        { label: 'Planned Target (MT)', getValue: (r) => (r.spTarget != null ? Number(r.spTarget).toFixed(1) : '0.0') },
+        { label: 'Invoiced Despatch (MT)', getValue: (r) => (r.actual != null ? Number(r.actual).toFixed(1) : '0.0') },
+        { label: 'Variance (MT)', getValue: (r) => (r.variance != null ? Number(r.variance).toFixed(1) : '0.0') },
+        {
+          label: 'Achievement %',
+          getValue: (r) => (r.achievementPct != null ? Number(r.achievementPct).toFixed(1) + '%' : '—'),
+        },
+        { label: 'Billed Dealers', getValue: (r) => r.activeDealers ?? 0 },
+        { label: 'Planned Dealers', getValue: (r) => r.bpDealers ?? 0 },
+        {
+          label: 'Coverage %',
+          getValue: (r) => (r.coveragePct != null ? Number(r.coveragePct).toFixed(1) + '%' : '0.0%'),
+        },
+      ];
+    }
+
+    const filename = getExportFilename(`bp_plan_vs_actual_${meta.key}_${month || 'current'}`, 'breakdown');
+    downloadCsv(filename, cols, rows);
+  }, [rows, meta.key, meta.entity, month]);
 
   const columns = useMemo(
     () => [
@@ -273,8 +316,20 @@ function PlanVsActualSection({
             })}
           </div>
 
-          <div className="text-[13px] font-semibold text-text-muted">
-            {loading ? 'Loading…' : `${formatCount(rows.length)} ${meta.entity.toLowerCase()} rows`}
+          <div className="flex items-center gap-3 self-end xl:self-auto">
+            <div className="text-[13px] font-semibold text-text-muted">
+              {loading ? 'Loading…' : `${formatCount(rows.length)} ${meta.entity.toLowerCase()} rows`}
+            </div>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={loading || rows.length === 0}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-text-primary text-[13px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              title={`Export Plan vs Invoiced Despatch (${meta.label}) to CSV`}
+            >
+              <Download className="w-3.5 h-3.5 text-accent-blue shrink-0" />
+              <span>Export CSV</span>
+            </button>
           </div>
         </div>
 

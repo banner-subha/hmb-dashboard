@@ -73,7 +73,7 @@ export function useVisitData({
   const stateOptions = useMemo(() => {
     if (!enriched?.dealers) return ['ALL'];
     const set = new Set(
-      enriched.dealers.map(d => d.state).filter(s => s && s !== 'Unknown')
+      enriched.dealers.map(d => d.state).filter(s => s && s.trim() !== '' && s.toUpperCase() !== 'UNKNOWN')
     );
     return ['ALL', ...Array.from(set).sort()];
   }, [enriched]);
@@ -91,6 +91,9 @@ export function useVisitData({
     // Quadrant is a dealer-level classification; applying it here would empty
     // the table whenever a quadrant card is selected.
     return enriched.districts.filter(d =>
+      d.district &&
+      d.district.trim() !== '' &&
+      d.district.toUpperCase() !== 'UNKNOWN' &&
       matchesFilters(d, { state, query }, ['district', 'state'])
     );
   }, [enriched, state, query]);

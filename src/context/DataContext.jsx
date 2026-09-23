@@ -601,7 +601,7 @@ export function DataProvider({ children }) {
     let baseDistricts = [
       ...(rawData.districts || []).map(d => ({ state: d.state, district: normalizeDistrict(d.district, d.state) })),
       ...(rawData.dealers || []).map(d => ({ state: d.state, district: normalizeDistrict(d.district, d.state) }))
-    ].filter(d => d.district && isRealState(d.state));
+    ].filter(d => d.district && d.district.trim() !== '' && d.district.toUpperCase() !== 'UNKNOWN' && d.district.toUpperCase() !== 'NULL' && isRealState(d.state));
 
     if (filters.isNorthBengal) {
       const nbSet = getNormalizedDistrictSet(NORTH_BENGAL_DISTRICTS);
@@ -648,6 +648,7 @@ export function DataProvider({ children }) {
       districts: [...new Set(baseDistricts
         .filter(d => !filters.selectedState || (d.state && d.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase()))
         .map(d => d.district)
+        .filter(dt => dt && dt.trim() !== '' && dt.toUpperCase() !== 'UNKNOWN' && dt.toUpperCase() !== 'NULL')
       )].sort((a, b) => {
         // Keep '0' and 'VERBAL' grouped logically or at top/bottom
         if (a === '0') return -1;

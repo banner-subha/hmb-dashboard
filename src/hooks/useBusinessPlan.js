@@ -13,6 +13,8 @@ import {
   normalizePlanRow,
   normalizeProductRow,
   normalizeActualRow,
+  num,
+  numOrNull,
 } from '../utils/businessPlan';
 
 // Row ceilings per view. The RPC refuses anything over 5,000 and silently
@@ -266,13 +268,75 @@ export function useBusinessPlan() {
 
   const dimensionQuery = useLatest(
     async () => {
-      const rows = await queryBusinessPlan({
-        ...filterArgs,
-        dimensions: [dimensionMeta.key],
-        limit: limitFor(dimensionMeta.key),
-        sort: dimensionSort,
-      });
-      const normalized = rows.map((r) => normalizePlanRow(r, dimensionMeta.grpKey)).filter(Boolean);
+      const isActualSupported = ['state', 'district', 'customer'].includes(dimensionMeta.key);
+      const actualDim = dimensionMeta.key === 'customer' ? 'dealer' : dimensionMeta.key;
+
+      const [rows, actualRows] = await Promise.all([
+        queryBusinessPlan({
+          ...filterArgs,
+          dimensions: [dimensionMeta.key],
+          limit: limitFor(dimensionMeta.key),
+          sort: dimensionSort,
+        }),
+        isActualSupported
+          ? queryBusinessPlanVsActual({
+              dimensions: [actualDim],
+              month,
+              state: filters.state,
+              district: filters.district,
+              dealer: actualDim === 'dealer' ? debouncedCustomer : '',
+              limit: limitFor(dimensionMeta.key),
+              sort: 'variance_asc',
+            }).catch((err) => {
+              console.warn('Failed to fetch actuals for dimension:', err);
+              return [];
+            })
+          : Promise.resolve([]),
+      ]);
+
+      const actualMap = new Map();
+      if (isActualSupported && Array.isArray(actualRows)) {
+        for (const ar of actualRows) {
+          const rawKey = ar.grp?.[actualDim] ?? ar.grp?.dealer ?? ar.grp?.state ?? ar.grp?.district;
+          if (rawKey != null) {
+            actualMap.set(String(rawKey).trim().toUpperCase(), ar);
+          }
+        }
+      }
+
+      const normalized = rows
+        .map((r) => {
+          const norm = normalizePlanRow(r, dimensionMeta.grpKey);
+          if (!norm) return null;
+          if (isActualSupported) {
+            const lookupKey = String(norm.key ?? norm.label ?? '').trim().toUpperCase();
+            const actualObj = actualMap.get(lookupKey);
+            if (actualObj) {
+              norm.despatch = num(actualObj.actual_despatch);
+              norm.shortfallGap = num(actualObj.variance ?? (norm.despatch - norm.spTarget));
+              norm.activeDealers = num(actualObj.active_dealers);
+              norm.bpDealers = num(actualObj.bp_dealers);
+              norm.coveragePct = numOrNull(actualObj.coverage_pct);
+            } else {
+              norm.despatch = 0;
+              norm.shortfallGap = -norm.spTarget;
+              norm.activeDealers = 0;
+              norm.bpDealers = norm.customers || 0;
+              norm.coveragePct = 0;
+            }
+            norm.achievementPct = norm.spTarget > 0 ? (norm.despatch / norm.spTarget) * 100 : null;
+          } else {
+            norm.despatch = null;
+            norm.shortfallGap = null;
+            norm.achievementPct = null;
+            norm.activeDealers = null;
+            norm.bpDealers = null;
+            norm.coveragePct = null;
+          }
+          return norm;
+        })
+        .filter(Boolean);
+
       // For Regional Manager (KRM), omit the unassigned 0-target boundary row so the breakdown strictly lists active managers
       if (dimensionMeta.key === 'krm') {
         return normalized.filter((r) => r.key !== 'UNASSIGNED' && (r.spTarget > 0 || r.potential > 0));
@@ -332,8 +396,6 @@ export function useBusinessPlan() {
    * so this fires only for the district and dealer views. Asking for them
    * again would be a second round trip for a set the page just received.
    */
-  const needsOwnTotals = actualMeta.key !== 'state';
-
   const actualTotalsQuery = useLatest(
     async () => {
       const rows = await queryBusinessPlanVsActual({
@@ -341,20 +403,19 @@ export function useBusinessPlan() {
         month,
         state: filters.state,
         district: filters.district,
+        dealer: debouncedCustomer,
         limit: 500,
         sort: 'target_desc',
       });
       return rows.map((r) => normalizeActualRow(r, 'state'));
     },
-    `actualTotals:${month}:${filters.state}:${filters.district}`,
-    { initial: [], enabled: ready && needsOwnTotals }
+    `actualTotals:${month}:${filters.state}:${filters.district}:${debouncedCustomer}`,
+    { initial: [], enabled: ready }
   );
-
-  const totalsSource = needsOwnTotals ? actualTotalsQuery.data : actualQuery.data;
 
   const actualTotals = useMemo(
     () =>
-      (totalsSource || []).reduce(
+      (actualTotalsQuery.data || []).reduce(
         (acc, r) => ({
           spTarget: acc.spTarget + r.spTarget,
           potential: acc.potential + r.potential,
@@ -364,7 +425,7 @@ export function useBusinessPlan() {
         }),
         { spTarget: 0, potential: 0, actual: 0, bpDealers: 0, activeDealers: 0 }
       ),
-    [totalsSource]
+    [actualTotalsQuery.data]
   );
 
   // ── Filter options, cascading with the territory already chosen ───────────
@@ -405,7 +466,9 @@ export function useBusinessPlan() {
           kro: filters.kro,
         }),
       ]);
-      return { states, districts, kros, krms };
+      const cleanStates = (states || []).filter(s => s && s.trim() !== '' && s.toUpperCase() !== 'UNKNOWN');
+      const cleanDistricts = (districts || []).filter(d => d && d.trim() !== '' && d.toUpperCase() !== 'UNKNOWN');
+      return { states: cleanStates, districts: cleanDistricts, kros: kros || [], krms: krms || [] };
     },
     `options:${month}:${filters.state}:${filters.district}:${filters.kro}:${filters.krm}`,
     {
@@ -515,8 +578,7 @@ export function useBusinessPlan() {
     actualLoading: actualQuery.loading || !ready,
     actualError: actualQuery.error,
     actualTotals,
-    actualTotalsLoading:
-      (needsOwnTotals ? actualTotalsQuery.loading : actualQuery.loading) || !ready,
+    actualTotalsLoading: actualTotalsQuery.loading || !ready,
     actualRowLimit: limitFor(actualMeta.key),
 
     reload,

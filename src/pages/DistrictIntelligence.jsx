@@ -729,7 +729,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
               </div>
 
               <ExportDropdown
-                label="CSV"
+                label="Export CSV"
                 entityName="Districts"
                 filteredCount={filteredDistricts.length}
                 rawCount={(rawData?.districts || []).length}

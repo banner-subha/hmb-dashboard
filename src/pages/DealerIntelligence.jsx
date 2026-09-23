@@ -842,7 +842,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               </div>
 
               <ExportDropdown
-                label="CSV"
+                label="Export CSV"
                 entityName="Dealers"
                 filteredCount={filteredDealers.length}
                 rawCount={(rawData?.dealers || data?.dealers || []).length}

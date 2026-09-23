@@ -5,7 +5,6 @@ import { AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useMediaQuery } from '../hooks/useMediaQuery';
-import { useAuth } from '../context/AuthContext';
 import { useAssistant } from './AssistantProvider';
 import AssistantPanel from './AssistantPanel';
 import AssistantFab from './AssistantFab';
@@ -95,21 +94,13 @@ function PanelHealthy({ onHealthy }) {
 }
 
 export default function AssistantSurface() {
-  const { user } = useAuth();
   const { open, togglePanel, newConversation } = useAssistant();
   const isMobile = useMediaQuery('(max-width: 639px)');
-  const isClient = user?.role === 'client';
-
-  // Every hook below runs unconditionally. The client-role bail-out used to sit
-  // here, above them, which changes the hook count the moment the role resolves
-  // from undefined to 'client' — React throws "rendered fewer hooks than
-  // expected", and that throw escapes the boundary this component returns,
-  // taking the dashboard rather than the panel. The bail-out is now below.
 
   // The panel is a full-screen sheet on mobile, so the page behind it must not
   // scroll under the finger. On desktop it is a side panel and the dashboard
   // is meant to stay scrollable.
-  useBodyScrollLock(open && isMobile && !isClient);
+  useBodyScrollLock(open && isMobile);
 
   // Panel crash recovery.
   //
@@ -193,8 +184,6 @@ export default function AssistantSurface() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [togglePanel]);
-
-  if (isClient) return null;
 
   return createPortal(
     <ErrorBoundary

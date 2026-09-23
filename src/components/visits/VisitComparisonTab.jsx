@@ -391,8 +391,12 @@ export default function VisitComparisonTab({
   // visit payload is still loading, so fall back to whatever is selected
   // rather than briefly showing an empty dropdown.
   const stateList = useMemo(() => {
-    const list = stateOptions?.length ? [...stateOptions] : ['ALL'];
-    if (!list.includes(stateFilter)) list.push(stateFilter);
+    const list = stateOptions?.length 
+      ? stateOptions.filter(s => s && s.trim() !== '' && s.toUpperCase() !== 'UNKNOWN')
+      : ['ALL'];
+    if (stateFilter && stateFilter !== 'ALL' && stateFilter.toUpperCase() !== 'UNKNOWN' && !list.includes(stateFilter)) {
+      list.push(stateFilter);
+    }
     return list;
   }, [stateOptions, stateFilter]);
 
@@ -413,7 +417,7 @@ export default function VisitComparisonTab({
     const out = [];
     for (const r of rows) {
       const name = r?.district;
-      if (!name) continue;
+      if (!name || !name.trim() || name.toUpperCase() === 'UNKNOWN' || name.toUpperCase() === 'NULL') continue;
       const key = name.toUpperCase();
       if (seen.has(key)) continue;
       seen.add(key);
@@ -943,10 +947,11 @@ export default function VisitComparisonTab({
                 <button
                   type="button"
                   onClick={handleExportCsv}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[14px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-text-primary text-[13px] font-bold transition-all shadow-sm cursor-pointer whitespace-nowrap"
+                  title="Export Comparison to CSV"
                 >
-                  <Download className="w-4 h-4 text-accent-blue" />
-                  Export CSV
+                  <Download className="w-3.5 h-3.5 text-accent-blue shrink-0" />
+                  <span>Export CSV</span>
                 </button>
               </div>
             </div>

@@ -13,10 +13,11 @@ export default function ExportDropdown({
   onExportRaw,
   filteredCount = 0,
   rawCount = 0,
-  label = 'CSV',
+  label = 'Export CSV',
   entityName = 'Records',
   className = '',
   disabled = false,
+  showChevron = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
@@ -63,14 +64,16 @@ export default function ExportDropdown({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-text-primary text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-text-primary text-[13px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
         title="Export dataset to CSV (Excel compatible)"
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        <Download className="w-3.5 h-3.5 text-accent-blue" />
+        <Download className="w-3.5 h-3.5 text-accent-blue shrink-0" />
         <span>{label}</span>
-        <ChevronDown className={`w-3 h-3 transition-transform duration-200 text-text-muted ${isOpen ? 'rotate-180' : ''}`} />
+        {showChevron && (
+          <ChevronDown className={`w-3 h-3 transition-transform duration-200 text-text-muted ${isOpen ? 'rotate-180' : ''}`} />
+        )}
       </button>
 
       {isOpen && (

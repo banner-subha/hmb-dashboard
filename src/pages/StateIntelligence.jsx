@@ -747,7 +747,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
               </select>
 
               <ExportDropdown
-                label="CSV"
+                label="Export CSV"
                 entityName="States"
                 filteredCount={states.length}
                 rawCount={(rawData?.states || []).filter(s => s && isRealState(s.state)).length}

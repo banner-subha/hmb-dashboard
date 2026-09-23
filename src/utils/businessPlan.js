@@ -184,6 +184,11 @@ export const normalizePlanRow = (row, grpKey) => {
     reviewed: num(row.reviewed_count),
     pending: num(row.pending_count),
     missing: num(row.missing_count),
+    despatch: num(row.despatch ?? row.actual_despatch),
+    shortfallGap: numOrNull(row.variance ?? row.shortfall_gap),
+    activeDealers: num(row.active_dealers),
+    bpDealers: num(row.bp_dealers),
+    coveragePct: numOrNull(row.coverage_pct),
     products: BP_PRODUCTS.map((p) => ({
       ...p,
       potential: num(row[p.potentialKey]),

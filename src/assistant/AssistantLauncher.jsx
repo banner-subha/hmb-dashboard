@@ -1,5 +1,4 @@
 import { Sparkles } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { useAssistant } from './AssistantProvider';
 
 /**
@@ -13,10 +12,7 @@ import { useAssistant } from './AssistantProvider';
  * Stays mounted while the panel is open — it is where focus returns on close.
  */
 export default function AssistantLauncher() {
-  const { user } = useAuth();
   const { open, openPanel, unread } = useAssistant();
-
-  if (user?.role === 'client') return null;
 
   return (
     <button

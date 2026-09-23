@@ -480,7 +480,7 @@ export default function VisitIntelligence() {
           <div
             role="tablist"
             aria-label="Field visit views"
-            className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-bg-secondary/70 border border-border/50 flex-wrap"
+            className="flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl bg-bg-secondary/70 border border-border/50 flex-nowrap shrink-0 overflow-x-auto no-scrollbar"
           >
             {VISIT_SECTIONS.map(s => {
               const count = s.countKey ? counts[s.countKey] : null;
@@ -492,7 +492,7 @@ export default function VisitIntelligence() {
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setSection(s.key)}
-                  className={`flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-[13px] sm:text-[13.5px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                     isActive
                       ? 'bg-accent-blue text-white shadow-md'
                       : 'text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -501,7 +501,7 @@ export default function VisitIntelligence() {
                   {s.label}
                   {count != null && (
                     <span
-                      className={`px-1.5 py-0.5 rounded-md text-[11.5px] font-bold tabular-nums ${
+                      className={`px-1.5 py-0.5 rounded-md text-[11px] sm:text-[11.5px] font-bold tabular-nums ${
                         isActive ? 'bg-white/25 text-white' : 'bg-bg-card text-text-muted'
                       }`}
                     >
@@ -513,7 +513,7 @@ export default function VisitIntelligence() {
             })}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+          <div className="flex items-center gap-2 sm:gap-3 flex-nowrap justify-end shrink-0 ml-auto overflow-x-auto no-scrollbar">
             {/* Role is a sales-team fact, so the control only exists on that
                 view. KRM, KRO and everyone else — field staff who carry visits
                 but hold no account in the Business Plan — are the three groups
@@ -522,7 +522,7 @@ export default function VisitIntelligence() {
               <div
                 role="group"
                 aria-label="Filter by role"
-                className="flex items-center gap-1 p-1 bg-bg-secondary/60 rounded-xl border border-border/40"
+                className="flex items-center gap-0.5 sm:gap-1 p-1 bg-bg-secondary/60 rounded-xl border border-border/40 shrink-0"
               >
                 {REP_ROLES.map(r => {
                   const on = repRole === r.key;
@@ -532,7 +532,7 @@ export default function VisitIntelligence() {
                       type="button"
                       aria-pressed={on}
                       onClick={() => setRepRole(r.key)}
-                      className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap ${
+                      className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[12.5px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                         on
                           ? 'bg-accent-blue text-white shadow-sm'
                           : 'text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -546,7 +546,7 @@ export default function VisitIntelligence() {
             )}
 
             {active.searchHint && (
-              <div className="w-full xl:w-[22rem]">
+              <div className="w-[180px] sm:w-[210px] lg:w-[240px] shrink-0">
                 <SearchInput
                   size="lg"
                   value={query}
@@ -558,7 +558,7 @@ export default function VisitIntelligence() {
 
             {section !== 'trends' && section !== 'comparison' && (
               <ExportDropdown
-                label="CSV"
+                label="Export CSV"
                 entityName={section === 'dealers' ? 'Dealers' : section === 'districts' ? 'Districts' : 'Sales Reps'}
                 filteredCount={visibleCount}
                 rawCount={
@@ -570,6 +570,7 @@ export default function VisitIntelligence() {
                 }
                 onExportFiltered={handleExportFiltered}
                 onExportRaw={handleExportRaw}
+                className="shrink-0"
               />
             )}
           </div>

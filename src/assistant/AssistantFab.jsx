@@ -1,5 +1,4 @@
 import { Sparkles } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { useAssistant } from './AssistantProvider';
 
 /**
@@ -11,10 +10,7 @@ import { useAssistant } from './AssistantProvider';
  * focus to.
  */
 export default function AssistantFab() {
-  const { user } = useAuth();
   const { open, openPanel, unread } = useAssistant();
-
-  if (user?.role === 'client') return null;
 
   return (
     <button

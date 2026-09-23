@@ -7,7 +7,6 @@ import BusinessPlanFilterBar from '../components/businessplan/BusinessPlanFilter
 import BusinessPlanKPIRow from '../components/businessplan/BusinessPlanKPIRow';
 import ProductQuotaGrid from '../components/businessplan/ProductQuotaGrid';
 import PlanDimensionTable from '../components/businessplan/PlanDimensionTable';
-import PlanVsActualSection from '../components/businessplan/PlanVsActualSection';
 
 import { useBusinessPlan } from '../hooks/useBusinessPlan';
 import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
@@ -140,7 +139,7 @@ export default function BusinessPlan() {
 
       {/* ── Dimensional analysis ──────────────────────────────────────────── */}
       <section className="space-y-4">
-        <h3 className="section-header">Quota Breakdown</h3>
+        <h3 className="section-header">Quota &amp; Invoiced Despatch Breakdown</h3>
         <ErrorBoundary>
           <PlanDimensionTable
             dimension={bp.dimension}
@@ -148,27 +147,13 @@ export default function BusinessPlan() {
             rows={bp.dimensionRows}
             loading={bp.dimensionLoading}
             error={bp.dimensionError}
+            month={bp.month}
+            totals={bp.actualTotals}
+            totalsLoading={bp.actualTotalsLoading}
+            repFilterActive={repFilterActive}
             truncatedAt={
               bp.dimensionRows.length >= bp.dimensionRowLimit ? bp.dimensionRowLimit : null
             }
-          />
-        </ErrorBoundary>
-      </section>
-
-      {/* ── Plan vs actual ────────────────────────────────────────────────── */}
-      <section className="space-y-4">
-        <h3 className="section-header">Plan vs. Invoiced Despatch</h3>
-        <ErrorBoundary>
-          <PlanVsActualSection
-            dimension={bp.actualDimension}
-            onDimensionChange={bp.setActualDimension}
-            rows={bp.actualRows}
-            loading={bp.actualLoading}
-            error={bp.actualError}
-            totals={bp.actualTotals}
-            totalsLoading={bp.actualTotalsLoading}
-            truncatedAt={bp.actualRows.length >= bp.actualRowLimit ? bp.actualRowLimit : null}
-            repFilterActive={repFilterActive}
           />
         </ErrorBoundary>
       </section>
