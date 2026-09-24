@@ -277,7 +277,7 @@ function processData(rawData, filters, user) {
   const dynamicIntel = {
     ...rawData.intel,
     scoredStates: [...states].map(s => {
-      const { impactScore, severity, theme } = getBusinessImpact(s.cur, s.prev, s.share || 0, 'STATE', s.state, s.expectedMtd);
+      const { impactScore, severity, theme } = getBusinessImpact(s.cur, s.prev, s.share || 0, 'STATE', s.state, s.expectedMtd, s.lossFlag, s.lossDeltaPct);
       return {
         ...s,
         impactScore,
@@ -290,7 +290,7 @@ function processData(rawData, filters, user) {
 
     scoredDistricts: [...districts].map(dist => {
       const distShare = dynamicTotalCur > 0 ? (dist.cur / dynamicTotalCur) * 100 : 0;
-      const { impactScore, severity, theme } = getBusinessImpact(dist.cur, dist.prev, distShare, 'DISTRICT', dist.state, dist.expectedMtd);
+      const { impactScore, severity, theme } = getBusinessImpact(dist.cur, dist.prev, distShare, 'DISTRICT', dist.state, dist.expectedMtd, dist.lossFlag, dist.lossDeltaPct);
       return {
         ...dist,
         impactScore,
@@ -303,7 +303,7 @@ function processData(rawData, filters, user) {
 
     scoredDealers: [...dealers].map(dl => {
       const dealerShare = dynamicTotalCur > 0 ? (dl.cur / dynamicTotalCur) * 100 : 0;
-      const { impactScore, severity, theme } = getBusinessImpact(dl.cur, dl.prev, dealerShare, 'DEALER', dl.state, dl.expectedMtd);
+      const { impactScore, severity, theme } = getBusinessImpact(dl.cur, dl.prev, dealerShare, 'DEALER', dl.state, dl.expectedMtd, dl.lossFlag, dl.lossDeltaPct);
       return {
         ...dl,
         impactScore,

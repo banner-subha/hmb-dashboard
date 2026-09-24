@@ -814,7 +814,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         const displayVolume = cur;
         const trend = calculateMoM(cur, prev);
         const sharePct = (cur / (totalVolume.cur || 1)) * 100;
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName, rawState.expectedMtd || hs.expectedMtd);
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName, rawState.expectedMtd || hs.expectedMtd, rawState.lossFlag || hs.lossFlag, rawState.lossDeltaPct || hs.lossDeltaPct);
 
         const stateObj = {
           ...rawState,
@@ -880,7 +880,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         const displayVolume = cur;
         const trend = calculateMoM(cur, prev);
         const distShare = (cur / (totalVolume.cur || 1)) * 100;
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName, rawDist.expectedMtd || hd.expectedMtd);
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName, rawDist.expectedMtd || hd.expectedMtd, rawDist.lossFlag || hd.lossFlag, rawDist.lossDeltaPct || hd.lossDeltaPct);
 
         const distObj = {
           ...rawDist,
@@ -931,7 +931,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
       let displayVolume = isPrev ? prev : cur;
       let trend = calculateMoM(cur, prev);
       const sharePct = (cur / (totalVolume.cur || 1)) * 100;
-      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName, rawState.expectedMtd || s.expectedMtd);
+      const { impactScore, severity, theme } = getBusinessImpact(cur, prev, sharePct, 'STATE', stateName, rawState.expectedMtd || s.expectedMtd, rawState.lossFlag || s.lossFlag, rawState.lossDeltaPct || s.lossDeltaPct);
 
       states[stateName] = {
         ...s,
@@ -977,7 +977,7 @@ export default function GeoIntelligence({ salesData: propSalesData, pendingAvail
         let displayVolume = isPrev ? prev : cur;
         let trend = calculateMoM(cur, prev);
         const distShare = (cur / (totalVolume.cur || 1)) * 100;
-        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName, rawDist.expectedMtd || d.expectedMtd);
+        const { impactScore, severity, theme } = getBusinessImpact(cur, prev, distShare, 'DISTRICT', stateName, rawDist.expectedMtd || d.expectedMtd, rawDist.lossFlag || d.lossFlag, rawDist.lossDeltaPct || d.lossDeltaPct);
 
         districts[stateName][districtName] = {
           ...d,

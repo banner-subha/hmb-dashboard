@@ -86,6 +86,8 @@ export function getHistoricalStates(rawData, filters, periodKey) {
       expectedMtd: mainState?.expectedMtd ?? 0,
       dailyAvgQty: mainState?.dailyAvgQty ?? 0,
       currentDailyRate: mainState?.currentDailyRate ?? 0,
+      lossFlag: mainState?.lossFlag ?? 'NO_DATA',
+      lossDeltaPct: mainState?.lossDeltaPct ?? 0,
     };
   });
   
@@ -98,7 +100,7 @@ export function getHistoricalStates(rawData, filters, periodKey) {
   const totalCur = mapped.reduce((sum, s) => sum + s.cur, 0);
   mapped = mapped.map(st => {
     const share = totalCur > 0 ? Math.round((st.cur / totalCur) * 100) : 0;
-    const { severity, impactScore } = getBusinessImpact(st.cur, st.prev, share, 'STATE', st.state, st.expectedMtd);
+    const { severity, impactScore } = getBusinessImpact(st.cur, st.prev, share, 'STATE', st.state, st.expectedMtd, st.lossFlag, st.lossDeltaPct);
     return {
       ...st,
       share,
@@ -167,6 +169,8 @@ export function getHistoricalDistricts(rawData, filters, periodKey) {
       expectedMtd: mainDist?.expectedMtd ?? 0,
       dailyAvgQty: mainDist?.dailyAvgQty ?? 0,
       currentDailyRate: mainDist?.currentDailyRate ?? 0,
+      lossFlag: mainDist?.lossFlag ?? 'NO_DATA',
+      lossDeltaPct: mainDist?.lossDeltaPct ?? 0,
     };
   });
   
@@ -177,7 +181,7 @@ export function getHistoricalDistricts(rawData, filters, periodKey) {
   const totalCur = mapped.reduce((sum, d) => sum + d.cur, 0);
   mapped = mapped.map(dist => {
     const share = totalCur > 0 ? Math.round((dist.cur / totalCur) * 100) : 0;
-    const { severity, impactScore } = getBusinessImpact(dist.cur, dist.prev, share, 'DISTRICT', dist.state, dist.expectedMtd);
+    const { severity, impactScore } = getBusinessImpact(dist.cur, dist.prev, share, 'DISTRICT', dist.state, dist.expectedMtd, dist.lossFlag, dist.lossDeltaPct);
     return {
       ...dist,
       share,
@@ -298,7 +302,7 @@ export function getHistoricalDealers(rawData, filters, periodKey) {
   const totalCur = mapped.reduce((sum, d) => sum + d.cur, 0);
   mapped = mapped.map(dl => {
     const share = totalCur > 0 ? Math.round((dl.cur / totalCur) * 100) : 0;
-    const { severity, impactScore } = getBusinessImpact(dl.cur, dl.prev, share, 'DEALER', dl.client, dl.expectedMtd);
+    const { severity, impactScore } = getBusinessImpact(dl.cur, dl.prev, share, 'DEALER', dl.client, dl.expectedMtd, dl.lossFlag, dl.lossDeltaPct);
     const isInactive = dl.cur === 0;
     let operationalStatus;
     if (isInactive) {

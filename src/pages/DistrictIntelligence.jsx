@@ -409,7 +409,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
         cell: info => {
           const row = info.row.original;
           const sharePct = row.share || 0;
-          const { severity, impactScore } = getBusinessImpact(row.cur, row.prev, sharePct, 'DISTRICT', row.state, row.expectedMtd);
+          const { severity, impactScore } = getBusinessImpact(row.cur, row.prev, sharePct, 'DISTRICT', row.state, row.expectedMtd, row.lossFlag, row.lossDeltaPct);
           return (
             <div className="flex pr-4 shrink-0">
               <ImpactBadge tier={severity} score={impactScore} />

@@ -1,16 +1,21 @@
 import { getBusinessImpact } from './trendEngine.js';
 
 const stateTestCases = [
-  { name: 'Large state declining −16%', cur: 9376, prev: 11173, sharePct: 35.0, level: 'STATE' },
-  { name: 'Small state declining −56%', cur: 137, prev: 312, sharePct: 1.5, level: 'STATE' },
-  { name: 'Mid state declining −14%', cur: 3032, prev: 3510, sharePct: 12.0, level: 'STATE' },
-  { name: 'State growing +1%', cur: 1780, prev: 1766, sharePct: 8.0, level: 'STATE' },
+  { name: 'West Bengal (Core growing +7.4%)', cur: 6846.55, prev: 6376.34, sharePct: 56.9, level: 'STATE', expectedMtd: 11258, lossFlag: 'BEHIND', lossDeltaPct: -17.1 },
+  { name: 'Jharkhand (Core drop -23.4%)', cur: 1386.65, prev: 1809.12, sharePct: 11.5, level: 'STATE', expectedMtd: 2587, lossFlag: 'BEHIND', lossDeltaPct: -26.9 },
+  { name: 'Uttar Pradesh (Massive drop -77%)', cur: 478.86, prev: 2111.88, sharePct: 4.0, level: 'STATE', expectedMtd: 3437, lossFlag: 'BEHIND', lossDeltaPct: -81.0 },
+  { name: 'Assam (Core drop -16.7%)', cur: 1084.1, prev: 1300.7, sharePct: 9.0, level: 'STATE', expectedMtd: 2002, lossFlag: 'BEHIND', lossDeltaPct: -26.2 },
+  { name: 'Odisha (Core flat -0.9%, ahead)', cur: 1346.47, prev: 1358.84, sharePct: 11.2, level: 'STATE', expectedMtd: 1745, lossFlag: 'AHEAD', lossDeltaPct: 5.2 },
+  { name: 'Tripura (Low vol, dropped -59%)', cur: 34.84, prev: 85.21, sharePct: 0.3, level: 'STATE', expectedMtd: 201, lossFlag: 'BEHIND', lossDeltaPct: -76.4 },
+  { name: 'Arunachal Pradesh (Low vol, 0 MT)', cur: 0, prev: 70.54, sharePct: 0.0, level: 'STATE', expectedMtd: 31.8, lossFlag: 'BEHIND', lossDeltaPct: -100 },
+  { name: 'Rajasthan (Fringe, 0 MT)', cur: 0, prev: 35.11, sharePct: 0.0, level: 'STATE', expectedMtd: 21.9, lossFlag: 'BEHIND', lossDeltaPct: -100 },
+  { name: 'Manipur (Fringe, 0 MT)', cur: 0, prev: 8.17, sharePct: 0.0, level: 'STATE', expectedMtd: 3.6, lossFlag: 'BEHIND', lossDeltaPct: -100 },
 ];
 
 console.log('=== State Scorer Verification ===');
 stateTestCases.forEach(tc => {
-  const result = getBusinessImpact(tc.cur, tc.prev, tc.sharePct, tc.level);
-  console.log(`${tc.name.padEnd(30)} | cur: ${String(tc.cur).padEnd(5)} | prev: ${String(tc.prev).padEnd(5)} | share: ${String(tc.sharePct).padEnd(4)}% | severity: ${result.severity.padEnd(8)} | score: ${result.impactScore}`);
+  const result = getBusinessImpact(tc.cur, tc.prev, tc.sharePct, tc.level, '', tc.expectedMtd, tc.lossFlag, tc.lossDeltaPct);
+  console.log(`${tc.name.padEnd(35)} | cur: ${String(tc.cur).padEnd(8)} | prev: ${String(tc.prev).padEnd(8)} | tag: ${result.theme.severity.padEnd(8)} | score: ${result.impactScore}`);
 });
 
 const districtTestCases = [
@@ -24,18 +29,18 @@ const districtTestCases = [
 console.log('\n=== District Scorer Verification ===');
 districtTestCases.forEach(tc => {
   const result = getBusinessImpact(tc.cur, tc.prev, tc.sharePct, tc.level);
-  console.log(`${tc.name.padEnd(30)} | cur: ${String(tc.cur).padEnd(5)} | prev: ${String(tc.prev).padEnd(5)} | share: ${String(tc.sharePct).padEnd(4)}% | severity: ${result.severity.padEnd(8)} | score: ${result.impactScore}`);
+  console.log(`${tc.name.padEnd(35)} | cur: ${String(tc.cur).padEnd(8)} | prev: ${String(tc.prev).padEnd(8)} | tag: ${result.theme.severity.padEnd(8)} | score: ${result.impactScore}`);
 });
 
 const dealerTestCases = [
-  { name: 'Dealer completely collapsed', cur: 0, prev: 142, sharePct: 0.8 },
-  { name: 'Dealer declining -44%', cur: 225, prev: 405, sharePct: 1.2 },
+  { name: 'Dealer completely collapsed (142 MT)', cur: 0, prev: 142, sharePct: 0.8 },
+  { name: 'Dealer declining -44% (405 MT)', cur: 225, prev: 405, sharePct: 1.2 },
   { name: 'Dealer growing +49%', cur: 90, prev: 60, sharePct: 0.5 },
-  { name: 'Small dealer collapsed', cur: 0, prev: 0.92, sharePct: 0.01 }
+  { name: 'Small dealer collapsed (0.92 MT)', cur: 0, prev: 0.92, sharePct: 0.01 }
 ];
 
 console.log('\n=== Dealer Scorer Verification ===');
 dealerTestCases.forEach(tc => {
   const result = getBusinessImpact(tc.cur, tc.prev, tc.sharePct, 'DEALER');
-  console.log(`${tc.name.padEnd(30)} | cur: ${String(tc.cur).padEnd(5)} | prev: ${String(tc.prev).padEnd(5)} | share: ${String(tc.sharePct).padEnd(4)}% | severity: ${result.severity.padEnd(8)} | score: ${result.impactScore}`);
+  console.log(`${tc.name.padEnd(36)} | cur: ${String(tc.cur).padEnd(8)} | prev: ${String(tc.prev).padEnd(8)} | tag: ${result.theme.severity.padEnd(8)} | score: ${result.impactScore}`);
 });

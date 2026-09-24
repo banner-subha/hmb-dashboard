@@ -293,7 +293,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         cell: info => {
           const row = info.row.original;
           const sharePct = totalCur > 0 ? ((row.cur || 0) / totalCur) * 100 : (row.share || 0);
-          const { severity, impactScore } = getBusinessImpact(row.cur, row.prev, sharePct, 'STATE', row.state, row.expectedMtd);
+          const { severity, impactScore } = getBusinessImpact(row.cur, row.prev, sharePct, 'STATE', row.state, row.expectedMtd, row.lossFlag, row.lossDeltaPct);
           return (
             <div className="flex items-center min-w-0">
               <ImpactBadge 
@@ -610,7 +610,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
           return getSeverityTheme(severity).color;
         })()
       : (() => {
-          const tier = selectedStateData.impactTier || getBusinessImpact(selectedStateData.cur, selectedStateData.prev, selectedStateData.share ?? 0, 'STATE', selectedStateData.state, selectedStateData.expectedMtd).severity || 'LOW';
+          const tier = selectedStateData.impactTier || getBusinessImpact(selectedStateData.cur, selectedStateData.prev, selectedStateData.share ?? 0, 'STATE', selectedStateData.state, selectedStateData.expectedMtd, selectedStateData.lossFlag, selectedStateData.lossDeltaPct).severity || 'LOW';
           return getSeverityTheme(tier).color;
         })())
     : '#3b82f6';

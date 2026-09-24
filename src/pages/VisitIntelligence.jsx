@@ -41,6 +41,7 @@ import {
 import { queryBusinessPlan } from '../services/businessPlanService';
 import ExportDropdown from '../components/common/ExportDropdown';
 import { downloadCsv, getExportFilename } from '../utils/csvExport';
+import { formatDayLabel } from '../utils/formatters';
 
 /**
  * Field Visits & Tracker.
@@ -422,9 +423,12 @@ export default function VisitIntelligence() {
               Comparison tab's job, and that tab carries its own period
               selectors. */}
           {section !== 'comparison' && (
-            <span className="px-3.5 py-2 rounded-xl bg-bg-card/60 border border-border/40 text-[13px] font-bold text-text-secondary whitespace-nowrap">
-              {data.meta?.curPeriod || 'This Month'}
-              {data.meta?.elapsedDays ? ` · ${data.meta.elapsedDays} Days So Far` : ''}
+            <span className="px-3.5 py-2 rounded-xl bg-bg-card/60 border border-border/40 text-[13px] text-text-secondary whitespace-nowrap">
+              <span className="font-semibold">Field visits</span>
+              <span className="text-text-muted mx-1.5">·</span>
+              <span className="font-bold text-text-primary">
+                {formatDayLabel(data.meta?.latestVisitDate) || 'This month'}
+              </span>
             </span>
           )}
 

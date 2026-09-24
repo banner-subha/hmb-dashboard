@@ -28,7 +28,8 @@ export function getSeverityMeta(entity) {
 
   const share = entity.share || 0;
   const state = entity.state || '';
-  const { theme } = getBusinessImpact(cur, prev, share, '', state);
+  const level = entity.client ? 'DEALER' : (entity.district ? 'DISTRICT' : (entity.state ? 'STATE' : ''));
+  const { theme } = getBusinessImpact(cur, prev, share, level, state, entity.expectedMtd, entity.lossFlag, entity.lossDeltaPct);
 
   return {
     severityTag: theme.severity,

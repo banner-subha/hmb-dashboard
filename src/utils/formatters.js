@@ -45,6 +45,16 @@ export const formatDate = (iso) => {
   });
 };
 
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** ISO day to a short label: "2026-09-23" -> "23 Sep 2026". Unparseable input returns ''. */
+export const formatDayLabel = (isoDay) => {
+  const [y, mo, d] = String(isoDay || '').split('-').map(Number);
+  const mon = MONTH_ABBR[mo - 1];
+  if (!y || !mon || !d) return '';
+  return `${d} ${mon} ${y}`;
+};
+
 /** Format number of days in a business-grade format */
 export const formatDays = (days) => {
   if (days == null || isNaN(days)) return '—';
