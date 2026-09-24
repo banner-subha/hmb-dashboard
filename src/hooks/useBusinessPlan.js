@@ -4,12 +4,10 @@ import {
   queryBusinessPlanVsActual,
   fetchLatestPlanMonth,
   fetchPlanMonths,
-  fetchDimensionValues,
   clearBusinessPlanCache,
 } from '../services/businessPlanService';
 import {
   BP_DIMENSIONS,
-  BP_ACTUAL_DIMENSIONS,
   normalizePlanRow,
   normalizeProductRow,
   normalizeActualRow,
@@ -128,8 +126,6 @@ export function useBusinessPlan() {
   const [debouncedCustomer, setDebouncedCustomer] = useState('');
   const [dimension, setDimension] = useState(BP_DIMENSIONS[0].key);
   const [dimensionSort, setDimensionSort] = useState('sp_target_desc');
-  const [actualDimension, setActualDimension] = useState(BP_ACTUAL_DIMENSIONS[0].key);
-  const [actualSort, setActualSort] = useState('variance_asc');
 
   // ── Months ────────────────────────────────────────────────────────────────
   //
@@ -347,42 +343,6 @@ export function useBusinessPlan() {
     { initial: [], enabled: ready }
   );
 
-  // ── Plan vs actual ────────────────────────────────────────────────────────
-  const actualMeta = useMemo(
-    () => BP_ACTUAL_DIMENSIONS.find((d) => d.key === actualDimension) || BP_ACTUAL_DIMENSIONS[0],
-    [actualDimension]
-  );
-
-  // Only the filters this RPC actually applies. It accepts p_kro / p_krm but
-  // uses neither, so passing them would look like a narrowed comparison while
-  // returning the unfiltered one.
-  const actualFilterKey = JSON.stringify({
-    month,
-    state: filters.state,
-    district: filters.district,
-    dealer: actualMeta.key === 'dealer' ? debouncedCustomer : '',
-  });
-
-  const actualQuery = useLatest(
-    async () => {
-      const rows = await queryBusinessPlanVsActual({
-        dimensions: [actualMeta.key],
-        month,
-        state: filters.state,
-        district: filters.district,
-        // The dealer filter is only meaningful once the dealer view is open;
-        // in the state and district views it would collapse the section to a
-        // single row.
-        dealer: actualMeta.key === 'dealer' ? debouncedCustomer : '',
-        limit: limitFor(actualMeta.key),
-        sort: actualSort,
-      });
-      return rows.map((r) => normalizeActualRow(r, actualMeta.grpKey)).filter(Boolean);
-    },
-    `actual:${actualMeta.key}:${actualSort}:${actualFilterKey}`,
-    { initial: [], enabled: ready }
-  );
-
   /**
    * Totals for the plan-vs-actual header.
    *
@@ -392,9 +352,9 @@ export function useBusinessPlan() {
    * same total the district and dealer groupings describe, without the risk of
    * adding up a dealer list that was cut off at the limit.
    *
-   * When the state view is the one on screen those rows are already in hand,
-   * so this fires only for the district and dealer views. Asking for them
-   * again would be a second round trip for a set the page just received.
+   * Its parameters match the state table's actuals request exactly (same
+   * sort, same limit), so while the state view is open the service collapses
+   * the two onto one round trip. The sort does not affect a sum.
    */
   const actualTotalsQuery = useLatest(
     async () => {
@@ -404,8 +364,8 @@ export function useBusinessPlan() {
         state: filters.state,
         district: filters.district,
         dealer: debouncedCustomer,
-        limit: 500,
-        sort: 'target_desc',
+        limit: limitFor('state'),
+        sort: 'variance_asc',
       });
       return rows.map((r) => normalizeActualRow(r, 'state'));
     },
@@ -430,57 +390,54 @@ export function useBusinessPlan() {
 
   // ── Filter options, cascading with the territory already chosen ───────────
   //
-  // Held back until the headline figures have settled. These four requests
-  // fill dropdowns nobody has opened yet, and firing them alongside the six
-  // that draw the page put ten requests in flight at once — enough contention
-  // that the slowest of them, rather than the fastest, decided when the tab
-  // looked ready.
+  // One request per month, not four per filter change. Every territory
+  // combination the plan holds (~300 rows for a month) comes back once, and the
+  // cascade is a filter over that set in the browser. The old per-change
+  // lookups put three extra RPCs in flight beside the four that draw the page
+  // each time a state or district was picked, and on this database that
+  // contention, not query cost, is what made each filter take seconds.
   //
-  // The gate is "the summary is no longer in flight", not "the summary has
-  // rows": a filter combination that legitimately matches nothing would
-  // otherwise leave the dropdowns permanently empty, with no way for the user
-  // to pick their way back out. Re-enabling on each change costs nothing —
-  // the service memoises, so an unchanged option list is not re-fetched.
-  const summaryInFlight = summaryQuery.loading;
-
-  const optionsQuery = useLatest(
-    async () => {
-      const [states, districts, kros, krms] = await Promise.all([
-        fetchDimensionValues('state', { month }),
-        fetchDimensionValues('district', {
-          month,
-          state: filters.state,
-          krm: filters.krm,
-          kro: filters.kro,
-        }),
-        fetchDimensionValues('kro', {
-          month,
-          state: filters.state,
-          district: filters.district,
-          krm: filters.krm,
-        }),
-        fetchDimensionValues('krm', {
-          month,
-          state: filters.state,
-          district: filters.district,
-          kro: filters.kro,
-        }),
-      ]);
-      const cleanStates = (states || []).filter(s => s && s.trim() !== '' && s.toUpperCase() !== 'UNKNOWN');
-      const cleanDistricts = (districts || []).filter(d => d && d.trim() !== '' && d.toUpperCase() !== 'UNKNOWN');
-      return { states: cleanStates, districts: cleanDistricts, kros: kros || [], krms: krms || [] };
-    },
-    `options:${month}:${filters.state}:${filters.district}:${filters.kro}:${filters.krm}`,
-    {
-      initial: { states: [], districts: [], kros: [], krms: [] },
-      enabled: ready,
-    }
+  // jr_kro is carried because the server's KRO filter matches a junior KRO as
+  // well, so the district and KRM lists must narrow the same way.
+  const comboQuery = useLatest(
+    () =>
+      queryBusinessPlan({
+        month,
+        dimensions: ['state', 'district', 'kro', 'jr_kro', 'krm'],
+        limit: 1000,
+        sort: 'group_asc',
+      }),
+    `combos:${month}`,
+    { initial: [], enabled: ready }
   );
+
+  const options = useMemo(() => {
+    const combos = (comboQuery.data || []).map((r) => r.grp || {});
+    const usable = (v) => {
+      if (v == null) return false;
+      const t = String(v).trim().toUpperCase();
+      return t !== '' && t !== 'UNASSIGNED' && t !== 'UNKNOWN';
+    };
+    const distinct = (list, key) =>
+      [...new Set(list.map((g) => g[key]).filter(usable).map(String))].sort((x, y) => x.localeCompare(y));
+    const is = (value, chosen) => !chosen || value === chosen;
+    const repIs = (g, chosen) => !chosen || g.kro === chosen || g.jr_kro === chosen;
+
+    const { state, district, kro, krm } = filters;
+    return {
+      states: distinct(combos, 'state'),
+      districts: distinct(combos.filter((g) => is(g.state, state) && is(g.krm, krm) && repIs(g, kro)), 'district'),
+      kros: distinct(combos.filter((g) => is(g.state, state) && is(g.district, district) && is(g.krm, krm)), 'kro'),
+      krms: distinct(combos.filter((g) => is(g.state, state) && is(g.district, district) && repIs(g, kro)), 'krm'),
+    };
+  }, [comboQuery.data, filters]);
+
+  const optionsLoading = comboQuery.loading;
 
   // Auto-prune any active selection that is no longer valid within the updated cascading options list
   useEffect(() => {
-    if (!optionsQuery.data || optionsQuery.loading) return;
-    const { districts = [], kros = [], krms = [] } = optionsQuery.data;
+    if (optionsLoading) return;
+    const { districts, kros, krms } = options;
     setFilters((prev) => {
       let changed = false;
       const next = { ...prev };
@@ -498,16 +455,15 @@ export function useBusinessPlan() {
       }
       return changed ? next : prev;
     });
-  }, [optionsQuery.data, optionsQuery.loading]);
+  }, [options, optionsLoading]);
 
   const reloadLatestMonth = latestMonthQuery.reload;
   const reloadMonths = monthsQuery.reload;
   const reloadSummary = summaryQuery.reload;
   const reloadProducts = productsQuery.reload;
   const reloadDimension = dimensionQuery.reload;
-  const reloadActual = actualQuery.reload;
   const reloadActualTotals = actualTotalsQuery.reload;
-  const reloadOptions = optionsQuery.reload;
+  const reloadOptions = comboQuery.reload;
 
   // Emptying the memo first is what makes this a refresh rather than a replay:
   // without it every section would be handed the response it already has.
@@ -518,7 +474,6 @@ export function useBusinessPlan() {
     reloadSummary();
     reloadProducts();
     reloadDimension();
-    reloadActual();
     reloadActualTotals();
     reloadOptions();
   }, [
@@ -527,7 +482,6 @@ export function useBusinessPlan() {
     reloadSummary,
     reloadProducts,
     reloadDimension,
-    reloadActual,
     reloadActualTotals,
     reloadOptions,
   ]);
@@ -547,8 +501,8 @@ export function useBusinessPlan() {
     setFilter,
     resetFilters,
     activeFilterCount,
-    options: optionsQuery.data,
-    optionsLoading: optionsQuery.loading,
+    options,
+    optionsLoading,
 
     // sections
     summary: summaryQuery.data,
@@ -569,17 +523,8 @@ export function useBusinessPlan() {
     dimensionError: dimensionQuery.error,
     dimensionRowLimit: limitFor(dimensionMeta.key),
 
-    actualDimension,
-    setActualDimension,
-    actualMeta,
-    actualSort,
-    setActualSort,
-    actualRows: actualQuery.data,
-    actualLoading: actualQuery.loading || !ready,
-    actualError: actualQuery.error,
     actualTotals,
     actualTotalsLoading: actualTotalsQuery.loading || !ready,
-    actualRowLimit: limitFor(actualMeta.key),
 
     reload,
   };

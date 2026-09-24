@@ -25,21 +25,25 @@ function SubmissionCard({ submitted, missing, reviewed, pending, total }) {
   ].filter((s) => s.value > 0);
 
   return (
-    <div className="glass-card-hover relative p-4 sm:p-5 flex flex-col justify-between overflow-hidden h-full">
+    <div className="glass-card-hover kpi-tile relative p-4 flex flex-col overflow-hidden h-full">
       <div className="absolute left-0 top-0 bottom-0 w-[4px]" style={{ backgroundColor: '#22c55e' }} />
 
-      <div className="stat-label mb-2 text-xs sm:text-[13px] font-bold text-text-muted uppercase tracking-wide leading-snug">
+      <div className="stat-label mb-1.5 text-[12px] font-bold text-text-muted uppercase tracking-wide leading-snug truncate">
         Plan Submission
       </div>
 
-      <div className="flex items-baseline gap-1.5 whitespace-nowrap mb-1.5">
-        <span className="text-3xl sm:text-4xl lg:text-[2.85rem] font-black text-text-primary leading-none tracking-tight">
+      {/* Sized like the fitted KPICard figures beside it (same --kpi-fit). */}
+      <div className="flex items-baseline gap-1.5 whitespace-nowrap mb-1 [container-type:inline-size]">
+        <span
+          className="font-black text-text-primary leading-none tracking-tight"
+          style={{ fontSize: 'clamp(1.5rem, calc(100cqi / var(--kpi-fit, 4)), 3.05rem)' }}
+        >
           {formatPct1(total > 0 ? (submitted / denom) * 100 : null)}
         </span>
       </div>
 
       <div
-        className="flex h-2 w-full overflow-hidden rounded-full bg-bg-secondary mt-2 mb-2.5"
+        className="flex h-1.5 w-full overflow-hidden rounded-full bg-bg-secondary mt-1.5 mb-2"
         role="img"
         aria-label={`${formatCount(submitted)} submitted, ${formatCount(draft)} in draft, ${formatCount(missing)} missing, of ${formatCount(total)} accounts`}
       >
@@ -48,7 +52,7 @@ function SubmissionCard({ submitted, missing, reviewed, pending, total }) {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[12px] font-semibold">
         {segments.map((s) => (
           <span key={s.key} className="flex items-center gap-1.5 text-text-secondary">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
@@ -57,7 +61,7 @@ function SubmissionCard({ submitted, missing, reviewed, pending, total }) {
         ))}
       </div>
 
-      <div className="text-[12px] text-text-muted mt-1.5 font-semibold">
+      <div className="text-[12px] text-text-muted mt-auto pt-1 font-semibold">
         {formatCount(reviewed)} reviewed · {formatCount(pending)} awaiting review
       </div>
     </div>
@@ -76,40 +80,46 @@ function BusinessPlanKPIRow({ summary }) {
       variants={staggerContainer}
       initial="initial"
       animate="animate"
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4"
+      // One row from xl. --kpi-fit is the widest figure's width in ems
+      // ("1,36,930.0 MT"), so every figure in the row lands at one size.
+      className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 [--kpi-fit:7.3]"
     >
       <m.div variants={kpiCard}>
         <KPICard
+          fitValue
           label="Total SP Target"
           value={formatMT1(summary.spTarget)}
-          subtitle="Sales Person quota planned for the month"
+          subtitle="Sales rep quota for the plan month"
           accentColor="#3b82f6"
         />
       </m.div>
 
       <m.div variants={kpiCard}>
         <KPICard
+          fitValue
           label="Market Potential"
           value={formatMT1(summary.potential)}
-          subtitle="Total purchasing capacity of mapped accounts"
-          accentColor="#8b5cf6"
+          subtitle="Buying capacity of the planned accounts"
+          accentColor="#94a3b8"
         />
       </m.div>
 
       <m.div variants={kpiCard}>
         <KPICard
+          fitValue
           label="Target Conversion"
           value={formatPct1(summary.targetPct)}
-          subtitle="Share of market potential taken as target"
+          subtitle="SP target as a share of potential"
           accentColor="#06b6d4"
         />
       </m.div>
 
       <m.div variants={kpiCard}>
         <KPICard
+          fitValue
           label="Active Accounts"
           value={formatCount(summary.customers)}
-          subtitle="Dealer and customer accounts in the plan"
+          subtitle="Dealers and customers in the plan"
           accentColor="#f59e0b"
         />
       </m.div>

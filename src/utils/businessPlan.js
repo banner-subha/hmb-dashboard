@@ -38,15 +38,8 @@ export const BP_DIMENSIONS = [
   { key: 'state',    grpKey: 'state',    label: 'By State',            entity: 'State' },
   { key: 'district', grpKey: 'district', label: 'By District',         entity: 'District' },
   { key: 'kro',      grpKey: 'kro',      label: 'By Sales Rep (KRO)',  entity: 'Sales Rep' },
-  { key: 'krm',      grpKey: 'krm',      label: 'By Regional Manager', entity: 'Regional Manager' },
+  { key: 'krm',      grpKey: 'krm',      label: 'By KRM',              entity: 'KRM' },
   { key: 'customer', grpKey: 'customer', label: 'By Customer',         entity: 'Customer' },
-];
-
-/** Dimensions `query_business_plan_vs_actual` can group by. */
-export const BP_ACTUAL_DIMENSIONS = [
-  { key: 'state',    grpKey: 'state',    label: 'By State',    entity: 'State' },
-  { key: 'district', grpKey: 'district', label: 'By District', entity: 'District' },
-  { key: 'dealer',   grpKey: 'dealer',   label: 'By Dealer',   entity: 'Dealer' },
 ];
 
 export const PLAN_STATUS_OPTIONS = [

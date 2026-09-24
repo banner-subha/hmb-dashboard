@@ -17,10 +17,10 @@ function Select({ label, value, onChange, options = [], placeholder, disabled })
   });
 
   return (
-    <label className="flex flex-col gap-1.5 min-w-0">
-      <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">{label}</span>
+    <label className="flex flex-col gap-1 min-w-0">
+      <span className="text-[10.5px] font-bold text-text-muted uppercase tracking-wider truncate">{label}</span>
       <select
-        className="filter-select text-sm py-2 px-3 w-full disabled:opacity-50 disabled:cursor-not-allowed"
+        className="filter-select text-[13px] py-1.5 px-2.5 w-full disabled:opacity-50 disabled:cursor-not-allowed"
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
@@ -64,18 +64,19 @@ function BusinessPlanFilterBar({
   optionsLoading,
 }) {
   return (
-    <div className="glass-card p-4">
-      {/* One flush grid: 5 x 2 at xl, 2 x 5 at sm — the nine controls plus the
-          reset button divide evenly, so the card never carries a half-empty
-          row. Reset is always rendered (disabled when nothing is filtered)
-          rather than mounting on demand, which would reopen a gap. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-x-3 gap-y-3">
-        <label className="flex flex-col gap-1.5 min-w-0">
-          <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
+    <div className="glass-card p-3">
+      {/* One flush grid: a single row of ten from 1680px, 5 x 2 at xl, 2 x 5
+          at sm. The nine controls plus the reset button divide evenly, so the
+          card never carries a half-empty row. Reset is always rendered
+          (disabled when nothing is filtered) rather than mounting on demand,
+          which would reopen a gap. */}
+      <div className="grid grid-cols-1 min-[640px]:grid-cols-2 min-[1280px]:grid-cols-5 min-[1680px]:grid-cols-10 gap-2">
+        <label className="flex flex-col gap-1 min-w-0">
+          <span className="text-[10.5px] font-bold text-text-muted uppercase tracking-wider truncate">
             Plan Month
           </span>
           <select
-            className="filter-select text-sm py-2 px-3 w-full font-bold"
+            className="filter-select text-[13px] py-1.5 px-2.5 w-full font-bold"
             value={month || ''}
             onChange={(e) => onMonthChange(e.target.value)}
             disabled={months.length === 0}
@@ -110,15 +111,15 @@ function BusinessPlanFilterBar({
           value={filters.kro}
           onChange={(v) => setFilter('kro', v)}
           options={options.kros}
-          placeholder={optionsLoading ? 'Loading…' : 'All Sales Reps'}
+          placeholder={optionsLoading ? 'Loading…' : 'All KROs'}
         />
 
         <Select
-          label="Regional Manager (KRM)"
+          label="Manager (KRM)"
           value={filters.krm}
           onChange={(v) => setFilter('krm', v)}
           options={options.krms}
-          placeholder={optionsLoading ? 'Loading…' : 'All Regional Managers'}
+          placeholder={optionsLoading ? 'Loading…' : 'All KRMs'}
         />
 
         <Select
@@ -145,18 +146,18 @@ function BusinessPlanFilterBar({
           placeholder={KRM_STATUS_OPTIONS[0].label}
         />
 
-        <label className="flex flex-col gap-1.5 min-w-0">
-          <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider">
+        <label className="flex flex-col gap-1 min-w-0">
+          <span className="text-[10.5px] font-bold text-text-muted uppercase tracking-wider truncate">
             Customer
           </span>
           <span className="relative flex items-center">
-            <Search className="w-4 h-4 absolute left-3 text-text-muted pointer-events-none" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 text-text-muted pointer-events-none" />
             <input
               type="text"
               value={filters.customer}
               onChange={(e) => setFilter('customer', e.target.value)}
-              placeholder="Search dealer name"
-              className="w-full rounded-xl border border-border bg-bg-input py-2 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-blue focus:outline-none"
+              placeholder="Search dealer"
+              className="w-full rounded-xl border border-border bg-bg-input py-1.5 pl-8 pr-2.5 text-[13px] text-text-primary placeholder:text-text-muted focus:border-accent-blue focus:outline-none"
             />
           </span>
         </label>
@@ -166,7 +167,7 @@ function BusinessPlanFilterBar({
             type="button"
             onClick={onReset}
             disabled={activeFilterCount === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-bg-card disabled:hover:text-text-secondary"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-bg-card disabled:hover:text-text-secondary"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             {activeFilterCount > 0
@@ -177,7 +178,7 @@ function BusinessPlanFilterBar({
       </div>
 
       {filters.product && (
-        <p className="mt-3 text-[12.5px] font-semibold text-text-muted">
+        <p className="mt-2 text-[12.5px] font-semibold text-text-muted">
           The product filter narrows the tab to accounts that carry{' '}
           {BP_PRODUCTS.find((p) => p.code === filters.product)?.label}. Those accounts&apos; quotas
           for every other line are still counted in the totals.

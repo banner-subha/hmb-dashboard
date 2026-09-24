@@ -17,13 +17,13 @@ function ProductCard({ product, shareOfTarget, highlighted }) {
 
   return (
     <div
-      className={`glass-card-hover relative p-4 sm:p-5 flex flex-col h-full overflow-hidden ${
+      className={`glass-card-hover kpi-tile relative p-4 flex flex-col h-full overflow-hidden ${
         highlighted ? 'ring-1 ring-accent-blue/60' : ''
       }`}
     >
       <div className="absolute left-0 top-0 bottom-0 w-[4px]" style={{ backgroundColor: product.color }} />
 
-      <div className="flex items-start justify-between gap-2 mb-3">
+      <div className="flex items-start justify-between gap-2 mb-2">
         <div>
           <div className="text-[15px] font-extrabold text-text-primary leading-tight">
             {product.label}
@@ -32,22 +32,19 @@ function ProductCard({ product, shareOfTarget, highlighted }) {
             {product.code}
           </div>
         </div>
-        <span
-          className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold"
-          style={{ backgroundColor: `${product.color}1f`, color: product.color }}
-        >
-          {formatPct1(shareOfTarget)} of quota
+        <span className="shrink-0 text-[12px] font-semibold text-text-muted whitespace-nowrap">
+          <span className="font-extrabold text-text-secondary">{formatPct1(shareOfTarget)}</span> of quota
         </span>
       </div>
 
       <div className="mb-1">
         <div className="stat-label text-[11px] text-text-muted mb-1">SP Target</div>
-        <div className="text-2xl sm:text-[1.7rem] font-black text-text-primary leading-none tracking-tight">
+        <div className="text-2xl font-black text-text-primary leading-none tracking-tight">
           {formatMT1(product.spTarget)}
         </div>
       </div>
 
-      <div className="mt-3 pt-3 border-t border-border/40 space-y-2">
+      <div className="mt-3 pt-2.5 border-t border-border/40 space-y-1.5">
         <div className="flex items-baseline justify-between gap-3 text-[13px]">
           <span className="text-text-muted font-semibold">Market Potential</span>
           <span className="font-bold text-text-secondary">{formatMT1(product.potential)}</span>
@@ -56,7 +53,7 @@ function ProductCard({ product, shareOfTarget, highlighted }) {
         <div>
           <div className="flex items-baseline justify-between gap-3 text-[13px] mb-1.5">
             <span className="text-text-muted font-semibold">Conversion Rate</span>
-            <span className="font-extrabold" style={{ color: product.color }}>
+            <span className="font-extrabold text-text-primary">
               {formatPct1(conversion)}
             </span>
           </div>
@@ -101,7 +98,7 @@ function ProductQuotaGrid({ products, activeProduct }) {
       variants={staggerContainer}
       initial="initial"
       animate="animate"
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4"
+      className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3"
     >
       {products.map((p) => (
         <m.div key={p.code} variants={kpiCard}>

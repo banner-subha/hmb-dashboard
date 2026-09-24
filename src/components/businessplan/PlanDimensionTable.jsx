@@ -16,7 +16,7 @@ import { downloadCsv, getExportFilename } from '../../utils/csvExport';
 function TotalsStrip({ totals, loading }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         <SkeletonLoader variant="kpi" count={4} />
       </div>
     );
@@ -35,12 +35,14 @@ function TotalsStrip({ totals, loading }) {
       label: 'Planned Target',
       value: formatMT1(totals.spTarget),
       color: '#3b82f6',
+      neutral: true,
       note: `Across ${formatCount(totals.bpDealers)} planned dealers`,
     },
     {
       label: 'Invoiced Despatch',
       value: formatMT1(totals.actual),
-      color: '#8b5cf6',
+      color: '#94a3b8',
+      neutral: true,
       note: `${formatCount(totals.activeDealers)} dealers billed · ${formatPct1(coverage)} of the plan`,
     },
     {
@@ -59,25 +61,25 @@ function TotalsStrip({ totals, loading }) {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
       {tiles.map((t) => {
         const Icon = t.icon;
         return (
-          <div key={t.label} className="glass-card-hover relative p-4 sm:p-5 overflow-hidden">
+          <div key={t.label} className="glass-card-hover kpi-tile relative p-4 overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-[4px]" style={{ backgroundColor: t.color }} />
-            <div className="stat-label mb-2 text-xs font-bold text-text-muted uppercase tracking-wide">
+            <div className="stat-label mb-1.5 text-[12px] font-bold text-text-muted uppercase tracking-wide truncate">
               {t.label}
             </div>
             <div className="flex items-center gap-2">
               {Icon && <Icon className="w-5 h-5 shrink-0" style={{ color: t.color }} />}
               <span
-                className="text-2xl sm:text-[1.85rem] font-black leading-none tracking-tight"
-                style={{ color: t.color }}
+                className={`text-2xl font-black leading-none tracking-tight ${t.neutral ? 'text-text-primary' : ''}`}
+                style={t.neutral ? undefined : { color: t.color }}
               >
                 {t.value}
               </span>
             </div>
-            <div className="text-[12px] text-text-muted font-semibold mt-2">{t.note}</div>
+            <div className="text-[12px] text-text-muted font-semibold mt-1.5">{t.note}</div>
           </div>
         );
       })}
@@ -211,6 +213,9 @@ function PlanDimensionTable({
   totals,
   totalsLoading,
   repFilterActive,
+  // Rendered between the totals and the table, so the controls sit right
+  // above the rows they narrow.
+  filterBar = null,
 }) {
   const meta = useMemo(
     () => BP_DIMENSIONS.find((d) => d.key === dimension) || BP_DIMENSIONS[0],
@@ -415,6 +420,7 @@ function PlanDimensionTable({
   return (
     <div className="space-y-5">
       <TotalsStrip totals={totals} loading={totalsLoading} />
+      {filterBar}
 
       <div className="glass-card p-4 sm:p-5 lg:p-6 space-y-5">
         <div className="flex flex-col xl:flex-row xl:items-center gap-3 justify-between pb-5 border-b border-border/40">

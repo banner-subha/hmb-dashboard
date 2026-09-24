@@ -69,9 +69,9 @@ export default function BusinessPlan() {
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-4">
       {/* Page title — same block every other tab uses */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4 mb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4">
         <div className="flex items-start gap-3">
           <ClipboardList className="w-7 h-7 text-accent-blue mt-1 shrink-0" />
           <div>
@@ -92,22 +92,10 @@ export default function BusinessPlan() {
         )}
       </div>
 
-      <BusinessPlanFilterBar
-        months={bp.months}
-        month={bp.month}
-        onMonthChange={bp.setMonth}
-        filters={bp.filters}
-        setFilter={bp.setFilter}
-        onReset={bp.resetFilters}
-        activeFilterCount={bp.activeFilterCount}
-        options={bp.options}
-        optionsLoading={bp.optionsLoading}
-      />
-
-      {/* ── Headline quotas ───────────────────────────────────────────────── */}
+      {/* ── Headline quotas, above the filters that change them ──────────── */}
       <ErrorBoundary>
         {bp.summaryLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
             <SkeletonLoader variant="kpi" count={5} />
           </div>
         ) : bp.summary ? (
@@ -120,11 +108,11 @@ export default function BusinessPlan() {
       </ErrorBoundary>
 
       {/* ── Product mix ───────────────────────────────────────────────────── */}
-      <section className="space-y-4">
+      <section className="space-y-3">
         <h3 className="section-header">Product Mix Quotas</h3>
         <ErrorBoundary>
           {bp.productsLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
               <SkeletonLoader variant="kpi" count={5} />
             </div>
           ) : bp.productsError ? (
@@ -138,7 +126,7 @@ export default function BusinessPlan() {
       </section>
 
       {/* ── Dimensional analysis ──────────────────────────────────────────── */}
-      <section className="space-y-4">
+      <section className="space-y-3">
         <h3 className="section-header">Quota &amp; Invoiced Despatch Breakdown</h3>
         <ErrorBoundary>
           <PlanDimensionTable
@@ -151,6 +139,19 @@ export default function BusinessPlan() {
             totals={bp.actualTotals}
             totalsLoading={bp.actualTotalsLoading}
             repFilterActive={repFilterActive}
+            filterBar={
+              <BusinessPlanFilterBar
+                months={bp.months}
+                month={bp.month}
+                onMonthChange={bp.setMonth}
+                filters={bp.filters}
+                setFilter={bp.setFilter}
+                onReset={bp.resetFilters}
+                activeFilterCount={bp.activeFilterCount}
+                options={bp.options}
+                optionsLoading={bp.optionsLoading}
+              />
+            }
             truncatedAt={
               bp.dimensionRows.length >= bp.dimensionRowLimit ? bp.dimensionRowLimit : null
             }
