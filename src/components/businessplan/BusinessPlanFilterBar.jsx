@@ -180,7 +180,7 @@ function BusinessPlanFilterBar({
       {filters.product && (
         <p className="mt-2 text-[12.5px] font-semibold text-text-muted">
           The product filter narrows the tab to accounts that carry{' '}
-          {BP_PRODUCTS.find((p) => p.code === filters.product)?.label}. Those accounts&apos; quotas
+          {BP_PRODUCTS.find((p) => p.code === filters.product)?.label}. Those accounts&apos; targets
           for every other line are still counted in the totals.
         </p>
       )}

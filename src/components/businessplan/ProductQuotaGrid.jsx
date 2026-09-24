@@ -33,12 +33,12 @@ function ProductCard({ product, shareOfTarget, highlighted }) {
           </div>
         </div>
         <span className="shrink-0 text-[12px] font-semibold text-text-muted whitespace-nowrap">
-          <span className="font-extrabold text-text-secondary">{formatPct1(shareOfTarget)}</span> of quota
+          <span className="font-extrabold text-text-secondary">{formatPct1(shareOfTarget)}</span> of total target
         </span>
       </div>
 
       <div className="mb-1">
-        <div className="stat-label text-[11px] text-text-muted mb-1">SP Target</div>
+        <div className="stat-label text-[11px] text-text-muted mb-1">Sales Target</div>
         <div className="text-2xl font-black text-text-primary leading-none tracking-tight">
           {formatMT1(product.spTarget)}
         </div>
@@ -52,7 +52,7 @@ function ProductCard({ product, shareOfTarget, highlighted }) {
 
         <div>
           <div className="flex items-baseline justify-between gap-3 text-[13px] mb-1.5">
-            <span className="text-text-muted font-semibold">Conversion Rate</span>
+            <span className="text-text-muted font-semibold">Share of Potential</span>
             <span className="font-extrabold text-text-primary">
               {formatPct1(conversion)}
             </span>
@@ -88,7 +88,7 @@ function ProductQuotaGrid({ products, activeProduct }) {
   if (!products || products.length === 0) {
     return (
       <div className="glass-card p-8 text-center text-text-muted text-sm">
-        No product quotas were planned for this selection.
+        No product targets are planned for this selection.
       </div>
     );
   }

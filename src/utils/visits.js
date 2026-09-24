@@ -287,9 +287,9 @@ export function districtSignal(row) {
   if (score >= 75) {
     return {
       key: 'HIGH_MOMENTUM',
-      tag: 'High Momentum',
+      tag: 'Strong Growth',
       score,
-      detail: `Field visits are above benchmark and dealer dispatches are on or ahead of pro-rated pace (Score: ${score}/100)`,
+      detail: `More visits than usual, and dealer sales are on or ahead of where they should be by now. Score ${score} of 100.`,
       chip: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
     };
   }
@@ -302,15 +302,15 @@ export function districtSignal(row) {
         key: 'BUILDING_DEMAND',
         tag: 'Building Demand',
         score,
-        detail: `Active fabricator visits underway; dealer dispatches are building within the 3-5 day order cycle (Score: ${score}/100)`,
+        detail: `Strong fabricator visits, and dealer orders are starting to follow (they usually arrive within 3 to 5 days). Score ${score} of 100.`,
         chip: 'bg-sky-500/15 text-sky-400 border border-sky-500/30',
       };
     }
     return {
       key: 'STEADY',
-      tag: 'Steady Conversion',
+      tag: 'Steady Sales',
       score,
-      detail: `Steady baseline visits and consistent dealer dispatch run-rate (Score: ${score}/100)`,
+      detail: `Regular visits and steady dealer sales. Score ${score} of 100.`,
       chip: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
     };
   }
@@ -321,9 +321,9 @@ export function districtSignal(row) {
     if ((visitScore ?? 0) >= 60 && (paceScore ?? 0) < 40) {
       return {
         key: 'CONVERSION_LAG',
-        tag: 'Conversion Lag',
+        tag: 'Sales Lagging Visits',
         score,
-        detail: `High fabricator visits recorded, but dealer dispatches have not materialized yet. Needs sales follow-up (Score: ${score}/100)`,
+        detail: `Many fabricator visits, but dealer sales have not followed yet. Needs a sales follow-up. Score ${score} of 100.`,
         chip: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
       };
     }
@@ -331,7 +331,7 @@ export function districtSignal(row) {
       key: 'MODERATE',
       tag: 'Moderate Activity',
       score,
-      detail: `Moderate field visits and average billing rate (Score: ${score}/100)`,
+      detail: `Average visits and average sales. Score ${score} of 100.`,
       chip: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
     };
   }
@@ -339,9 +339,9 @@ export function districtSignal(row) {
   // Tier 4: Needs Coverage (<35)
   return {
     key: 'COVERAGE',
-    tag: 'Needs Coverage',
+    tag: 'Needs More Visits',
     score,
-    detail: `Fabricator visits and dealer dispatches are both significantly behind benchmark (Score: ${score}/100)`,
+    detail: `Fabricator visits and dealer sales are both well below usual. Score ${score} of 100.`,
     chip: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
   };
 }

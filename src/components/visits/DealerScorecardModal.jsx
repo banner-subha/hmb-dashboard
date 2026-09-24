@@ -115,15 +115,15 @@ function DealerScorecardModal({ dealer, onClose }) {
                 the whole-month one answers "how many in a typical month". */}
             <span className="text-[12.5px] text-text-secondary block mt-2 font-semibold">
               {diff === 0
-                ? 'On pace with MTD benchmark'
-                : `${diff > 0 ? '+' : ''}${diff} vs MTD benchmark (${usual})`}
+                ? 'In line with usual visits so far'
+                : `${diff > 0 ? '+' : ''}${diff} vs usual so far (${usual})`}
             </span>
             <span className="text-[12px] text-text-muted block mt-1">
-              Full month benchmark: {dealer.histAvgVisits != null ? Math.round(dealer.histAvgVisits) : '—'} visits
+              Usual for a full month: {dealer.histAvgVisits != null ? Math.round(dealer.histAvgVisits) : '—'} visits
             </span>
           </div>
           <div className="p-3.5 bg-bg-secondary/60 rounded-xl border border-border/30">
-            <span className="text-[12.5px] font-bold text-text-muted block mb-1">Sales vs BP Target</span>
+            <span className="text-[12.5px] font-bold text-text-muted block mb-1">Sales vs Plan Target</span>
 
             {unlinked ? (
               <>
@@ -155,11 +155,7 @@ function DealerScorecardModal({ dealer, onClose }) {
                       <span className="text-text-muted font-normal">/</span>
                       <span className="text-text-primary font-bold">{formatMT(salesTarget, 1)}</span>
                     </span>
-                  ) : (
-                    <span className="text-[12.5px] font-medium text-text-muted italic">
-                      (No plan target)
-                    </span>
-                  )}
+                  ) : null}
                 </div>
 
                 {hasTarget ? (
@@ -182,7 +178,7 @@ function DealerScorecardModal({ dealer, onClose }) {
                     </span>
                   </div>
                 ) : (
-                  <span className="text-[12px] text-text-muted italic block mt-2">Unbudgeted</span>
+                  <span className="block mt-2 text-[12.5px] font-semibold text-text-secondary">No plan target</span>
                 )}
 
                 <span className="text-[12px] text-text-muted block mt-1">

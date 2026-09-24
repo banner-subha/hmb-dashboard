@@ -292,7 +292,7 @@ export default function DashboardLayout() {
                   {headerDateRange && (
                     <span className="text-white/30">·</span>
                   )}
-                  <span className="font-medium whitespace-nowrap">Current Cycle (MTD)</span>
+                  <span className="font-medium whitespace-nowrap">This month so far</span>
                   {dispatchGrowth !== null && (
                     <>
                       <span className="text-white/30">·</span>

@@ -87,9 +87,9 @@ function BusinessPlanKPIRow({ summary }) {
       <m.div variants={kpiCard}>
         <KPICard
           fitValue
-          label="Total SP Target"
+          label="Total Sales Target"
           value={formatMT1(summary.spTarget)}
-          subtitle="Sales rep quota for the plan month"
+          subtitle="Set by the sales team for the month"
           accentColor="#3b82f6"
         />
       </m.div>
@@ -107,9 +107,9 @@ function BusinessPlanKPIRow({ summary }) {
       <m.div variants={kpiCard}>
         <KPICard
           fitValue
-          label="Target Conversion"
+          label="Target vs Potential"
           value={formatPct1(summary.targetPct)}
-          subtitle="SP target as a share of potential"
+          subtitle="Share of market potential being targeted"
           accentColor="#06b6d4"
         />
       </m.div>

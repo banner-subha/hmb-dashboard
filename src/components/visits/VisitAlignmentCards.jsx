@@ -66,7 +66,7 @@ function VisitAlignmentCards({ summary, selected, onSelect, salesLink }) {
               ({formatPct(salesLink.matchPct)})
             </strong>{' '}
             have a sales account, so target progress applies only to them. The rest have
-            been visited but never invoiced and are counted under No Sales Yet.
+            been visited but never billed and are counted under No Sales Yet.
           </span>
         </div>
       )}

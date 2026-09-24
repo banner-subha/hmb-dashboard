@@ -39,14 +39,14 @@ function TotalsStrip({ totals, loading }) {
       note: `Across ${formatCount(totals.bpDealers)} planned dealers`,
     },
     {
-      label: 'Invoiced Despatch',
+      label: 'Billed Despatch',
       value: formatMT1(totals.actual),
       color: '#94a3b8',
       neutral: true,
       note: `${formatCount(totals.activeDealers)} dealers billed · ${formatPct1(coverage)} of the plan`,
     },
     {
-      label: short ? 'Shortfall Gap' : 'Surplus',
+      label: short ? 'Shortfall' : 'Surplus',
       value: formatVariance(variance),
       color: short ? '#ef4444' : '#22c55e',
       icon: short ? TrendingDown : TrendingUp,
@@ -234,8 +234,8 @@ function PlanDimensionTable({
         { label: 'State', getValue: (r) => r.grp?.state || '—' },
         { label: 'District', getValue: (r) => r.grp?.district || '—' },
         { label: 'Planned Target (MT)', getValue: (r) => (r.spTarget != null ? Number(r.spTarget).toFixed(1) : '0.0') },
-        { label: 'Invoiced Despatch (MT)', getValue: (r) => (r.despatch != null ? Number(r.despatch).toFixed(1) : '0.0') },
-        { label: 'Shortfall Gap (MT)', getValue: (r) => (r.shortfallGap != null ? Number(r.shortfallGap).toFixed(1) : '0.0') },
+        { label: 'Billed Despatch (MT)', getValue: (r) => (r.despatch != null ? Number(r.despatch).toFixed(1) : '0.0') },
+        { label: 'Shortfall (MT)', getValue: (r) => (r.shortfallGap != null ? Number(r.shortfallGap).toFixed(1) : '0.0') },
         {
           label: 'Achievement %',
           getValue: (r) => (r.achievementPct != null ? Number(r.achievementPct).toFixed(1) + '%' : '—'),
@@ -255,8 +255,8 @@ function PlanDimensionTable({
       cols = [
         { label: meta.entity, getValue: (r) => r.label || '—' },
         { label: 'Planned Target (MT)', getValue: (r) => (r.spTarget != null ? Number(r.spTarget).toFixed(1) : '0.0') },
-        { label: 'Invoiced Despatch (MT)', getValue: (r) => (r.despatch != null ? Number(r.despatch).toFixed(1) : '0.0') },
-        { label: 'Shortfall Gap (MT)', getValue: (r) => (r.shortfallGap != null ? Number(r.shortfallGap).toFixed(1) : '0.0') },
+        { label: 'Billed Despatch (MT)', getValue: (r) => (r.despatch != null ? Number(r.despatch).toFixed(1) : '0.0') },
+        { label: 'Shortfall (MT)', getValue: (r) => (r.shortfallGap != null ? Number(r.shortfallGap).toFixed(1) : '0.0') },
         {
           label: 'Achievement %',
           getValue: (r) => (r.achievementPct != null ? Number(r.achievementPct).toFixed(1) + '%' : '—'),
@@ -329,7 +329,7 @@ function PlanDimensionTable({
         ? [
             {
               accessorKey: 'despatch',
-              header: 'Invoiced Despatch',
+              header: 'Billed Despatch',
               meta: { width: meta.key === 'customer' ? '13%' : '11%' },
               cell: ({ getValue }) => {
                 const v = getValue();
@@ -346,7 +346,7 @@ function PlanDimensionTable({
             },
             {
               accessorKey: 'shortfallGap',
-              header: 'Shortfall Gap',
+              header: 'Shortfall',
               meta: { width: meta.key === 'customer' ? '13%' : '12%' },
               cell: ({ getValue }) => <ShortfallGapCell val={getValue()} />,
             },
@@ -459,7 +459,7 @@ function PlanDimensionTable({
               onClick={handleExportCsv}
               disabled={loading || rows.length === 0}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-text-primary text-[13px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-              title={`Export ${meta.label} Quota Breakdown to CSV`}
+              title={`Export targets ${meta.label.toLowerCase()} to CSV`}
             >
               <Download className="w-3.5 h-3.5 text-accent-blue shrink-0" />
               <span>Export CSV</span>
@@ -469,7 +469,7 @@ function PlanDimensionTable({
 
         {repFilterActive && (
           <p className="text-[12.5px] font-semibold text-amber-500">
-            Note: Invoiced despatch and achievement are tracked for territories and customer accounts. The sales rep and regional manager filters narrow quota targets and accounts.
+            Note: billed despatch and achievement are tracked by state, district and customer. The KRO and KRM filters narrow the targets and accounts only.
           </p>
         )}
 

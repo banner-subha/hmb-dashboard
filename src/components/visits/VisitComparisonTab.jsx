@@ -579,12 +579,12 @@ export default function VisitComparisonTab({
         { label: 'State', key: 'state' },
         { label: `Visits (${labelA})`, key: 'visits_a' },
         { label: `Visits (${labelB})`, key: 'visits_b' },
-        { label: 'Net Delta', key: 'delta' },
+        { label: 'Change', key: 'delta' },
         { label: 'Growth %', getValue: r => r.growth_pct != null ? `${r.growth_pct}%` : '—' },
         { label: `Fabricators (${labelA})`, key: 'fabricators_a' },
         { label: `Fabricators (${labelB})`, key: 'fabricators_b' },
-        { label: `Unique Accounts (${labelA})`, key: 'customers_a' },
-        { label: `Unique Accounts (${labelB})`, key: 'customers_b' },
+        { label: `Accounts Visited (${labelA})`, key: 'customers_a' },
+        { label: `Accounts Visited (${labelB})`, key: 'customers_b' },
       ];
       downloadCsv(`hmb_visit_comparison_districts_${keyA}_vs_${keyB}_${dateStr}.csv`, cols, data.districts || []);
     } else if (subView === 'reps') {
@@ -592,12 +592,12 @@ export default function VisitComparisonTab({
         { label: 'Sales Representative', key: 'rep' },
         { label: `Visits (${labelA})`, key: 'visits_a' },
         { label: `Visits (${labelB})`, key: 'visits_b' },
-        { label: 'Net Delta', key: 'delta' },
+        { label: 'Change', key: 'delta' },
         { label: 'Growth %', getValue: r => r.growth_pct != null ? `${r.growth_pct}%` : '—' },
         { label: `Active Days (${labelA})`, key: 'active_days_a' },
         { label: `Active Days (${labelB})`, key: 'active_days_b' },
-        { label: `Unique Accounts (${labelA})`, key: 'customers_a' },
-        { label: `Unique Accounts (${labelB})`, key: 'customers_b' },
+        { label: `Accounts Visited (${labelA})`, key: 'customers_a' },
+        { label: `Accounts Visited (${labelB})`, key: 'customers_b' },
       ];
       downloadCsv(`hmb_visit_comparison_sales_team_${keyA}_vs_${keyB}_${dateStr}.csv`, cols, data.reps || []);
     } else if (subView === 'customer_types') {
@@ -607,7 +607,7 @@ export default function VisitComparisonTab({
         { label: `Share % (${labelA})`, getValue: r => `${r.share_a_pct}%` },
         { label: `Visits (${labelB})`, key: 'visits_b' },
         { label: `Share % (${labelB})`, getValue: r => `${r.share_b_pct}%` },
-        { label: 'Net Delta', key: 'delta' },
+        { label: 'Change', key: 'delta' },
         { label: 'Growth %', getValue: r => r.growth_pct != null ? `${r.growth_pct}%` : '—' },
       ];
       downloadCsv(`hmb_visit_comparison_customer_types_${keyA}_vs_${keyB}_${dateStr}.csv`, cols, data.customer_types || []);
@@ -623,7 +623,7 @@ export default function VisitComparisonTab({
         { label: 'Direction', key: 'direction' },
         { label: `Visits (${labelA})`, key: 'visits_a' },
         { label: `Visits (${labelB})`, key: 'visits_b' },
-        { label: 'Net Delta', key: 'delta' },
+        { label: 'Change', key: 'delta' },
       ];
       downloadCsv(`hmb_visit_account_movement_${keyA}_vs_${keyB}_${dateStr}.csv`, cols, combined);
     }
@@ -753,9 +753,9 @@ export default function VisitComparisonTab({
       build('Total Field Visits', '#3b82f6', a.total_visits, b.total_visits),
       build('Dealer Visits', '#22c55e', a.dealer_visits, b.dealer_visits),
       build('Fabricator Visits', '#94a3b8', a.fabricator_visits, b.fabricator_visits),
-      build('Unique Accounts', '#06b6d4', a.unique_customers, b.unique_customers),
+      build('Accounts Visited', '#06b6d4', a.unique_customers, b.unique_customers),
       build('Active Sales Reps', '#eab308', a.active_reps, b.active_reps),
-      build('Avg Call Duration', '#f59e0b', a.avg_duration, b.avg_duration, { unit: 'min', decimals: 1 }),
+      build('Avg Visit Length', '#f59e0b', a.avg_duration, b.avg_duration, { unit: 'min', decimals: 1 }),
     ];
   }, [data, labelB]);
 
@@ -881,7 +881,7 @@ export default function VisitComparisonTab({
           ? `${formatRange({ from: latestDay, to: latestDay }, { year: false })} still loading`
           : null,
         !weekCompare.matched && rangeDays(effA) !== rangeDays(effB)
-          ? `${rangeDays(effA)} days vs ${rangeDays(effB)} ${rangeDays(effB) === 1 ? 'day' : 'days'}, so totals are not like for like`
+          ? `${rangeDays(effA)} days vs ${rangeDays(effB)} ${rangeDays(effB) === 1 ? 'day' : 'days'}, so the totals are not a fair match`
           : null,
       ].filter(Boolean).join(' · ')
     : '';
@@ -1004,7 +1004,7 @@ export default function VisitComparisonTab({
         {/* Period A / swap / Period B, then scope, on one line from xl */}
         <div className="flex flex-col xl:flex-row xl:items-center gap-3 pt-3 border-t border-border/40">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 min-w-0">
-            {isWeek ? weekBox('A', 'Primary', weekA, effA) : periodBox('A', 'Primary', yearA, monthA)}
+            {isWeek ? weekBox('A', 'This period', weekA, effA) : periodBox('A', 'This period', yearA, monthA)}
             <button
               type="button"
               onClick={handleSwap}
@@ -1014,7 +1014,7 @@ export default function VisitComparisonTab({
             >
               <ArrowLeftRight className="w-4 h-4" />
             </button>
-            {isWeek ? weekBox('B', 'Benchmark', weekB, effB) : periodBox('B', 'Benchmark', yearB, monthB)}
+            {isWeek ? weekBox('B', 'Compared with', weekB, effB) : periodBox('B', 'Compared with', yearB, monthB)}
           </div>
 
           {/*
@@ -1177,7 +1177,7 @@ export default function VisitComparisonTab({
                         {labelB} Visits{sortArrow('visits_b')}
                       </th>
                       <th className="py-3.5 px-4 text-right cursor-pointer" onClick={() => handleSort('delta')}>
-                        Net Delta{sortArrow('delta')}
+                        Change{sortArrow('delta')}
                       </th>
                       <th className="py-3.5 px-4 text-right cursor-pointer" onClick={() => handleSort('growth_pct')}>
                         % Growth{sortArrow('growth_pct')}
@@ -1256,7 +1256,7 @@ export default function VisitComparisonTab({
                         {labelB} Visits{sortArrow('visits_b')}
                       </th>
                       <th className="py-3.5 px-4 text-right cursor-pointer" onClick={() => handleSort('delta')}>
-                        Net Delta{sortArrow('delta')}
+                        Change{sortArrow('delta')}
                       </th>
                       <th className="py-3.5 px-4 text-right cursor-pointer" onClick={() => handleSort('growth_pct')}>
                         % Growth{sortArrow('growth_pct')}
@@ -1265,7 +1265,7 @@ export default function VisitComparisonTab({
                         Active Field Days ({labelA} / {labelB})
                       </th>
                       <th className="py-3.5 px-4 text-right">
-                        Unique Accounts ({labelA} / {labelB})
+                        Accounts Visited ({labelA} / {labelB})
                       </th>
                     </tr>
                   </thead>

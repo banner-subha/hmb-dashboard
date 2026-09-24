@@ -101,7 +101,7 @@ function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
       },
       {
         id: 'salesVsTarget',
-        header: 'Sales vs BP Target',
+        header: 'Sales vs Plan Target',
         accessorFn: r => (isUnlinked(r) ? -1 : (r.salesAchievedPct ?? (r.salesActual ? 0 : -0.5))),
         meta: { width: '24%', minWidth: '185px' },
         cell: info => {
@@ -128,8 +128,8 @@ function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
               className="flex flex-col gap-1.5 py-0.5"
               title={
                 hasTarget
-                  ? `Invoiced: ${formatMT(actual, 1)} | BP Target: ${formatMT(target, 1)}${pct != null ? ` (${Number(pct).toFixed(1)}% achieved)` : ''}`
-                  : `Invoiced: ${formatMT(actual, 1)} | No Business Plan target assigned`
+                  ? `Billed: ${formatMT(actual, 1)} | Plan target: ${formatMT(target, 1)}${pct != null ? ` (${Number(pct).toFixed(1)}% achieved)` : ''}`
+                  : `Billed: ${formatMT(actual, 1)} | No plan target set`
               }
             >
               <div className="flex items-baseline gap-1.5 flex-wrap">
@@ -141,11 +141,7 @@ function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
                     <span className="text-text-muted font-normal">/</span>
                     <span className="text-text-primary font-bold">{formatMT(target, 1)}</span>
                   </span>
-                ) : (
-                  <span className="text-[11.5px] font-medium text-text-muted italic whitespace-nowrap">
-                    (No plan target)
-                  </span>
-                )}
+                ) : null}
               </div>
 
               {hasTarget ? (
@@ -168,7 +164,7 @@ function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
                   </span>
                 </div>
               ) : (
-                <span className="text-[11px] text-text-muted italic">Unbudgeted</span>
+                <span className="block mt-0.5 text-[12px] font-semibold text-text-secondary">No plan target</span>
               )}
             </div>
           );
@@ -176,7 +172,7 @@ function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
       },
       {
         id: 'signal',
-        header: 'Signal',
+        header: 'Status',
         accessorFn: r => (districtSignal(r).score ?? -1),
         meta: { width: '24%', minWidth: '160px' },
         cell: info => {

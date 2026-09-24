@@ -79,7 +79,7 @@ export default function BusinessPlan() {
               Business Plan
             </h2>
             <p className="text-sm text-text-muted mt-1">
-              Monthly Sales Person targets and market potential, measured against invoiced
+              Monthly sales targets and market potential, measured against billed
               despatch.
             </p>
           </div>
@@ -109,7 +109,7 @@ export default function BusinessPlan() {
 
       {/* ── Product mix ───────────────────────────────────────────────────── */}
       <section className="space-y-3">
-        <h3 className="section-header">Product Mix Quotas</h3>
+        <h3 className="section-header">Targets by Product</h3>
         <ErrorBoundary>
           {bp.productsLoading ? (
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
@@ -127,7 +127,7 @@ export default function BusinessPlan() {
 
       {/* ── Dimensional analysis ──────────────────────────────────────────── */}
       <section className="space-y-3">
-        <h3 className="section-header">Quota &amp; Invoiced Despatch Breakdown</h3>
+        <h3 className="section-header">Target vs Billed Despatch</h3>
         <ErrorBoundary>
           <PlanDimensionTable
             dimension={bp.dimension}
