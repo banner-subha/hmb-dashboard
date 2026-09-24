@@ -14,13 +14,6 @@ import VisitTrendsPanel from '../components/visits/VisitTrendsPanel';
 import VisitComparisonTab from '../components/visits/VisitComparisonTab';
 import DealerScorecardModal from '../components/visits/DealerScorecardModal';
 
-/**
- * The Comparison tab's Period A is seeded from, and written back to, this
- * page's selected month. Nothing else on the page reads it: the other views
- * come from the parser payload, which covers the running cycle only.
- */
-const DEFAULT_PERIOD = { year: '2026', month: '09' };
-
 import { useVisitData } from '../hooks/useVisitData';
 import { useRawData } from '../context/DataContext';
 import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
@@ -39,6 +32,7 @@ import {
   isUnlinked,
 } from '../utils/visits';
 import { queryBusinessPlan } from '../services/businessPlanService';
+import { prefetchDefaultComparison } from '../services/visitService';
 import ExportDropdown from '../components/common/ExportDropdown';
 import { downloadCsv, getExportFilename } from '../utils/csvExport';
 import { formatDayLabel } from '../utils/formatters';
@@ -69,8 +63,9 @@ export default function VisitIntelligence() {
   const [query, setQuery] = useState('');
   const [selectedDealer, setSelectedDealer] = useState(null);
   const [repRole, setRepRole] = useState('ALL');
-  const [selectedYear, setSelectedYear] = useState(DEFAULT_PERIOD.year);
-  const [selectedMonth, setSelectedMonth] = useState(DEFAULT_PERIOD.month);
+  // The Comparison tab's Period A once someone picks one there ('YYYY-MM').
+  // Until then it follows the payload's latest visit month; see defaultPeriod.
+  const [pickedPeriod, setPickedPeriod] = useState(null);
 
   // The dispatch feed lives in the dashboard payload, not the visit payload, so
   // the sales side of this tab is joined here rather than in the parser. It
@@ -175,6 +170,29 @@ export default function VisitIntelligence() {
     elapsedDays: despatchElapsedDays,
   });
 
+  // The running cycle, read from the data rather than pinned to a literal
+  // month, which kept showing the old month after every rollover. The tab bar
+  // only renders once this payload has loaded, so the Comparison tab never
+  // mounts before it is known. The clock is the fallback for a payload that
+  // carries no visits at all.
+  const defaultPeriod = useMemo(() => {
+    const latest = data?.meta?.latestVisitDate;
+    if (latest) return latest.slice(0, 7);
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, [data]);
+  const periodA = pickedPeriod || defaultPeriod;
+
+  // Warm the Comparison tab's opening view once the page's own requests have
+  // gone out, so switching to that tab doesn't wait on a cold RPC. It keys on
+  // the default period, not later picks, because that is what the tab opens
+  // with; the payload loads once, so this fires once per visit to the page.
+  useEffect(() => {
+    if (!data) return undefined;
+    const timer = setTimeout(() => prefetchDefaultComparison(defaultPeriod), 1500);
+    return () => clearTimeout(timer);
+  }, [data, defaultPeriod]);
+
   /**
    * The group cards filter the dealer table, so picking one moves you there.
    * Clicking "Needs Attention" while the District view was open used to look
@@ -205,8 +223,8 @@ export default function VisitIntelligence() {
       quadrant,
       search: query || '',
       repRole,
-      year: selectedYear,
-      month: selectedMonth,
+      year: periodA.slice(0, 4),
+      month: periodA.slice(5, 7),
     },
     selectedEntity: selectedDealer ? {
       type: 'dealer',
@@ -621,12 +639,9 @@ export default function VisitIntelligence() {
               stateFilter={state}
               onStateChange={setState}
               stateOptions={stateOptions}
-              periodA={`${selectedYear}-${selectedMonth}`}
-              onPeriodAChange={ym => {
-                const [y, m] = ym.split('-');
-                setSelectedYear(y);
-                setSelectedMonth(m);
-              }}
+              periodA={periodA}
+              onPeriodAChange={setPickedPeriod}
+              latestVisitDate={data?.meta?.latestVisitDate || null}
             />
           )}
         </ErrorBoundary>

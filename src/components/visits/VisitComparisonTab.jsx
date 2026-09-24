@@ -17,7 +17,17 @@ import {
 import SkeletonLoader from '../common/SkeletonLoader';
 import SearchInput from '../common/SearchInput';
 import KPICard from '../common/KPICard';
-import { compareVisitsPeriods, fetchVisitsCalendar, clearComparisonCache } from '../../services/visitService';
+import { compareVisitsPeriods, compareVisitsRanges, fetchVisitsCalendar, clearComparisonCache, priorYearPeriod as getPriorYear } from '../../services/visitService';
+import {
+  monthWeeks,
+  completeThrough,
+  likeForLike,
+  formatRange,
+  rangeDays,
+  rangeKey,
+  weekPresets,
+  todayLocalISO,
+} from '../../utils/visitWeeks';
 import { formatTrend, getTrendColor } from '../../utils/trendEngine';
 import { downloadCsv } from '../../utils/csvExport';
 
@@ -49,12 +59,6 @@ function getPriorMonth(ym) {
   const [y, m] = ym.split('-').map(Number);
   if (m === 1) return `${y - 1}-12`;
   return `${y}-${String(m - 1).padStart(2, '0')}`;
-}
-
-function getPriorYear(ym) {
-  if (!ym) return null;
-  const [y, m] = ym.split('-');
-  return `${Number(y) - 1}-${m}`;
 }
 
 function signed(n) {
@@ -171,9 +175,19 @@ export default function VisitComparisonTab({
   stateOptions = [],
   periodA,
   onPeriodAChange,
+  latestVisitDate = null,
 }) {
   // Available calendar — which months the visit feed actually holds.
   const [calendar, setCalendar] = useState(null);
+
+  // Month or week comparison. Weeks are fixed date blocks of the month, 1–7,
+  // 8–14, 15–21, 22–28, 29–end (see utils/visitWeeks.js). Week picks stay
+  // local: the page's own period is a month, so only month mode writes
+  // Period A back.
+  const [mode, setMode] = useState('month');
+  const [weekA, setWeekA] = useState(null);
+  const [weekB, setWeekB] = useState(null);
+  const [clickedWeekPreset, setClickedWeekPreset] = useState(null);
 
   // District scope. Sent to the RPC rather than applied to the rows here:
   // the KPI ribbon, the sales team and the customer-type mix are all
@@ -208,6 +222,10 @@ export default function VisitComparisonTab({
   // Request sequencing to discard stale responses
   const requestSeqRef = useRef(0);
 
+  // Bumped by the Retry button so a retry runs through the same fetch effect,
+  // with the district scope and stale-response guard, instead of a side path.
+  const [retryTick, setRetryTick] = useState(0);
+
   // Load calendar on mount
   useEffect(() => {
     let mounted = true;
@@ -235,8 +253,32 @@ export default function VisitComparisonTab({
     setDistrict('ALL');
   }
 
+  // Newest visit day: the database's own when the calendar reports it
+  // (migration 020), otherwise the visits payload's. `through` is the last
+  // fully loaded day, which is where a running week is cut.
+  const latestDay = calendar?.latest_date || latestVisitDate || null;
+  const through = useMemo(() => completeThrough(latestDay, todayLocalISO()), [latestDay]);
+
+  // What is actually compared: the picked weeks, cut at `through` and matched
+  // to the same number of days.
+  const weekCompare = useMemo(
+    () => (weekA && weekB ? likeForLike(weekA, weekB, through) : null),
+    [weekA, weekB, through]
+  );
+  const effA = weekCompare?.a;
+  const effB = weekCompare?.b;
+  const weekKeyA = effA ? rangeKey(effA) : null;
+  const weekKeyB = effB ? rangeKey(effB) : null;
+
   // Fetch comparison data when the periods or the state/district scope changes
   useEffect(() => {
+    // Ranges travel as keys so the effect re-runs on a new span, not on every
+    // fresh object with the same dates.
+    const toRange = key => {
+      const [from, to] = key.split('_');
+      return { from, to };
+    };
+    if (mode === 'week' && (!weekKeyA || !weekKeyB)) return undefined;
     let mounted = true;
     const seq = ++requestSeqRef.current;
 
@@ -246,7 +288,10 @@ export default function VisitComparisonTab({
       setLoading(true);
       setError(null);
 
-      compareVisitsPeriods({ periodA, periodB, state: stateFilter, district })
+      const request = mode === 'week'
+        ? compareVisitsRanges({ a: toRange(weekKeyA), b: toRange(weekKeyB), state: stateFilter, district })
+        : compareVisitsPeriods({ periodA, periodB, state: stateFilter, district });
+      request
         .then(res => {
           if (seq !== requestSeqRef.current || !mounted) return;
           setData(res);
@@ -271,7 +316,7 @@ export default function VisitComparisonTab({
       mounted = false;
       clearTimeout(timer);
     };
-  }, [periodA, periodB, stateFilter, district]);
+  }, [mode, periodA, periodB, weekKeyA, weekKeyB, stateFilter, district, retryTick]);
 
   const yearsList = useMemo(
     () => (calendar?.years?.length ? calendar.years.map(String) : ['2026', '2025']),
@@ -313,6 +358,11 @@ export default function VisitComparisonTab({
   };
 
   const handleSwap = () => {
+    if (mode === 'week') {
+      setWeekA(weekB);
+      setWeekB(weekA);
+      return;
+    }
     const a = periodA;
     setPeriodB(a);
     onPeriodAChange?.(periodB);
@@ -382,10 +432,66 @@ export default function VisitComparisonTab({
     if (p.a !== periodA) onPeriodAChange?.(p.a);
   };
 
+  // ── Week mode ──────────────────────────────────────────────────────────────
+
+  const weekPresetList = useMemo(() => weekPresets(through), [through]);
+
+  // Weeks of a month that have started by the last complete day.
+  const weeksFor = ym => monthWeeks(ym).filter(w => !through || w.from <= through);
+
+  const setWeek = (which, range) => (which === 'A' ? setWeekA(range) : setWeekB(range));
+
+  /**
+   * Moving a week's year or month keeps its week number when that month has
+   * it, and otherwise lands on the month's last started week.
+   */
+  const handleWeekMonthChange = (which, ym) => {
+    const current = which === 'A' ? weekA : weekB;
+    const weeks = weeksFor(ym);
+    if (weeks.length === 0) return;
+    const idx = current ? (monthWeeks(current.from.slice(0, 7)).find(w => w.from <= current.from && current.from <= w.to)?.idx || 1) : 1;
+    const pick = weeks.find(w => w.idx === idx) || weeks[weeks.length - 1];
+    setWeek(which, { from: pick.from, to: pick.to });
+  };
+
+  const handleWeekYearChange = (which, year) => {
+    const current = which === 'A' ? weekA : weekB;
+    const m = current?.from.slice(5, 7);
+    const months = monthsFor(year);
+    const keep = months.some(x => x.value === m) ? m : months[months.length - 1].value;
+    handleWeekMonthChange(which, `${year}-${keep}`);
+  };
+
+  const applyWeekPreset = p => {
+    setClickedWeekPreset(p.key);
+    setWeekA(p.a);
+    setWeekB(p.b);
+  };
+
+  const activeWeekPreset = useMemo(() => {
+    if (!weekA || !weekB) return null;
+    const same = (x, y) => x.from === y.from && x.to === y.to;
+    const matches = weekPresetList.filter(p => same(p.a, weekA) && same(p.b, weekB));
+    if (matches.length === 0) return null;
+    if (clickedWeekPreset && matches.some(m => m.key === clickedWeekPreset)) return clickedWeekPreset;
+    return matches[0].key;
+  }, [weekPresetList, weekA, weekB, clickedWeekPreset]);
+
+  // The first switch to Week opens on this week against last week.
+  const switchMode = next => {
+    if (next === mode) return;
+    if (next === 'week' && !weekA && weekPresetList[0]) applyWeekPreset(weekPresetList[0]);
+    setMode(next);
+  };
+
   const [yearA, monthA] = periodA.split('-');
   const [yearB, monthB] = periodB.split('-');
-  const labelA = formatPeriod(periodA, true);
-  const labelB = formatPeriod(periodB, true);
+  const isWeek = mode === 'week' && effA && effB;
+  const labelA = isWeek ? formatRange(effA) : formatPeriod(periodA, true);
+  const labelB = isWeek ? formatRange(effB) : formatPeriod(periodB, true);
+  // File names and the pagination reset key: plain, sortable, no spaces.
+  const keyA = isWeek ? weekKeyA : periodA;
+  const keyB = isWeek ? weekKeyB : periodB;
 
   // The page owns the state list, but this tab renders while the page's own
   // visit payload is still loading, so fall back to whatever is selected
@@ -480,7 +586,7 @@ export default function VisitComparisonTab({
         { label: `Unique Accounts (${labelA})`, key: 'customers_a' },
         { label: `Unique Accounts (${labelB})`, key: 'customers_b' },
       ];
-      downloadCsv(`hmb_visit_comparison_districts_${periodA}_vs_${periodB}_${dateStr}.csv`, cols, data.districts || []);
+      downloadCsv(`hmb_visit_comparison_districts_${keyA}_vs_${keyB}_${dateStr}.csv`, cols, data.districts || []);
     } else if (subView === 'reps') {
       const cols = [
         { label: 'Sales Representative', key: 'rep' },
@@ -493,7 +599,7 @@ export default function VisitComparisonTab({
         { label: `Unique Accounts (${labelA})`, key: 'customers_a' },
         { label: `Unique Accounts (${labelB})`, key: 'customers_b' },
       ];
-      downloadCsv(`hmb_visit_comparison_sales_team_${periodA}_vs_${periodB}_${dateStr}.csv`, cols, data.reps || []);
+      downloadCsv(`hmb_visit_comparison_sales_team_${keyA}_vs_${keyB}_${dateStr}.csv`, cols, data.reps || []);
     } else if (subView === 'customer_types') {
       const cols = [
         { label: 'Customer Type', key: 'customer_type' },
@@ -504,7 +610,7 @@ export default function VisitComparisonTab({
         { label: 'Net Delta', key: 'delta' },
         { label: 'Growth %', getValue: r => r.growth_pct != null ? `${r.growth_pct}%` : '—' },
       ];
-      downloadCsv(`hmb_visit_comparison_customer_types_${periodA}_vs_${periodB}_${dateStr}.csv`, cols, data.customer_types || []);
+      downloadCsv(`hmb_visit_comparison_customer_types_${keyA}_vs_${keyB}_${dateStr}.csv`, cols, data.customer_types || []);
     } else if (subView === 'movement') {
       const gainers = (data.top_gainers || []).map(r => ({ ...r, direction: 'Expansion' }));
       const decliners = (data.top_decliners || []).map(r => ({ ...r, direction: 'Reduction' }));
@@ -519,7 +625,7 @@ export default function VisitComparisonTab({
         { label: `Visits (${labelB})`, key: 'visits_b' },
         { label: 'Net Delta', key: 'delta' },
       ];
-      downloadCsv(`hmb_visit_account_movement_${periodA}_vs_${periodB}_${dateStr}.csv`, cols, combined);
+      downloadCsv(`hmb_visit_account_movement_${keyA}_vs_${keyB}_${dateStr}.csv`, cols, combined);
     }
   };
 
@@ -538,7 +644,7 @@ export default function VisitComparisonTab({
   // Anything that changes which rows exist, or their order, sends you back to
   // the first page. Staying on page 6 of a list that just shrank to two pages
   // shows an empty table and reads as a failed filter.
-  const pageKey = [subView, searchQuery, sortField, sortAsc, periodA, periodB, stateFilter, district].join('|');
+  const pageKey = [subView, searchQuery, sortField, sortAsc, keyA, keyB, stateFilter, district].join('|');
   const [prevPageKey, setPrevPageKey] = useState(pageKey);
   if (prevPageKey !== pageKey) {
     setPrevPageKey(pageKey);
@@ -646,9 +752,9 @@ export default function VisitComparisonTab({
     return [
       build('Total Field Visits', '#3b82f6', a.total_visits, b.total_visits),
       build('Dealer Visits', '#22c55e', a.dealer_visits, b.dealer_visits),
-      build('Fabricator Visits', '#a855f7', a.fabricator_visits, b.fabricator_visits),
+      build('Fabricator Visits', '#94a3b8', a.fabricator_visits, b.fabricator_visits),
       build('Unique Accounts', '#06b6d4', a.unique_customers, b.unique_customers),
-      build('Active Sales Reps', '#6366f1', a.active_reps, b.active_reps),
+      build('Active Sales Reps', '#eab308', a.active_reps, b.active_reps),
       build('Avg Call Duration', '#f59e0b', a.avg_duration, b.avg_duration, { unit: 'min', decimals: 1 }),
     ];
   }, [data, labelB]);
@@ -660,57 +766,168 @@ export default function VisitComparisonTab({
     { key: 'movement', label: 'Account Movement', count: (data?.top_gainers?.length || 0) + (data?.top_decliners?.length || 0) },
   ];
 
-  const periodBox = (which, caption, year, month, ym) => (
-    <div className="rounded-xl border border-border/50 bg-bg-secondary/50 p-4">
-      <div className="flex items-center gap-2.5 mb-3">
+  // One line per period: the headline above already names both periods, so
+  // the box carries only its A/B chip and the pickers.
+  const periodBox = (which, caption, year, month) => (
+    <div className="flex items-center gap-2 min-w-0 flex-1">
         <span
-          className={`w-7 h-7 rounded-lg grid place-items-center text-[13px] font-black shrink-0 ${
+          title={caption}
+          className={`w-6 h-6 rounded-md grid place-items-center text-[12px] font-black shrink-0 ${
             which === 'A'
               ? 'bg-accent-blue/15 text-accent-blue'
-              : 'bg-purple-500/15 text-purple-400'
+              : 'bg-amber-500/15 text-amber-400'
           }`}
         >
           {which}
+          <span className="sr-only"> {caption}</span>
         </span>
-        <span className="text-[13px] font-bold uppercase tracking-wider text-text-muted">
-          {caption}
-        </span>
-        <span className="ml-auto text-[15px] font-extrabold text-text-primary whitespace-nowrap">
-          {formatPeriod(ym)}
-        </span>
-      </div>
+      <select
+        className="filter-select text-[13px] py-1.5 px-2.5 font-bold w-[5.5rem] shrink-0"
+        value={year}
+        onChange={e => handleYearChange(which, e.target.value)}
+        aria-label={`Period ${which} year`}
+      >
+        {yearsList.map(y => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+      <select
+        className="filter-select text-[13px] py-1.5 px-2.5 font-bold min-w-0 flex-1"
+        value={month}
+        onChange={e => handleMonthChange(which, e.target.value)}
+        aria-label={`Period ${which} month`}
+      >
+        {monthsFor(year).map(m => (
+          <option key={m.value} value={m.value}>{m.label}</option>
+        ))}
+      </select>
+    </div>
+  );
 
-      <div className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-2.5">
+  /**
+   * Week counterpart of periodBox: year, month, then the month's weeks. The
+   * header shows the span actually compared, which after like-for-like
+   * matching can be shorter than the week picked below it.
+   */
+  const weekBox = (which, caption, picked, compared) => {
+    if (!picked || !compared) return null;
+    const ym = picked.from.slice(0, 7);
+    const [year] = ym.split('-');
+    const weeks = weeksFor(ym);
+    const pickedKey = rangeKey(picked);
+
+    return (
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span
+            title={caption}
+            className={`w-6 h-6 rounded-md grid place-items-center text-[12px] font-black shrink-0 ${
+              which === 'A'
+                ? 'bg-accent-blue/15 text-accent-blue'
+                : 'bg-amber-500/15 text-amber-400'
+            }`}
+          >
+            {which}
+            <span className="sr-only"> {caption}</span>
+          </span>
         <select
-          className="filter-select text-[14px] py-2 px-3 font-bold"
+          className="filter-select text-[13px] py-1.5 px-2.5 font-bold w-[5.5rem] shrink-0"
           value={year}
-          onChange={e => handleYearChange(which, e.target.value)}
-          aria-label={`Period ${which} year`}
+          onChange={e => handleWeekYearChange(which, e.target.value)}
+          aria-label={`Week ${which} year`}
         >
           {yearsList.map(y => (
             <option key={y} value={y}>{y}</option>
           ))}
         </select>
         <select
-          className="filter-select text-[14px] py-2 px-3 font-bold"
-          value={month}
-          onChange={e => handleMonthChange(which, e.target.value)}
-          aria-label={`Period ${which} month`}
+          className="filter-select text-[13px] py-1.5 px-2.5 font-bold w-[7.5rem] shrink-0"
+          value={ym.split('-')[1]}
+          onChange={e => handleWeekMonthChange(which, `${year}-${e.target.value}`)}
+          aria-label={`Week ${which} month`}
         >
           {monthsFor(year).map(m => (
             <option key={m.value} value={m.value}>{m.label}</option>
           ))}
         </select>
+        <select
+          className="filter-select text-[13px] py-1.5 px-2.5 font-bold min-w-0 flex-1"
+          value={pickedKey}
+          onChange={e => {
+            const [from, to] = e.target.value.split('_');
+            setWeek(which, { from, to });
+          }}
+          aria-label={`Week ${which}`}
+        >
+          {weeks.map(w => (
+            <option key={w.idx} value={rangeKey(w)}>
+              Wk {w.idx} · {formatRange(w, { year: false })}
+            </option>
+          ))}
+        </select>
       </div>
-    </div>
-  );
+    );
+  };
+
+  // Plain-language note under the headline, only for what changes the read:
+  // a running week matched to the same days, the newest day left out of a
+  // week it belongs to, or two spans of different length.
+  const touchesLatest = r => latestDay && r.from <= latestDay && latestDay <= r.to;
+  const weekNote = isWeek
+    ? [
+        weekCompare.matched
+          ? `${rangeDays(effA) === 1 ? 'First day' : `First ${rangeDays(effA)} days`} so far, matched to the same days`
+          : null,
+        through && through < latestDay && (touchesLatest(weekA) || touchesLatest(weekB))
+          ? `${formatRange({ from: latestDay, to: latestDay }, { year: false })} still loading`
+          : null,
+        !weekCompare.matched && rangeDays(effA) !== rangeDays(effB)
+          ? `${rangeDays(effA)} days vs ${rangeDays(effB)} ${rangeDays(effB) === 1 ? 'day' : 'days'}, so totals are not like for like`
+          : null,
+      ].filter(Boolean).join(' · ')
+    : '';
+
+  const modeBtn = on =>
+    `px-2.5 py-1 rounded-md text-[12.5px] font-bold transition-colors duration-150 cursor-pointer ${
+      on ? 'bg-accent-blue text-white' : 'text-text-secondary hover:text-text-primary hover:bg-bg-card'
+    }`;
+
+  const shownPresets = mode === 'week' ? weekPresetList : presets;
+  const shownActive = mode === 'week' ? activeWeekPreset : activePreset;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
+
+      {/*
+        Metric ribbon first: the six figures are the answer, the period and
+        scope controls below are how to change the question. One row from xl;
+        fitValue scales each figure to its tile rather than a fixed size, and
+        --kpi-fit holds every figure in the row to one modest size.
+      */}
+      {loading && (
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <SkeletonLoader variant="kpi" count={6} />
+        </div>
+      )}
+      {!loading && !error && kpiCards && (
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 [--kpi-fit:6.5]">
+          {kpiCards.map(card => (
+            <KPICard
+              key={card.label}
+              fitValue
+              label={card.label}
+              value={card.value}
+              subtitle={card.subtitle}
+              momDisplay={card.momDisplay}
+              momColor={card.momColor}
+              accentColor={card.accent}
+            />
+          ))}
+        </div>
+      )}
 
       {/* ──────────────── Period selection ──────────────── */}
-      <div className="glass-card p-4 sm:p-5 lg:p-6 space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+      <div className="glass-card p-4 sm:p-5 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
           {/*
             No second "Compare Field Visits" heading here — the section title
             directly above this card already says it. This slot carries what
@@ -718,29 +935,48 @@ export default function VisitComparisonTab({
             scope inherited from the page header.
           */}
           <div className="flex items-start gap-3">
-            <Calendar className="w-5 h-5 text-accent-blue shrink-0 mt-1" />
+            <Calendar className="w-[18px] h-[18px] text-accent-blue shrink-0 mt-0.5" />
             <div>
-              <div className="text-[12.5px] font-bold uppercase tracking-wider text-text-muted">
-                Comparing
+              <div className="text-base font-extrabold text-text-primary leading-tight">
+                {isWeek ? labelA : formatPeriod(periodA)} <span className="text-text-muted font-bold">vs</span> {isWeek ? labelB : formatPeriod(periodB)}
               </div>
-              <div className="text-xl font-extrabold text-text-primary leading-tight mt-1">
-                {formatPeriod(periodA)} <span className="text-text-muted font-bold">vs</span> {formatPeriod(periodB)}
-              </div>
-              <p className="text-[14px] text-text-muted mt-1.5 leading-relaxed">
+              {weekNote && (
+                <p className="text-[13px] font-semibold text-text-secondary mt-1">{weekNote}</p>
+              )}
+              <p className="text-[13px] text-text-muted mt-1 leading-snug">
                 {stateFilter === 'ALL' ? 'All states' : stateFilter}
-                {district !== 'ALL' ? ` · ${district} district` : ''} — every figure below is scoped to this.
+                {district !== 'ALL' ? ` · ${district} district` : ''}. Every figure on this tab uses this scope.
               </p>
             </div>
           </div>
 
-          {/* Presets — one segmented group, with the active shortcut lit */}
+          {/* Grain switch, then the presets for that grain, lit when active */}
+          <div className="flex flex-wrap items-center lg:justify-end gap-2 self-start">
+          <div
+            role="group"
+            aria-label="Compare by"
+            className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-secondary/70 border border-border/50"
+          >
+            <button type="button" aria-pressed={mode === 'month'} onClick={() => switchMode('month')} className={modeBtn(mode === 'month')}>
+              Month
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode === 'week'}
+              onClick={() => switchMode('week')}
+              disabled={!through}
+              className={through ? modeBtn(mode === 'week') : 'px-2.5 py-1 rounded-md text-[12.5px] font-bold text-text-muted/50 cursor-not-allowed'}
+            >
+              Week
+            </button>
+          </div>
           <div
             role="group"
             aria-label="Comparison presets"
-            className="flex items-center gap-1 p-1 rounded-xl bg-bg-secondary/70 border border-border/50 flex-wrap self-start"
+            className="flex items-center gap-0.5 p-0.5 rounded-lg bg-bg-secondary/70 border border-border/50 flex-wrap"
           >
-            {presets.map(p => {
-              const on = activePreset === p.key;
+            {shownPresets.map(p => {
+              const on = shownActive === p.key;
               const disabled = !p.a || !p.b;
               return (
                 <button
@@ -748,8 +984,8 @@ export default function VisitComparisonTab({
                   type="button"
                   aria-pressed={on}
                   disabled={disabled}
-                  onClick={() => applyPreset(p)}
-                  className={`px-3.5 py-2 rounded-lg text-[13.5px] font-bold transition-colors duration-150 whitespace-nowrap ${
+                  onClick={() => (mode === 'week' ? applyWeekPreset(p) : applyPreset(p))}
+                  className={`px-2.5 py-1 rounded-md text-[12.5px] font-bold transition-colors duration-150 whitespace-nowrap ${
                     disabled
                       ? 'text-text-muted/50 cursor-not-allowed'
                       : on
@@ -762,80 +998,69 @@ export default function VisitComparisonTab({
               );
             })}
           </div>
+          </div>
         </div>
 
-        {/* Period A / swap / Period B */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3 pt-5 border-t border-border/40">
-          {periodBox('A', 'Primary', yearA, monthA, periodA)}
-
-          <div className="flex justify-center">
+        {/* Period A / swap / Period B, then scope, on one line from xl */}
+        <div className="flex flex-col xl:flex-row xl:items-center gap-3 pt-3 border-t border-border/40">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 min-w-0">
+            {isWeek ? weekBox('A', 'Primary', weekA, effA) : periodBox('A', 'Primary', yearA, monthA)}
             <button
               type="button"
               onClick={handleSwap}
               title="Swap the two periods"
               aria-label="Swap the two periods"
-              className="p-3 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-accent-blue transition-colors cursor-pointer"
+              className="self-center p-1.5 rounded-md border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-accent-blue transition-colors cursor-pointer shrink-0"
             >
-              <ArrowLeftRight className="w-[18px] h-[18px]" />
+              <ArrowLeftRight className="w-4 h-4" />
             </button>
+            {isWeek ? weekBox('B', 'Benchmark', weekB, effB) : periodBox('B', 'Benchmark', yearB, monthB)}
           </div>
 
-          {periodBox('B', 'Benchmark', yearB, monthB, periodB)}
-        </div>
-
-        {/*
-          Scope sits with the periods, not above the table, because it is not a
-          table refinement: both selections go to the RPC and narrow the KPI
-          ribbon and all four breakdowns together. The state control lives here
-          rather than in the page header while this tab is open, so there is
-          only ever one of it on screen.
-        */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-5 border-t border-border/40">
-          <span className="text-[13px] font-bold uppercase tracking-wider text-text-muted shrink-0">
-            Scope
-          </span>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2">
-              <span className="text-[14px] font-semibold text-text-secondary">State</span>
-              <select
-                className="filter-select text-[14px] py-2 px-3 font-bold w-[190px]"
-                value={stateFilter}
-                onChange={e => onStateChange?.(e.target.value)}
-                aria-label="Filter by state"
-              >
-                {stateList.map(st => (
-                  <option key={st} value={st}>{st === 'ALL' ? 'All States' : st}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex items-center gap-2">
-              <span className="text-[14px] font-semibold text-text-secondary">District</span>
-              <select
-                className="filter-select text-[14px] py-2 px-3 font-bold w-[230px]"
-                value={district}
-                onChange={e => handleDistrictChange(e.target.value)}
-                aria-label="Filter by district"
-                disabled={districtList.length === 0}
-              >
-                <option value="ALL">
-                  {districtList.length > 0 ? `All Districts (${districtList.length})` : 'All Districts'}
-                </option>
-                {districtList.map(d => (
-                  <option key={d.value} value={d.value}>{d.value}</option>
-                ))}
-              </select>
-            </label>
+          {/*
+            Scope sits with the periods, not above the table, because it is not a
+            table refinement: both selections go to the RPC and narrow the KPI
+            ribbon and all four breakdowns together. The state control lives here
+            rather than in the page header while this tab is open, so there is
+            only ever one of it on screen.
+          */}
+          <div className="flex flex-wrap items-center gap-2 xl:pl-3 xl:border-l xl:border-border/40">
+            <span className="text-[12px] font-bold uppercase tracking-wider text-text-muted shrink-0">
+              Scope
+            </span>
+            <select
+              className="filter-select text-[13px] py-1.5 px-2.5 font-bold w-[150px]"
+              value={stateFilter}
+              onChange={e => onStateChange?.(e.target.value)}
+              aria-label="Filter by state"
+            >
+              {stateList.map(st => (
+                <option key={st} value={st}>{st === 'ALL' ? 'All States' : st}</option>
+              ))}
+            </select>
+            <select
+              className="filter-select text-[13px] py-1.5 px-2.5 font-bold w-[180px]"
+              value={district}
+              onChange={e => handleDistrictChange(e.target.value)}
+              aria-label="Filter by district"
+              disabled={districtList.length === 0}
+            >
+              <option value="ALL">
+                {districtList.length > 0 ? `All Districts (${districtList.length})` : 'All Districts'}
+              </option>
+              {districtList.map(d => (
+                <option key={d.value} value={d.value}>{d.value}</option>
+              ))}
+            </select>
 
             {scopeOn && (
               <button
                 type="button"
                 onClick={() => { setDistrict('ALL'); onStateChange?.('ALL'); }}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[14px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
               >
-                <RotateCcw className="w-4 h-4" />
-                Reset Scope
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset
               </button>
             )}
           </div>
@@ -845,9 +1070,6 @@ export default function VisitComparisonTab({
       {/* ──────────────── Loading & Error States ──────────────── */}
       {loading && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <SkeletonLoader variant="kpi" count={6} />
-          </div>
           <div className="glass-card p-6">
             <SkeletonLoader variant="table-row" count={8} />
           </div>
@@ -862,15 +1084,7 @@ export default function VisitComparisonTab({
             type="button"
             onClick={() => {
               clearComparisonCache();
-              setLoading(true);
-              setError(null);
-              compareVisitsPeriods({ periodA, periodB, state: stateFilter })
-                .then(res => {
-                  setData(res);
-                  setError(null);
-                })
-                .catch(err => setError(err.message || 'Comparison request failed'))
-                .finally(() => setLoading(false));
+              setRetryTick(t => t + 1);
             }}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent-blue hover:bg-accent-blue/90 text-white font-bold text-[14px] cursor-pointer transition-colors"
           >
@@ -883,20 +1097,6 @@ export default function VisitComparisonTab({
       {/* ──────────────── Metric ribbon ──────────────── */}
       {!loading && !error && kpiCards && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {kpiCards.map(card => (
-              <KPICard
-                key={card.label}
-                label={card.label}
-                value={card.value}
-                subtitle={card.subtitle}
-                momDisplay={card.momDisplay}
-                momColor={card.momColor}
-                accentColor={card.accent}
-              />
-            ))}
-          </div>
-
           {/* ──────────────── Breakdown ──────────────── */}
           <div className="glass-card p-4 sm:p-5 lg:p-6 space-y-5">
             {/* View switcher & actions */}
