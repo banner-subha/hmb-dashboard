@@ -62,7 +62,7 @@ export default function Composer({ ref, onSend, onStop, streaming }) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Ask about despatch, backlog, targets or rates"
+          placeholder="Ask about despatch, backlog, outstanding, targets or rates"
           aria-label="Ask the sales assistant"
           title="Enter to send, Shift+Enter for a new line"
           className="max-h-[13rem] flex-1 resize-none border-0 bg-transparent py-1.5 text-base leading-[1.45] text-text-primary outline-none placeholder:text-text-dim sm:text-[0.9rem]"

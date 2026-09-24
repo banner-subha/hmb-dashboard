@@ -2,12 +2,15 @@ import { useLayoutEffect, useRef } from 'react';
 import {
   AlarmClock,
   ArrowLeftRight,
+  BadgeAlert,
   Boxes,
   CalendarClock,
   ClipboardList,
+  ClockAlert,
   Footprints,
   HardHat,
   Handshake,
+  IndianRupee,
   Ruler,
   Sparkles,
   Target,
@@ -85,6 +88,30 @@ const OPENER_GROUPS = [
         label: '10mm vs 12mm',
         hint: 'Size-wise volume',
         prompt: '10mm vs 12mm volume this month',
+      },
+    ],
+  },
+  {
+    heading: 'Outstanding',
+    tint: '#f97316',
+    openers: [
+      {
+        icon: IndianRupee,
+        label: 'Total outstanding',
+        hint: 'Balance & aging',
+        prompt: 'What is our total outstanding balance?',
+      },
+      {
+        icon: BadgeAlert,
+        label: 'Top debtors',
+        hint: 'Highest balance',
+        prompt: 'Who are the top 10 dealers with highest outstanding?',
+      },
+      {
+        icon: ClockAlert,
+        label: 'Overdue receivables',
+        hint: 'Aging & risk list',
+        prompt: 'Top overdue accounts and ageing breakdown',
       },
     ],
   },
@@ -213,9 +240,9 @@ function EmptyState({ onPick }) {
         {firstName ? `${timeOfDay()}, ${firstName}` : timeOfDay()}
       </h2>
       <p className="mt-2 max-w-[24rem] text-[0.88rem] leading-relaxed text-text-muted">
-        I can look up despatch, order backlog, dealer targets, the monthly business plan,
-        field visits and size-wise rates. Ask in plain English — figures come straight from
-        the sales data.
+        I can look up despatch, order backlog, outstanding dues, dealer targets, the monthly
+        business plan, field visits and size-wise rates. Ask in plain English — figures come
+        straight from the sales data.
       </p>
 
       <div className="mt-6 w-full max-w-[34rem] space-y-4 text-left">
