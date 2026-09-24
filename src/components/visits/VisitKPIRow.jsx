@@ -21,6 +21,9 @@ function VisitKPIRow({ summary, meta }) {
     ? calculateMoM(summary.curTotalVisits, summary.prevTotalVisits)
     : null;
   const elapsed = meta?.elapsedDays;
+  const fabricatorShare = summary.curTotalVisits > 0
+    ? (summary.curFabricatorVisits ?? 0) / summary.curTotalVisits * 100
+    : null;
 
   return (
     <m.div
@@ -44,7 +47,7 @@ function VisitKPIRow({ summary, meta }) {
         <KPICard
           label="Dealer Coverage"
           value={formatPct(summary.dealerCoveragePct)}
-          subtitle={`${(summary.activeDealersVisited ?? 0).toLocaleString('en-IN')} of ${(summary.totalDealersTracked ?? 0).toLocaleString('en-IN')} dealers visited at least once`}
+          subtitle={`${(summary.activeDealersVisited ?? 0).toLocaleString('en-IN')} of ${(summary.totalDealersTracked ?? 0).toLocaleString('en-IN')} dealers visited`}
           accentColor="#22c55e"
         />
       </m.div>
@@ -53,8 +56,8 @@ function VisitKPIRow({ summary, meta }) {
         <KPICard
           label="Fabricator Visits"
           value={(summary.curFabricatorVisits ?? 0).toLocaleString('en-IN')}
-          subtitle="Workshops and builders — demand influencers, not buyers"
-          accentColor="#a855f7"
+          subtitle={fabricatorShare != null ? `${formatPct(fabricatorShare)} of all visits this month` : 'Workshop and builder visits this month'}
+          accentColor="#94a3b8"
         />
       </m.div>
 
@@ -65,7 +68,7 @@ function VisitKPIRow({ summary, meta }) {
           // Called out rather than left to be misread: this figure is all-time
           // and dealer-only in the payload, while every tile beside it covers
           // the current month.
-          subtitle="Dealer meetings, all months"
+          subtitle="Dealer visits, all-time average"
           accentColor="#f59e0b"
         />
       </m.div>
@@ -76,7 +79,7 @@ function VisitKPIRow({ summary, meta }) {
           value={(summary.activeFieldReps ?? 0).toLocaleString('en-IN')}
           subtitle={
             elapsed
-              ? `In the field over the first ${elapsed} day${elapsed === 1 ? '' : 's'} of the month`
+              ? `Logged visits in the first ${elapsed} day${elapsed === 1 ? '' : 's'}`
               : 'In the field this month'
           }
           accentColor="#06b6d4"

@@ -7,7 +7,7 @@ import { useDebouncedResize } from '../../hooks/useDebouncedResize';
 import { useChartVisible } from '../../hooks/useChartVisible';
 import { Layers } from 'lucide-react';
 
-const REGION_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#8b5cf6', '#06b6d4'];
+const REGION_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#eab308', '#94a3b8', '#06b6d4'];
 const OTHERS_COLOR = '#64748b';
 
 const BacklogTooltip = ({ active, payload }) => {

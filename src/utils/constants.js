@@ -25,7 +25,7 @@ export const PRODUCT_COLORS = {
   GI: '#3B82F6',   // Electric Blue
   IGG: '#60A5FA',  // Sky Blue
   P: '#0EA5E9',    // Cyan Sky Blue
-  HGI: '#818CF8',  // Indigo Periwinkle
+  HGI: '#4FA98C',  // Sea Green
   RS: '#06B6D4',   // Teal Cyan
   SS: '#38BDF8',   // Crystal Blue
 };
@@ -44,7 +44,7 @@ export const SEVERITY_CONFIG = {
 export const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'NONE'];
 
 // Chart color palette
-export const CHART_COLORS = ['#3b82f6', '#4FA98C', '#8b5cf6', '#f97316', '#22c55e', '#ef4444', '#eab308'];
+export const CHART_COLORS = ['#3b82f6', '#4FA98C', '#94a3b8', '#f97316', '#22c55e', '#ef4444', '#eab308'];
 
 // Risk thresholds
 export const RISK_THRESHOLDS = { HIGH: 70, MEDIUM: 40 };

@@ -63,8 +63,8 @@ export default function ChannelHealthTierMatrixCard({ dealers = [], totalVolume 
     const t3 = calcTier(
       t3Dealers, 
       'Tier 3 • Retail / Micro', 
-      '#8b5cf6', 
-      'badge-theme-purple', 
+      '#eab308', 
+      'badge-theme-amber', 
       Users
     );
 

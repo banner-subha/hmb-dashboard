@@ -818,7 +818,7 @@ export default function DistrictIntelligence({ pendingAvailableMonths = [] }) {
 
         {/* Right Col: Scatter Plot & Insights */}
         <div className="lg:col-span-4 space-y-6">
-          <CollapsibleCard title="District Impact Map" accentColor="#8b5cf6">
+          <CollapsibleCard title="District Impact Map" accentColor="#eab308">
             <div className="text-xs text-text-muted mb-4">
               Visualizing volume vs impact score. High volume, critical impact districts (top right) require immediate intervention.
             </div>

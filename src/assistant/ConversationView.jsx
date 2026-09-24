@@ -90,7 +90,7 @@ const OPENER_GROUPS = [
   },
   {
     heading: 'Business plan',
-    tint: '#8b5cf6',
+    tint: '#eab308',
     openers: [
       {
         icon: ArrowLeftRight,

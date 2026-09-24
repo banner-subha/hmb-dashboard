@@ -9,6 +9,7 @@ function KPICard({
   accentColor = '#3b82f6',
   lightAccentColor,
   loading = false,
+  fitValue = false,
   className = ''
 }) {
   const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
@@ -26,9 +27,23 @@ function KPICard({
         ? 'text-2xl sm:text-3xl lg:text-[2.35rem] xl:text-[2.6rem] font-black'
         : 'text-3xl sm:text-4xl lg:text-[2.85rem] xl:text-[3.05rem] font-black';
 
+      // fitValue: the figure scales with the tile instead of stepping by
+      // breakpoint, so a tile in a row of variable-width tiles never clips.
+      // The divisor is the figure's width in ems (tabular digits ~0.62em,
+      // the fixed-size unit roughly 0.4em a character). A parent may set
+      // --kpi-fit instead: a row that splits its width by weight sets it to
+      // the weight, so every figure in that row lands at the same size.
+      const fitEm = (num.length * 0.62 + (unit ? unit.length * 0.4 + 0.3 : 0)).toFixed(2);
+      const fitStyle = fitValue
+        ? { fontSize: `clamp(1.5rem, calc(100cqi / var(--kpi-fit, ${fitEm})), 3.05rem)` }
+        : undefined;
+
       return (
         <div className="flex items-baseline gap-1.5 whitespace-nowrap overflow-hidden">
-          <span className={`${numFontSize} text-text-primary leading-none tracking-tight`}>
+          <span
+            className={`${fitValue ? 'font-black' : numFontSize} text-text-primary leading-none tracking-tight`}
+            style={fitStyle}
+          >
             {num}
           </span>
           {unit && (
@@ -49,7 +64,7 @@ function KPICard({
 
   return (
     <div
-      className={`glass-card-hover relative p-4 sm:p-5 flex flex-col justify-between overflow-hidden h-full ${className}`}
+      className={`glass-card-hover kpi-tile relative ${fitValue ? 'p-4' : 'p-4 sm:p-5'} flex flex-col overflow-hidden h-full ${className}`}
       style={{
         borderLeftWidth: '0',
       }}
@@ -60,7 +75,12 @@ function KPICard({
         style={{ backgroundColor: effectiveAccent }}
       />
 
-      <div className="stat-label mb-2 text-xs sm:text-[13px] font-bold text-text-muted uppercase tracking-wide leading-snug">
+      {/* A fitted row keeps each label to one line, so every figure in the row
+          sits on the same baseline; the full label stays in the tooltip. */}
+      <div
+        className={`stat-label text-text-muted uppercase leading-snug ${fitValue ? 'mb-1.5 text-[12px] font-bold tracking-wide truncate' : 'mb-2 text-xs sm:text-[13px] font-bold tracking-wide'}`}
+        title={fitValue ? label : undefined}
+      >
         {label}
       </div>
 
@@ -70,13 +90,13 @@ function KPICard({
         flight reads as "no data"; the shimmer reads as "not yet", and it is
         sized to the figure it replaces so the tile does not reflow on arrival.
       */}
-      <div className="mb-1.5">
+      <div className={fitValue ? 'mb-1 [container-type:inline-size]' : 'mb-1.5'}>
         {loading
           ? <div className="skeleton h-9 sm:h-10 lg:h-11 w-3/5" aria-hidden="true" />
           : renderFormattedValue()}
       </div>
 
-      <div className="text-xs sm:text-[13px] text-text-secondary mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-snug">
+      <div className="text-xs sm:text-[13px] text-text-secondary mt-auto pt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-snug">
         {momDisplay && (
           <span style={{ color: displayColor }} className="text-sm sm:text-[13.5px] font-black tracking-wide whitespace-nowrap">
             {momDisplay}

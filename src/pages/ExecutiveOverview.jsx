@@ -10,7 +10,7 @@ import SeverityBadge from '../components/common/SeverityBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
-import { achievementTone, coverageTone, formatMT1, formatPct1, formatCount, formatMonthLabel } from '../utils/businessPlan';
+import { achievementTone, coverageTone, formatMT1, formatMT1Bare, formatPct1, formatCount, formatMonthLabel } from '../utils/businessPlan';
 import { formatPct } from '../utils/formatters';
 import { useVisitData } from '../hooks/useVisitData';
 import { calculateMoM, formatTrend, getTrendColor } from '../utils/trendEngine';
@@ -31,6 +31,22 @@ import BacklogRegionCard from '../components/common/BacklogRegionCard';
 import TargetVsActualCard from '../components/common/TargetVsActualCard';
 import PlanCoverageCard from '../components/common/PlanCoverageCard';
 import FieldCoverageCard from '../components/common/FieldCoverageCard';
+
+/**
+ * A KPI tile's share of the single row: the width of its figure in ems (same
+ * estimate KPICard's fitValue uses), floored so a short figure still leaves
+ * room for its label and note.
+ */
+function kpiWeight(value) {
+  const match = String(value ?? '').trim().match(/^([\d,]+\.?\d*)\s*(.*)$/);
+  const em = match ? match[1].length * 0.62 + (match[2] ? match[2].length * 0.4 + 0.3 : 0) : 2;
+  return Math.round(Math.max(em, 5) * 100) / 100;
+}
+
+// Wraps at a 13.75rem basis below 2xl; from 2xl the basis drops to zero so the
+// row splits purely by weight, and --kpi-fit hands KPICard that same weight so
+// the figures share one size.
+const KPI_ITEM = 'min-w-0 flex-[var(--kpi-w)_1_13.75rem] 2xl:flex-[var(--kpi-w)_1_0%] 2xl:[--kpi-fit:var(--kpi-w)]';
 
 export default function ExecutiveOverview() {
   const { data: filteredData, overallData, rawData, loading, error } = useData();
@@ -237,9 +253,9 @@ export default function ExecutiveOverview() {
 
   if (loading) return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="glass-card p-6 h-32">
+      <div className="flex flex-wrap 2xl:flex-nowrap gap-4">
+        {[...Array(7)].map((_, i) => (
+          <div key={i} className="glass-card p-6 h-32 min-w-0 flex-[1_1_13.75rem] 2xl:flex-[1_1_0%]">
             <SkeletonLoader variant="stat-card" />
           </div>
         ))}
@@ -264,55 +280,81 @@ export default function ExecutiveOverview() {
 
   if (!data) return null;
 
+  const kpiValues = {
+    dispatched: formatMT(data.totalCur),
+    pending: formatMT(data.pendingTotal),
+    achievement: plan.totals?.achievementPct != null ? formatPct1(plan.totals.achievementPct) : '—',
+    delivery:
+      data.avgPeriod != null
+        ? `${data.avgPeriod} Days`
+        : data.meta?.avgPeriod != null
+        ? `${data.meta.avgPeriod} Days`
+        : data.operationalContext?.overall_performance?.avg_period != null
+        ? `${data.operationalContext.overall_performance.avg_period} Days`
+        // Was a literal '16.6 Days'. A fallback that invents a figure
+        // reads as measured; the dash says the number is not in hand.
+        : '—',
+    dealers: data.dealers?.filter(d => d.cur > 0).length || 0,
+    coverage: plan.totals?.coveragePct != null ? formatPct1(plan.totals.coveragePct) : '—',
+    visits: visits.summary ? (visits.summary.curTotalVisits ?? 0).toLocaleString('en-IN') : '—',
+  };
+
+  const kpiWeights = Object.fromEntries(
+    Object.entries(kpiValues).map(([k, v]) => [k, kpiWeight(v)])
+  );
+
   return (
     <div className="space-y-6">
 
       {/*
-        KPI Row — four across rather than eight. "14,695.74 MT" needs roughly
-        250px at the tile's display size, and an eighth of this row is nowhere
-        near that; a single row of eight clipped the unit off to "14,695.74 M".
-        Four columns give every tile room for its figure and its caption, and
-        the row falls to two, then one, as the viewport narrows.
+        KPI Row — one row from 2xl (1536px) up. Each tile's share of the row is weighted
+        by how wide its figure is (kpiWeight), and KPICard's fitValue scales the
+        figure to the tile, so "12,724.82 MT" gets the room it needs and
+        shrinks rather than clipping to "12,724.82 M" on narrower screens.
+        Below 2xl seven tiles cannot all fit, so they wrap by width instead.
       */}
       <m.div
         variants={staggerContainer}
         initial="initial"
         animate="animate"
-        className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4"
+        className="flex flex-wrap 2xl:flex-nowrap gap-4"
       >
         {/* 1. Total Dispatch */}
-        <m.div variants={kpiCard}>
+        <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.dispatched }}>
           <KPICard
-            label="Dispatched This Month"
-            value={formatMT(data.totalCur)}
+            fitValue
+            label="Dispatched MTD"
+            value={kpiValues.dispatched}
             momDisplay={totalTrendDisplay}
             momColor={totalTrendColor}
-            subtitle="vs Last Month"
+            subtitle="vs last month"
             accentColor="#3b82f6"
           />
         </m.div>
 
         {/* 2. Total Pending Orders */}
-        <m.div variants={kpiCard}>
+        <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.pending }}>
           <KPICard
+            fitValue
             label="Pending Orders"
-            value={formatMT(data.pendingTotal)}
+            value={kpiValues.pending}
             subtitle={data.pendingTotal > 0 ? "Awaiting dispatch" : "No active backlog"}
             accentColor="#f97316"
           />
         </m.div>
 
         {/* 3. Plan Achievement */}
-        <m.div variants={kpiCard}>
+        <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.achievement }}>
           <KPICard
-            label="Plan Achievement"
-            value={plan.totals?.achievementPct != null ? formatPct1(plan.totals.achievementPct) : '—'}
+            fitValue
+            label="Plan Achieved"
+            value={kpiValues.achievement}
             loading={plan.loading}
             subtitle={
               plan.loading
                 ? 'Loading business plan'
                 : plan.totals
-                ? `${formatMT1(plan.totals.actual)} of ${formatMT1(plan.totals.spTarget)} · ${formatMonthLabel(plan.month)}`
+                ? `${formatMT1Bare(plan.totals.actual)} of ${formatMT1(plan.totals.spTarget)} · ${formatMonthLabel(plan.month)}`
                 : 'No plan published for this month'
             }
             accentColor={planTone.color}
@@ -320,76 +362,60 @@ export default function ExecutiveOverview() {
         </m.div>
 
         {/* 4. Avg Delivery Time */}
-        <m.div variants={kpiCard}>
+        <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.delivery }}>
           <KPICard
-            label="Avg Delivery Time"
-            value={
-              data.avgPeriod != null
-                ? `${data.avgPeriod} Days`
-                : data.meta?.avgPeriod != null
-                ? `${data.meta.avgPeriod} Days`
-                : data.operationalContext?.overall_performance?.avg_period != null
-                ? `${data.operationalContext.overall_performance.avg_period} Days`
-                // Was a literal '16.6 Days'. A fallback that invents a figure
-                // reads as measured; the dash says the number is not in hand.
-                : '—'
-            }
-            subtitle="Order-to-dispatch avg"
+            fitValue
+            label="Avg Delivery"
+            value={kpiValues.delivery}
+            subtitle="Order to dispatch"
             accentColor="#06b6d4"
           />
         </m.div>
 
-        {/* 5. Active Alerts */}
-        <m.div variants={kpiCard}>
+        {/* 5. Active Dealers */}
+        <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.dealers }}>
           <KPICard
-            label="Active Alerts"
-            value={alertCount || 0}
-            subtitle="Requires attention"
-            accentColor={alertCount > 0 ? "#ef4444" : "#22c55e"}
-          />
-        </m.div>
-
-        {/* 6. Active Dealers */}
-        <m.div variants={kpiCard}>
-          <KPICard
+            fitValue
             label="Active Dealers"
-            value={data.dealers?.filter(d => d.cur > 0).length || 0}
+            value={kpiValues.dealers}
             subtitle={
               dealerMovement.lost > 0 || dealerMovement.reactivated > 0
                 ? [dealerMovement.lost > 0 ? `${dealerMovement.lost} lost` : null, dealerMovement.reactivated > 0 ? `${dealerMovement.reactivated} returned` : null].filter(Boolean).join(' · ')
                 : "Transacting this month"
             }
-            accentColor="#8b5cf6"
+            accentColor="#94a3b8"
           />
         </m.div>
 
         {/*
-          7. Plan Dealer Coverage — the breadth half of the plan. Plan
+          6. Plan Dealer Coverage — the breadth half of the plan. Plan
           Achievement above reports tonnage, which a few large accounts can
           carry on their own; this reports how much of the planned dealer base
           actually billed, so a narrow month cannot hide behind a good total.
         */}
-        <m.div variants={kpiCard}>
+        <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.coverage }}>
           <KPICard
-            label="Plan Dealer Coverage"
-            value={plan.totals?.coveragePct != null ? formatPct1(plan.totals.coveragePct) : '—'}
+            fitValue
+            label="Plan Coverage"
+            value={kpiValues.coverage}
             loading={plan.loading}
             subtitle={
               plan.loading
                 ? 'Loading business plan'
                 : plan.totals?.bpDealers
-                ? `${formatCount(plan.totals.activeDealers)} of ${formatCount(plan.totals.bpDealers)} planned dealers billed`
+                ? `${formatCount(plan.totals.activeDealers)} of ${formatCount(plan.totals.bpDealers)} dealers billed`
                 : 'No dealer targets for this month'
             }
             accentColor={planCoverageTone.color}
           />
         </m.div>
 
-        {/* 8. Field Visits */}
-        <m.div variants={kpiCard}>
+        {/* 7. Field Visits */}
+        <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.visits }}>
           <KPICard
+            fitValue
             label="Field Visits"
-            value={visits.summary ? (visits.summary.curTotalVisits ?? 0).toLocaleString('en-IN') : '—'}
+            value={kpiValues.visits}
             loading={visits.loading}
             momDisplay={visitsMoM != null ? formatTrend(visitsMoM) : undefined}
             momColor={visitsMoM != null ? getTrendColor(visitsMoM) : undefined}
@@ -397,7 +423,7 @@ export default function ExecutiveOverview() {
               visits.loading
                 ? 'Loading visit tracker'
                 : visits.summary
-                ? `${formatPct(visits.summary.dealerCoveragePct)} of tracked dealers seen`
+                ? `${formatPct(visits.summary.dealerCoveragePct)} dealers seen`
                 : 'Visit tracker unavailable'
             }
             accentColor="#06b6d4"

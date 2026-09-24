@@ -136,7 +136,7 @@ function PlanCoverageCard({ month, states, totals, loading, error }) {
   return (
     <CollapsibleCard
       title="Dealer Coverage Against Plan"
-      accentColor="#8b5cf6"
+      accentColor="#22c55e"
       badge={
         <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-bold shadow-xs badge-theme-blue">
           <Store className="w-3.5 h-3.5" />

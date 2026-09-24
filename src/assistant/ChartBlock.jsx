@@ -28,7 +28,7 @@ import {
 // a dashboard chart read as the same product.
 const PALETTE = [
   '#1E40AF', '#2563EB', '#3B82F6', '#60A5FA',
-  '#0EA5E9', '#06B6D4', '#38BDF8', '#818CF8',
+  '#0EA5E9', '#06B6D4', '#38BDF8', '#4FA98C',
 ];
 
 const UNIT = {

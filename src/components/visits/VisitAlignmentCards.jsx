@@ -27,7 +27,6 @@ function VisitAlignmentCards({ summary, selected, onSelect, salesLink }) {
   const total = QUADRANT_ORDER.reduce(
     (s, k) => s + (summary[QUADRANT_COUNT_KEYS[k]] ?? 0), 0
   );
-  const linked = summary.salesLinkedDealers ?? 0;
 
   return (
     <div className="glass-card p-4 sm:p-5 lg:p-6 space-y-4">
@@ -37,8 +36,8 @@ function VisitAlignmentCards({ summary, selected, onSelect, salesLink }) {
             Visit Impact on Sales
           </h3>
           <p className="text-[13.5px] text-text-muted mt-1.5 max-w-3xl leading-relaxed">
-            Every dealer falls into one of these five groups. Select a card to filter the
-            table below to those dealers.
+            Dealers grouped by visit frequency and sales against target. Select a group
+            to filter the table.
           </p>
         </div>
         {selected !== 'ALL' && (
@@ -66,8 +65,8 @@ function VisitAlignmentCards({ summary, selected, onSelect, salesLink }) {
               {(salesLink.matched + salesLink.unmatched).toLocaleString('en-IN')} dealers
               ({formatPct(salesLink.matchPct)})
             </strong>{' '}
-            have a matching sales account. Target progress can only be judged for those.
-            The rest have been visited but never invoiced, so they sit in "No Sales Yet".
+            have a sales account, so target progress applies only to them. The rest have
+            been visited but never invoiced and are counted under No Sales Yet.
           </span>
         </div>
       )}
@@ -92,7 +91,7 @@ function VisitAlignmentCards({ summary, selected, onSelect, salesLink }) {
                 aria-pressed={isActive}
                 onClick={() => onSelect(isActive ? 'ALL' : key)}
                 title={cfg.action}
-                className="glass-card-hover relative w-full h-full text-left p-4 pl-5 overflow-hidden cursor-pointer"
+                className="glass-card-hover kpi-tile relative w-full h-full text-left p-4 pl-5 overflow-hidden cursor-pointer flex flex-col justify-start"
                 style={
                   isActive
                     ? { background: cfg.bgColor, borderColor: cfg.color, boxShadow: `0 0 0 1px ${cfg.color}` }
@@ -124,20 +123,16 @@ function VisitAlignmentCards({ summary, selected, onSelect, salesLink }) {
                   </span>
                 </div>
 
-                <span className="text-[11.5px] font-bold text-text-muted uppercase tracking-wide block mb-2.5 leading-snug">
+                <span className="text-[11.5px] font-bold text-text-muted uppercase tracking-wide block leading-snug">
                   {cfg.badge}
                 </span>
 
-                <p className="text-[13px] text-text-secondary leading-snug">
-                  {cfg.description}
-                </p>
-
                 {isActive && (
                   <span
-                    className="mt-3 inline-block text-[11.5px] font-black uppercase tracking-wider"
+                    className="mt-3 inline-block text-[12px] font-bold"
                     style={{ color: cfg.color }}
                   >
-                    Filtering Table ↓
+                    Filtering the table
                   </span>
                 )}
               </button>
@@ -145,10 +140,6 @@ function VisitAlignmentCards({ summary, selected, onSelect, salesLink }) {
           );
         })}
       </m.div>
-
-      <p className="text-[12.5px] font-semibold text-text-muted">
-        {total.toLocaleString('en-IN')} dealers in view · {linked.toLocaleString('en-IN')} with a sales account
-      </p>
     </div>
   );
 }
