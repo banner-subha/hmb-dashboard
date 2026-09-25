@@ -42,6 +42,7 @@ const AlertIntelligence = lazyWithRetry(() => import('./pages/AlertIntelligence'
 const GeoIntelligence = lazyWithRetry(() => import('./pages/GeoIntelligence'));
 const VisitIntelligence = lazyWithRetry(() => import('./pages/VisitIntelligence'));
 const BusinessPlan = lazyWithRetry(() => import('./pages/BusinessPlan'));
+const OutstandingIntelligence = lazyWithRetry(() => import('./pages/OutstandingIntelligence'));
 // The surface is lazy so that nothing it pulls in — the panel, markdown,
 // recharts, the result table — lands in the dashboard's initial bundle.
 const AssistantSurface = lazyWithRetry(() => import('./assistant/AssistantSurface'));
@@ -375,6 +376,7 @@ function App() {
                     <Route path="dealers" element={<DealerIntelligenceWrapper />} />
                     <Route path="visits" element={<VisitIntelligence />} />
                     <Route path="business-plan" element={<BusinessPlan />} />
+                    <Route path="outstanding" element={<OutstandingIntelligence />} />
                     <Route path="risk" element={<Navigate to="/alerts" replace />} />
                     <Route path="war-room" element={<RequireAdminRoute><AIWarRoom /></RequireAdminRoute>} />
                     <Route path="alerts" element={<RequireAdminRoute><AlertIntelligence /></RequireAdminRoute>} />

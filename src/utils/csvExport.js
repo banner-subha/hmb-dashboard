@@ -15,8 +15,11 @@
 export function escapeCsvValue(val) {
   if (val == null) return '';
   const str = String(val).trim();
-  // Protect against formula injection in spreadsheet applications
-  const guarded = /^[=+\-@]/.test(str) ? `'${str}` : str;
+  // Protect against formula injection in spreadsheet applications. A plain
+  // negative number (a credit note's amount) cannot run as a formula, and
+  // guarding it would turn it into text in Excel.
+  const isPlainNumber = /^-?\d+(\.\d+)?$/.test(str);
+  const guarded = /^[=+\-@]/.test(str) && !isPlainNumber ? `'${str}` : str;
   if (/[",\r\n]/.test(guarded)) {
     return `"${guarded.replace(/"/g, '""')}"`;
   }

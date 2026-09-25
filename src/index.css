@@ -1531,3 +1531,23 @@ body {
     transform: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   OUTSTANDING RECEIVABLES — bill drawer and credit colour
+   ═══════════════════════════════════════════════════════════════════════════════ */
+/* Credits are neutral slate, not green: an unmatched credit is a
+   reconciliation job, not good news. */
+:root { --ob-credit-fill: #64748b; }
+[data-theme="light"] { --ob-credit-fill: #94a3b8; }
+
+@keyframes obDrawerIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+.ob-drawer {
+  animation: obDrawerIn 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-drawer { animation: none !important; transform: none !important; }
+}
