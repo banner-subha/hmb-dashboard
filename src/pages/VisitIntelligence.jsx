@@ -260,104 +260,67 @@ export default function VisitIntelligence() {
     return r?.primaryRep || '—';
   };
 
+  const dealerExportCols = [
+    { label: 'Dealer Name', getValue: r => r.dealer || r.name || 'Not recorded' },
+    { label: 'State', getValue: r => r.state || 'Not recorded' },
+    { label: 'District', getValue: r => r.district || 'Not recorded' },
+    { label: 'KRM', getValue: formatKrmValue },
+    { label: 'KRO', getValue: formatKroValue },
+    { label: 'Account Group', getValue: r => quadrantConfig(r.quadrant)?.label || r.quadrant || '—' },
+    { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
+    { label: 'Usual Visits', getValue: r => comparableAvg(r) },
+    { label: 'Visit Net Growth', getValue: r => visitTrend(r).growth },
+    { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : (isUnlinked(r) ? 'Unbilled' : '0.0')) },
+    { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
+    { label: 'Target Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
+    { label: 'Market Potential (MT)', getValue: r => (r.bpPotential != null ? Number(r.bpPotential).toFixed(1) : '—') },
+  ];
+
+  const districtExportCols = [
+    { label: 'District', key: 'district' },
+    { label: 'State', key: 'state' },
+    { label: 'Fabricator Visits This Month', getValue: r => r.curFabricatorVisits || 0 },
+    { label: 'Usual Fabricator Visits', getValue: r => comparableFabricatorAvg(r) },
+    { label: 'Fabricator Visit Growth', getValue: r => Math.round(r.fabricatorGrowth ?? 0) || 0 },
+    { label: 'Unique Fabricators Visited', getValue: r => r.curUniqueFabricators || 0 },
+    { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : '0.0') },
+    { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
+    { label: 'Plan Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
+    { label: 'Pace Status', getValue: r => r.districtPaceStatus || 'UNKNOWN' },
+  ];
+
+  const repExportCols = [
+    { label: 'Sales Representative', getValue: r => r.employee_name || r.name || r.rep || '—' },
+    { label: 'Role', getValue: r => r.role || 'Field Rep' },
+    { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
+    { label: 'Last Month Visits (Same Days)', getValue: r => (r.prevVisitsMtd != null ? r.prevVisitsMtd : '—') },
+    { label: 'Net Change in Visits', getValue: r => (r.prevVisitsMtd != null ? (r.curVisits - r.prevVisitsMtd) : '—') },
+    { label: 'Visits Per Day', getValue: r => (r.dailyVisitRate != null ? Number(r.dailyVisitRate).toFixed(1) : (r.visitsPerActiveDay != null ? Number(r.visitsPerActiveDay).toFixed(1) : '—')) },
+    { label: 'Active Working Days', getValue: r => r.activeDays || 0 },
+    { label: 'Accounts Visited', getValue: r => r.uniqueCustomers || 0 },
+    { label: 'Dealer Visits', getValue: r => r.dealerVisits || 0 },
+    { label: 'Fabricator Visits', getValue: r => r.fabricatorVisits || 0 },
+    { label: 'Avg Visit Duration (Mins)', getValue: r => r.avgDurationMins || 0 },
+  ];
+
   const handleExportFiltered = () => {
     if (section === 'dealers') {
-      const cols = [
-        { label: 'Dealer Name', key: 'dealer' },
-        { label: 'State', getValue: r => r.state || 'Not recorded' },
-        { label: 'District', getValue: r => r.district || 'Not recorded' },
-        { label: 'KRM', getValue: formatKrmValue },
-        { label: 'KRO', getValue: formatKroValue },
-        { label: 'Account Group', getValue: r => quadrantConfig(r.quadrant)?.label || r.quadrant || '—' },
-        { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
-        { label: 'Usual Visits', getValue: r => comparableAvg(r) },
-        { label: 'Visit Net Growth', getValue: r => visitTrend(r).growth },
-        { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : (isUnlinked(r) ? 'Unbilled' : '0.0')) },
-        { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
-        { label: 'Target Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
-        { label: 'Market Potential (MT)', getValue: r => (r.bpPotential != null ? Number(r.bpPotential).toFixed(1) : '—') },
-      ];
-      downloadCsv(getExportFilename('field_dealers', 'filtered'), cols, dealers);
+      downloadCsv(getExportFilename('field_dealers', 'filtered'), dealerExportCols, dealers);
     } else if (section === 'districts') {
-      const cols = [
-        { label: 'District', key: 'district' },
-        { label: 'State', key: 'state' },
-        { label: 'Fabricator Visits This Month', getValue: r => r.curFabricatorVisits || 0 },
-        { label: 'Usual Visits', getValue: r => comparableFabricatorAvg(r) },
-        { label: 'Fabricator Visit Growth', getValue: r => Math.round(r.fabricatorGrowth ?? 0) || 0 },
-        { label: 'Dealer Coverage %', getValue: r => (r.dealerCoveragePct != null ? Number(r.dealerCoveragePct).toFixed(1) + '%' : '—') },
-        { label: 'Dealers Visited', getValue: r => r.dealersVisited || 0 },
-        { label: 'Total Dealers in District', getValue: r => r.dealersTotal || 0 },
-        { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : '0.0') },
-        { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
-        { label: 'Plan Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
-      ];
-      downloadCsv(getExportFilename('field_districts', 'filtered'), cols, districtsWithSales);
+      downloadCsv(getExportFilename('field_districts', 'filtered'), districtExportCols, districtsWithSales);
     } else if (section === 'reps') {
-      const cols = [
-        { label: 'Sales Representative', key: 'rep' },
-        { label: 'Role', getValue: r => r.role || 'Field Rep' },
-        { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
-        { label: 'Last Month Visits (Same Days)', getValue: r => (r.prevVisitsMtd != null ? r.prevVisitsMtd : '—') },
-        { label: 'Net Change in Visits', getValue: r => (r.prevVisitsMtd != null ? (r.curVisits - r.prevVisitsMtd) : '—') },
-        { label: 'Visits Per Active Day', getValue: r => (r.visitsPerActiveDay != null ? Number(r.visitsPerActiveDay).toFixed(1) : '—') },
-        { label: 'Active Working Days', getValue: r => r.activeDays || 0 },
-        { label: 'Accounts Visited', getValue: r => r.uniqueCustomers || 0 },
-        { label: 'Dealer Visits', getValue: r => r.dealerVisits || 0 },
-        { label: 'Fabricator Visits', getValue: r => r.fabricatorVisits || 0 },
-      ];
-      downloadCsv(getExportFilename('field_sales_team', 'filtered'), cols, reps);
+      downloadCsv(getExportFilename('field_sales_team', 'filtered'), repExportCols, reps);
     }
   };
 
   const handleExportRaw = () => {
     if (section === 'dealers') {
-      const cols = [
-        { label: 'Dealer Name', key: 'dealer' },
-        { label: 'State', getValue: r => r.state || 'Not recorded' },
-        { label: 'District', getValue: r => r.district || 'Not recorded' },
-        { label: 'KRM', getValue: formatKrmValue },
-        { label: 'KRO', getValue: formatKroValue },
-        { label: 'Account Group', getValue: r => quadrantConfig(r.quadrant)?.label || r.quadrant || '—' },
-        { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
-        { label: 'Usual Visits', getValue: r => comparableAvg(r) },
-        { label: 'Visit Net Growth', getValue: r => visitTrend(r).growth },
-        { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : (isUnlinked(r) ? 'Unbilled' : '0.0')) },
-        { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
-        { label: 'Target Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
-        { label: 'Market Potential (MT)', getValue: r => (r.bpPotential != null ? Number(r.bpPotential).toFixed(1) : '—') },
-      ];
-      downloadCsv(getExportFilename('field_dealers', 'raw_all'), cols, data?.dealers || []);
+      downloadCsv(getExportFilename('field_dealers', 'raw_all'), dealerExportCols, data?.dealers || []);
     } else if (section === 'districts') {
       const allDistrictsWithSales = attachDistrictSales(data?.districts || [], despatchIndex, despatchElapsedDays, bpIndex);
-      const cols = [
-        { label: 'District', key: 'district' },
-        { label: 'State', key: 'state' },
-        { label: 'Fabricator Visits This Month', getValue: r => r.curFabricatorVisits || 0 },
-        { label: 'Usual Visits', getValue: r => comparableFabricatorAvg(r) },
-        { label: 'Fabricator Visit Growth', getValue: r => Math.round(r.fabricatorGrowth ?? 0) || 0 },
-        { label: 'Dealer Coverage %', getValue: r => (r.dealerCoveragePct != null ? Number(r.dealerCoveragePct).toFixed(1) + '%' : '—') },
-        { label: 'Dealers Visited', getValue: r => r.dealersVisited || 0 },
-        { label: 'Total Dealers in District', getValue: r => r.dealersTotal || 0 },
-        { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : '0.0') },
-        { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
-        { label: 'Plan Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
-      ];
-      downloadCsv(getExportFilename('field_districts', 'raw_all'), cols, allDistrictsWithSales);
+      downloadCsv(getExportFilename('field_districts', 'raw_all'), districtExportCols, allDistrictsWithSales);
     } else if (section === 'reps') {
-      const cols = [
-        { label: 'Sales Representative', key: 'rep' },
-        { label: 'Role', getValue: r => r.role || 'Field Rep' },
-        { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
-        { label: 'Last Month Visits (Same Days)', getValue: r => (r.prevVisitsMtd != null ? r.prevVisitsMtd : '—') },
-        { label: 'Net Change in Visits', getValue: r => (r.prevVisitsMtd != null ? (r.curVisits - r.prevVisitsMtd) : '—') },
-        { label: 'Visits Per Active Day', getValue: r => (r.visitsPerActiveDay != null ? Number(r.visitsPerActiveDay).toFixed(1) : '—') },
-        { label: 'Active Working Days', getValue: r => r.activeDays || 0 },
-        { label: 'Accounts Visited', getValue: r => r.uniqueCustomers || 0 },
-        { label: 'Dealer Visits', getValue: r => r.dealerVisits || 0 },
-        { label: 'Fabricator Visits', getValue: r => r.fabricatorVisits || 0 },
-      ];
-      downloadCsv(getExportFilename('field_sales_team', 'raw_all'), cols, data?.reps || []);
+      downloadCsv(getExportFilename('field_sales_team', 'raw_all'), repExportCols, data?.employees || []);
     }
   };
 
@@ -535,7 +498,7 @@ export default function VisitIntelligence() {
             })}
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 flex-nowrap justify-end shrink-0 ml-auto overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end shrink-0 ml-auto">
             {/* Role is a sales-team fact, so the control only exists on that
                 view. KRM, KRO and everyone else — field staff who carry visits
                 but hold no account in the Business Plan — are the three groups
@@ -588,10 +551,11 @@ export default function VisitIntelligence() {
                     ? (data?.dealers || []).length 
                     : section === 'districts' 
                       ? (data?.districts || []).length 
-                      : (data?.reps || []).length
+                      : (data?.employees || []).length
                 }
                 onExportFiltered={handleExportFiltered}
                 onExportRaw={handleExportRaw}
+                showChevron
                 className="shrink-0"
               />
             )}
