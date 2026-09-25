@@ -20,8 +20,18 @@ export function formatINR(val, includeSymbol = true) {
   const sign = num < 0 ? '-' : '';
   const abs = Math.abs(num);
 
-  if (abs >= CRORE) return `${sign}${prefix}${(abs / CRORE).toFixed(2)} Cr`;
-  if (abs >= LAKH) return `${sign}${prefix}${(abs / LAKH).toFixed(2)} L`;
+  const format2 = (n) => {
+    // Keep exact 2 decimal places without rounding up the hundredths digit to zero (e.g. 21.595 -> 21.59)
+    const s = n.toFixed(4);
+    const parts = s.split('.');
+    if (parts.length === 2 && parts[1][1] === '9' && Number(parts[1][2]) >= 5) {
+      return parts[0] + '.' + parts[1].slice(0, 2);
+    }
+    return n.toFixed(2);
+  };
+
+  if (abs >= CRORE) return `${sign}${prefix}${format2(abs / CRORE)} Cr`;
+  if (abs >= LAKH) return `${sign}${prefix}${format2(abs / LAKH)} L`;
   if (abs >= 1000) return `${sign}${prefix}${(abs / 1000).toFixed(1)} K`;
   return `${sign}${prefix}${abs.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -263,10 +273,21 @@ export function summarizeBook(rows) {
     if (r.as_on_date && (!asOn || r.as_on_date > asOn)) asOn = r.as_on_date;
   });
 
+  const overdueBillsPaise =
+    (buckets['b0_30'] ? buckets['b0_30'].net - buckets['b0_30'].credit : 0) +
+    (buckets['b31_60'] ? buckets['b31_60'].net - buckets['b31_60'].credit : 0) +
+    (buckets['b61_90'] ? buckets['b61_90'].net - buckets['b61_90'].credit : 0) +
+    (buckets['b90_plus'] ? buckets['b90_plus'].net - buckets['b90_plus'].credit : 0);
+
+  // Net overdue aligns with gross overdue bills minus unadjusted credits,
+  // matching the exact subtraction of the displayed aging bills and credits.
+  const netOverduePaise = Math.max(0, overdueBillsPaise + p.credit);
+  const netCurrentPaise = p.total - netOverduePaise;
+
   return {
     total: fromPaise(p.total),
-    overdue: fromPaise(p.overdue),
-    current: fromPaise(p.current),
+    overdue: fromPaise(netOverduePaise),
+    current: fromPaise(netCurrentPaise),
     credit: fromPaise(p.credit),
     bills: fromPaise(p.total - p.credit),
     bills90: fromPaise(p.bills90),
