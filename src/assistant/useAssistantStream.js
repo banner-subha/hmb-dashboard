@@ -281,7 +281,7 @@ export default function useAssistantStream({ sessionId, onSessionCreated, getCon
                 break;
 
               case 'done':
-                patch((m) => ({ ...m, state: 'done', meta: data }));
+                patch((m) => (m.state === 'error' ? m : { ...m, state: 'done', meta: data }));
                 setPhases([]);
                 break;
 
