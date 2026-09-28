@@ -10,8 +10,8 @@
 // not the formula (Law 4). Status words come from the approved badge map:
 // "On Track", "Falling Behind", "Needs Attention".
 
-import { VISIT_QUADRANTS, normalizeStateName } from './constants';
-import { normalizeDistrict } from './districtNormalizer';
+import { VISIT_QUADRANTS, normalizeStateName, getExpandedStatesSet } from './constants.js';
+import { normalizeDistrict, getNormalizedDistrictSet, matchesAssignedDistrict } from './districtNormalizer.js';
 
 /** The four views, in the order the page shows them. */
 export const VISIT_SECTIONS = [
@@ -385,7 +385,7 @@ export function buildDespatchIndex(despatchDistricts = []) {
  * fallback key for the rows whose district spelling differs between the two
  * feeds; it is only consulted when the full key misses.
  */
-const dealerNameKey = name =>
+export const dealerNameKey = name =>
   String(name || '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null;
 
 const dealerKey = (state, district, dealer) => {
@@ -821,3 +821,89 @@ export function summariseState(data, state) {
     salesLinkedDealers: dealers.filter(d => d.salesMatched).length,
   };
 }
+
+/**
+ * Scopes field visits dataset (dealers, districts, employees, summary)
+ * to a client user's assigned states and districts.
+ * Returns the dataset untouched for admin or unscoped users.
+ */
+export function scopeVisitDataForUser(data, user) {
+  if (!data || !user || user.role !== 'client') return data;
+
+  const rawUserStates = Array.isArray(user.states)
+    ? user.states
+    : (typeof user.states === 'string' ? user.states.split(',') : []);
+  const allowedStatesSet = getExpandedStatesSet(rawUserStates);
+  const assignedDistricts = user.districts || [];
+  const assignedSet = getNormalizedDistrictSet(assignedDistricts);
+
+  if (allowedStatesSet.size === 0 && assignedSet.size === 0) return data;
+
+  const isStateAllowed = (stName) => {
+    if (allowedStatesSet.size === 0) return true;
+    const normState = (stName || '').replace(/\s+/g, '').toUpperCase();
+    return allowedStatesSet.has(normState);
+  };
+
+  const isEntityAllowed = (stName, distName) => {
+    if (!isStateAllowed(stName)) return false;
+    if (assignedSet.size > 0) {
+      return distName ? matchesAssignedDistrict(distName, assignedSet) : false;
+    }
+    return true;
+  };
+
+  const scopedDistricts = (data.districts || []).filter(d => isEntityAllowed(d.state, d.district));
+  const scopedDealers = (data.dealers || []).filter(d => isEntityAllowed(d.state, d.district));
+
+  // Determine active reps in the scoped territory
+  const scopedRepNames = new Set();
+  scopedDealers.forEach(d => {
+    if (d.primaryRep) scopedRepNames.add(d.primaryRep.trim().toUpperCase());
+    if (d.assignedKrm) scopedRepNames.add(d.assignedKrm.trim().toUpperCase());
+    if (d.assignedKro) scopedRepNames.add(d.assignedKro.trim().toUpperCase());
+    (d.krmVisits || []).forEach(v => v.name && scopedRepNames.add(v.name.trim().toUpperCase()));
+    (d.kroVisits || []).forEach(v => v.name && scopedRepNames.add(v.name.trim().toUpperCase()));
+    (d.otherVisits || []).forEach(v => v.name && scopedRepNames.add(v.name.trim().toUpperCase()));
+  });
+
+  const scopedEmployees = (data.employees || []).filter(e =>
+    scopedRepNames.size === 0 || scopedRepNames.has((e.employee_name || '').trim().toUpperCase())
+  );
+
+  // Recalculate summary metrics for the scoped territory
+  const dealerVisits = scopedDealers.reduce((s, d) => s + (d.curVisits || 0), 0);
+  const fabVisits = scopedDistricts.reduce((s, d) => s + (d.curFabricatorVisits || 0), 0);
+  const visited = scopedDealers.filter(d => (d.curVisits || 0) > 0).length;
+  const tracked = scopedDealers.length;
+
+  const counts = Object.fromEntries(QUADRANT_ORDER.map(k => [k, 0]));
+  scopedDealers.forEach(d => { if (counts[d.quadrant] !== undefined) counts[d.quadrant] += 1; });
+
+  const scopedSummary = {
+    ...data.summary,
+    curTotalVisits: dealerVisits + fabVisits,
+    curDealerVisits: dealerVisits,
+    curFabricatorVisits: fabVisits,
+    activeDealersVisited: visited,
+    totalDealersTracked: tracked,
+    dealerCoveragePct: tracked > 0 ? Math.round((visited / tracked) * 1000) / 10 : 0,
+    activeFieldReps: scopedEmployees.length,
+    growthDriversCount: counts.GROWTH_DRIVER,
+    redFlagsCount: counts.RED_FLAG,
+    neglectedCount: counts.NEGLECTED,
+    organicChampionsCount: counts.ORGANIC,
+    noSalesLinkCount: counts.NO_SALES_LINK,
+    salesLinkedDealers: scopedDealers.filter(d => d.salesMatched).length,
+  };
+
+  return {
+    ...data,
+    dealers: scopedDealers,
+    districts: scopedDistricts,
+    employees: scopedEmployees,
+    summary: scopedSummary,
+    isScoped: true,
+  };
+}
+

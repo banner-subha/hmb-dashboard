@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Briefcase, AlertTriangle, RotateCcw } from 'lucide-react';
 
 import SearchInput from '../components/common/SearchInput';
@@ -13,9 +13,14 @@ import RepPerformanceTable from '../components/visits/RepPerformanceTable';
 import VisitTrendsPanel from '../components/visits/VisitTrendsPanel';
 import VisitComparisonTab from '../components/visits/VisitComparisonTab';
 import DealerScorecardModal from '../components/visits/DealerScorecardModal';
+import DistrictFabricatorPanel from '../components/visits/DistrictFabricatorPanel';
+import { LeadsToggle } from '../components/visits/LeadTag';
+import VisitRangePicker from '../components/visits/VisitRangePicker';
 
 import { useVisitData } from '../hooks/useVisitData';
+import { useVisitRange } from '../hooks/useVisitRange';
 import { useRawData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import {
   VISIT_SECTIONS,
@@ -25,6 +30,7 @@ import {
   buildRepRoleIndex,
   attachDistrictSales,
   REP_ROLES,
+  dealerNameKey,
   quadrantConfig,
   comparableAvg,
   comparableFabricatorAvg,
@@ -32,10 +38,18 @@ import {
   isUnlinked,
 } from '../utils/visits';
 import { queryBusinessPlan } from '../services/businessPlanService';
-import { prefetchDefaultComparison } from '../services/visitService';
+import { prefetchDefaultComparison, fetchNewLeadDealers } from '../services/visitService';
 import ExportDropdown from '../components/common/ExportDropdown';
 import { downloadCsv, getExportFilename } from '../utils/csvExport';
-import { formatDayLabel } from '../utils/formatters';
+
+// Views a picked date range changes, and what they say about it.
+const rangeViews = new Set(['districts', 'reps']);
+const RANGE_BLURBS = {
+  dealers: 'Dealer visits and account groups here are for this month. The date range applies to the KPIs, Districts & Fabricators and Sales Team.',
+  districts: 'Fabricator visits by district in the chosen dates, against the same number of days before them. Sales and status are for this month.',
+  reps: "Each rep's visits in the chosen dates, against the same number of days before them. Every column covers the chosen dates.",
+  trends: 'Timings and monthly trends cover all recorded months. The date range applies to the KPIs, Districts & Fabricators and Sales Team.',
+};
 
 /**
  * Field Visits & Tracker.
@@ -57,11 +71,18 @@ import { formatDayLabel } from '../utils/formatters';
  * Dealer Network and State Overview.
  */
 export default function VisitIntelligence() {
+  const { user } = useAuth();
   const [section, setSection] = useState('dealers');
   const [state, setState] = useState('ALL');
   const [quadrant, setQuadrant] = useState('ALL');
   const [query, setQuery] = useState('');
   const [selectedDealer, setSelectedDealer] = useState(null);
+  const [selectedDistrict, setSelectedDistrict] = useState(null);
+  const closeDistrict = useCallback(() => setSelectedDistrict(null), []);
+  // The date range the visit views cover. null is the running month, which is
+  // the parser's payload; anything else is read from query_visits_range.
+  const [range, setRange] = useState(null);
+  const [rangePreset, setRangePreset] = useState('month');
   const [repRole, setRepRole] = useState('ALL');
   // The Comparison tab's Period A once someone picks one there ('YYYY-MM').
   // Until then it follows the payload's latest visit month; see defaultPeriod.
@@ -168,6 +189,7 @@ export default function VisitIntelligence() {
     bpDealerIndex,
     repRoleIndex,
     elapsedDays: despatchElapsedDays,
+    user,
   });
 
   // The running cycle, read from the data rather than pinned to a literal
@@ -182,6 +204,63 @@ export default function VisitIntelligence() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }, [data]);
   const periodA = pickedPeriod || defaultPeriod;
+
+  // A picked range replaces the visit figures on the KPI row, the district
+  // table and the sales team. Sales, plan and the dealer groups stay monthly.
+  const ranged = useVisitRange({ range, state, query, role: repRole, data, summary, repRoleIndex, user });
+  const inRange = ranged.active;
+  const shownSummary = inRange ? ranged.summary : summary;
+  const shownReps = inRange ? (ranged.reps || []) : reps;
+  const shownCounts = inRange && ranged.counts ? { ...counts, ...ranged.counts } : counts;
+
+  // The span the district table counts: day 1 of the latest visit month to
+  // the latest visit day. The fabricator panel asks for the same days, so its
+  // totals line up with the row that opened it.
+  const tableRange = useMemo(() => {
+    const latest = data?.meta?.latestVisitDate;
+    return latest ? { from: `${latest.slice(0, 7)}-01`, to: latest } : null;
+  }, [data]);
+
+  // Dealers with a 'new lead' visit this month, for the New lead tag. The
+  // month, not a picked range: the Dealers tab reads the month payload.
+  //
+  // It is asked for again after 4 s and 10 s if it fails. The page opens with
+  // about ten requests at once, and on this small instance that burst can hold
+  // a query past anon's 3 s timeout; the service's own quick retries fall
+  // inside the same burst. A request that never succeeds only means no tags,
+  // so it is not shown as an error.
+  const [newLeadDealers, setNewLeadDealers] = useState(null);
+  useEffect(() => {
+    if (!tableRange) return undefined;
+    let live = true;
+    let timer = null;
+    const attempt = n => {
+      fetchNewLeadDealers(tableRange)
+        .then(rows => { if (live) setNewLeadDealers(new Map(rows.map(r => [r.key, r]))); })
+        .catch(err => {
+          if (!live) return;
+          if (n < 2) timer = setTimeout(() => attempt(n + 1), n === 0 ? 4000 : 10000);
+          else console.warn('[VisitIntelligence] New lead fetch warning:', err);
+        });
+    };
+    attempt(0);
+    return () => { live = false; clearTimeout(timer); };
+  }, [tableRange]);
+  const tagLeads = useCallback(
+    rows => (newLeadDealers
+      ? rows.map(d => {
+        const lead = newLeadDealers.get(dealerNameKey(d.dealer || d.name));
+        return lead ? { ...d, newLead: lead } : d;
+      })
+      : rows),
+    [newLeadDealers]
+  );
+  const [dealerLeadsOnly, setDealerLeadsOnly] = useState(false);
+  const taggedDealers = useMemo(() => tagLeads(dealers), [tagLeads, dealers]);
+  const shownDealers = useMemo(
+    () => (dealerLeadsOnly ? taggedDealers.filter(d => d.newLead) : taggedDealers),
+    [dealerLeadsOnly, taggedDealers]
+  );
 
   // Warm the Comparison tab's opening view once the page's own requests have
   // gone out, so switching to that tab doesn't wait on a cold RPC. It keys on
@@ -211,8 +290,18 @@ export default function VisitIntelligence() {
   );
 
   const districtsWithSales = useMemo(
-    () => attachDistrictSales(districts, despatchIndex, despatchElapsedDays, bpIndex),
-    [districts, despatchIndex, despatchElapsedDays, bpIndex]
+    () => attachDistrictSales(inRange ? (ranged.districts || []) : districts, despatchIndex, despatchElapsedDays, bpIndex),
+    [inRange, ranged.districts, districts, despatchIndex, despatchElapsedDays, bpIndex]
+  );
+
+  // Every state and district the fabricator panel's selects can offer: the
+  // month payload's districts, plus any only the picked range has. Not the
+  // table's filtered rows, so a header filter doesn't narrow the panel.
+  const districtOptions = useMemo(
+    () => [...(data?.districts || []), ...(inRange ? (ranged.districts || []) : [])]
+      .filter(d => d.state && d.district && d.district.toUpperCase() !== 'UNKNOWN')
+      .map(d => ({ state: d.state, district: d.district })),
+    [data, inRange, ranged.districts]
   );
 
   useDashboardTelemetry({
@@ -225,6 +314,8 @@ export default function VisitIntelligence() {
       repRole,
       year: periodA.slice(0, 4),
       month: periodA.slice(5, 7),
+      dateFrom: range?.from || '',
+      dateTo: range?.to || '',
     },
     selectedEntity: selectedDealer ? {
       type: 'dealer',
@@ -274,26 +365,31 @@ export default function VisitIntelligence() {
     { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
     { label: 'Target Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
     { label: 'Market Potential (MT)', getValue: r => (r.bpPotential != null ? Number(r.bpPotential).toFixed(1) : '—') },
+    { label: 'New Lead This Month', getValue: r => (r.newLead ? 'Yes' : '') },
   ];
 
-  const districtExportCols = [
+  const districtExportColsFor = rangeMode => [
     { label: 'District', key: 'district' },
     { label: 'State', key: 'state' },
-    { label: 'Fabricator Visits This Month', getValue: r => r.curFabricatorVisits || 0 },
-    { label: 'Usual Fabricator Visits', getValue: r => comparableFabricatorAvg(r) },
+    { label: rangeMode ? 'Fabricator Visits in Period' : 'Fabricator Visits This Month', getValue: r => r.curFabricatorVisits || 0 },
+    rangeMode
+      ? { label: 'Fabricator Visits, Previous Period', getValue: r => r.rangePrevFabricatorVisits || 0 }
+      : { label: 'Usual Fabricator Visits', getValue: r => comparableFabricatorAvg(r) },
     { label: 'Fabricator Visit Growth', getValue: r => Math.round(r.fabricatorGrowth ?? 0) || 0 },
     { label: 'Unique Fabricators Visited', getValue: r => r.curUniqueFabricators || 0 },
     { label: 'Actual Sales (MT)', getValue: r => (r.salesActual != null ? Number(r.salesActual).toFixed(1) : '0.0') },
     { label: 'Business Plan Target (MT)', getValue: r => (r.bpTarget != null ? Number(r.bpTarget).toFixed(1) : '—') },
     { label: 'Plan Achievement %', getValue: r => (r.salesAchievedPct != null ? Number(r.salesAchievedPct).toFixed(1) + '%' : '—') },
     { label: 'Pace Status', getValue: r => r.districtPaceStatus || 'UNKNOWN' },
+    ...(rangeMode ? [{ label: 'Period', getValue: () => `${range.from} to ${range.to}` }] : []),
   ];
+  const districtExportCols = districtExportColsFor(inRange);
 
-  const repExportCols = [
+  const repExportColsFor = rangeMode => [
     { label: 'Sales Representative', getValue: r => r.employee_name || r.name || r.rep || '—' },
     { label: 'Role', getValue: r => r.role || 'Field Rep' },
-    { label: 'Visits This Month', getValue: r => r.curVisits || 0 },
-    { label: 'Last Month Visits (Same Days)', getValue: r => (r.prevVisitsMtd != null ? r.prevVisitsMtd : '—') },
+    { label: rangeMode ? 'Visits in Period' : 'Visits This Month', getValue: r => r.curVisits || 0 },
+    { label: rangeMode ? 'Visits, Previous Period' : 'Last Month Visits (Same Days)', getValue: r => (r.prevVisitsMtd != null ? r.prevVisitsMtd : '—') },
     { label: 'Net Change in Visits', getValue: r => (r.prevVisitsMtd != null ? (r.curVisits - r.prevVisitsMtd) : '—') },
     { label: 'Visits Per Day', getValue: r => (r.dailyVisitRate != null ? Number(r.dailyVisitRate).toFixed(1) : (r.visitsPerActiveDay != null ? Number(r.visitsPerActiveDay).toFixed(1) : '—')) },
     { label: 'Active Working Days', getValue: r => r.activeDays || 0 },
@@ -301,26 +397,28 @@ export default function VisitIntelligence() {
     { label: 'Dealer Visits', getValue: r => r.dealerVisits || 0 },
     { label: 'Fabricator Visits', getValue: r => r.fabricatorVisits || 0 },
     { label: 'Avg Visit Duration (Mins)', getValue: r => r.avgDurationMins || 0 },
+    ...(rangeMode ? [{ label: 'Period', getValue: () => `${range.from} to ${range.to}` }] : []),
   ];
+  const repExportCols = repExportColsFor(inRange);
 
   const handleExportFiltered = () => {
     if (section === 'dealers') {
-      downloadCsv(getExportFilename('field_dealers', 'filtered'), dealerExportCols, dealers);
+      downloadCsv(getExportFilename('field_dealers', 'filtered'), dealerExportCols, shownDealers);
     } else if (section === 'districts') {
       downloadCsv(getExportFilename('field_districts', 'filtered'), districtExportCols, districtsWithSales);
     } else if (section === 'reps') {
-      downloadCsv(getExportFilename('field_sales_team', 'filtered'), repExportCols, reps);
+      downloadCsv(getExportFilename('field_sales_team', 'filtered'), repExportCols, shownReps);
     }
   };
 
   const handleExportRaw = () => {
     if (section === 'dealers') {
-      downloadCsv(getExportFilename('field_dealers', 'raw_all'), dealerExportCols, data?.dealers || []);
+      downloadCsv(getExportFilename('field_dealers', 'raw_all'), dealerExportCols, tagLeads(data?.dealers || []));
     } else if (section === 'districts') {
       const allDistrictsWithSales = attachDistrictSales(data?.districts || [], despatchIndex, despatchElapsedDays, bpIndex);
-      downloadCsv(getExportFilename('field_districts', 'raw_all'), districtExportCols, allDistrictsWithSales);
+      downloadCsv(getExportFilename('field_districts', 'raw_all'), districtExportColsFor(false), allDistrictsWithSales);
     } else if (section === 'reps') {
-      downloadCsv(getExportFilename('field_sales_team', 'raw_all'), repExportCols, data?.employees || []);
+      downloadCsv(getExportFilename('field_sales_team', 'raw_all'), repExportColsFor(false), data?.employees || []);
     }
   };
 
@@ -359,9 +457,9 @@ export default function VisitIntelligence() {
     );
   }
 
-  const rowsFor = { dealers, districts: districtsWithSales, reps };
+  const rowsFor = { dealers: shownDealers, districts: districtsWithSales, reps: shownReps };
   const visibleCount = rowsFor[section]?.length ?? 0;
-  const filtersOn = state !== 'ALL' || quadrant !== 'ALL' || query !== '';
+  const filtersOn = state !== 'ALL' || quadrant !== 'ALL' || query !== '' || dealerLeadsOnly;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -392,25 +490,27 @@ export default function VisitIntelligence() {
               aria-label="Filter by state"
             >
               {stateOptions.map(st => (
-                <option key={st} value={st}>{st === 'ALL' ? 'All States' : st}</option>
+                <option key={st} value={st}>
+                  {st === 'ALL' ? (stateOptions.length === 2 ? `All ${stateOptions[1]}` : 'All States') : st}
+                </option>
               ))}
             </select>
           )}
 
-          {/* The period the page describes. A label, not a control: the dealer,
-              district and sales-team views are all derived from the parser's
-              payload, which only ever covers the running cycle, so a year and
-              month picker here had nothing to act on. Any other month is the
-              Comparison tab's job, and that tab carries its own period
-              selectors. */}
-          {section !== 'comparison' && (
-            <span className="px-3.5 py-2 rounded-xl bg-bg-card/60 border border-border/40 text-[13px] text-text-secondary whitespace-nowrap">
-              <span className="font-semibold">Field visits</span>
-              <span className="text-text-muted mx-1.5">·</span>
-              <span className="font-bold text-text-primary">
-                {formatDayLabel(data.meta?.latestVisitDate) || 'This month'}
-              </span>
-            </span>
+          {/* The period the visit views describe. "This month" is the parser's
+              payload; a picked range is read from field_visits and changes the
+              KPI row, the district table and the sales team. The Comparison
+              tab keeps its own period selectors. */}
+          {section !== 'comparison' && data.meta?.latestVisitDate && (
+            <VisitRangePicker
+              value={range}
+              preset={rangePreset}
+              latest={data.meta.latestVisitDate}
+              onChange={(next, key) => {
+                setRange(next);
+                setRangePreset(key);
+              }}
+            />
           )}
 
           {filtersOn && (
@@ -420,6 +520,7 @@ export default function VisitIntelligence() {
                 setState('ALL');
                 setQuadrant('ALL');
                 setQuery('');
+                setDealerLeadsOnly(false);
                 // The period is left alone. It is no longer a filter over this
                 // page — it belongs to the Comparison tab, where the two
                 // periods are the subject of the view rather than a filter on
@@ -437,7 +538,38 @@ export default function VisitIntelligence() {
       {section !== 'comparison' && (
         <>
           <ErrorBoundary>
-            <VisitKPIRow summary={summary} meta={data.meta} />
+            {inRange && !ranged.ready ? (
+              ranged.error ? (
+                // Said here as well as over the table: on Dealers and Timings &
+                // Trends this row is the only part of the page the range drives,
+                // and a blank row there explained nothing.
+                <div
+                  role="alert"
+                  className="glass-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold text-text-primary">Visits for these dates could not be loaded</p>
+                      <p className="text-[13px] text-text-muted mt-0.5">{ranged.error}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={ranged.retry}
+                    className="inline-flex items-center justify-center gap-1.5 min-h-11 md:min-h-0 px-3.5 py-2 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary cursor-pointer shrink-0"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Try again
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                  <SkeletonLoader variant="kpi" count={5} />
+                </div>
+              )
+            ) : (
+              <VisitKPIRow summary={shownSummary} meta={data.meta} period={inRange ? ranged.period : null} />
+            )}
           </ErrorBoundary>
 
           <ErrorBoundary>
@@ -468,7 +600,7 @@ export default function VisitIntelligence() {
             className="flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl bg-bg-secondary/70 border border-border/50 flex-nowrap shrink-0 overflow-x-auto no-scrollbar"
           >
             {VISIT_SECTIONS.map(s => {
-              const count = s.countKey ? counts[s.countKey] : null;
+              const count = s.countKey ? shownCounts[s.countKey] : null;
               const isActive = section === s.key;
               return (
                 <button
@@ -530,6 +662,14 @@ export default function VisitIntelligence() {
               </div>
             )}
 
+            {section === 'dealers' && newLeadDealers && (
+              <LeadsToggle
+                on={dealerLeadsOnly}
+                count={taggedDealers.filter(d => d.newLead).length}
+                onChange={setDealerLeadsOnly}
+              />
+            )}
+
             {active.searchHint && (
               <div className="w-[180px] sm:w-[210px] lg:w-[240px] shrink-0">
                 <SearchInput
@@ -565,32 +705,54 @@ export default function VisitIntelligence() {
         <div>
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <h3 className="text-xl font-extrabold text-text-primary leading-tight">{active.title}</h3>
-            {active.countKey && (
+            {active.countKey && (!inRange || ranged.ready || !rangeViews.has(section)) && (
               <span className="text-[13px] font-bold text-text-muted whitespace-nowrap">
                 Showing {visibleCount.toLocaleString('en-IN')} of{' '}
-                {(counts[active.countKey] ?? 0).toLocaleString('en-IN')}
+                {(shownCounts[active.countKey] ?? 0).toLocaleString('en-IN')}
               </span>
             )}
           </div>
-          <p className="text-[13.5px] text-text-muted mt-1.5 max-w-3xl leading-relaxed">{active.blurb}</p>
+          <p className="text-[13.5px] text-text-muted mt-1.5 max-w-3xl leading-relaxed">
+            {inRange && RANGE_BLURBS[section] ? RANGE_BLURBS[section] : active.blurb}
+          </p>
         </div>
 
         <ErrorBoundary>
           {section === 'dealers' && (
             <DealerVisitTable
-              rows={dealers}
+              rows={shownDealers}
               onRowClick={setSelectedDealer}
               elapsedDays={data.meta?.elapsedDays}
             />
           )}
-          {section === 'districts' && (
+          {section === 'districts' && (!inRange || ranged.ready) && (
             <DistrictDemandTable
               rows={districtsWithSales}
               elapsedDays={data.meta?.elapsedDays}
               salesDays={despatchElapsedDays}
+              onRowClick={tableRange ? setSelectedDistrict : undefined}
+              period={inRange ? ranged.period : null}
             />
           )}
-          {section === 'reps' && <RepPerformanceTable rows={reps} />}
+          {inRange && rangeViews.has(section) && !ranged.ready && (
+            ranged.error ? (
+              <div className="text-center py-10 space-y-3">
+                <p className="text-sm text-text-muted">{ranged.error}</p>
+                <button
+                  type="button"
+                  onClick={ranged.retry}
+                  className="inline-flex items-center gap-1.5 min-h-11 md:min-h-0 px-3.5 py-2 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Try again
+                </button>
+              </div>
+            ) : (
+              <SkeletonLoader variant="table-row" count={8} />
+            )
+          )}
+          {section === 'reps' && (!inRange || ranged.ready) && (
+            <RepPerformanceTable rows={shownReps} period={inRange ? ranged.period : null} />
+          )}
           {section === 'trends' && (
             <VisitTrendsPanel
               timeAnalytics={data.timeAnalytics}
@@ -610,7 +772,7 @@ export default function VisitIntelligence() {
           )}
         </ErrorBoundary>
 
-        {active.countKey && visibleCount === 0 && (
+        {active.countKey && visibleCount === 0 && (!inRange || ranged.ready || !rangeViews.has(section)) && (
           <p className="text-center text-sm text-text-muted py-8">
             No rows match the current filters. Clear them to see everything again.
           </p>
@@ -620,6 +782,15 @@ export default function VisitIntelligence() {
       <DealerScorecardModal
         dealer={selectedDealer}
         onClose={() => setSelectedDealer(null)}
+      />
+
+      <DistrictFabricatorPanel
+        key={selectedDistrict ? `${selectedDistrict.state}|${selectedDistrict.district}` : 'none'}
+        district={tableRange ? selectedDistrict : null}
+        districtOptions={districtOptions}
+        range={range || tableRange}
+        roleIndex={repRoleIndex}
+        onClose={closeDistrict}
       />
     </div>
   );

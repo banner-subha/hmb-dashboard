@@ -5,6 +5,7 @@ import {
   summariseState,
   attachDealerSales,
   classifyRep,
+  scopeVisitDataForUser,
 } from '../utils/visits';
 
 /**
@@ -23,6 +24,7 @@ export function useVisitData({
   bpDealerIndex = null,
   repRoleIndex = null,
   elapsedDays = 0,
+  user = null,
 } = {}) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -58,17 +60,18 @@ export function useVisitData({
    */
   const enriched = useMemo(() => {
     if (!data) return data;
+    const scoped = scopeVisitDataForUser(data, user);
     return {
-      ...data,
-      dealers: attachDealerSales(data.dealers || [], bpDealerIndex, elapsedDays),
+      ...scoped,
+      dealers: attachDealerSales(scoped.dealers || [], bpDealerIndex, elapsedDays),
       // The role is not in the payload, so it is stamped on here — once, rather
       // than per render inside the table's filter.
-      employees: (data.employees || []).map(r => ({
+      employees: (scoped.employees || []).map(r => ({
         ...r,
         role: classifyRep(r.employee_name, repRoleIndex),
       })),
     };
-  }, [data, bpDealerIndex, repRoleIndex, elapsedDays]);
+  }, [data, user, bpDealerIndex, repRoleIndex, elapsedDays]);
 
   const stateOptions = useMemo(() => {
     if (!enriched?.dealers) return ['ALL'];
