@@ -91,11 +91,11 @@ eq('csv keeps negative numbers numeric', escapeCsvValue('-1234.50'), '-1234.50')
 eq('csv still guards formulas', escapeCsvValue('-2+3'), "'-2+3");
 eq('csv still guards =', escapeCsvValue('=SUM(A1)'), "'=SUM(A1)");
 
-// Client view scoping:
+// Client view scoping (all roles see full network per business requirements):
 eq('scope admin sees all', o.scopeBookForUser(book, { role: 'admin' }).length, 3);
 eq('scope null user sees all', o.scopeBookForUser(book, null).length, 3);
-eq('scope client bihar', names(o.scopeBookForUser(book, { role: 'client', states: ['Bihar'], districts: [] })), ['Gamma']);
-eq('scope client wb nadia', names(o.scopeBookForUser(book, { role: 'client', states: ['WB'], districts: ['Nadia'] })), ['Beta']);
+eq('scope client sees all states (not filtered)', o.scopeBookForUser(book, { role: 'client', states: ['Bihar'], districts: [] }).length, 3);
+eq('scope client sees all districts (not filtered)', o.scopeBookForUser(book, { role: 'client', states: ['WB'], districts: ['Nadia'] }).length, 3);
 eq('scope client unscoped sees all', o.scopeBookForUser(book, { role: 'client', states: [], districts: [] }).length, 3);
 
 if (failed) {

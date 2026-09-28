@@ -193,40 +193,12 @@ function matchesSearch(index, words) {
 }
 
 /**
- * Scopes book rows to a client user's assigned states and districts.
- * Returns all rows for admins or unscoped users.
+ * Scopes book rows for a user.
+ * Note: Per business requirements, Outstanding is company-wide across all states
+ * and districts for all roles including client view — do not filter out for client view.
  */
-export function scopeBookForUser(rows, user) {
-  if (!user || user.role !== 'client') return rows;
-
-  const rawUserStates = Array.isArray(user.states)
-    ? user.states
-    : (typeof user.states === 'string' ? user.states.split(',') : []);
-  const allowedStatesSet = getExpandedStatesSet(rawUserStates);
-  const assignedDistricts = user.districts || [];
-  const assignedSet = getNormalizedDistrictSet(assignedDistricts);
-
-  if (allowedStatesSet.size === 0 && assignedSet.size === 0) return rows;
-
-  return rows.filter((r) => {
-    const rawStateNorm = (r.state || '').replace(/\s+/g, '').toUpperCase();
-    const labelStateNorm = (r.stateLabel || '').replace(/\s+/g, '').toUpperCase();
-
-    if (allowedStatesSet.size > 0) {
-      if (!allowedStatesSet.has(rawStateNorm) && !allowedStatesSet.has(labelStateNorm)) {
-        return false;
-      }
-    }
-
-    if (assignedSet.size > 0) {
-      if (!r.district && !r.districtLabel) return false;
-      const matches = (r.district && matchesAssignedDistrict(r.district, assignedSet)) ||
-                      (r.districtLabel && matchesAssignedDistrict(r.districtLabel, assignedSet));
-      if (!matches) return false;
-    }
-
-    return true;
-  });
+export function scopeBookForUser(rows, _user) {
+  return rows;
 }
 
 export function filterBook(rows, { search = '', state = '', district = '', overdueOnly = false, bucket = '' } = {}) {
