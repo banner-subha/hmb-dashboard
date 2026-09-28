@@ -3,6 +3,38 @@
 
 export const CLIENT_USERS = [
   {
+    name: "Priya Das",
+    chatId: "",
+    role: "CLIENT",
+    states: ["WB"],
+    districts: [
+      "ALIPURDUAR",
+      "BANKURA",
+      "BIRBHUM",
+      "COOCHBEHAR",
+      "DAKSHIN DINAJPUR",
+      "DARJEELING",
+      "HOOGHLY",
+      "HOWRAH",
+      "JALPAIGURI",
+      "JHARGRAM",
+      "KALIMPONG",
+      "KOLKATA",
+      "MALDAH",
+      "MEDINIPUR EAST",
+      "MEDINIPUR WEST",
+      "MURSHIDABAD",
+      "NADIA",
+      "NORTH 24 PARGANAS",
+      "PASCHIM BARDHAMAN",
+      "PURBA BARDHAMAN",
+      "PURULIA",
+      "SOUTH 24 PARGANAS",
+      "UTTAR DINAJPUR"
+    ],
+    labels: []
+  },
+  {
     name: "Prakash Roy",
     chatId: "7653852862",
     role: "Sr.KRO",
