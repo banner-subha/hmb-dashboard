@@ -37,6 +37,7 @@ gcloud run deploy $ServiceName `
     --memory 2Gi `
     --cpu 2 `
     --cpu-boost `
+    --no-cpu-throttling `
     --min-instances 0 `
     --timeout 300 `
     --update-env-vars="DROPBOX_VISITS_PATH=/OFFICE HO/BI DATA/VISITS_BP/VISIT RAW DATA/VISIT COUNT DATA (2).xlsx"

@@ -36,13 +36,14 @@ export async function copyToClipboard(text) {
   }
 }
 
-/** User message bubble with inline editing and copy options */
+/** User message bubble with inline editing and copy/retry options beside the prompt */
 function UserTurn({
   message,
   isEditing,
   onStartEdit,
   onCancelEdit,
   onEditMessage,
+  onRetry,
   streaming,
 }) {
   const [editText, setEditText] = useState(message.text || '');
@@ -124,36 +125,49 @@ function UserTurn({
   }
 
   return (
-    <div className="group relative flex flex-col items-end">
-      <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-bg-tertiary px-3.5 py-2 text-[0.9rem] leading-relaxed text-text-primary border border-border/20 shadow-xs">
-        {message.text}
-      </div>
-      <div className="mt-1 flex items-center gap-1 opacity-75 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
+    <div className="group flex items-center justify-end gap-1.5 sm:gap-2">
+      {/* Options directly beside the prompt: Retry, Edit, Copy */}
+      <div className="flex items-center gap-0.5 opacity-80 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150 shrink-0">
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={streaming}
+            title="Retry prompt"
+            aria-label="Retry prompt"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-text-dim hover:bg-bg-card-hover hover:text-text-primary active:scale-95 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
+        )}
         <button
           type="button"
           onClick={onStartEdit}
           disabled={streaming}
-          title="Edit message"
-          aria-label="Edit message"
-          className="flex items-center gap-1 rounded-md p-1.5 text-text-dim hover:bg-bg-card-hover hover:text-text-primary active:scale-95 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          title="Edit prompt"
+          aria-label="Edit prompt"
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-text-dim hover:bg-bg-card-hover hover:text-text-primary active:scale-95 transition-colors disabled:opacity-30 disabled:pointer-events-none"
         >
           <Pencil className="h-3.5 w-3.5" />
-          <span className="sr-only">Edit</span>
         </button>
         <button
           type="button"
           onClick={handleCopy}
-          title="Copy message"
-          aria-label="Copy message"
-          className="flex items-center gap-1 rounded-md p-1.5 text-text-dim hover:bg-bg-card-hover hover:text-text-primary active:scale-95 transition-colors"
+          title="Copy prompt"
+          aria-label="Copy prompt"
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-text-dim hover:bg-bg-card-hover hover:text-text-primary active:scale-95 transition-colors"
         >
           {copied ? (
             <Check className="h-3.5 w-3.5 text-emerald-400" />
           ) : (
             <Copy className="h-3.5 w-3.5" />
           )}
-          <span className="sr-only">Copy</span>
         </button>
+      </div>
+
+      {/* User message bubble */}
+      <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-bg-tertiary px-3.5 py-2 text-[0.9rem] leading-relaxed text-text-primary border border-border/20 shadow-xs">
+        {message.text}
       </div>
     </div>
   );
@@ -263,7 +277,7 @@ function AssistantTurn({
         </div>
       )}
 
-      {/* Action Bar at the very bottom: Copy Entire Context, Retry, Edit */}
+      {/* Action Bar at the very bottom: Copy Entire Context */}
       {!isTurnStreaming && state !== 'error' && (text || charts.length > 0 || tabular.length > 0) && (
         <div className="mt-3.5 flex items-center gap-1 border-t border-border/30 pt-2 text-text-muted">
           <button
@@ -285,34 +299,6 @@ function AssistantTurn({
               </>
             )}
           </button>
-
-          {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              disabled={streaming}
-              title="Regenerate answer"
-              aria-label="Retry answer"
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[0.78rem] font-medium text-text-secondary transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>Retry</span>
-            </button>
-          )}
-
-          {onEditQuery && (
-            <button
-              type="button"
-              onClick={onEditQuery}
-              disabled={streaming}
-              title="Edit question and regenerate"
-              aria-label="Edit question"
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[0.78rem] font-medium text-text-secondary transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              <span>Edit</span>
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -346,13 +332,13 @@ export default function MessageTurn({
           onStartEdit={onStartEdit}
           onCancelEdit={onCancelEdit}
           onEditMessage={onEditMessage}
+          onRetry={onRetry}
           streaming={streaming}
         />
       ) : (
         <AssistantTurn
           message={message}
           onRetry={onRetry}
-          onEditQuery={onEditQuery}
           loadResult={loadResult}
           streaming={streaming}
         />

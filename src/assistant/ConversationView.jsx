@@ -349,12 +349,13 @@ export default function ConversationView({
                 message={message}
                 onRetry={
                   onRetry
-                    ? () => onRetry(prevUserMessage?.text, message.id)
-                    : undefined
-                }
-                onEditQuery={
-                  prevUserMessage && onEditMessage
-                    ? () => setEditingId(prevUserMessage.id)
+                    ? () =>
+                        onRetry(
+                          message.role === 'user'
+                            ? message.text
+                            : prevUserMessage?.text,
+                          message.id,
+                        )
                     : undefined
                 }
                 isEditing={editingId === message.id}
