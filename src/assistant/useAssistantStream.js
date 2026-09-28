@@ -315,20 +315,58 @@ export default function useAssistantStream({ sessionId, onSessionCreated, getCon
     [sessionId, streaming, onSessionCreated, pushPhase],
   );
 
-  /** Ask the last question again, dropping the turn that failed. */
-  const retry = useCallback(() => {
-    const question = lastQuestionRef.current;
-    if (!question || streaming) return;
-    // Drop the failed assistant turn and the user turn that prompted it; send
-    // re-adds both. Without this the conversation grows a dead end per retry.
-    setMessages((prev) => {
-      const cut = [...prev];
-      if (cut[cut.length - 1]?.role === 'assistant') cut.pop();
-      if (cut[cut.length - 1]?.role === 'user') cut.pop();
-      return cut;
-    });
-    send(question);
-  }, [send, streaming]);
+  /** Ask a question again, dropping the turn from the given message onward. */
+  const retry = useCallback(
+    (questionOverride, fromMessageId) => {
+      if (streaming) return;
+
+      let questionToAsk = questionOverride;
+
+      setMessages((prev) => {
+        if (fromMessageId) {
+          const idx = prev.findIndex((m) => m.id === fromMessageId);
+          if (idx >= 0) {
+            const userIdx = prev[idx].role === 'assistant' ? idx - 1 : idx;
+            if (!questionToAsk && userIdx >= 0) {
+              questionToAsk = prev[userIdx]?.text;
+            }
+            return prev.slice(0, Math.max(0, userIdx));
+          }
+        }
+        const cut = [...prev];
+        if (cut[cut.length - 1]?.role === 'assistant') cut.pop();
+        if (cut[cut.length - 1]?.role === 'user') {
+          const popped = cut.pop();
+          if (!questionToAsk) questionToAsk = popped?.text;
+        }
+        return cut;
+      });
+
+      const finalQuestion = questionToAsk || lastQuestionRef.current;
+      if (finalQuestion) {
+        send(finalQuestion);
+      }
+    },
+    [send, streaming],
+  );
+
+  /** Edit a user question and re-run the conversation from that point onward. */
+  const editAndSend = useCallback(
+    (messageId, newText) => {
+      const question = String(newText || '').trim();
+      if (!question || streaming) return;
+
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === messageId);
+        if (idx >= 0) {
+          return prev.slice(0, idx);
+        }
+        return prev;
+      });
+      send(question);
+    },
+    [send, streaming],
+  );
 
   // Fetch rows for a tool call on demand. Charts and tables both read from
   // here, so rows have exactly one source.
@@ -362,6 +400,7 @@ export default function useAssistantStream({ sessionId, onSessionCreated, getCon
     send,
     stop,
     retry,
+    editAndSend,
     reset,
     streaming,
     phases,

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
   AlarmClock,
   ArrowLeftRight,
@@ -56,37 +56,37 @@ const OPENER_GROUPS = [
       {
         icon: TrendingUp,
         label: 'Top states',
-        hint: 'Despatch this month',
+        hint: 'Sales this month',
         prompt: 'Top 5 states by despatch tonnage this month',
       },
       {
         icon: CalendarClock,
-        label: 'YTD despatch',
-        hint: 'Year to date total',
+        label: 'Sales this year',
+        hint: 'Year-to-date total',
         prompt: 'What is the YTD despatch so far this year?',
       },
       {
         icon: Boxes,
-        label: 'Order backlog',
+        label: 'Pending orders',
         hint: 'Total open orders',
         prompt: 'What is the total order backlog right now?',
       },
       {
         icon: AlarmClock,
-        label: 'Ageing backlog',
-        hint: 'Older than 30 days',
+        label: 'Delayed orders',
+        hint: 'Pending over 30 days',
         prompt: 'How much order backlog is more than 30 days old?',
       },
       {
         icon: Target,
         label: 'Behind target',
-        hint: 'Furthest behind',
+        hint: 'Dealers needing focus',
         prompt: 'Which dealers are furthest behind their target?',
       },
       {
         icon: Ruler,
         label: '10mm vs 12mm',
-        hint: 'Size-wise volume',
+        hint: 'Size comparison',
         prompt: '10mm vs 12mm volume this month',
       },
     ],
@@ -98,19 +98,19 @@ const OPENER_GROUPS = [
       {
         icon: IndianRupee,
         label: 'Total outstanding',
-        hint: 'Balance & aging',
+        hint: 'Pending balance',
         prompt: 'What is our total outstanding balance?',
       },
       {
         icon: BadgeAlert,
-        label: 'Top debtors',
-        hint: 'Highest balance',
+        label: 'Highest dues',
+        hint: 'Top dealer balances',
         prompt: 'Who are the top 10 dealers with highest outstanding?',
       },
       {
         icon: ClockAlert,
-        label: 'Overdue receivables',
-        hint: 'Aging & risk list',
+        label: 'Overdue payments',
+        hint: 'Past due accounts',
         prompt: 'Top overdue accounts and ageing breakdown',
       },
     ],
@@ -121,20 +121,20 @@ const OPENER_GROUPS = [
     openers: [
       {
         icon: ArrowLeftRight,
-        label: 'Plan vs actual',
-        hint: 'Target vs despatch',
+        label: 'Target vs actual',
+        hint: 'Target vs sales achieved',
         prompt: 'Compare the August 2026 business plan against actual despatch by state',
       },
       {
         icon: Trophy,
-        label: 'Top SP targets',
-        hint: 'Top dealer quotas',
+        label: 'Top dealer targets',
+        hint: 'Highest sales targets',
         prompt: 'Top 10 dealers by sales person target in the August 2026 business plan',
       },
       {
         icon: ClipboardList,
         label: 'Plan summary',
-        hint: 'Target and potential',
+        hint: 'Target & potential',
         prompt: 'What is our August 2026 business plan target and market potential?',
       },
     ],
@@ -145,14 +145,14 @@ const OPENER_GROUPS = [
     openers: [
       {
         icon: Footprints,
-        label: 'Rep activity',
-        hint: 'Visits per sales rep',
+        label: 'Team visits',
+        hint: 'Visits by sales rep',
         prompt: 'How many visits did each sales rep make this month?',
       },
       {
         icon: Handshake,
         label: 'Visits vs sales',
-        hint: 'Visited, not buying',
+        hint: 'Visited with low orders',
         prompt: 'Which dealers are visited most but buying least?',
       },
       {
@@ -240,9 +240,7 @@ function EmptyState({ onPick }) {
         {firstName ? `${timeOfDay()}, ${firstName}` : timeOfDay()}
       </h2>
       <p className="mt-2 max-w-[24rem] text-[0.88rem] leading-relaxed text-text-muted">
-        I can look up despatch, order backlog, outstanding dues, dealer targets, the monthly
-        business plan, field visits and size-wise rates. Ask in plain English — figures come
-        straight from the sales data.
+        How can I help you today? Ask me anything about sales, pending orders, dealer dues, or targets.
       </p>
 
       <div className="mt-6 w-full max-w-[34rem] space-y-4 text-left">
@@ -289,9 +287,12 @@ export default function ConversationView({
   loadError,
   onSend,
   onRetry,
+  onEditMessage,
   loadResult,
+  streaming = false,
   wide = false,
 }) {
+  const [editingId, setEditingId] = useState(null);
   const scrollRef = useRef(null);
   // Pinned until the reader scrolls up. Yanking someone back to the bottom
   // while they are reading an earlier figure is the worst thing a streaming
@@ -333,14 +334,41 @@ export default function ConversationView({
               Could not load this conversation: {loadError}
             </p>
           )}
-          {messages.map((message) => (
-            <MessageTurn
-              key={message.id}
-              message={message}
-              onRetry={onRetry}
-              loadResult={loadResult}
-            />
-          ))}
+          {messages.map((message, index) => {
+            const prevUserMessage =
+              message.role === 'assistant'
+                ? messages
+                    .slice(0, index)
+                    .reverse()
+                    .find((m) => m.role === 'user')
+                : null;
+
+            return (
+              <MessageTurn
+                key={message.id}
+                message={message}
+                onRetry={
+                  onRetry
+                    ? () => onRetry(prevUserMessage?.text, message.id)
+                    : undefined
+                }
+                onEditQuery={
+                  prevUserMessage && onEditMessage
+                    ? () => setEditingId(prevUserMessage.id)
+                    : undefined
+                }
+                isEditing={editingId === message.id}
+                onStartEdit={() => setEditingId(message.id)}
+                onCancelEdit={() => setEditingId(null)}
+                onEditMessage={(newText) => {
+                  setEditingId(null);
+                  onEditMessage?.(message.id, newText);
+                }}
+                loadResult={loadResult}
+                streaming={streaming}
+              />
+            );
+          })}
           <ThinkingIndicator phases={phases} />
         </div>
       )}

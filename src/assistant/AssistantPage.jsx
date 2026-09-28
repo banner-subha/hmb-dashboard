@@ -35,6 +35,7 @@ export default function AssistantPage() {
     send,
     stop,
     retry,
+    editAndSend,
     streaming,
     loadingHistory,
     loadError,
@@ -195,7 +196,9 @@ export default function AssistantPage() {
               loadError={loadError}
               onSend={handleSend}
               onRetry={retry}
+              onEditMessage={editAndSend}
               loadResult={loadResult}
+              streaming={streaming}
             />
             <div className="mx-auto w-full max-w-[46rem]">
               <Composer

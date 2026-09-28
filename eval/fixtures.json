@@ -1,0 +1,151 @@
+{
+  "description": "Ground-truth benchmark test fixtures for hmb-dashboard calculation logic and data normalization",
+  "backlog_aging": {
+    "bucket_days": [
+      { "days": 0, "expected": "d0_30" },
+      { "days": 15, "expected": "d0_30" },
+      { "days": 30, "expected": "d0_30" },
+      { "days": 31, "expected": "d31_60" },
+      { "days": 60, "expected": "d31_60" },
+      { "days": 61, "expected": "d61_90" },
+      { "days": 90, "expected": "d61_90" },
+      { "days": 91, "expected": "d90plus" },
+      { "days": 180, "expected": "d90plus" },
+      { "days": null, "expected": "unknown" }
+    ],
+    "history_to_aging": [
+      {
+        "description": "Order placed Aug 2026 evaluated as of 2026-09-25 (<= 30 days old)",
+        "pendingHistory": { "2026-08": 45.5 },
+        "asOfDate": "2026-09-25",
+        "expected": { "d0_30": 45.5, "d31_60": 0, "d61_90": 0, "d90plus": 0, "unknown": 0 }
+      },
+      {
+        "description": "Order placed May 2026 evaluated as of 2026-09-25 (> 90 days old)",
+        "pendingHistory": { "2026-05": 112.3 },
+        "asOfDate": "2026-09-25",
+        "expected": { "d0_30": 0, "d31_60": 0, "d61_90": 0, "d90plus": 112.3, "unknown": 0 }
+      }
+    ],
+    "entity_aggregation": [
+      {
+        "entities": [
+          { "dealer_name": "A", "pendingAge": { "d0_30": 10.25, "d31_60": 5.0, "d61_90": 0, "d90plus": 2.5, "unknown": 0 } },
+          { "dealer_name": "B", "pendingAge": { "d0_30": 20.75, "d31_60": 15.2, "d61_90": 4.1, "d90plus": 1.0, "unknown": 0 } }
+        ],
+        "expectedTotal": { "d0_30": 31.0, "d31_60": 20.2, "d61_90": 4.1, "d90plus": 3.5, "unknown": 0 }
+      }
+    ]
+  },
+  "outstanding_receivables": {
+    "format_inr": [
+      { "input": 534882356.23, "expected": "₹53.49 Cr" },
+      { "input": 1618473, "expected": "₹16.18 L" },
+      { "input": -296472786.95, "expected": "-₹29.65 Cr" },
+      { "input": 4520, "expected": "₹4.5 K" },
+      { "input": 812, "expected": "₹812.00" },
+      { "input": null, "expected": "n/a" }
+    ],
+    "format_inr_full": [
+      { "input": -1234567.5, "expected": "-₹12,34,567.50" },
+      { "input": 534882356.23, "expected": "₹53,48,82,356.23" }
+    ],
+    "state_normalization": [
+      { "input": "WB", "expected": "West Bengal" },
+      { "input": "UTTARPRADESH", "expected": "Uttar Pradesh" },
+      { "input": "JHARKHAND", "expected": "Jharkhand" },
+      { "input": "ANDAMAN AND NICOBAR ISLAND", "expected": "Andaman and Nicobar Island" },
+      { "input": "West Bengal", "expected": "West Bengal" },
+      { "input": "UNKNOWN", "expected": "State not recorded" }
+    ],
+    "severity_age": [
+      { "days": 0, "expectedKey": "current" },
+      { "days": 30, "expectedKey": "b0_30" },
+      { "days": 31, "expectedKey": "b31_60" },
+      { "days": 91, "expectedKey": "b90_plus" }
+    ],
+    "book_invariants": {
+      "dealers": [
+        { "dealer_name": "Alpha", "total_outstanding": 0.1, "overdue_amount": 0.1, "bucket_90_plus": 0.1, "credit_total": 0, "credit_90_plus": 0, "voucher_count": 1, "bill_count": 1, "credit_count": 0, "max_bill_overdue_days": 120, "oldest_bill_due_date": "2025-01-01" },
+        { "dealer_name": "Beta", "state": "West Bengal", "district": "Nadia", "total_outstanding": 0.2, "current_amount": 0.2, "overdue_amount": 0, "credit_total": 0, "voucher_count": 1, "bill_count": 1, "credit_count": 0 },
+        { "dealer_name": "Gamma", "state": "BIHAR", "total_outstanding": -500, "overdue_amount": -500, "bucket_90_plus": -500, "credit_total": -900, "credit_90_plus": -900, "voucher_count": 3, "bill_count": 1, "credit_count": 2, "max_bill_overdue_days": 400, "oldest_bill_due_date": "2024-06-01" }
+      ],
+      "expectedSummary": {
+        "total": -499.7,
+        "credit": -900,
+        "bills": 400.3,
+        "bills90": 400.1,
+        "dealerCount": 3,
+        "voucherCount": 5,
+        "creditCount": 2
+      }
+    }
+  },
+  "district_normalization": {
+    "slugs": [
+      { "input": "North 24 Parganas District", "expected": "north24parganas" },
+      { "input": "East Medinipur", "expected": "eastmedinipur" },
+      { "input": "Kolkata", "expected": "kolkata" }
+    ],
+    "aliases": [
+      { "input": "kolkata", "expected": "Kolkata" },
+      { "input": "calcutta", "expected": "Kolkata" },
+      { "input": "howrah", "expected": "Howrah" },
+      { "input": "haora", "expected": "Howrah" },
+      { "input": "north24pgs", "expected": "North 24 Parganas" },
+      { "input": "24parganasnorth", "expected": "North 24 Parganas" },
+      { "input": "south24parganas", "expected": "South 24 Parganas" },
+      { "input": "hooghly", "expected": "Hooghly" },
+      { "input": "hugli", "expected": "Hooghly" },
+      { "input": "0", "expected": "0" },
+      { "input": "VERBAL", "expected": "VERBAL" }
+    ]
+  },
+  "trends_and_mom": {
+    "mom_calculations": [
+      { "cur": 100, "prev": 50, "expected": 100.0 },
+      { "cur": 50, "prev": 100, "expected": -50.0 },
+      { "cur": 0, "prev": 50, "expected": -100.0 },
+      { "cur": 50, "prev": 0, "expected": 100.0 },
+      { "cur": 0, "prev": 0, "expected": 0.0 },
+      { "cur": 350, "prev": 50, "expected": 100.0 },
+      { "cur": 10, "prev": 100, "expected": -90.0 }
+    ],
+    "severity_thresholds": [
+      { "score": 90, "expected": "CRITICAL" },
+      { "score": 75, "expected": "CRITICAL" },
+      { "score": 74, "expected": "HIGH" },
+      { "score": 50, "expected": "HIGH" },
+      { "score": 49, "expected": "MEDIUM" },
+      { "score": 30, "expected": "MEDIUM" },
+      { "score": 29, "expected": "LOW" },
+      { "score": 0, "expected": "LOW" }
+    ]
+  },
+  "formatters": {
+    "tonnage": [
+      { "input": 1234.567, "decimals": 2, "expected": "1,234.57 MT" },
+      { "input": 1234.567, "decimals": 1, "expected": "1,234.6 MT" },
+      { "input": 0, "decimals": 1, "expected": "0.0 MT" },
+      { "input": null, "decimals": 2, "expected": "—" }
+    ],
+    "dates": [
+      { "input": "2026-09-23", "expected": "23 Sep 2026" },
+      { "input": "2026-01-05", "expected": "5 Jan 2026" },
+      { "input": "", "expected": "" }
+    ]
+  },
+  "visit_weeks": {
+    "spans": [
+      { "ym": "2026-09", "expected": ["01-07", "08-14", "15-21", "22-28", "29-30"] },
+      { "ym": "2026-08", "expected": ["01-07", "08-14", "15-21", "22-28", "29-31"] },
+      { "ym": "2027-02", "expected": ["01-07", "08-14", "15-21", "22-28"] },
+      { "ym": "2028-02", "expected": ["01-07", "08-14", "15-21", "22-28", "29-29"] }
+    ],
+    "week_indices": [
+      { "date": "2026-09-07", "expectedIdx": 1 },
+      { "date": "2026-09-08", "expectedIdx": 2 },
+      { "date": "2026-08-31", "expectedIdx": 5 }
+    ]
+  }
+}

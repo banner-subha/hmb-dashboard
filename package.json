@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "eval": "node eval/run_eval.js",
+    "test": "npm run eval"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

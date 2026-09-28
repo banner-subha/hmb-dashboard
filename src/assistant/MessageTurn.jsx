@@ -1,19 +1,159 @@
-import { AlertCircle, RotateCcw } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { AlertCircle, Check, Copy, Pencil, RotateCcw } from 'lucide-react';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 import Markdown from './Markdown';
 import TurnProvenance from './Provenance';
 import ChartBlock from './ChartBlock';
 import ResultTable from './ResultTable';
 
-// Two speakers, two treatments. The question is a contained block; the answer
-// is full-width prose. The asymmetry is what tells them apart — neither needs
-// a name label, an avatar, or a role badge above it.
+/** Robust copy helper with modern Clipboard API and execCommand fallback */
+export async function copyToClipboard(text) {
+  if (!text) return false;
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fallback to execCommand below */
+  }
+  try {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.setAttribute('readonly', '');
+    el.style.position = 'fixed';
+    el.style.left = '-9999px';
+    el.style.top = '0';
+    el.style.opacity = '0';
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(el);
+    return ok;
+  } catch {
+    return false;
+  }
+}
 
-function UserTurn({ text }) {
+/** User message bubble with inline editing and copy options */
+function UserTurn({
+  message,
+  isEditing,
+  onStartEdit,
+  onCancelEdit,
+  onEditMessage,
+  streaming,
+}) {
+  const [editText, setEditText] = useState(message.text || '');
+  const [copied, setCopied] = useState(false);
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    setEditText(message.text || '');
+  }, [message.text]);
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+      const len = textareaRef.current.value.length;
+      textareaRef.current.setSelectionRange(len, len);
+    }
+  }, [isEditing]);
+
+  const handleCopy = async () => {
+    const ok = await copyToClipboard(message.text || '');
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleSave = () => {
+    const trimmed = editText.trim();
+    if (!trimmed || trimmed === message.text) {
+      onCancelEdit?.();
+      return;
+    }
+    onEditMessage?.(trimmed);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSave();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancelEdit?.();
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex w-full justify-end">
+        <div className="w-full max-w-[90%] sm:max-w-[85%] rounded-2xl border border-accent-blue/40 bg-bg-secondary p-3 shadow-lg">
+          <textarea
+            ref={textareaRef}
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={Math.min(6, Math.max(2, (editText.match(/\n/g) || []).length + 1))}
+            className="w-full resize-none bg-transparent text-[0.9rem] leading-relaxed text-text-primary focus:outline-none placeholder:text-text-dim"
+            placeholder="Edit your message…"
+          />
+          <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-border/40 pt-2">
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="rounded-lg border border-border px-3 py-1.5 text-[0.8rem] font-medium text-text-muted transition-colors hover:bg-bg-card-hover hover:text-text-primary active:scale-95"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!editText.trim() || editText.trim() === message.text}
+              className="rounded-lg bg-accent-blue px-3.5 py-1.5 text-[0.8rem] font-medium text-white transition-all hover:bg-accent-blue/90 disabled:opacity-40 disabled:pointer-events-none active:scale-95 shadow-sm"
+            >
+              Save & Submit
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-bg-tertiary px-3.5 py-2 text-[0.9rem] leading-relaxed text-text-primary">
-        {text}
+    <div className="group relative flex flex-col items-end">
+      <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-bg-tertiary px-3.5 py-2 text-[0.9rem] leading-relaxed text-text-primary border border-border/20 shadow-xs">
+        {message.text}
+      </div>
+      <div className="mt-1 flex items-center gap-1 opacity-75 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
+        <button
+          type="button"
+          onClick={onStartEdit}
+          disabled={streaming}
+          title="Edit message"
+          aria-label="Edit message"
+          className="flex items-center gap-1 rounded-md p-1.5 text-text-dim hover:bg-bg-card-hover hover:text-text-primary active:scale-95 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          <span className="sr-only">Edit</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleCopy}
+          title="Copy message"
+          aria-label="Copy message"
+          className="flex items-center gap-1 rounded-md p-1.5 text-text-dim hover:bg-bg-card-hover hover:text-text-primary active:scale-95 transition-colors"
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-emerald-400" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
+          <span className="sr-only">Copy</span>
+        </button>
       </div>
     </div>
   );
@@ -26,15 +166,20 @@ function Caret() {
   );
 }
 
-function AssistantTurn({ message, onRetry, loadResult }) {
+function AssistantTurn({
+  message,
+  onRetry,
+  onEditQuery,
+  loadResult,
+  streaming,
+}) {
   const { text, state, error, stopped } = message;
-  // `|| []` rather than a destructuring default: a default only fills in for
-  // `undefined`, and these arrive from the server's persisted transcript, where
-  // an absent list is null. `null.map` inside a render throws past every guard
-  // in this file and takes the whole panel with it.
+  const [copied, setCopied] = useState(false);
+
+  // Default to empty array for persisted transcript compatibility
   const tools = Array.isArray(message.tools) ? message.tools : [];
   const charts = Array.isArray(message.charts) ? message.charts : [];
-  const streaming = state === 'streaming';
+  const isTurnStreaming = state === 'streaming';
 
   // Only a grouped result is worth a table. A single total row is already in
   // the prose, and a dealer-match explanation is provenance, not data.
@@ -46,27 +191,34 @@ function AssistantTurn({ message, onRetry, loadResult }) {
       t.tool !== 'explain_dealer_match',
   );
 
+  const handleCopyContext = async () => {
+    const content = (text || '').trim();
+    if (!content) return;
+    const ok = await copyToClipboard(content);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
     <div>
-      {/* Above the prose: a caution about a figure is worth less once the
-          figure has already been read. */}
+      {/* Above the prose: provenance warnings */}
       <TurnProvenance tools={tools} loadResult={loadResult} />
 
       {text && (
         <>
           <Markdown text={text} />
-          {streaming && <Caret />}
+          {isTurnStreaming && <Caret />}
         </>
       )}
 
-      {/* A spec with no source names no cached result, so ChartBlock has
-          nothing to fetch and would throw in its loader. The model emits these
-          specs, so a malformed one is a normal failure, not an impossible one:
-          the chart is dropped and the prose above it still answers. */}
+      {/* Render chart specs */}
       {charts.filter((spec) => spec?.source).map((spec, i) => (
         <ChartBlock key={`${spec.source}-${spec.y}-${i}`} spec={spec} loadResult={loadResult} />
       ))}
 
+      {/* Render tabular results */}
       {tabular.map((t) => (
         <ResultTable
           key={t.id}
@@ -81,6 +233,7 @@ function AssistantTurn({ message, onRetry, loadResult }) {
         <p className="mt-1.5 text-[0.78rem] text-text-dim">Stopped.</p>
       )}
 
+      {/* Error state card */}
       {state === 'error' && (
         <div className="mt-2 rounded-xl border border-severity-critical/40 bg-severity-critical/[0.07] px-3 py-2.5">
           <div className="flex items-start gap-2">
@@ -98,7 +251,8 @@ function AssistantTurn({ message, onRetry, loadResult }) {
                 <button
                   type="button"
                   onClick={onRetry}
-                  className="mt-2 flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-[0.8rem] font-medium text-text-secondary transition-colors hover:bg-bg-card-hover hover:text-text-primary"
+                  disabled={streaming}
+                  className="mt-2 flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-[0.8rem] font-medium text-text-secondary transition-colors hover:bg-bg-card-hover hover:text-text-primary active:scale-95 disabled:opacity-40"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   Try again
@@ -108,11 +262,74 @@ function AssistantTurn({ message, onRetry, loadResult }) {
           </div>
         </div>
       )}
+
+      {/* Action Bar at the very bottom: Copy Entire Context, Retry, Edit */}
+      {!isTurnStreaming && state !== 'error' && (text || charts.length > 0 || tabular.length > 0) && (
+        <div className="mt-3.5 flex items-center gap-1 border-t border-border/30 pt-2 text-text-muted">
+          <button
+            type="button"
+            onClick={handleCopyContext}
+            title="Copy entire response and context"
+            aria-label="Copy entire response"
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[0.78rem] font-medium text-text-secondary transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95"
+          >
+            {copied ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-400" />
+                <span className="text-emerald-400 font-semibold">Copied</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5" />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={streaming}
+              title="Regenerate answer"
+              aria-label="Retry answer"
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[0.78rem] font-medium text-text-secondary transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Retry</span>
+            </button>
+          )}
+
+          {onEditQuery && (
+            <button
+              type="button"
+              onClick={onEditQuery}
+              disabled={streaming}
+              title="Edit question and regenerate"
+              aria-label="Edit question"
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[0.78rem] font-medium text-text-secondary transition-all hover:bg-bg-card-hover hover:text-text-primary active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              <span>Edit</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-export default function MessageTurn({ message, onRetry, loadResult }) {
+export default function MessageTurn({
+  message,
+  onRetry,
+  onEditQuery,
+  isEditing,
+  onStartEdit,
+  onCancelEdit,
+  onEditMessage,
+  loadResult,
+  streaming = false,
+}) {
   return (
     <ErrorBoundary
       fallback={({ error }) => (
@@ -123,9 +340,22 @@ export default function MessageTurn({ message, onRetry, loadResult }) {
       )}
     >
       {message.role === 'user' ? (
-        <UserTurn text={message.text} />
+        <UserTurn
+          message={message}
+          isEditing={isEditing}
+          onStartEdit={onStartEdit}
+          onCancelEdit={onCancelEdit}
+          onEditMessage={onEditMessage}
+          streaming={streaming}
+        />
       ) : (
-        <AssistantTurn message={message} onRetry={onRetry} loadResult={loadResult} />
+        <AssistantTurn
+          message={message}
+          onRetry={onRetry}
+          onEditQuery={onEditQuery}
+          loadResult={loadResult}
+          streaming={streaming}
+        />
       )}
     </ErrorBoundary>
   );

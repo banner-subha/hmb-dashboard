@@ -45,6 +45,7 @@ export default function AssistantPanel() {
     send,
     stop,
     retry,
+    editAndSend,
     streaming,
     phases,
     loadingHistory,
@@ -332,7 +333,9 @@ export default function AssistantPanel() {
             loadError={loadError}
             onSend={handleSend}
             onRetry={retry}
+            onEditMessage={editAndSend}
             loadResult={loadResult}
+            streaming={streaming}
           />
           <Composer ref={composerRef} onSend={handleSend} onStop={stop} streaming={streaming} />
         </>
