@@ -29,7 +29,8 @@ const SIZES = {
     clear: 'h-3.5 w-3.5',
   },
   lg: {
-    field: 'rounded-xl pl-11 pr-11 py-2.5 text-sm font-medium',
+    // min-h-11 below md: py-2.5 alone came to 42px, under the 44px phone tap target.
+    field: 'rounded-xl pl-11 pr-11 py-2.5 min-h-11 md:min-h-0 text-sm font-medium',
     iconWrap: 'pl-3.5',
     icon: 'h-[18px] w-[18px]',
     clearWrap: 'pr-3',

@@ -11,7 +11,7 @@ import { staggerContainer, kpiCard } from '../../utils/motionVariants';
  * they drifted: two of the five carried all-time figures while the rest were
  * current-month.
  */
-function VisitKPIRow({ summary, meta }) {
+function VisitKPIRow({ summary, meta, period = null }) {
   if (!summary) return null;
 
   // calculateMoM returns a number; formatTrend/getTrendColor turn it into the
@@ -21,6 +21,9 @@ function VisitKPIRow({ summary, meta }) {
     ? calculateMoM(summary.curTotalVisits, summary.prevTotalVisits)
     : null;
   const elapsed = meta?.elapsedDays;
+  // period: { days } when a date range is picked. The figures then cover
+  // that range and the trend compares it with the same number of days before.
+  const inPeriod = period ? 'in this period' : 'this month';
   const fabricatorShare = summary.curTotalVisits > 0
     ? (summary.curFabricatorVisits ?? 0) / summary.curTotalVisits * 100
     : null;
@@ -34,7 +37,7 @@ function VisitKPIRow({ summary, meta }) {
     >
       <m.div variants={kpiCard}>
         <KPICard
-          label="Visits This Month"
+          label={period ? 'Visits in Period' : 'Visits This Month'}
           value={(summary.curTotalVisits ?? 0).toLocaleString('en-IN')}
           subtitle={`${(summary.curDealerVisits ?? 0).toLocaleString('en-IN')} dealer · ${(summary.curFabricatorVisits ?? 0).toLocaleString('en-IN')} fabricator`}
           momDisplay={visitsMoM != null ? formatTrend(visitsMoM) : undefined}
@@ -56,7 +59,7 @@ function VisitKPIRow({ summary, meta }) {
         <KPICard
           label="Fabricator Visits"
           value={(summary.curFabricatorVisits ?? 0).toLocaleString('en-IN')}
-          subtitle={fabricatorShare != null ? `${formatPct(fabricatorShare)} of all visits this month` : 'Workshop and builder visits this month'}
+          subtitle={fabricatorShare != null ? `${formatPct(fabricatorShare)} of all visits ${inPeriod}` : `Workshop and builder visits ${inPeriod}`}
           accentColor="#94a3b8"
         />
       </m.div>
@@ -68,7 +71,7 @@ function VisitKPIRow({ summary, meta }) {
           // Called out rather than left to be misread: this figure is all-time
           // and dealer-only in the payload, while every tile beside it covers
           // the current month.
-          subtitle="Dealer visits, all-time average"
+          subtitle={period ? 'Dealer visits in this period' : 'Dealer visits, all-time average'}
           accentColor="#f59e0b"
         />
       </m.div>
@@ -78,7 +81,9 @@ function VisitKPIRow({ summary, meta }) {
           label="Active Sales Executives"
           value={(summary.activeFieldReps ?? 0).toLocaleString('en-IN')}
           subtitle={
-            elapsed
+            period
+              ? `Logged visits in these ${period.days} day${period.days === 1 ? '' : 's'}`
+              : elapsed
               ? `Logged visits in the first ${elapsed} day${elapsed === 1 ? '' : 's'}`
               : 'In the field this month'
           }

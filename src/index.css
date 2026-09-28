@@ -1551,3 +1551,30 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .ob-drawer { animation: none !important; transform: none !important; }
 }
+
+/* Date fields in the Visits period picker. Without a colour scheme the
+   browser draws the calendar icon and its popup for a light page, so on the
+   dark theme the icon was dark grey on dark and hard to find. */
+.visit-date-input { color-scheme: dark; }
+[data-theme="light"] .visit-date-input { color-scheme: light; }
+.visit-date-input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.85; }
+
+/* "New lead" on a dealer or fabricator: it had a visit_type 'new lead' visit
+   in the period shown. Green, which carries no other meaning on the Visits
+   tab; the role tags are amber (KRM) and blue (KRO). */
+.lead-tag {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  font-weight: 800;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+[data-theme="light"] .lead-tag {
+  background: rgba(5, 150, 105, 0.12);
+  color: #065f46;
+  border-color: rgba(5, 150, 105, 0.5);
+}

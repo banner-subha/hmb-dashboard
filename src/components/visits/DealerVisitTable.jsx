@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react';
 import DataTable from '../common/DataTable';
+import LeadTag from './LeadTag';
 import { formatMT } from '../../utils/formatters';
 import {
   quadrantConfig,
@@ -52,9 +53,12 @@ function DealerVisitTable({ rows, onRowClick, elapsedDays }) {
           const geo = r.district ? `${r.district}, ${r.state}` : (r.state || '');
           return (
             <div>
-              <span className="block font-bold text-[15px] text-text-primary whitespace-normal break-words leading-tight">
-                {String(info.getValue() ?? '')}
-              </span>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-bold text-[15px] text-text-primary whitespace-normal break-words leading-tight">
+                  {String(info.getValue() ?? '')}
+                </span>
+                {r.newLead && <LeadTag visits={r.newLead.new_lead_visits} first={r.newLead.first_lead} />}
+              </div>
               {/* An empty cell reads as a rendering fault. These dealers carry no
                   state, district or resolvable pincode on any row of the export. */}
               <span className={`block text-[12px] mt-1 leading-tight ${geo ? 'text-text-muted' : 'text-text-muted/60 italic'}`}>

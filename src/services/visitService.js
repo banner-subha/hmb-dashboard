@@ -8,7 +8,6 @@ import { supabase } from './supabaseClient';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const calendarCache = { data: null, timestamp: 0 };
 const comparisonCache = new Map();
 const inFlight = new Map();
 
@@ -49,32 +48,15 @@ export function priorYearPeriod(ym) {
 
 /**
  * Fetch available years and months from public.field_visits.
- * Returns: { years: ['2026', '2025'], by_year: { '2026': [...], '2025': [...] }, latest_month: '2026-09' }
+ * Returns: { years: ['2026', '2025'], by_year: { '2026': [{ month, visits }] }, latest_month: '2026-09' }
+ *
+ * Through cachedComparison, so it shares the 5-minute cache, the in-flight
+ * sharing and the timeout retries of the other visit RPCs. It had its own
+ * cache with no retry, and failed on most page loads until migration 029
+ * made the RPC cheap.
  */
 export async function fetchVisitsCalendar() {
-  const now = Date.now();
-  if (calendarCache.data && now - calendarCache.timestamp < CACHE_TTL_MS) {
-    return calendarCache.data;
-  }
-
-  if (inFlight.has('calendar')) {
-    return inFlight.get('calendar');
-  }
-
-  const promise = (async () => {
-    try {
-      const res = await supabase.rpc('get_visits_calendar');
-      const data = unwrap(res, 'get_visits_calendar');
-      calendarCache.data = data;
-      calendarCache.timestamp = Date.now();
-      return data;
-    } finally {
-      inFlight.delete('calendar');
-    }
-  })();
-
-  inFlight.set('calendar', promise);
-  return promise;
+  return cachedComparison('calendar', 'get_visits_calendar', {}, data => Array.isArray(data?.years));
 }
 
 /**
@@ -124,8 +106,60 @@ export async function compareVisitsRanges({ a, b, state = null, district = null 
   );
 }
 
-/** Cache, in-flight sharing and timeout retries for both comparison RPCs. */
-function cachedComparison(cacheKey, fnName, params) {
+/**
+ * Fabricators visited in one district over an inclusive date range, with the
+ * reps who visited each: { total_visits, fabricators: [{ name, visits,
+ * first_visit, last_visit, city, pincode, reps: [{ name, visits }] }] }.
+ * An empty district means "not recorded".
+ */
+export async function fetchDistrictFabricators({ from, to, state, district }) {
+  if (!from || !to || !state) {
+    throw new Error('A state and both dates are needed (format: YYYY-MM-DD)');
+  }
+  const d = String(district ?? '').trim();
+  return cachedComparison(
+    `fab:${from}:${to}:${state}:${d}`,
+    'query_district_fabricators',
+    { p_from: from, p_to: to, p_state: state, p_district: d },
+    data => Array.isArray(data?.fabricators)
+  );
+}
+
+/**
+ * The Visits page's visit figures for an inclusive range, and for the equally
+ * long period before it: { from, to, prev_from, prev_to, days, kpi, districts,
+ * reps }. At most 93 days; see migration 024.
+ */
+export async function fetchVisitsRange({ from, to, state = null }) {
+  if (!from || !to) {
+    throw new Error('A range needs a from and a to date (format: YYYY-MM-DD)');
+  }
+  const cleanState = clean(state);
+  return cachedComparison(
+    `range:${from}:${to}:${cleanState || 'ALL'}`,
+    'query_visits_range',
+    { p_from: from, p_to: to, p_state: cleanState },
+    data => Boolean(data?.kpi)
+  );
+}
+
+/**
+ * Dealers with a 'new lead' visit in an inclusive range (at most 93 days):
+ * [{ key, new_lead_visits, first_lead }], key as dealerNameKey in utils/visits.
+ */
+export async function fetchNewLeadDealers({ from, to }) {
+  if (!from || !to) throw new Error('A range needs a from and a to date (format: YYYY-MM-DD)');
+  return cachedComparison(`leads:${from}:${to}`, 'query_new_lead_dealers',
+    { p_from: from, p_to: to }, data => Array.isArray(data));
+}
+
+const hasVisits = data => data && (data.kpi_a?.total_visits > 0 || data.kpi_b?.total_visits > 0);
+
+/**
+ * Cache, in-flight sharing and timeout retries for the visit RPCs. shouldCache
+ * decides whether a response is kept; the comparisons skip empty ones.
+ */
+function cachedComparison(cacheKey, fnName, params, shouldCache = hasVisits) {
   const cached = comparisonCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return Promise.resolve(cached.data);
@@ -141,7 +175,7 @@ function cachedComparison(cacheKey, fnName, params) {
         try {
           const res = await supabase.rpc(fnName, params);
           const data = unwrap(res, fnName);
-          if (data && (data.kpi_a?.total_visits > 0 || data.kpi_b?.total_visits > 0)) {
+          if (shouldCache(data)) {
             comparisonCache.set(cacheKey, { data, timestamp: Date.now() });
           }
           return data;

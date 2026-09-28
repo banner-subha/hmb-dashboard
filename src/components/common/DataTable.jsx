@@ -9,11 +9,26 @@ import { useState, memo } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
+// A clickable row or card is also a keyboard control: Tab reaches it, Enter
+// or Space opens it. Keys pressed on a control inside the row (a button in a
+// cell) are left to that control.
+const rowKeyProps = (onActivate) => (onActivate ? {
+  tabIndex: 0,
+  onKeyDown: e => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onActivate();
+    }
+  },
+} : {});
+
 const TableRow = memo(function TableRow({ row, onRowClick }) {
   return (
     <tr 
       onClick={() => onRowClick && onRowClick(row.original)}
-      className={`table-row-separator transition-colors bg-bg-card hover:bg-bg-card-hover group ${onRowClick ? 'cursor-pointer' : ''}`}
+      {...rowKeyProps(onRowClick && (() => onRowClick(row.original)))}
+      className={`table-row-separator transition-colors bg-bg-card hover:bg-bg-card-hover group ${onRowClick ? 'cursor-pointer focus-visible:outline-offset-[-2px]' : ''}`}
     >
       {row.getVisibleCells().map((cell, index) => (
         <td 
@@ -127,6 +142,7 @@ export default function DataTable({ data, columns, onRowClick, pageSize = 15, re
               className={`animate-fade-in glass-card p-5 flex flex-col gap-3 ${onRowClick ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
               style={{ animationDelay: `${Math.min(idx * 30, 200)}ms`, animationFillMode: 'both' }}
               onClick={() => onRowClick && onRowClick(row.original)}
+              {...rowKeyProps(onRowClick && (() => onRowClick(row.original)))}
             >
               {row.getVisibleCells().map((cell, idx) => {
                 const headerText = typeof cell.column.columnDef.header === 'string' 

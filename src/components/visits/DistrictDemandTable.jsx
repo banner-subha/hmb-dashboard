@@ -23,12 +23,17 @@ import {
  * verdict is a tag narrow enough to scan down a page of districts. The sentence
  * survives as that tag's tooltip.
  */
-function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
+function DistrictDemandTable({ rows, elapsedDays, salesDays, onRowClick, period = null }) {
   const columns = useMemo(() => {
     // Not "Prev Month": the parser averages the same day-of-month window over
     // the last six months (main.py, hist_months). The old label named the wrong
     // period, and named it in more words than the number beside it.
-    const usualLabel = 'usual';
+    //
+    // With a date range picked (period: { days }), the visit columns cover the
+    // range and compare it with the same number of days before it. Sales, plan
+    // and the status tag stay monthly, and their headers say so.
+    const usualLabel = period ? `previous ${period.days} days` : 'usual';
+    const inPeriod = period ? 'in this period' : 'this month';
 
     return [
       {
@@ -48,15 +53,19 @@ function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
       },
       {
         accessorKey: 'curFabricatorVisits',
-        header: 'Visits This Month',
+        header: period ? 'Visits in Period' : 'Visits This Month',
         meta: { width: '18%', minWidth: '150px' },
         cell: info => {
           const r = info.row.original;
-          const usual = comparableFabricatorAvg(r);
+          const usual = period ? (r.rangePrevFabricatorVisits ?? 0) : comparableFabricatorAvg(r);
           const g = Math.round(r.fabricatorGrowth ?? 0) || 0;
           return (
             <div
-              title={`${info.getValue() ?? 0} fabricator visits so far this month, against a ${usual} ${usualLabel} — the same days of the month averaged over the last six months`}
+              title={
+                period
+                  ? `${info.getValue() ?? 0} fabricator visits in this period, against ${usual} in the ${usualLabel}`
+                  : `${info.getValue() ?? 0} fabricator visits so far this month, against a ${usual} ${usualLabel} — the same days of the month averaged over the last six months`
+              }
             >
               <span className="block font-black text-[17px] text-text-primary leading-none">
                 {(info.getValue() ?? 0).toLocaleString('en-IN')}
@@ -93,7 +102,7 @@ function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
           const count = Math.round(Number(info.getValue() ?? 0));
           const totalVisits = Number(r.curFabricatorVisits ?? 0);
           return (
-            <div title={`${count} fabricators reached across ${totalVisits} visits this month`}>
+            <div title={`${count} fabricators reached across ${totalVisits} visits ${inPeriod}`}>
               <span className="font-bold text-[15px] text-text-secondary">{count.toLocaleString('en-IN')}</span>
             </div>
           );
@@ -101,7 +110,7 @@ function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
       },
       {
         id: 'salesVsTarget',
-        header: 'Sales vs Plan Target',
+        header: period ? 'Sales vs Plan (This Month)' : 'Sales vs Plan Target',
         accessorFn: r => (isUnlinked(r) ? -1 : (r.salesAchievedPct ?? (r.salesActual ? 0 : -0.5))),
         meta: { width: '24%', minWidth: '185px' },
         cell: info => {
@@ -172,11 +181,11 @@ function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
       },
       {
         id: 'signal',
-        header: 'Status',
-        accessorFn: r => (districtSignal(r).score ?? -1),
+        header: period ? 'Status (This Month)' : 'Status',
+        accessorFn: r => (districtSignal(r.monthly || r).score ?? -1),
         meta: { width: '24%', minWidth: '160px' },
         cell: info => {
-          const sig = districtSignal(info.row.original);
+          const sig = districtSignal(info.row.original.monthly || info.row.original);
           return (
             <div className="flex items-center" title={sig.detail}>
               <span
@@ -194,12 +203,13 @@ function DistrictDemandTable({ rows, elapsedDays, salesDays }) {
         },
       },
     ];
-  }, [elapsedDays, salesDays]);
+  }, [elapsedDays, salesDays, period]);
 
   return (
     <DataTable
       data={rows}
       columns={columns}
+      onRowClick={onRowClick}
       pageSize={25}
       fixedLayout
       defaultSort={[{ id: 'curFabricatorVisits', desc: true }]}

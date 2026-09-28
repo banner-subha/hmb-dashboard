@@ -17,7 +17,11 @@ import DataTable from '../common/DataTable';
  * the window is legible from the numbers themselves, with the wording spelled
  * out in a tooltip rather than crowding the row.
  */
-function RepPerformanceTable({ rows }) {
+function RepPerformanceTable({ rows, period = null }) {
+  // With a date range picked (period: { days }), every column covers that
+  // range, including the ones that are lifetime figures on the monthly view,
+  // and the comparison is the same number of days just before it.
+  const windowLabel = period ? 'In this period' : 'Lifetime';
   const columns = useMemo(() => [
     {
       accessorKey: 'employee_name',
@@ -49,14 +53,18 @@ function RepPerformanceTable({ rows }) {
     },
     {
       accessorKey: 'curVisits',
-      header: 'Visits This Month',
+      header: period ? 'Visits in Period' : 'Visits This Month',
       meta: { width: '16%', minWidth: '145px' },
       cell: info => {
         const r = info.row.original;
         const delta = (r.curVisits ?? 0) - (r.prevVisitsMtd ?? 0);
         return (
           <div
-            title={`${(r.curVisits ?? 0).toLocaleString('en-IN')} visits so far this month against ${(r.prevVisitsMtd ?? 0).toLocaleString('en-IN')} over the same days of last month`}
+            title={
+              period
+                ? `${(r.curVisits ?? 0).toLocaleString('en-IN')} visits in this period against ${(r.prevVisitsMtd ?? 0).toLocaleString('en-IN')} in the ${period.days} days before it`
+                : `${(r.curVisits ?? 0).toLocaleString('en-IN')} visits so far this month against ${(r.prevVisitsMtd ?? 0).toLocaleString('en-IN')} over the same days of last month`
+            }
           >
             <span className="block font-black text-[17px] text-accent-blue leading-none">
               {(info.getValue() ?? 0).toLocaleString('en-IN')}
@@ -85,7 +93,8 @@ function RepPerformanceTable({ rows }) {
                     {delta > 0 ? `+${delta}` : delta}
                   </span>
                   <span className="text-text-muted">
-                    {' '}vs {(r.prevVisitsMtd ?? 0).toLocaleString('en-IN')} last month
+                    {' '}vs {(r.prevVisitsMtd ?? 0).toLocaleString('en-IN')}{' '}
+                    {period ? `previous ${period.days} days` : 'last month'}
                   </span>
                 </>
               )}
@@ -108,7 +117,7 @@ function RepPerformanceTable({ rows }) {
         const exact = days > 0 ? (total / days).toFixed(2) : '0';
         return (
           <div
-            title={`Lifetime, not this month: ${total.toLocaleString('en-IN')} visits ÷ ${days.toLocaleString('en-IN')} days with at least one visit = ${exact}, shown rounded to ${info.getValue() ?? 0}. The ${total.toLocaleString('en-IN')} is the same total the Visit Mix column splits into dealers, fabricators and other.`}
+            title={`${period ? 'In this period' : 'Lifetime, not this month'}: ${total.toLocaleString('en-IN')} visits ÷ ${days.toLocaleString('en-IN')} days with at least one visit = ${exact}, shown rounded to ${info.getValue() ?? 0}. The ${total.toLocaleString('en-IN')} is the same total the Visit Mix column splits into dealers, fabricators and other.`}
           >
             <span className="block font-black text-[17px] text-text-primary leading-none whitespace-nowrap">
               {info.getValue() ?? 0}
@@ -148,7 +157,7 @@ function RepPerformanceTable({ rows }) {
         const other = Math.max(0, (r.totalVisits ?? 0) - dealerVisits - fabricatorVisits);
         return (
           <div
-            title={`Lifetime: ${dealerVisits.toLocaleString('en-IN')} dealer visits, ${fabricatorVisits.toLocaleString('en-IN')} fabricator visits${
+            title={`${windowLabel}: ${dealerVisits.toLocaleString('en-IN')} dealer visits, ${fabricatorVisits.toLocaleString('en-IN')} fabricator visits${
               other > 0 ? `, ${other.toLocaleString('en-IN')} to customers of neither type` : ''
             } — ${(r.totalVisits ?? 0).toLocaleString('en-IN')} in total`}
           >
@@ -201,7 +210,7 @@ function RepPerformanceTable({ rows }) {
         );
       },
     },
-  ], []);
+  ], [period, windowLabel]);
 
   return (
     <DataTable
