@@ -34,7 +34,14 @@ export default function OutstandingIntelligence() {
   useDashboardTelemetry({
     tabName: 'Outstanding',
     filters: ob.filters,
-    selectedEntity: selected?.dealer_name || null,
+    selectedEntity: selected ? {
+      type: 'dealer',
+      name: selected.dealer_name,
+      state: selected.stateLabel || selected.state,
+      district: selected.districtLabel || selected.district,
+      outstanding: selected.total_outstanding != null ? formatINR(selected.total_outstanding) : undefined,
+      overdue: selected.overdue_amount != null ? formatINR(selected.overdue_amount) : undefined,
+    } : null,
     visibleKpis: ob.loading ? null : {
       net_outstanding: formatINR(ob.summary.total),
       overdue: formatINR(ob.summary.overdue),

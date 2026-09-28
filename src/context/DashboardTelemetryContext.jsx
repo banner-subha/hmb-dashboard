@@ -67,13 +67,19 @@ export function DashboardTelemetryProvider({ children }) {
     };
   }, []);
 
-  const getTelemetrySnapshot = useCallback(() => ({
-    route: telemetryRef.current.route || window.location.pathname,
-    tab_name: telemetryRef.current.tabName || resolveRouteName(window.location.pathname),
-    filters: telemetryRef.current.filters || {},
-    selected_entity: telemetryRef.current.selectedEntity || null,
-    visible_kpis: telemetryRef.current.visibleKpis || null,
-  }), []);
+  const getTelemetrySnapshot = useCallback(() => {
+    let entity = telemetryRef.current.selectedEntity || null;
+    if (typeof entity === 'string') {
+      entity = entity.trim() ? { type: 'dealer', name: entity.trim() } : null;
+    }
+    return {
+      route: telemetryRef.current.route || window.location.pathname,
+      tab_name: telemetryRef.current.tabName || resolveRouteName(window.location.pathname),
+      filters: telemetryRef.current.filters || {},
+      selected_entity: entity,
+      visible_kpis: telemetryRef.current.visibleKpis || null,
+    };
+  }, []);
 
   // Perfectly stable context value that NEVER triggers re-renders on consumers
   const value = useMemo(
