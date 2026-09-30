@@ -43,6 +43,7 @@ const GeoIntelligence = lazyWithRetry(() => import('./pages/GeoIntelligence'));
 const VisitIntelligence = lazyWithRetry(() => import('./pages/VisitIntelligence'));
 const BusinessPlan = lazyWithRetry(() => import('./pages/BusinessPlan'));
 const OutstandingIntelligence = lazyWithRetry(() => import('./pages/OutstandingIntelligence'));
+const PendingOrders = lazyWithRetry(() => import('./pages/PendingOrders'));
 // The surface is lazy so that nothing it pulls in — the panel, markdown,
 // recharts, the result table — lands in the dashboard's initial bundle.
 const AssistantSurface = lazyWithRetry(() => import('./assistant/AssistantSurface'));
@@ -374,6 +375,7 @@ function App() {
                     <Route path="states" element={<StateIntelligenceWrapper />} />
                     <Route path="districts" element={<DistrictIntelligenceWrapper />} />
                     <Route path="dealers" element={<DealerIntelligenceWrapper />} />
+                    <Route path="pending" element={<PendingOrders />} />
                     <Route path="visits" element={<VisitIntelligence />} />
                     <Route path="business-plan" element={<BusinessPlan />} />
                     <Route path="outstanding" element={<OutstandingIntelligence />} />
