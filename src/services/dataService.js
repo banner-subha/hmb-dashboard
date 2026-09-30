@@ -470,7 +470,7 @@ export function cleanData(data) {
     // one collection still carrying the source spelling, so anything that joined
     // an alert back to its own data — the drill-down hierarchy, the pending
     // order lookup — silently found nothing for a state the canonicaliser
-    // renames. Odisha ("Orissa" everywhere else) was the live example: its
+    // renames. Odisha (then shown as "Orissa" everywhere else) was the live example: its
     // critical alert opened onto an empty tree while every other state drilled
     // down normally.
     data.alerts.forEach(alert => {

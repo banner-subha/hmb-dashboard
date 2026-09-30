@@ -1,7 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, useState, useMemo, useCallback } from 'react';
 import { dataService } from '../services/dataService';
 import { calculateMoM, formatTrend, getTrendColor, getBusinessImpact } from '../utils/trendEngine';
-import { isRealState, NORTH_BENGAL_DISTRICTS, getExpandedStatesSet } from '../utils/constants';
+import { isRealState, NORTH_BENGAL_DISTRICTS, getExpandedStatesSet, normalizeStateName } from '../utils/constants';
 import { useAuth } from './AuthContext';
 import { getNormalizedDistrictSet, matchesAssignedDistrict, normalizeDistrict } from '../utils/districtNormalizer';
 import { syncClientUsers } from '../data/clientRegistry';
@@ -665,10 +665,15 @@ export function DataProvider({ children }) {
   // Validate selectedState against available states if a state is currently selected
   useEffect(() => {
     if (filters.selectedState && filterOptions.states.length > 0) {
-      const currentSelectedUpper = (filters.selectedState || '').replace(/\s+/g, '').toUpperCase();
-      const availableUpper = filterOptions.states.map(s => s.replace(/\s+/g, '').toUpperCase());
-      if (!availableUpper.includes(currentSelectedUpper)) {
+      const upper = s => (s || '').replace(/\s+/g, '').toUpperCase();
+      // Through the data's own renaming first, so an old link (?state=Orissa)
+      // lands on the state's current name instead of being cleared.
+      const wanted = upper(normalizeStateName(filters.selectedState));
+      const match = filterOptions.states.find(s => upper(s) === wanted);
+      if (!match) {
         dispatch({ type: 'SET_STATE', payload: null });
+      } else if (match !== filters.selectedState) {
+        dispatch({ type: 'SET_STATE', payload: match });
       }
     }
   }, [filterOptions.states, filters.selectedState]);

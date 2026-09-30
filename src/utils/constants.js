@@ -227,9 +227,10 @@ export const STATE_ALIASES = {
   'AP': 'Andhra Pradesh',
   'ANDHRAPRADESH': 'Andhra Pradesh',
   'ANDHRA PRADESH': 'Andhra Pradesh',
-  'ODISHA': 'Orissa',
-  'ORISSA': 'Orissa',
-  'ORRISA': 'Orissa',
+  // The official name since 2011; the sheet, the database and latest.json all use it.
+  'ODISHA': 'Odisha',
+  'ORISSA': 'Odisha',
+  'ORRISA': 'Odisha',
   'JHARKHAND': 'Jharkhand',
   'BIHAR': 'Bihar',
   'ASSAM': 'Assam',
