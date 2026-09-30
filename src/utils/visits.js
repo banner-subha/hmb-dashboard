@@ -388,10 +388,29 @@ export function buildDespatchIndex(despatchDistricts = []) {
 export const dealerNameKey = name =>
   String(name || '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null;
 
-const dealerKey = (state, district, dealer) => {
+export const canonDealerName = name => {
+  const n = dealerNameKey(name);
+  if (!n) return null;
+  const suffixes = ['STEELS', 'TRADERS', 'ENTERPRISES', 'PIPES', 'HARDWARES', 'BUILDERS', 'STORES', 'PRODUCTS'];
+  for (const s of suffixes) {
+    if (n.endsWith(s)) return n.slice(0, -1);
+  }
+  if (n.endsWith('AGENCIES') || n.endsWith('INDUSTRIES')) {
+    return n.slice(0, -3) + 'Y';
+  }
+  return n;
+};
+
+export const dealerKey = (state, district, dealer) => {
   const base = salesKey(state, district);
-  const nm = dealerNameKey(dealer);
+  const nm = canonDealerName(dealer);
   return base && nm ? `${base}||${nm}` : null;
+};
+
+export const dealerStateKey = (state, dealer) => {
+  const st = normalizeStateName(state || '').toUpperCase().replace(/\s+/g, '');
+  const nm = canonDealerName(dealer);
+  return st && nm ? `${st}||${nm}` : null;
 };
 
 // ── Porcelain-safe lightness for the progress ramp ───────────────────────────
@@ -552,6 +571,20 @@ export const REP_ROLES = [
 
 export function buildBusinessPlanDealerIndex(bpRows = []) {
   const index = new Map();
+  // Count distinct states per canonical dealer name across the entire business plan
+  const nameStateCounts = new Map();
+  bpRows.forEach(row => {
+    const grp = row.grp || {};
+    const dealer = grp.dealer || row.dealer;
+    if (!dealer) return;
+    const nm = canonDealerName(dealer);
+    const st = normalizeStateName(grp.state || row.state || '').toUpperCase().replace(/\s+/g, '');
+    if (nm && st) {
+      if (!nameStateCounts.has(nm)) nameStateCounts.set(nm, new Set());
+      nameStateCounts.get(nm).add(st);
+    }
+  });
+
   bpRows.forEach(row => {
     const grp = row.grp || {};
     const dealer = grp.dealer || row.dealer;
@@ -570,8 +603,20 @@ export function buildBusinessPlanDealerIndex(bpRows = []) {
       });
     }
 
-    const nm = dealerNameKey(dealer);
-    if (nm) {
+    const stateK = dealerStateKey(grp.state || row.state, dealer);
+    if (stateK) {
+      const prev = index.get(stateK);
+      const prevTgt = typeof prev === 'object' && prev !== null ? prev.target : Number(prev || 0);
+      const prevPot = typeof prev === 'object' && prev !== null ? prev.potential : 0;
+      index.set(stateK, {
+        target: prevTgt + target,
+        potential: prevPot + potential,
+      });
+    }
+
+    const nm = canonDealerName(dealer);
+    // ONLY provide fallback ~nm if dealer name appears in exactly one state across BP
+    if (nm && nameStateCounts.get(nm)?.size === 1) {
       const prevNm = index.get(`~${nm}`);
       const prevTgt = typeof prevNm === 'object' && prevNm !== null ? prevNm.target : Number(prevNm || 0);
       const prevPot = typeof prevNm === 'object' && prevNm !== null ? prevNm.potential : 0;
@@ -614,11 +659,23 @@ export function attachDealerSales(rows = [], bpIndex = null, elapsedDays = 0) {
     const usualPerDay = Number(row.dailyAvgQty ?? 0);
 
     const full = dealerKey(row.state, row.district, row.dealer);
-    const nm = dealerNameKey(row.dealer);
-    const bpEntry =
-      (bpIndex && full && bpIndex.get(full)) ||
-      (bpIndex && nm && bpIndex.get(`~${nm}`)) ||
-      null;
+    const stateK = dealerStateKey(row.state, row.dealer);
+    const nm = canonDealerName(row.dealer);
+
+    // Strict 3-tier lookup:
+    // Tier 1: exact state + district + canon name
+    // Tier 2: state + canon name ONLY if row.district is missing/unknown
+    // Tier 3: ~nm fallback ONLY if row.state is missing/unknown (never cross state lines)
+    let bpEntry = null;
+    if (bpIndex) {
+      if (full && bpIndex.has(full)) {
+        bpEntry = bpIndex.get(full);
+      } else if ((!row.district || row.district === '0' || row.district === 'VERBAL') && stateK && bpIndex.has(stateK)) {
+        bpEntry = bpIndex.get(stateK);
+      } else if (!row.state && nm && bpIndex.has(`~${nm}`)) {
+        bpEntry = bpIndex.get(`~${nm}`);
+      }
+    }
 
     const bpTarget =
       typeof bpEntry === 'object' && bpEntry !== null
@@ -742,8 +799,9 @@ export function visitsPerFabricator(row) {
 }
 
 /** Filter predicate shared by every view, so the tabs cannot disagree. */
-export function matchesFilters(row, { state, quadrant, query }, fields) {
+export function matchesFilters(row, { state, district, quadrant, query }, fields) {
   if (state && state !== 'ALL' && row.state !== state) return false;
+  if (district && district !== 'ALL' && String(row.district || '').trim().toLowerCase() !== String(district).trim().toLowerCase()) return false;
   if (quadrant && quadrant !== 'ALL' && row.quadrant !== quadrant) return false;
   if (query) {
     const q = query.toLowerCase();
@@ -760,17 +818,20 @@ export function matchesFilters(row, { state, quadrant, query }, fields) {
 }
 
 /**
- * Per-state summary. Recomputed client-side because the payload's `summary`
+ * Per-state & district summary. Recomputed client-side because the payload's `summary`
  * covers every state at once.
  *
  * NO_SALES_LINK is included deliberately: without it the group counts stop
- * summing to the dealer total for the selected state and ~1,600 dealers vanish
+ * summing to the dealer total for the selected state/district and ~1,600 dealers vanish
  * from the page.
  */
-export function summariseState(data, state) {
+export function summariseState(data, state, district = 'ALL') {
   if (!data) return null;
 
-  if (!state || state === 'ALL') {
+  const hasState = state && state !== 'ALL';
+  const hasDistrict = district && district !== 'ALL';
+
+  if (!hasState && !hasDistrict) {
     // Everything except the group counts is carried through from the payload.
     // The counts are recounted, because the quadrants are re-derived against
     // the Business Plan after the parser has written them — returning
@@ -790,8 +851,19 @@ export function summariseState(data, state) {
     };
   }
 
-  const dealers = (data.dealers || []).filter(d => d.state === state);
-  const districts = (data.districts || []).filter(d => d.state === state);
+  const normDt = hasDistrict ? String(district).trim().toLowerCase() : null;
+
+  const dealers = (data.dealers || []).filter(d => {
+    if (hasState && d.state !== state) return false;
+    if (hasDistrict && String(d.district || '').trim().toLowerCase() !== normDt) return false;
+    return true;
+  });
+
+  const districts = (data.districts || []).filter(d => {
+    if (hasState && d.state !== state) return false;
+    if (hasDistrict && String(d.district || '').trim().toLowerCase() !== normDt) return false;
+    return true;
+  });
 
   const dealerVisits = dealers.reduce((s, d) => s + (d.curVisits || 0), 0);
   const fabVisits = districts.reduce((s, d) => s + (d.curFabricatorVisits || 0), 0);

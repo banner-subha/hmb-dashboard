@@ -24,9 +24,13 @@ eq('this month is the page default, not a range', r.presetRange('month', '2026-0
 eq('custom: fine', r.rangeProblem('2026-09-01', '2026-09-15', '2026-09-27'), null);
 eq('custom: reversed', r.rangeProblem('2026-09-15', '2026-09-01', '2026-09-27'), 'The end date is before the start date.');
 eq('custom: after latest upload', r.rangeProblem('2026-09-01', '2026-09-30', '2026-09-27'), 'Visits are only recorded up to the latest upload.');
-eq('custom: 93 days is allowed', r.rangeProblem('2026-06-27', '2026-09-27', '2026-09-27'), null);
-eq('custom: 94 days is not', r.rangeProblem('2026-06-26', '2026-09-27', '2026-09-27'), 'Pick 93 days or fewer.');
-eq('custom: before records begin', r.rangeProblem('2024-12-31', '2025-01-10', '2026-09-27'), 'Visits are only recorded from 1 Jan 2025.');
+eq('custom: 94 days is allowed now', r.rangeProblem('2026-06-26', '2026-09-27', '2026-09-27'), null);
+eq('custom: all of 2026 is allowed', r.rangeProblem('2026-01-01', '2026-09-27', '2026-09-27', '2026-01-01'), null);
+eq('custom: 401 days is not', r.rangeProblem('2025-08-23', '2026-09-27', '2026-09-27'), 'Pick 400 days or fewer.');
+eq('custom: before records begin', r.rangeProblem('2025-12-31', '2026-01-10', '2026-09-27', '2026-01-01'), 'Visits are only recorded from 1 Jan 2026.');
+eq('custom: earliest unknown yet', r.rangeProblem('2025-12-31', '2026-01-10', '2026-09-27', null), null);
+eq('earliest day from the calendar', r.earliestVisitDay({ years: ['2026'], by_year: { '2026': [{ month: '2026-09' }, { month: '2026-01' }, { month: '2026-04' }] } }), '2026-01-01');
+eq('earliest day, empty calendar', r.earliestVisitDay({ years: [], by_year: {} }), null);
 
 const monthDistricts = [
   { state: 'West Bengal', district: 'Purba Bardhaman', curFabricatorVisits: 746, curUniqueFabricators: 376, salesActual: 812 },
@@ -64,6 +68,7 @@ const s = r.rangeSummary(
 eq('summary: range KPIs', [s.curTotalVisits, s.prevTotalVisits, s.activeFieldReps, s.avgVisitDurationMins], [2180, 2075, 72, 49.8]);
 eq('summary: coverage against the tracked dealers', s.dealerCoveragePct, 25);
 eq('summary: group counts carried through', s.growthDriversCount, 9);
+eq('summary: no visits before the range means no trend', r.rangeSummary({ visits: 146000, prev_visits: 0 }, {}).prevTotalVisits, null);
 
 console.log(failed ? `\n${failed} failed` : '\nall passed');
 process.exit(failed ? 1 : 0);

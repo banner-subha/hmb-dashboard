@@ -184,6 +184,8 @@ export const CANONICAL_DISTRICTS = {
   'westimphal':              'Imphal West',
   'imphaleast':              'Imphal East',
   'eastimphal':              'Imphal East',
+  'sibsagar':                'Sivasagar',
+  'sivasagar':               'Sivasagar',
 
   // ── Uttar Pradesh Aliases ──
   'kanpurnagar':             'Kanpur Nagar',
@@ -203,6 +205,8 @@ export const CANONICAL_DISTRICTS = {
   'kawardha':                'Kabirdham',
   'janjgirchampa':           'Janjgir-Champa',
   'gaurelapendramarwahi':    'Gaurela-Pendra-Marwahi',
+  'dhaulpur':                'Dholpur',
+  'dholpur':                 'Dholpur',
 };
 
 /**

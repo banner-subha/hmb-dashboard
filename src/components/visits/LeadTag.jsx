@@ -21,21 +21,28 @@ export default function LeadTag({ visits = 1, first = null }) {
  * filters. New leads are usually a first visit, so in a list ordered by visits
  * they sit at the bottom; this brings them to the top of the view.
  */
-export function LeadsToggle({ on, count, onChange }) {
+export function LeadsToggle({ on, count, onChange, loading = false, disabled = false, compact = false }) {
   return (
     <button
       type="button"
       aria-pressed={on}
+      disabled={disabled}
       onClick={() => onChange(!on)}
-      className={`inline-flex items-center gap-1.5 min-h-11 md:min-h-0 px-3 py-2 rounded-xl border text-[12.5px] font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-        on
-          ? 'bg-accent-blue border-accent-blue text-white shadow-sm'
-          : 'bg-bg-secondary/60 border-border/40 text-text-secondary hover:text-text-primary hover:bg-bg-card'
+      className={`inline-flex items-center rounded-xl border font-bold transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
+        compact
+          ? 'gap-1.5 h-[34px] px-2.5 py-1 text-[11.5px]'
+          : 'gap-1.5 min-h-11 md:min-h-0 px-3 py-2 text-[12.5px]'
+      } ${
+        disabled
+          ? 'opacity-60 cursor-not-allowed bg-bg-secondary/40 border-border/30 text-text-muted'
+          : on
+            ? 'bg-accent-blue border-accent-blue text-white shadow-sm hover:brightness-105'
+            : 'bg-bg-secondary/60 border-border/40 text-text-secondary hover:text-text-primary hover:bg-bg-card'
       }`}
     >
-      New leads only
-      <span className={`px-1.5 py-0.5 rounded-md text-[11px] tabular-nums ${on ? 'bg-white/25 text-white' : 'bg-bg-card text-text-muted'}`}>
-        {Number(count || 0).toLocaleString('en-IN')}
+      {compact ? 'New leads' : 'New leads only'}
+      <span className={`px-1.5 py-0.5 rounded-md text-[10.5px] tabular-nums font-bold transition-colors ${on ? 'bg-white/25 text-white' : 'bg-bg-card text-text-muted'}`}>
+        {loading ? '…' : Number(count || 0).toLocaleString('en-IN')}
       </span>
     </button>
   );

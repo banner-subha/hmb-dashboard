@@ -200,6 +200,12 @@ function DistrictFabricatorPanel({ district, districtOptions = [], range, roleIn
     () => shapeDistrictFabricators(current.data, name => classifyRep(name, roleIndex)),
     [current.data, roleIndex]
   );
+  // Base list with active role and query filters (unfiltered by leadsOnly)
+  // to compute accurate available new leads for the current view
+  const shapedBase = useMemo(
+    () => shapeDistrictFabricators(current.data, name => classifyRep(name, roleIndex), { role, query, leadsOnly: false }),
+    [current.data, roleIndex, role, query]
+  );
 
   if (!open) return null;
 
@@ -208,7 +214,11 @@ function DistrictFabricatorPanel({ district, districtOptions = [], range, roleIn
     : `${formatDayLabel(range.from)} – ${formatDayLabel(range.to)}`;
   const list = view === 'fabricators' ? shaped.fabricators : shaped.reps;
   const filtered = role !== 'ALL' || query !== '' || leadsOnly;
-  const leadCount = shapedAll.fabricators.filter(f => f.new_lead_visits > 0).length;
+  const leadCount = !current.data
+    ? 0
+    : view === 'reps'
+      ? (shapedBase.reps || []).filter(r => (r.fabricators || []).some(f => f.new_lead_visits > 0)).length
+      : (shapedBase.fabricators || []).filter(f => f.new_lead_visits > 0).length;
 
   // CSV of the view on screen. "Filtered" is what the role filter and search
   // leave; "all" is the whole list for the selected state and district. Both
@@ -366,7 +376,7 @@ function DistrictFabricatorPanel({ district, districtOptions = [], range, roleIn
           <div className="flex flex-wrap items-center gap-2">
             <Toggle options={VIEWS} value={view} onChange={setView} label="View" />
             <Toggle options={REP_ROLES} value={role} onChange={setRole} label="Filter by role" />
-            <LeadsToggle on={leadsOnly} count={leadCount} onChange={setLeadsOnly} />
+            <LeadsToggle on={leadsOnly} count={leadCount} onChange={setLeadsOnly} loading={loading && !current.data} />
             <div className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
               <SearchInput
                 size="lg"

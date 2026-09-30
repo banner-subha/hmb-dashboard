@@ -18,6 +18,7 @@ export default function ExportDropdown({
   className = '',
   disabled = false,
   showChevron = false,
+  compact = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
@@ -64,7 +65,11 @@ export default function ExportDropdown({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-text-primary text-[13px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+        className={`inline-flex items-center rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-text-primary font-bold transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap ${
+          compact
+            ? 'gap-1.5 h-[34px] px-2.5 py-1 text-[11.5px]'
+            : 'gap-2 px-3.5 py-1.5 text-[13px]'
+        }`}
         title="Export dataset to CSV (Excel compatible)"
         aria-expanded={isOpen}
         aria-haspopup="true"

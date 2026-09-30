@@ -30,6 +30,7 @@ import { downloadCsv, getExportFilename } from '../utils/csvExport';
  */
 
 const BUCKET_FILL = { d0_30: '#10b981', d31_60: '#f59e0b', d61_90: '#f97316', d90plus: '#ef4444' };
+const BUCKET_LABEL = { d0_30: '0–30 Days', d31_60: '31–60 Days', d61_90: '61–90 Days', d90plus: '90+ Days' };
 const LEVELS = [
   { value: 'state', label: 'States' },
   { value: 'district', label: 'Districts' },
@@ -61,29 +62,42 @@ function AgeBar({ aging, className = 'w-20' }) {
   );
 }
 
-function BarList({ title, note, rows, total }) {
+// One blue ramp, darkest for the largest share: the split reads as parts of
+// one backlog, not as unrelated categories competing for colour.
+const MIX_RAMP = ['#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd', '#a5b4fc', '#c7d2fe'];
+
+function MixPanel({ title, note, rows, total }) {
   return (
     <section className="glass-card p-4 sm:p-5">
-      <h3 className="text-lg font-extrabold text-text-primary">{title}</h3>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-lg font-extrabold text-text-primary">{title}</h3>
+        <span className="text-[13px] font-bold text-text-secondary tabular-nums whitespace-nowrap">{formatMT(total)}</span>
+      </div>
       {note && <p className="text-[13px] text-text-muted mt-1">{note}</p>}
       {rows.length === 0 ? (
-        <p className="text-sm text-text-muted mt-4">Nothing pending.</p>
+        <p className="text-sm text-text-muted mt-4">N/A</p>
       ) : (
-        <ul className="mt-4 space-y-3">
-          {rows.map(r => (
-            <li key={r.key}>
-              <div className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="font-bold text-text-secondary truncate">{r.label}</span>
-                <span className="font-black text-text-primary tabular-nums whitespace-nowrap">
-                  {formatMT(r.qty)} <span className="text-text-muted font-semibold text-[12px]">{pct(r.qty, total).toFixed(0)}%</span>
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full bg-bg-tertiary mt-1.5 overflow-hidden" aria-hidden="true">
-                <div className="h-full rounded-full bg-accent-blue" style={{ width: `${pct(r.qty, total)}%` }} />
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="flex gap-0.5 h-3 rounded-md overflow-hidden mt-4" aria-hidden="true">
+            {rows.map((r, i) => (
+              <div key={r.key} className="h-full first:rounded-l-md last:rounded-r-md" style={{ flexGrow: r.qty, flexBasis: 0, background: MIX_RAMP[i % MIX_RAMP.length] }} title={`${r.label}: ${formatMT(r.qty)}`} />
+            ))}
+          </div>
+          <table className="w-full mt-3 text-sm">
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.key} className="border-t border-border/40 first:border-t-0">
+                  <td className="py-2 pr-2 w-4">
+                    <span className="block w-2.5 h-2.5 rounded-sm" style={{ background: MIX_RAMP[i % MIX_RAMP.length] }} aria-hidden="true" />
+                  </td>
+                  <td className="py-2 font-semibold text-text-secondary">{r.label}</td>
+                  <td className="py-2 text-right font-bold text-text-primary tabular-nums whitespace-nowrap">{formatMT(r.qty)}</td>
+                  <td className="py-2 pl-3 w-14 text-right text-text-muted font-semibold tabular-nums">{pct(r.qty, total).toFixed(1)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
     </section>
   );
@@ -158,14 +172,14 @@ export default function PendingOrders() {
           return (
             <div>
               <span className="font-bold text-text-primary tabular-nums whitespace-nowrap">{formatMT(r.pending)}</span>
-              <span className="block text-[11px] text-text-muted">{r.share.toFixed(1)}% of pending</span>
+              <span className="block text-[11px] text-text-muted">{r.share.toFixed(1)}% share</span>
             </div>
           );
         },
       },
       {
         id: 'over30',
-        header: 'Over 30 days',
+        header: 'Aged >30 Days',
         accessorFn: r => r.over30,
         meta: { minWidth: '130px' },
         cell: info => {
@@ -173,7 +187,7 @@ export default function PendingOrders() {
           return (
             <div className="space-y-1">
               <span className={`font-bold tabular-nums whitespace-nowrap ${r.over30 > 0 ? 'text-amber-500' : 'text-text-muted'}`}>
-                {r.over30 > 0 ? formatMT(r.over30) : 'None'}
+                {r.over30 > 0 ? formatMT(r.over30) : 'N/A'}
               </span>
               <AgeBar aging={r.aging} />
             </div>
@@ -182,7 +196,7 @@ export default function PendingOrders() {
       },
       {
         id: 'oldest',
-        header: 'Oldest order',
+        header: 'Oldest Order',
         accessorFn: r => r.oldestDays ?? -1,
         meta: { minWidth: '120px' },
         cell: info => {
@@ -191,14 +205,14 @@ export default function PendingOrders() {
           return (
             <div>
               <span className="font-semibold text-text-primary whitespace-nowrap">{formatDayLabel(r.oldest)}</span>
-              {r.oldestDays != null && <span className="block text-[11px] text-text-muted">{r.oldestDays} days waiting</span>}
+              {r.oldestDays != null && <span className="block text-[11px] text-text-muted">{r.oldestDays} days</span>}
             </div>
           );
         },
       },
       {
         id: 'daysToClear',
-        header: 'Days to clear',
+        header: 'Clearance',
         accessorFn: r => r.daysToClear,
         meta: { minWidth: '120px' },
         cell: info => {
@@ -210,7 +224,7 @@ export default function PendingOrders() {
                 {stalled ? 'No pace' : `${r.daysToClear.toFixed(1)} days`}
               </span>
               <span className="block text-[11px] text-text-muted whitespace-nowrap">
-                {stalled ? 'no recent despatch' : `at ${r.pace.toFixed(1)} MT/day`}
+                {stalled ? 'N/A' : `@ ${r.pace.toFixed(1)} MT/day`}
               </span>
             </div>
           );
@@ -218,21 +232,21 @@ export default function PendingOrders() {
       },
       {
         id: 'despatched',
-        header: 'Despatched this month',
+        header: 'MTD Despatch',
         accessorFn: r => r.despatchedThisMonth,
         meta: { minWidth: '130px' },
         cell: info => {
           const v = info.getValue();
           return v > 0
             ? <span className="tabular-nums whitespace-nowrap text-text-secondary">{formatMT(v)}</span>
-            : <span className="font-bold text-severity-critical whitespace-nowrap">Nothing yet</span>;
+            : <span className="font-bold text-severity-critical whitespace-nowrap">N/A</span>;
         },
       },
     ];
     if (level !== 'dealer') {
       cols.splice(2, 0, {
         id: 'dealersWaiting',
-        header: 'Dealers waiting',
+        header: 'Dealers',
         accessorFn: r => r.dealersWaiting,
         meta: { minWidth: '90px' },
         cell: info => <span className="font-semibold tabular-nums">{count(info.getValue())}</span>,
@@ -246,14 +260,14 @@ export default function PendingOrders() {
     ...(level !== 'state' ? [{ label: 'State', getValue: r => r.state }] : []),
     ...(level === 'dealer' ? [{ label: 'District', getValue: r => r.district }] : []),
     { label: 'Pending (MT)', getValue: r => r.pending.toFixed(2) },
-    { label: 'Share of pending %', getValue: r => r.share.toFixed(1) },
-    ...(level !== 'dealer' ? [{ label: 'Dealers waiting', getValue: r => r.dealersWaiting }] : []),
-    ...AGING_BUCKETS.map(b => ({ label: `${b.fullLabel} (MT)`, getValue: r => (r.aging[b.key] || 0).toFixed(2) })),
+    { label: 'Share %', getValue: r => r.share.toFixed(1) },
+    ...(level !== 'dealer' ? [{ label: 'Dealers', getValue: r => r.dealersWaiting }] : []),
+    ...AGING_BUCKETS.map(b => ({ label: `${BUCKET_LABEL[b.key]} (MT)`, getValue: r => (r.aging[b.key] || 0).toFixed(2) })),
     { label: 'Oldest order', getValue: r => r.oldest || '' },
-    { label: 'Days waiting', getValue: r => r.oldestDays ?? '' },
+    { label: 'Order age (days)', getValue: r => r.oldestDays ?? '' },
     { label: 'Daily pace (MT/day)', getValue: r => r.pace.toFixed(2) },
-    { label: 'Days to clear', getValue: r => (r.pace > 0 ? r.daysToClear.toFixed(1) : '') },
-    { label: 'Despatched this month (MT)', getValue: r => r.despatchedThisMonth.toFixed(2) },
+    { label: 'Clearance (days)', getValue: r => (r.pace > 0 ? r.daysToClear.toFixed(1) : '') },
+    { label: 'MTD despatch (MT)', getValue: r => r.despatchedThisMonth.toFixed(2) },
   ];
   const exportFiltered = () => downloadCsv(getExportFilename(`pending_${level}s`, 'filtered'), csvColumns, rows);
   const exportAll = () => downloadCsv(getExportFilename(`pending_${level}s`, 'all'), csvColumns, allRows);
@@ -275,7 +289,7 @@ export default function PendingOrders() {
     return (
       <div className="glass-card p-10 text-center">
         <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" aria-hidden="true" />
-        <h2 className="text-xl font-bold text-text-primary mb-2">Pending orders could not load</h2>
+        <h2 className="text-xl font-bold text-text-primary mb-2">Pending orders unavailable</h2>
         <p className="text-sm text-text-muted max-w-lg mx-auto">{String(error)}</p>
       </div>
     );
@@ -288,31 +302,31 @@ export default function PendingOrders() {
     {
       label: 'Pending Orders',
       value: `${mtNum(s.total)} MT`,
-      subtitle: `${count(s.dealerCount)} dealers waiting for despatch`,
+      subtitle: `${count(s.dealerCount)} dealers`,
       accent: '#f59e0b',
     },
     {
-      label: 'Days to Clear',
+      label: 'Clearance Time',
       value: s.daysToClear != null ? `${s.daysToClear.toFixed(1)} Days` : 'None',
-      subtitle: s.pace > 0 ? `at the average pace of ${s.pace.toFixed(1)} MT a day` : 'no recent despatch pace',
+      subtitle: s.pace > 0 ? `@ ${s.pace.toFixed(1)} MT/day avg despatch` : 'N/A',
       accent: '#3b82f6',
     },
     {
-      label: 'Over 30 Days Old',
+      label: 'Aged >30 Days',
       value: `${mtNum(s.over30)} MT`,
-      subtitle: `${pct(s.over30, s.total).toFixed(0)}% of pending was ordered more than a month ago`,
+      subtitle: `${pct(s.over30, s.total).toFixed(1)}% of backlog`,
       accent: '#f97316',
     },
     {
-      label: 'Oldest Order',
+      label: 'Oldest Order Age',
       value: s.oldestDays != null ? `${s.oldestDays} Days` : 'None',
-      subtitle: s.oldest ? `waiting since ${formatDayLabel(s.oldest)}` : 'no open orders',
+      subtitle: s.oldest ? `Ordered ${formatDayLabel(s.oldest)}` : 'N/A',
       accent: '#ef4444',
     },
     {
-      label: 'No Despatch Yet',
+      label: 'Zero MTD Despatch',
       value: count(s.noDespatchCount),
-      subtitle: `dealers with ${formatMT(s.noDespatchQty)} pending and no despatch this month`,
+      subtitle: `Dealers holding ${formatMT(s.noDespatchQty)} backlog`,
       accent: '#a855f7',
     },
   ] : [];
@@ -324,9 +338,6 @@ export default function PendingOrders() {
           <PackageOpen className="w-7 h-7 text-accent-blue mt-1 shrink-0" aria-hidden="true" />
           <div>
             <h2 className="text-3xl font-extrabold text-text-primary leading-tight">Pending Orders</h2>
-            <p className="text-sm text-text-muted mt-1">
-              Orders placed but not yet despatched: how much, how old, and who is waiting.
-            </p>
           </div>
         </div>
         {asOf && (
@@ -335,8 +346,6 @@ export default function PendingOrders() {
           </span>
         )}
       </div>
-
-      <FilterBar />
 
       <ErrorBoundary>
         {loadingView ? (
@@ -359,10 +368,10 @@ export default function PendingOrders() {
           <section className="glass-card p-4 sm:p-5" aria-labelledby="pending-age-heading">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-2 mb-4">
               <div>
-                <h3 id="pending-age-heading" className="text-lg font-extrabold text-text-primary">How old the pending orders are</h3>
+                <h3 id="pending-age-heading" className="text-lg font-extrabold text-text-primary">Backlog Ageing</h3>
                 <p className="text-[13px] text-text-muted mt-1 max-w-[75ch]">
-                  Counted from each order's date to {asOf ? formatDayLabel(asOf) : 'today'}. Click a box to list only who has orders that old.
-                  {product && ' With a product selected, the split by age is estimated from each dealer\'s whole backlog.'}
+                  Order age from order date to {asOf ? formatDayLabel(asOf) : 'the latest upload'}. Select a bucket to filter the order book.
+                  {product && ' Product-level ageing estimated from dealer totals.'}
                 </p>
               </div>
               {activeBucket && (
@@ -371,7 +380,7 @@ export default function PendingOrders() {
                   onClick={() => setBucket('')}
                   className="inline-flex items-center gap-1.5 self-start shrink-0 px-3 py-1.5 rounded-lg border border-border-accent bg-accent-blue-soft text-[13px] font-bold text-accent-blue cursor-pointer hover:opacity-90"
                 >
-                  {activeBucket.fullLabel}
+                  {BUCKET_LABEL[activeBucket.key]}
                   <X className="w-3.5 h-3.5" aria-hidden="true" />
                   <span className="sr-only">Clear age filter</span>
                 </button>
@@ -390,20 +399,24 @@ export default function PendingOrders() {
                       aria-pressed={selected}
                       disabled={qty <= 0}
                       onClick={() => setBucket(selected ? '' : b.key)}
+                      // index.css fades every disabled button in light mode to 0.62,
+                      // which takes this box's 12px line under 4.5:1. A zero box
+                      // reads as zero without the fade.
+                      style={{ opacity: 1 }}
                       className={`w-full h-full text-left rounded-xl border p-3 transition-colors disabled:cursor-default cursor-pointer ${
                         selected ? 'border-border-accent bg-accent-blue-soft' : 'border-border bg-bg-secondary hover:border-border-accent'
                       }`}
                     >
                       <span className="flex items-center gap-2 text-[13px] font-bold text-text-secondary">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: BUCKET_FILL[b.key] }} aria-hidden="true" />
-                        {b.fullLabel}
+                        {BUCKET_LABEL[b.key]}
                       </span>
                       <span className="block text-xl font-black text-text-primary tabular-nums whitespace-nowrap mt-1.5">{formatMT(qty)}</span>
                       <span className="block h-1.5 rounded-full bg-bg-tertiary mt-2 overflow-hidden" aria-hidden="true">
                         <span className="block h-full rounded-full" style={{ width: `${share}%`, background: BUCKET_FILL[b.key] }} />
                       </span>
                       <span className="block text-[12px] text-text-muted mt-1.5">
-                        {share.toFixed(0)}% of pending, {count(dealersIn)} {dealersIn === 1 ? 'dealer' : 'dealers'}
+                        {share.toFixed(1)}% · {count(dealersIn)} {dealersIn === 1 ? 'dealer' : 'dealers'}
                       </span>
                     </button>
                   </li>
@@ -416,15 +429,15 @@ export default function PendingOrders() {
 
       {!loadingView && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <BarList
-            title="By order month"
-            note="The month each pending order was placed."
+          <MixPanel
+            title="Order Month Mix"
+            note="Backlog split by the month each order was placed. Older months carry the clearance risk."
             rows={s.byMonth.map(r => ({ key: r.month, label: monthLabel(r.month), qty: r.qty }))}
             total={s.total}
           />
-          <BarList
-            title="By product"
-            note={product ? 'Showing the selected product only.' : 'What the pending orders are for.'}
+          <MixPanel
+            title="Product Mix"
+            note={product ? 'Selected product only.' : 'Backlog split by product line, largest first.'}
             rows={s.products.map(p => ({ key: p.product, label: p.label, qty: p.pending }))}
             total={s.products.reduce((a, p) => a + p.pending, 0)}
           />
@@ -432,9 +445,8 @@ export default function PendingOrders() {
       )}
 
       <section className="space-y-3" aria-labelledby="pending-table-heading">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <h3 id="pending-table-heading" className="text-lg font-extrabold text-text-primary">Who is waiting</h3>
-          <div className="flex flex-wrap items-center gap-2">
+        <h3 id="pending-table-heading" className="text-lg font-extrabold text-text-primary">Pending Order Book</h3>
+        <div className="glass-card p-3 sm:p-3.5 flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 p-1 rounded-full border border-border/40" role="group" aria-label="Group by">
               {LEVELS.map(opt => {
                 const active = level === opt.value;
@@ -453,6 +465,8 @@ export default function PendingOrders() {
                 );
               })}
             </div>
+            <FilterBar inline />
+            <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
             <div className="w-[170px] sm:w-[200px]">
               <SearchInput placeholder={`Search ${LEVELS.find(l => l.value === level).label.toLowerCase()}...`} value={search} onChange={setSearch} />
             </div>
@@ -473,7 +487,7 @@ export default function PendingOrders() {
             </div>
           ) : rows.length === 0 ? (
             <div className="glass-card p-8 text-center text-sm text-text-muted">
-              No pending orders match these filters.
+              No pending orders for the selected filters.
             </div>
           ) : (
             <DataTable
@@ -487,7 +501,7 @@ export default function PendingOrders() {
           )}
         </ErrorBoundary>
         {!loadingView && level !== 'dealer' && rows.length > 0 && (
-          <p className="text-[12px] text-text-muted">Click a row to see its {level === 'state' ? 'districts' : 'dealers'}.</p>
+          <p className="text-[12px] text-text-muted">Row click opens {level === 'state' ? 'district' : 'dealer'} view.</p>
         )}
       </section>
     </div>

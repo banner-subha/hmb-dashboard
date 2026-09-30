@@ -3,7 +3,8 @@ import { useFilterState, useDataState } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { isWestBengalUser } from '../../utils/constants';
 
-const FilterBar = memo(function FilterBar({ children }) {
+// inline: no card of its own, for a toolbar that already sits in one.
+const FilterBar = memo(function FilterBar({ children, inline = false }) {
   const { filters, dispatch } = useFilterState();
   const { filterOptions } = useDataState();
   const { user } = useAuth();
@@ -30,7 +31,7 @@ const FilterBar = memo(function FilterBar({ children }) {
   }, [dispatch]);
 
   return (
-    <div className="glass-card p-3.5 sm:p-4 flex flex-wrap items-center gap-2 sm:gap-2.5 mb-5">
+    <div className={inline ? 'flex flex-wrap items-center gap-2' : 'glass-card p-3.5 sm:p-4 flex flex-wrap items-center gap-2 sm:gap-2.5 mb-5'}>
       <select
         className="filter-select w-full sm:w-[140px]"
         value={filters.selectedState || ''}

@@ -14,7 +14,7 @@ import { getNormalizedDistrictSet, matchesAssignedDistrict } from '../utils/dist
  * behave alike in both modes. The state filter also goes to the server, which
  * is what lets the KPIs and the sales team follow it in a range.
  */
-export function useVisitRange({ range, state = 'ALL', query = '', role = 'ALL', data, summary, repRoleIndex, user = null }) {
+export function useVisitRange({ range, state = 'ALL', district = 'ALL', query = '', role = 'ALL', data, summary, repRoleIndex, user = null }) {
   const key = range ? `${range.from}|${range.to}|${state}` : null;
   const [result, setResult] = useState({ key: null, data: null, error: null });
   const [retry, setRetry] = useState(0);
@@ -48,8 +48,8 @@ export function useVisitRange({ range, state = 'ALL', query = '', role = 'ALL', 
     });
   }, [res, data, user]);
   const districts = useMemo(
-    () => (allDistricts ? allDistricts.filter(d => matchesFilters(d, { state, query }, ['district', 'state'])) : null),
-    [allDistricts, state, query]
+    () => (allDistricts ? allDistricts.filter(d => matchesFilters(d, { state, district, query }, ['district', 'state'])) : null),
+    [allDistricts, state, district, query]
   );
 
   const allReps = useMemo(

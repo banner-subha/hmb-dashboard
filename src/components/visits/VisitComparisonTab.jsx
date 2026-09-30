@@ -1100,11 +1100,11 @@ export default function VisitComparisonTab({
           {/* ──────────────── Breakdown ──────────────── */}
           <div className="glass-card p-4 sm:p-5 lg:p-6 space-y-5">
             {/* View switcher & actions */}
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-5 border-b border-border/40">
+            <div className="flex items-center justify-between gap-2.5 pb-4 border-b border-border/40 overflow-x-auto no-scrollbar">
               <div
                 role="tablist"
                 aria-label="Comparison breakdowns"
-                className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-bg-secondary/70 border border-border/50 flex-wrap"
+                className="flex items-center gap-1 p-1 rounded-xl bg-bg-secondary/70 border border-border/50 flex-nowrap shrink-0"
               >
                 {subViews.map(v => {
                   const isActive = subView === v.key;
@@ -1115,15 +1115,15 @@ export default function VisitComparisonTab({
                       role="tab"
                       aria-selected={isActive}
                       onClick={() => { setSubView(v.key); setSortField('visits_a'); setSortAsc(false); }}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-bold transition-colors duration-150 cursor-pointer whitespace-nowrap ${
+                      className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[12.5px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                         isActive
-                          ? 'bg-accent-blue text-white'
+                          ? 'bg-accent-blue text-white shadow-md'
                           : 'text-text-secondary hover:text-text-primary hover:bg-bg-card'
                       }`}
                     >
                       {v.label}
                       {v.count != null && (
-                        <span className={`px-1.5 py-0.5 rounded-md text-[12px] font-bold tabular-nums ${isActive ? 'bg-white/25 text-white' : 'bg-bg-card text-text-muted'}`}>
+                        <span className={`px-1.5 py-0.5 rounded-md text-[10.5px] font-bold tabular-nums ${isActive ? 'bg-white/25 text-white' : 'bg-bg-card text-text-muted'}`}>
                           {v.count}
                         </span>
                       )}
@@ -1132,14 +1132,14 @@ export default function VisitComparisonTab({
                 })}
               </div>
 
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 {(subView === 'districts' || subView === 'reps') && (
-                  <div className="w-full sm:w-72">
+                  <div className="w-[140px] sm:w-[170px] shrink-0">
                     <SearchInput
-                      size="lg"
+                      size="xs"
                       value={searchQuery}
                       onChange={setSearchQuery}
-                      placeholder={subView === 'districts' ? 'Search district or state' : 'Search sales rep'}
+                      placeholder={subView === 'districts' ? 'Search districts...' : 'Search reps...'}
                     />
                   </div>
                 )}
@@ -1147,7 +1147,7 @@ export default function VisitComparisonTab({
                 <button
                   type="button"
                   onClick={handleExportCsv}
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-text-primary text-[13px] font-bold transition-all shadow-sm cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 h-[34px] px-2.5 py-1 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-text-secondary hover:text-text-primary text-[11.5px] font-bold transition-all shadow-sm cursor-pointer whitespace-nowrap shrink-0"
                   title="Export Comparison to CSV"
                 >
                   <Download className="w-3.5 h-3.5 text-accent-blue shrink-0" />

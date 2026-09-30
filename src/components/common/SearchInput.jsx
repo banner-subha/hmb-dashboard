@@ -21,6 +21,13 @@ import { useState, useEffect, useRef } from 'react';
  * a 12px input next to a 44px tab strip reads as an afterthought.
  */
 const SIZES = {
+  xs: {
+    field: 'rounded-xl pl-8 pr-7 py-1 text-xs h-[34px]',
+    iconWrap: 'pl-2.5',
+    icon: 'h-3.5 w-3.5',
+    clearWrap: 'pr-2',
+    clear: 'h-3 w-3',
+  },
   sm: {
     field: 'rounded-full pl-8 pr-7 py-1.5 text-xs',
     iconWrap: 'pl-3',

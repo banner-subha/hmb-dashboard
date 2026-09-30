@@ -128,7 +128,7 @@ export async function fetchDistrictFabricators({ from, to, state, district }) {
 /**
  * The Visits page's visit figures for an inclusive range, and for the equally
  * long period before it: { from, to, prev_from, prev_to, days, kpi, districts,
- * reps }. At most 93 days; see migration 024.
+ * reps }. At most 400 days; see migrations 024 and 035.
  */
 export async function fetchVisitsRange({ from, to, state = null }) {
   if (!from || !to) {
@@ -144,7 +144,7 @@ export async function fetchVisitsRange({ from, to, state = null }) {
 }
 
 /**
- * Dealers with a 'new lead' visit in an inclusive range (at most 93 days):
+ * Dealers with a 'new lead' visit in an inclusive range (at most 400 days):
  * [{ key, new_lead_visits, first_lead }], key as dealerNameKey in utils/visits.
  */
 export async function fetchNewLeadDealers({ from, to }) {

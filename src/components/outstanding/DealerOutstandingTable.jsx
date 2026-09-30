@@ -58,8 +58,11 @@ function DaysBadge({ row }) {
   if (n <= 0) return <span className="text-[12.5px] font-bold text-emerald-400">Not yet due</span>;
   const covered = !(Number(row.overdue_amount) > 0);
   return (
-    <span className={`text-[12.5px] font-bold tabular-nums ${covered ? 'text-text-muted' : getOverdueSeverity(n).text}`}>
-      Oldest bill {n.toLocaleString('en-IN')} days overdue{covered ? ', adjusted by credits' : ''}
+    <span
+      className={`text-[12.5px] font-bold tabular-nums ${covered ? 'text-text-muted' : getOverdueSeverity(n).text}`}
+      title={covered ? 'Oldest bill; overdue already adjusted by credits' : 'Oldest unpaid bill'}
+    >
+      {n.toLocaleString('en-IN')} days overdue
     </span>
   );
 }

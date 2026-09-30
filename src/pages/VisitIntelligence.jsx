@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Briefcase, AlertTriangle, RotateCcw } from 'lucide-react';
 
 import SearchInput from '../components/common/SearchInput';
@@ -74,6 +74,7 @@ export default function VisitIntelligence() {
   const { user } = useAuth();
   const [section, setSection] = useState('dealers');
   const [state, setState] = useState('ALL');
+  const [district, setDistrict] = useState('ALL');
   const [quadrant, setQuadrant] = useState('ALL');
   const [query, setQuery] = useState('');
   const [selectedDealer, setSelectedDealer] = useState(null);
@@ -180,9 +181,10 @@ export default function VisitIntelligence() {
   const {
     data, loading, error,
     dealers, districts, reps,
-    summary, stateOptions, salesLink, counts,
+    summary, stateOptions, districtOptions, salesLink, counts,
   } = useVisitData({
     state,
+    district,
     quadrant,
     query,
     role: repRole,
@@ -207,7 +209,14 @@ export default function VisitIntelligence() {
 
   // A picked range replaces the visit figures on the KPI row, the district
   // table and the sales team. Sales, plan and the dealer groups stay monthly.
-  const ranged = useVisitRange({ range, state, query, role: repRole, data, summary, repRoleIndex, user });
+  const ranged = useVisitRange({ range, state, district, query, role: repRole, data, summary, repRoleIndex, user });
+
+  // Reset district if the active state changes or the current district is no longer among available options
+  useEffect(() => {
+    if (district !== 'ALL' && districtOptions?.length > 1 && !districtOptions.includes(district)) {
+      setDistrict('ALL');
+    }
+  }, [district, districtOptions]);
   const inRange = ranged.active;
   const shownSummary = inRange ? ranged.summary : summary;
   const shownReps = inRange ? (ranged.reps || []) : reps;
@@ -216,36 +225,52 @@ export default function VisitIntelligence() {
   // The span the district table counts: day 1 of the latest visit month to
   // the latest visit day. The fabricator panel asks for the same days, so its
   // totals line up with the row that opened it.
+  const latestVisitDate = data?.meta?.latestVisitDate;
   const tableRange = useMemo(() => {
-    const latest = data?.meta?.latestVisitDate;
-    return latest ? { from: `${latest.slice(0, 7)}-01`, to: latest } : null;
-  }, [data]);
+    return latestVisitDate ? { from: `${latestVisitDate.slice(0, 7)}-01`, to: latestVisitDate } : null;
+  }, [latestVisitDate]);
 
-  // Dealers with a 'new lead' visit this month, for the New lead tag. The
-  // month, not a picked range: the Dealers tab reads the month payload.
-  //
-  // It is asked for again after 4 s and 10 s if it fails. The page opens with
-  // about ten requests at once, and on this small instance that burst can hold
-  // a query past anon's 3 s timeout; the service's own quick retries fall
-  // inside the same burst. A request that never succeeds only means no tags,
-  // so it is not shown as an error.
+  // Dealers with a 'new lead' visit this month, for the New lead tag.
   const [newLeadDealers, setNewLeadDealers] = useState(null);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const fetchedLeadRangeRef = useRef(null);
+
   useEffect(() => {
-    if (!tableRange) return undefined;
+    if (!tableRange?.from || !tableRange?.to) return undefined;
+    const rangeKey = `${tableRange.from}:${tableRange.to}`;
+    if (fetchedLeadRangeRef.current === rangeKey) return undefined;
+    fetchedLeadRangeRef.current = rangeKey;
+
     let live = true;
     let timer = null;
+    setLeadsLoading(true);
+
     const attempt = n => {
       fetchNewLeadDealers(tableRange)
-        .then(rows => { if (live) setNewLeadDealers(new Map(rows.map(r => [r.key, r]))); })
+        .then(rows => {
+          if (!live) return;
+          setNewLeadDealers(new Map((rows || []).map(r => [r.key, r])));
+          setLeadsLoading(false);
+        })
         .catch(err => {
           if (!live) return;
-          if (n < 2) timer = setTimeout(() => attempt(n + 1), n === 0 ? 4000 : 10000);
-          else console.warn('[VisitIntelligence] New lead fetch warning:', err);
+          if (n < 2) {
+            timer = setTimeout(() => attempt(n + 1), n === 0 ? 1500 : 3000);
+          } else {
+            console.warn('[VisitIntelligence] New lead fetch warning:', err);
+            setNewLeadDealers(prev => prev || new Map());
+            setLeadsLoading(false);
+          }
         });
     };
+
     attempt(0);
-    return () => { live = false; clearTimeout(timer); };
-  }, [tableRange]);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [tableRange?.from, tableRange?.to]);
+
   const tagLeads = useCallback(
     rows => (newLeadDealers
       ? rows.map(d => {
@@ -297,7 +322,7 @@ export default function VisitIntelligence() {
   // Every state and district the fabricator panel's selects can offer: the
   // month payload's districts, plus any only the picked range has. Not the
   // table's filtered rows, so a header filter doesn't narrow the panel.
-  const districtOptions = useMemo(
+  const panelDistrictOptions = useMemo(
     () => [...(data?.districts || []), ...(inRange ? (ranged.districts || []) : [])]
       .filter(d => d.state && d.district && d.district.toUpperCase() !== 'UNKNOWN')
       .map(d => ({ state: d.state, district: d.district })),
@@ -309,6 +334,7 @@ export default function VisitIntelligence() {
     filters: {
       section,
       state,
+      district,
       quadrant,
       search: query || '',
       repRole,
@@ -459,7 +485,7 @@ export default function VisitIntelligence() {
 
   const rowsFor = { dealers: shownDealers, districts: districtsWithSales, reps: shownReps };
   const visibleCount = rowsFor[section]?.length ?? 0;
-  const filtersOn = state !== 'ALL' || quadrant !== 'ALL' || query !== '' || dealerLeadsOnly;
+  const filtersOn = state !== 'ALL' || district !== 'ALL' || quadrant !== 'ALL' || query !== '' || dealerLeadsOnly;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -479,45 +505,12 @@ export default function VisitIntelligence() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Comparison carries its own State control next to its District
-              one, so the header drops this while that tab is open rather than
-              showing the same filter twice. */}
-          {section !== 'comparison' && (
-            <select
-              className="filter-select text-sm py-2 px-3 w-full sm:w-[150px]"
-              value={state}
-              onChange={e => setState(e.target.value)}
-              aria-label="Filter by state"
-            >
-              {stateOptions.map(st => (
-                <option key={st} value={st}>
-                  {st === 'ALL' ? (stateOptions.length === 2 ? `All ${stateOptions[1]}` : 'All States') : st}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* The period the visit views describe. "This month" is the parser's
-              payload; a picked range is read from field_visits and changes the
-              KPI row, the district table and the sales team. The Comparison
-              tab keeps its own period selectors. */}
-          {section !== 'comparison' && data.meta?.latestVisitDate && (
-            <VisitRangePicker
-              value={range}
-              preset={rangePreset}
-              latest={data.meta.latestVisitDate}
-              onChange={(next, key) => {
-                setRange(next);
-                setRangePreset(key);
-              }}
-            />
-          )}
-
           {filtersOn && (
             <button
               type="button"
               onClick={() => {
                 setState('ALL');
+                setDistrict('ALL');
                 setQuadrant('ALL');
                 setQuery('');
                 setDealerLeadsOnly(false);
@@ -587,7 +580,10 @@ export default function VisitIntelligence() {
           the way Dealer Network holds its controls and table together. */}
       <div className="glass-card p-4 sm:p-5 lg:p-6 space-y-5">
 
-        <div className="flex flex-col xl:flex-row xl:items-center gap-3 justify-between pb-5 border-b border-border/40">
+        {/* Single uniform row: Sub tabs on left, filters on right. It scrolls
+            sideways on narrow screens rather than wrapping, so nothing in it
+            may open a dropdown: the scroll box would clip it. */}
+        <div className="flex items-center justify-between gap-2.5 pb-4 border-b border-border/40 overflow-x-auto no-scrollbar">
           {/*
             The view switcher. Built here rather than on the shared
             .toggle-pill-* classes because those hard-force a pill radius and a
@@ -597,7 +593,7 @@ export default function VisitIntelligence() {
           <div
             role="tablist"
             aria-label="Field visit views"
-            className="flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 rounded-2xl bg-bg-secondary/70 border border-border/50 flex-nowrap shrink-0 overflow-x-auto no-scrollbar"
+            className="flex items-center gap-1 p-1 rounded-xl bg-bg-secondary/70 border border-border/50 flex-nowrap shrink-0"
           >
             {VISIT_SECTIONS.map(s => {
               const count = s.countKey ? shownCounts[s.countKey] : null;
@@ -609,7 +605,7 @@ export default function VisitIntelligence() {
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setSection(s.key)}
-                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-[13px] sm:text-[13.5px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[12.5px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
                     isActive
                       ? 'bg-accent-blue text-white shadow-md'
                       : 'text-text-secondary hover:text-text-primary hover:bg-bg-card'
@@ -618,7 +614,7 @@ export default function VisitIntelligence() {
                   {s.label}
                   {count != null && (
                     <span
-                      className={`px-1.5 py-0.5 rounded-md text-[11px] sm:text-[11.5px] font-bold tabular-nums ${
+                      className={`px-1.5 py-0.5 rounded-md text-[10.5px] font-bold tabular-nums ${
                         isActive ? 'bg-white/25 text-white' : 'bg-bg-card text-text-muted'
                       }`}
                     >
@@ -630,87 +626,155 @@ export default function VisitIntelligence() {
             })}
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end shrink-0 ml-auto">
-            {/* Role is a sales-team fact, so the control only exists on that
-                view. KRM, KRO and everyone else — field staff who carry visits
-                but hold no account in the Business Plan — are the three groups
-                the plan itself recognises. */}
-            {section === 'reps' && (
-              <div
-                role="group"
-                aria-label="Filter by role"
-                className="flex items-center gap-0.5 sm:gap-1 p-1 bg-bg-secondary/60 rounded-xl border border-border/40 shrink-0"
+          {/* Unified filters & actions on the right */}
+          {section !== 'comparison' && (
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <select
+                id="visits-state-filter"
+                className="filter-select text-[12px] py-1 pl-2.5 pr-7 h-[34px] w-[100px] sm:w-[110px] shrink-0 font-medium"
+                value={state}
+                onChange={e => {
+                  setState(e.target.value);
+                  setDistrict('ALL');
+                }}
+                aria-label="Filter by state"
               >
-                {REP_ROLES.map(r => {
-                  const on = repRole === r.key;
-                  return (
-                    <button
-                      key={r.key}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => setRepRole(r.key)}
-                      className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[12.5px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
-                        on
-                          ? 'bg-accent-blue text-white shadow-sm'
-                          : 'text-text-secondary hover:text-text-primary hover:bg-bg-card'
-                      }`}
-                    >
-                      {r.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                {stateOptions.map(st => (
+                  <option key={st} value={st}>
+                    {st === 'ALL' ? (stateOptions.length === 2 ? `All ${stateOptions[1]}` : 'All States') : st}
+                  </option>
+                ))}
+              </select>
 
-            {section === 'dealers' && newLeadDealers && (
-              <LeadsToggle
-                on={dealerLeadsOnly}
-                count={taggedDealers.filter(d => d.newLead).length}
-                onChange={setDealerLeadsOnly}
-              />
-            )}
+              <select
+                id="visits-district-filter"
+                className="filter-select text-[12px] py-1 pl-2.5 pr-7 h-[34px] w-[110px] sm:w-[114px] shrink-0 font-medium"
+                value={district}
+                onChange={e => setDistrict(e.target.value)}
+                aria-label="Filter by district"
+              >
+                <option value="ALL">
+                  {districtOptions.length === 2 ? `All ${districtOptions[1]}` : 'All Districts'}
+                </option>
+                {districtOptions
+                  .filter(d => d !== 'ALL')
+                  .map(dt => (
+                    <option key={dt} value={dt}>
+                      {dt}
+                    </option>
+                  ))}
+              </select>
 
-            {active.searchHint && (
-              <div className="w-[180px] sm:w-[210px] lg:w-[240px] shrink-0">
-                <SearchInput
-                  size="lg"
-                  value={query}
-                  onChange={setQuery}
-                  placeholder={active.searchHint}
+              {/* Role is a sales-team fact, so the control only exists on that view. */}
+              {section === 'reps' && (
+                <div
+                  role="group"
+                  aria-label="Filter by role"
+                  className="flex items-center gap-0.5 p-0.5 bg-bg-secondary/60 rounded-xl border border-border/40 shrink-0 h-[34px]"
+                >
+                  {REP_ROLES.map(r => {
+                    const on = repRole === r.key;
+                    return (
+                      <button
+                        key={r.key}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setRepRole(r.key)}
+                        className={`px-2 py-1 rounded-lg text-[11px] sm:text-[11.5px] font-bold transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
+                          on
+                            ? 'bg-accent-blue text-white shadow-sm'
+                            : 'text-text-secondary hover:text-text-primary hover:bg-bg-card'
+                        }`}
+                      >
+                        {r.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {section === 'dealers' && (
+                <LeadsToggle
+                  on={dealerLeadsOnly}
+                  count={taggedDealers.filter(d => d.newLead).length}
+                  onChange={setDealerLeadsOnly}
+                  loading={leadsLoading && !newLeadDealers}
+                  compact
                 />
-              </div>
-            )}
+              )}
 
-            {section !== 'trends' && section !== 'comparison' && (
-              <ExportDropdown
-                label="Export CSV"
-                entityName={section === 'dealers' ? 'Dealers' : section === 'districts' ? 'Districts' : 'Sales Reps'}
-                filteredCount={visibleCount}
-                rawCount={
-                  section === 'dealers' 
-                    ? (data?.dealers || []).length 
-                    : section === 'districts' 
-                      ? (data?.districts || []).length 
-                      : (data?.employees || []).length
-                }
-                onExportFiltered={handleExportFiltered}
-                onExportRaw={handleExportRaw}
-                showChevron
-                className="shrink-0"
-              />
-            )}
-          </div>
+              {active.searchHint && (
+                <div className="w-[120px] sm:w-[135px] md:w-[140px] shrink-0">
+                  <SearchInput
+                    size="xs"
+                    value={query}
+                    onChange={setQuery}
+                    placeholder={
+                      section === 'dealers'
+                        ? 'Search dealers...'
+                        : section === 'districts'
+                          ? 'Search districts...'
+                          : 'Search reps...'
+                    }
+                  />
+                </div>
+              )}
+
+            </div>
+          )}
         </div>
 
         <div>
-          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <h3 className="text-xl font-extrabold text-text-primary leading-tight">{active.title}</h3>
-            {active.countKey && (!inRange || ranged.ready || !rangeViews.has(section)) && (
-              <span className="text-[13px] font-bold text-text-muted whitespace-nowrap">
-                Showing {visibleCount.toLocaleString('en-IN')} of{' '}
-                {(shownCounts[active.countKey] ?? 0).toLocaleString('en-IN')}
-              </span>
-            )}
+            {/* The period and the export sit with the count they change, out of
+                the filter row: that row scrolls sideways on narrow screens,
+                which clipped both dropdowns. */}
+            <div className="flex flex-wrap items-center gap-2">
+              {active.countKey && (!inRange || ranged.ready || !rangeViews.has(section)) && (
+                <span className="text-[13px] font-bold text-text-muted whitespace-nowrap mr-1">
+                  Showing {visibleCount.toLocaleString('en-IN')} of{' '}
+                  {(shownCounts[active.countKey] ?? 0).toLocaleString('en-IN')}
+                </span>
+              )}
+
+              {/* The period the visit views describe. "This month" is the
+                  parser's payload; a picked range is read from field_visits and
+                  changes the KPI row, the district table and the sales team.
+                  The Comparison tab keeps its own period selectors. */}
+              {section !== 'comparison' && data.meta?.latestVisitDate && (
+                <VisitRangePicker
+                  value={range}
+                  preset={rangePreset}
+                  latest={data.meta.latestVisitDate}
+                  onChange={(next, key) => {
+                    setRange(next);
+                    setRangePreset(key);
+                  }}
+                  compact
+                />
+              )}
+
+              {section !== 'trends' && section !== 'comparison' && (
+                <ExportDropdown
+                  label="Export CSV"
+                  entityName={section === 'dealers' ? 'Dealers' : section === 'districts' ? 'Districts' : 'Sales Reps'}
+                  filteredCount={visibleCount}
+                  rawCount={
+                    section === 'dealers' 
+                      ? (data?.dealers || []).length 
+                      : section === 'districts' 
+                        ? (data?.districts || []).length 
+                        : (data?.employees || []).length
+                  }
+                  onExportFiltered={handleExportFiltered}
+                  onExportRaw={handleExportRaw}
+                  showChevron
+                  compact
+                  className="shrink-0"
+                />
+              )}
+            </div>
           </div>
           <p className="text-[13.5px] text-text-muted mt-1.5 max-w-3xl leading-relaxed">
             {inRange && RANGE_BLURBS[section] ? RANGE_BLURBS[section] : active.blurb}
@@ -773,9 +837,26 @@ export default function VisitIntelligence() {
         </ErrorBoundary>
 
         {active.countKey && visibleCount === 0 && (!inRange || ranged.ready || !rangeViews.has(section)) && (
-          <p className="text-center text-sm text-text-muted py-8">
-            No rows match the current filters. Clear them to see everything again.
-          </p>
+          <div className="text-center py-8 space-y-2">
+            <p className="text-sm text-text-muted">
+              No rows match the current filters. Clear them to see everything again.
+            </p>
+            {filtersOn && (
+              <button
+                type="button"
+                onClick={() => {
+                  setState('ALL');
+                  setDistrict('ALL');
+                  setQuadrant('ALL');
+                  setQuery('');
+                  setDealerLeadsOnly(false);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-border/60 bg-bg-card hover:bg-bg-card-hover text-[13px] font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Clear Filters
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -787,7 +868,7 @@ export default function VisitIntelligence() {
       <DistrictFabricatorPanel
         key={selectedDistrict ? `${selectedDistrict.state}|${selectedDistrict.district}` : 'none'}
         district={tableRange ? selectedDistrict : null}
-        districtOptions={districtOptions}
+        districtOptions={panelDistrictOptions}
         range={range || tableRange}
         roleIndex={repRoleIndex}
         onClose={closeDistrict}

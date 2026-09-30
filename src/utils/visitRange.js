@@ -4,11 +4,26 @@
 // Pure and import-free, so scripts/test-visit-range.mjs runs it under node.
 // Dates are 'YYYY-MM-DD' strings throughout, done in UTC so a day never shifts.
 
-export const MAX_RANGE_DAYS = 93;
-export const EARLIEST_VISIT_DAY = '2025-01-01';
+// The server's limit (migration 035). Longer than the visit data kept, so in
+// practice the earliest visit day is what bounds a range.
+export const MAX_RANGE_DAYS = 400;
 
 const toDate = iso => new Date(`${iso}T00:00:00Z`);
 const toIso = d => d.toISOString().slice(0, 10);
+
+/** '2026-01-01' -> '1 Jan 2026'. */
+export const dayLabel = iso =>
+  toDate(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+/**
+ * First day of the earliest month in get_visits_calendar's payload, or null.
+ * The table keeps a rolling window, so this comes from the data, not a constant.
+ */
+export function earliestVisitDay(calendar) {
+  const months = Object.values(calendar?.by_year || {}).flat().map(m => m?.month).filter(Boolean);
+  if (months.length === 0) return null;
+  return `${months.sort()[0]}-01`;
+}
 
 export function addDays(iso, n) {
   const d = toDate(iso);
@@ -44,10 +59,10 @@ export function presetRange(key, latest) {
 }
 
 /** Why a custom range can't be used, or null when it can. */
-export function rangeProblem(from, to, latest) {
+export function rangeProblem(from, to, latest, earliest = null) {
   if (!from || !to) return 'Pick both a start and an end date.';
   if (to < from) return 'The end date is before the start date.';
-  if (from < EARLIEST_VISIT_DAY) return 'Visits are only recorded from 1 Jan 2025.';
+  if (earliest && from < earliest) return `Visits are only recorded from ${dayLabel(earliest)}.`;
   if (latest && to > latest) return 'Visits are only recorded up to the latest upload.';
   if (daysBetween(from, to) > MAX_RANGE_DAYS) return `Pick ${MAX_RANGE_DAYS} days or fewer.`;
   return null;
@@ -142,7 +157,9 @@ export function rangeSummary(kpi, monthSummary) {
   return {
     ...monthSummary,
     curTotalVisits: kpi.visits ?? 0,
-    prevTotalVisits: kpi.prev_visits ?? 0,
+    // No visits in the period before means it predates the data kept; null
+    // makes the KPI row drop the trend instead of showing a flat "up 100%".
+    prevTotalVisits: kpi.prev_visits > 0 ? kpi.prev_visits : null,
     curDealerVisits: kpi.dealer_visits ?? 0,
     curFabricatorVisits: kpi.fabricator_visits ?? 0,
     activeDealersVisited: visited,

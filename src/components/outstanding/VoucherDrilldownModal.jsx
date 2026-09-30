@@ -23,11 +23,11 @@ const VIEWS = [
   { key: 'credits', label: 'Credits' },
 ];
 
-function Figure({ label, value, tone = 'text-text-primary' }) {
+function Figure({ label, value, tone = 'text-text-primary', title }) {
   return (
     <div className="px-3 py-2.5 rounded-xl bg-bg-secondary border border-border">
       <span className="block text-[12px] font-bold text-text-muted">{label}</span>
-      <span className={`block text-[17px] font-black tabular-nums mt-0.5 ${tone}`} title={formatINRFull(value)}>{formatINR(value)}</span>
+      <span className={`block text-[17px] font-black tabular-nums mt-0.5 ${tone}`} title={title ?? formatINRFull(value)}>{formatINR(value)}</span>
     </div>
   );
 }
@@ -154,7 +154,12 @@ function VoucherDrilldownModal({ account, onClose }) {
             <Figure label="Outstanding" value={a.total_outstanding} />
             <Figure label="Overdue" value={a.overdue_amount} tone={Number(a.overdue_amount) > 0 ? 'text-red-400' : 'text-text-secondary'} />
             <Figure label="Bills due" value={a.billsTotal} />
-            <Figure label="Unadjusted credits" value={a.credit_total} tone="text-text-secondary" />
+            <Figure
+              label="Payments received"
+              value={Math.abs(Number(a.credit_total) || 0)}
+              tone="text-text-secondary"
+              title={`Payments received: ${formatINRFull(Math.abs(a.credit_total))} (advance payments & credits not yet adjusted to bills)`}
+            />
           </div>
           <div className="flex items-center gap-1 p-1 rounded-xl bg-bg-tertiary border border-border w-max" role="group" aria-label="Show entries">
             {VIEWS.map((v) => (

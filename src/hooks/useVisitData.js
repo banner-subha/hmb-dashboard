@@ -18,6 +18,7 @@ import {
  */
 export function useVisitData({
   state = 'ALL',
+  district = 'ALL',
   quadrant = 'ALL',
   query = '',
   role = 'ALL',
@@ -81,13 +82,28 @@ export function useVisitData({
     return ['ALL', ...Array.from(set).sort()];
   }, [enriched]);
 
+  const districtOptions = useMemo(() => {
+    if (!enriched?.dealers && !enriched?.districts) return ['ALL'];
+    const set = new Set();
+    const addDistrict = d => {
+      if (!d?.district) return;
+      const dt = d.district.trim();
+      if (!dt || dt.toUpperCase() === 'UNKNOWN') return;
+      if (state !== 'ALL' && String(d.state || '').trim().toLowerCase() !== String(state).trim().toLowerCase()) return;
+      set.add(dt);
+    };
+    (enriched.dealers || []).forEach(addDistrict);
+    (enriched.districts || []).forEach(addDistrict);
+    return ['ALL', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  }, [enriched, state]);
+
   const dealers = useMemo(() => {
     if (!enriched?.dealers) return [];
     return enriched.dealers.filter(d =>
-      matchesFilters(d, { state, quadrant, query },
+      matchesFilters(d, { state, district, quadrant, query },
                      ['dealer', 'district', 'primaryRep', 'assignedKrm', 'assignedKro', 'krmVisits', 'kroVisits'])
     );
-  }, [enriched, state, quadrant, query]);
+  }, [enriched, state, district, quadrant, query]);
 
   const districts = useMemo(() => {
     if (!enriched?.districts) return [];
@@ -97,9 +113,9 @@ export function useVisitData({
       d.district &&
       d.district.trim() !== '' &&
       d.district.toUpperCase() !== 'UNKNOWN' &&
-      matchesFilters(d, { state, query }, ['district', 'state'])
+      matchesFilters(d, { state, district, query }, ['district', 'state'])
     );
-  }, [enriched, state, query]);
+  }, [enriched, state, district, query]);
 
   const reps = useMemo(() => {
     if (!enriched?.employees) return [];
@@ -109,7 +125,7 @@ export function useVisitData({
     );
   }, [enriched, query, role]);
 
-  const summary = useMemo(() => summariseState(enriched, state), [enriched, state]);
+  const summary = useMemo(() => summariseState(enriched, state, district), [enriched, state, district]);
 
   /**
    * How much of the page's own output rests on a sales link. Quoted in the UI
@@ -121,7 +137,7 @@ export function useVisitData({
   return {
     data: enriched, loading, error,
     dealers, districts, reps,
-    summary, stateOptions, salesLink,
+    summary, stateOptions, districtOptions, salesLink,
     counts: {
       dealers: enriched?.dealers?.length ?? 0,
       districts: enriched?.districts?.length ?? 0,
