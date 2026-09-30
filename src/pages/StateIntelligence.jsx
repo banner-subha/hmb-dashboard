@@ -10,52 +10,35 @@ import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT, formatDays } from '../utils/formatters';
 import { calculateMoM, getBusinessImpact, getSeverityTheme } from '../utils/trendEngine';
 import SkeletonLoader from '../components/common/SkeletonLoader';
-import { getPendingForPeriod, getTotalPendingForPeriod, getSharePctForPeriod, getBacklogClearance } from '../utils/pending';
+import { getPendingForPeriod, getBacklogClearance } from '../utils/pending';
 import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalStates } from '../utils/despatch';
-import { AGING_BUCKETS, getEntityAging, agingTotal } from '../utils/backlogAging';
 import { isRealState } from '../utils/constants';
 import { Map } from 'lucide-react';
 import MoMAreaTrendChart from '../components/charts/MoMAreaTrendChart';
 import ExportDropdown from '../components/common/ExportDropdown';
 import { downloadCsv, getExportFilename } from '../utils/csvExport';
 
-export default function StateIntelligence({ pendingAvailableMonths = [] }) {
+export default function StateIntelligence() {
   const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [metricMode, setMetricMode] = useState("DESPATCH");
   const [selectedPendingMonth, setSelectedPendingMonth] = useState(
-    () => (metricMode === 'PENDING' ? 'ALL' : getCurMonthKey(rawData)),
+    () => getCurMonthKey(rawData),
   );
   const lastSyncedParamsRef = useRef(null);
 
-  const sortedPendingMonths = useMemo(() => {
-    return [...pendingAvailableMonths].sort((a, b) => {
-      if (a.year !== b.year) return b.year - a.year;
-      return b.month - a.month;
-    });
-  }, [pendingAvailableMonths]);
-
   const despatchAvailableMonths = useMemo(() => getDespatchAvailableMonths(rawData), [rawData]);
 
-  // Default pending filter date to "Total Backlog" ('ALL') when switching to
-  // PENDING mode, and back to the current despatch month on the way out.
+  // Reset the month back to the current despatch month when new data lands.
   //
   // Applied during the render that carries the change rather than from an
-  // effect: an effect committed one frame of the new mode still holding the old
-  // mode's month, which reads as a wrong figure rather than as a transition.
-  const [monthResetDeps, setMonthResetDeps] = useState({ metricMode, rawData });
-  if (monthResetDeps.metricMode !== metricMode || monthResetDeps.rawData !== rawData) {
-    setMonthResetDeps({ metricMode, rawData });
-    setSelectedPendingMonth(metricMode === 'PENDING' ? 'ALL' : getCurMonthKey(rawData));
+  // effect, so no frame renders the new data under the old month.
+  const [monthResetDeps, setMonthResetDeps] = useState({ rawData });
+  if (monthResetDeps.rawData !== rawData) {
+    setMonthResetDeps({ rawData });
+    setSelectedPendingMonth(getCurMonthKey(rawData));
   }
-
-  // Compute national pending total to calculate true share of backlog (strategically correct)
-  const nationalPendingTotal = useMemo(() => {
-    const baseStates = rawData?.states || data?.states || [];
-    return getTotalPendingForPeriod(baseStates, selectedPendingMonth);
-  }, [rawData, data, selectedPendingMonth]);
 
   // Sync URL params → Context: runs only when the URL itself changes.
   useEffect(() => {
@@ -121,16 +104,6 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
   const states = useMemo(() => {
     if (!data) return [];
     let rawStates = (data.states || []).filter(s => s && isRealState(s.state));
-    if (metricMode === 'PENDING') {
-      return [...rawStates]
-        .map(s => ({
-          ...s,
-          activePendingVal: getPendingForPeriod(s, selectedPendingMonth)
-        }))
-        .filter(s => selectedPendingMonth === 'ALL' || s.activePendingVal > 0)
-        .sort((a, b) => b.activePendingVal - a.activePendingVal);
-    }
-    
     // DESPATCH MODE: Sort by % share of state volume descending, or filter by positive growth
     let list;
     const curMonthKey = getCurMonthKey(rawData);
@@ -160,7 +133,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       if (shareB !== shareA) return shareB - shareA;
       return (b.cur || 0) - (a.cur || 0);
     });
-  }, [data, rawData, metricMode, selectedPendingMonth, filters, searchParams]);
+  }, [data, rawData, selectedPendingMonth, filters, searchParams]);
 
   useDashboardTelemetry({
     tabName: 'State Intelligence',
@@ -168,121 +141,16 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       state: filters.selectedState || 'ALL',
       district: filters.selectedDistrict || 'ALL',
       product: filters.selectedProduct || 'ALL',
-      metricMode,
       selectedMonth: selectedPendingMonth,
       search: filters.searchQuery || '',
     },
     visibleKpis: {
       stateCount: states?.length || 0,
-      nationalPendingTotalMT: Math.round(nationalPendingTotal * 10) / 10,
       totalCurrentMT: data?.totalCur ? Math.round(data.totalCur * 10) / 10 : 0,
     },
   });
 
   const columns = useMemo(() => {
-    if (metricMode === 'PENDING') {
-      const totalPending = nationalPendingTotal;
-      return [
-        {
-          id: 'severity',
-          header: 'Severity',
-          meta: { width: '140px', minWidth: '135px' },
-          cell: info => {
-            const row = info.row.original;
-            const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
-            const dailyAvg = row.dailyAvgQty ?? row.currentDailyRate ?? 0;
-            const clearance = getBacklogClearance(pendingQty, dailyAvg);
-            return (
-              <div className="flex items-center min-w-0">
-                <ImpactBadge tier={clearance.status} />
-              </div>
-            );
-          },
-        },
-        {
-          accessorKey: 'state',
-          header: 'State',
-          meta: { width: '180px', minWidth: '140px' },
-          cell: info => <span className="font-medium truncate block">{info.getValue()}</span>,
-        },
-        {
-          id: 'pendingQty',
-          header: 'Pending Orders',
-          meta: { width: '20%', minWidth: '110px' },
-          cell: info => {
-            const row = info.row.original;
-            const val = getPendingForPeriod(row, selectedPendingMonth);
-            const allTime = getPendingForPeriod(row, 'ALL');
-            const agingNow = selectedPendingMonth === 'ALL' && allTime > 0;
-            const { aging } = agingNow ? getEntityAging(row, data?.meta?.dataAsOfDate || null) : { aging: null };
-            const aTotal = aging ? agingTotal(aging) : 0;
-            return (
-              <div className="flex flex-col">
-                <span className="font-medium">{formatMT(val)}</span>
-                {agingNow && aTotal > 0 && (
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <div className="flex w-14 h-1.5 rounded-full overflow-hidden border border-border/40 shrink-0 bg-bg-primary/60" title="Backlog age profile">
-                      {AGING_BUCKETS.map(b => (aging[b.key] > 0 ? (
-                        <div key={b.key} className={`h-full ${b.colorClass}`} style={{ width: `${(aging[b.key] / aTotal) * 100}%` }} title={`${b.fullLabel}: ${formatMT(aging[b.key])} MT`} />
-                      ) : null))}
-                    </div>
-                    {row.oldestPendingDate && (
-                      <span className="text-[9px] text-text-muted whitespace-nowrap">oldest {row.oldestPendingDate.slice(5).replace('-', '/')}</span>
-                    )}
-                  </div>
-                )}
-                {selectedPendingMonth !== 'ALL' && (
-                  <span className="text-[10px] text-text-muted mt-0.5">
-                    all-time: {formatMT(allTime)}
-                  </span>
-                )}
-              </div>
-            );
-          },
-        },
-        {
-          id: 'sharePct',
-          header: 'Share %',
-          meta: { width: '12%', minWidth: '80px' },
-          cell: info => {
-            const row = info.row.original;
-            const sharePct = getSharePctForPeriod(row, selectedPendingMonth, totalPending);
-            return <span className="font-bold text-text-primary">{sharePct}%</span>;
-          },
-        },
-        {
-          id: 'clearance',
-          accessorFn: row => {
-            const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
-            const dailyAvg = row.dailyAvgQty ?? row.currentDailyRate ?? 0;
-            return getBacklogClearance(pendingQty, dailyAvg).days || 0;
-          },
-          header: 'Backlog Clearance',
-          meta: { width: '25%', minWidth: '160px' },
-          cell: info => {
-            const row = info.row.original;
-            const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
-            const dailyAvg = row.dailyAvgQty ?? row.currentDailyRate ?? 0;
-            const clearance = getBacklogClearance(pendingQty, dailyAvg);
-            const theme = getSeverityTheme(clearance.status);
-            return (
-              <div className="flex flex-col select-none cursor-help" title={`${clearance.text} backlog clearance`}>
-                <span className="text-sm font-bold" style={{ color: theme.color }}>
-                  {clearance.text}
-                </span>
-                {pendingQty > 0 && dailyAvg > 0 && (
-                  <span className="text-[10px] text-text-muted mt-0.5 block">
-                    vs avg {formatMT(dailyAvg)}/d
-                  </span>
-                )}
-              </div>
-            );
-          }
-        }
-      ];
-    }
-
-
     const totalCur = states.reduce((s, row) => s + (row.cur || 0), 0);
 
     return [
@@ -389,33 +257,11 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         }
       }
     ];
-  }, [metricMode, selectedPendingMonth, states, data, nationalPendingTotal]);
+  }, [states]);
 
   const handleExportFiltered = () => {
-    const isPending = metricMode === 'PENDING';
     const totalVolume = states.reduce((sum, r) => sum + (Number(r.cur) || 0), 0);
-    const cols = isPending ? [
-      { label: 'State', key: 'state' },
-      { label: 'Pending Orders (MT)', getValue: r => (getPendingForPeriod(r, selectedPendingMonth) || 0).toFixed(1) },
-      { label: 'Share of Backlog %', getValue: r => {
-        const p = getPendingForPeriod(r, selectedPendingMonth);
-        return nationalPendingTotal > 0 && p > 0 ? ((p / nationalPendingTotal) * 100).toFixed(1) + '%' : '0.0%';
-      }},
-      { label: 'Clearance (Days)', getValue: r => {
-        const p = getPendingForPeriod(r, selectedPendingMonth);
-        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
-        const days = getBacklogClearance(p, d).days;
-        return days != null && !isNaN(days) && isFinite(days) ? Number(days).toFixed(1) : '—';
-      }},
-      { label: 'Clearance Status', getValue: r => {
-        const p = getPendingForPeriod(r, selectedPendingMonth);
-        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
-        return getBacklogClearance(p, d).status || 'NORMAL';
-      }},
-      { label: 'Daily Average Run Rate (MT/d)', getValue: r => (r.dailyAvgQty ?? r.currentDailyRate ?? 0).toFixed(1) },
-      { label: 'Oldest Order Date', getValue: r => r.oldestPendingDate || '—' },
-      { label: 'All-Time Backlog (MT)', getValue: r => (getPendingForPeriod(r, 'ALL') || 0).toFixed(1) },
-    ] : [
+    const cols = [
       { label: 'State', key: 'state' },
       { label: 'Despatch Volume (MT)', getValue: r => (r.cur != null ? Number(r.cur).toFixed(1) : '0.0') },
       { label: 'Previous Volume (MT)', getValue: r => (r.prev != null ? Number(r.prev).toFixed(1) : '0.0') },
@@ -428,7 +274,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
       { label: 'Historical Daily Avg (MT/d)', getValue: r => (r.dailyAvgQty != null ? Number(r.dailyAvgQty).toFixed(1) : '—') },
     ];
 
-    const filename = getExportFilename(`states_${metricMode.toLowerCase()}_${selectedPendingMonth || 'current'}`, 'filtered');
+    const filename = getExportFilename(`states_despatch_${selectedPendingMonth || 'current'}`, 'filtered');
     downloadCsv(filename, cols, states);
   };
 
@@ -467,42 +313,6 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
   // NOTE: Must be declared before any early returns to satisfy Rules of Hooks.
   const selectedStateData = states.find(s => s.state && filters.selectedState && s.state.replace(/\s+/g, '').toUpperCase() === filters.selectedState.replace(/\s+/g, '').toUpperCase());
-
-  // Compute product-wise pending orders proportionally to despatch volumes
-  const stateProductsWithPending = useMemo(() => {
-    if (!selectedStateData || !selectedStateData.products) return [];
-    const totalStateCur = selectedStateData.products.reduce((sum, p) => sum + (p.cur || 0), 0);
-    const statePendingQty = getPendingForPeriod(selectedStateData, selectedPendingMonth);
-    return selectedStateData.products.map(p => {
-      const share = totalStateCur > 0 ? (p.cur || 0) / totalStateCur : 0;
-      return {
-        ...p,
-        pendingQty: statePendingQty * share
-      };
-    });
-  }, [selectedStateData, selectedPendingMonth]);
-
-  // Compute top pending dealers for the selected state/district (highest → lowest)
-  const topPendingDealers = useMemo(() => {
-    if (!selectedStateData || !data?.dealers) return [];
-    const stateNorm = selectedStateData.state?.replace(/\s+/g, '').toUpperCase();
-    const districtNorm = filters.selectedDistrict ? filters.selectedDistrict.replace(/\s+/g, '').toUpperCase() : null;
-    return (data.dealers || [])
-      .filter(dl => {
-        const matchState = dl.state?.replace(/\s+/g, '').toUpperCase() === stateNorm;
-        const matchDistrict = !districtNorm || (dl.district?.replace(/\s+/g, '').toUpperCase() === districtNorm);
-        return matchState && matchDistrict;
-      })
-      .map(dl => ({
-        client: dl.client,
-        state: dl.state,
-        district: dl.district,
-        pendingQty: getPendingForPeriod(dl, selectedPendingMonth),
-        products: (dl.products || []).map(p => p.product).join(', ')
-      }))
-      .filter(dl => dl.pendingQty > 0)
-      .sort((a, b) => b.pendingQty - a.pendingQty);
-  }, [selectedStateData, data?.dealers, selectedPendingMonth, filters.selectedDistrict]);
 
   /**
    * Multi-month historical dispatch trend for the selected state.
@@ -601,18 +411,10 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
   // Compute accent color from frontend engine for selected state matching the Alert tag color
   const selectedAccentColor = selectedStateData 
-    ? (metricMode === 'PENDING'
-      ? (() => {
-          const pendingQty = getPendingForPeriod(selectedStateData, selectedPendingMonth);
-          const totalPending = nationalPendingTotal;
-          const sharePct = getSharePctForPeriod(selectedStateData, selectedPendingMonth, totalPending);
-          const { severity } = getBusinessImpact(pendingQty, 0, sharePct, 'STATE', selectedStateData.state);
-          return getSeverityTheme(severity).color;
-        })()
-      : (() => {
-          const tier = selectedStateData.impactTier || getBusinessImpact(selectedStateData.cur, selectedStateData.prev, selectedStateData.share ?? 0, 'STATE', selectedStateData.state, selectedStateData.expectedMtd, selectedStateData.lossFlag, selectedStateData.lossDeltaPct).severity || 'LOW';
-          return getSeverityTheme(tier).color;
-        })())
+    ? (() => {
+        const tier = selectedStateData.impactTier || getBusinessImpact(selectedStateData.cur, selectedStateData.prev, selectedStateData.share ?? 0, 'STATE', selectedStateData.state, selectedStateData.expectedMtd, selectedStateData.lossFlag, selectedStateData.lossDeltaPct).severity || 'LOW';
+        return getSeverityTheme(tier).color;
+      })()
     : '#3b82f6';
 
   return (
@@ -622,7 +424,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         <div className="flex items-center gap-3">
           <Map className="w-7 h-7 text-accent-blue" />
           <h2 className="text-3xl font-extrabold text-text-primary">
-            {metricMode === 'PENDING' ? 'State Backlog Rankings' : 'State Dispatch Rankings'}
+            State Dispatch Rankings
           </h2>
         </div>
         {filters.selectedState && (
@@ -690,60 +492,21 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
                 </button>
               )}
 
-              <div className="hidden sm:block w-px h-5 bg-border/40 mx-1 flex-shrink-0" />
-
-              <div className="flex items-center gap-1 p-1 rounded-full bg-transparent border border-border/40 shrink-0 metric-toggle-container">
-                {[
-                  { value: "DESPATCH", label: "Dispatch" },
-                  { value: "PENDING", label: "Pending" }
-                ].map(opt => {
-                  const active = metricMode === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      onClick={() => setMetricMode(opt.value)}
-                      className={`px-3.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
-                        active 
-                          ? 'toggle-pill-active' 
-                          : 'toggle-pill-inactive'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-
               <select
                 value={selectedPendingMonth}
                 onChange={(e) => setSelectedPendingMonth(e.target.value)}
                 className="filter-select w-full sm:w-[150px]"
               >
                 <option value="" disabled className="bg-bg-input text-text-muted">Select month</option>
-                {metricMode === 'PENDING' ? (
-                  <>
-                    <option value="ALL" className="bg-bg-input text-text-primary">Total Backlog</option>
-                    {sortedPendingMonths.map(opt => (
-                      <option 
-                        key={opt.key || opt.periodKey} 
-                        value={opt.key || opt.periodKey}
-                        className="bg-bg-input text-text-primary"
-                      >
-                        {opt.label}
-                      </option>
-                    ))}
-                  </>
-                ) : (
-                  despatchAvailableMonths.map(opt => (
-                    <option 
-                      key={opt.key || opt.periodKey} 
-                      value={opt.key || opt.periodKey}
-                      className="bg-bg-input text-text-primary"
-                    >
-                      {opt.label}
-                    </option>
-                  ))
-                )}
+                {despatchAvailableMonths.map(opt => (
+                  <option 
+                    key={opt.key || opt.periodKey} 
+                    value={opt.key || opt.periodKey}
+                    className="bg-bg-input text-text-primary"
+                  >
+                    {opt.label}
+                  </option>
+                ))}
               </select>
 
               <ExportDropdown
@@ -757,80 +520,15 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
             </div>
 
             <DataTable 
-              key={metricMode + '-' + selectedPendingMonth}
+              key={selectedPendingMonth}
               data={states} 
               columns={columns} 
-              defaultSort={[{ id: metricMode === 'PENDING' ? 'sharePct' : 'share', desc: true }]}
+              defaultSort={[{ id: 'share', desc: true }]}
               onRowClick={(row) => dispatch({ type: 'SET_STATE', payload: row.state })}
             />
           </div>
 
-          {/* Conditional: Top Pending Dealers (Pending mode) OR Inactive Dealers (Despatch mode) */}
-          {selectedStateData && metricMode === 'PENDING' && (
-          <CollapsibleCard 
-            title={`Top Pending Dealers in ${filters.selectedDistrict || selectedStateData.state}`} 
-            badge={<span className="badge bg-amber-500/20 text-amber-400">{topPendingDealers.length}</span>}
-          >
-            {topPendingDealers.length === 0 ? (
-              <div className="text-center text-text-muted py-6 text-sm">
-                No dealers with pending orders in {filters.selectedDistrict ? 'this district' : 'this state'}.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {topPendingDealers.slice(0, 10).map((d, i) => (
-                  <div 
-                    key={i} 
-                    onClick={() => navigate(`/dealers?state=${d.state}&district=${d.district}&search=${d.client}`)}
-                    className="group cursor-pointer rounded-xl border border-border/20 hover:border-amber-500/30 bg-bg-secondary/30 hover:bg-amber-500/5 transition-all duration-200 overflow-hidden"
-                  >
-                    <div className="flex items-stretch">
-                      {/* Rank stripe */}
-                      <div className="w-1 shrink-0 bg-amber-500/40 group-hover:bg-amber-500 transition-colors" />
-                      <div className="flex flex-1 items-center gap-3 px-3 py-2.5 min-w-0">
-                        {/* Rank number */}
-                        <span className="text-[11px] font-black text-amber-400/60 group-hover:text-amber-400 w-4 shrink-0 text-center transition-colors">#{i + 1}</span>
-                        {/* Info block */}
-                        <div className="flex-1 min-w-0">
-                          <span className="font-bold text-[13px] text-text-primary group-hover:text-amber-300 transition-colors block truncate leading-tight">{d.client}</span>
-                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            <span className="text-[10px] text-text-muted">{d.district}</span>
-                            {d.products && d.products.split(',').slice(0, 2).map((p, pi) => (
-                              <span key={pi} className="text-[9px] px-1.5 py-0.5 rounded bg-border/30 text-text-muted font-medium">{p.trim()}</span>
-                            ))}
-                          </div>
-                        </div>
-                        {/* Value */}
-                        <div className="text-right shrink-0">
-                          <span className="text-[13px] font-black text-amber-400 block leading-tight">{formatMT(d.pendingQty)}</span>
-                          <span className="text-[9px] text-text-muted uppercase tracking-wide">Pending</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {topPendingDealers.length > 10 && (
-                  <div className="text-center text-xs text-text-muted pt-1 pb-0.5">
-                    + {topPendingDealers.length - 10} more dealers with pending
-                  </div>
-                )}
-                <button
-                  onClick={() => {
-                    if (filters.selectedDistrict) {
-                      navigate(`/dealers?state=${selectedStateData.state}&district=${filters.selectedDistrict}`);
-                    } else {
-                      navigate(`/districts?state=${selectedStateData.state}`);
-                    }
-                  }}
-                  className="btn-action-pill w-fit mx-auto mt-2.5 py-1 px-3.5 text-[11px] font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  {filters.selectedDistrict ? `View All Dealers in ${filters.selectedDistrict} →` : 'View District Breakdown →'}
-                </button>
-              </div>
-            )}
-          </CollapsibleCard>
-          )}
-
-          {selectedStateData && metricMode === 'DESPATCH' && (
+          {selectedStateData && (
             <CollapsibleCard 
               title={`Inactive Dealers in ${filters.selectedDistrict || selectedStateData.state}`} 
               badge={<span className="badge bg-severity-critical/20 text-severity-critical">{stateInactiveDealers.length}</span>}
@@ -896,7 +594,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
         {selectedStateData && (
           <div className="lg:col-span-3 space-y-6">
             <CollapsibleCard 
-              title={`${selectedStateData.state} ${metricMode === 'PENDING' ? 'Backlog' : 'Dispatch'}`} 
+              title={`${selectedStateData.state} Dispatch`}
               accentColor={selectedAccentColor}
               badge={<button 
                 onClick={(e) => { e.stopPropagation(); dispatch({ type: 'SET_STATE', payload: null }); }}
@@ -906,42 +604,26 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-center">
                   <div className="text-xs text-text-muted">
-                    {metricMode === 'PENDING' ? 'Backlog (MT)' : 'vs Last Month'}
+                    vs Last Month
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    {metricMode === 'PENDING' ? (
-                        <span className="font-extrabold text-sm text-text-primary">
-                          {formatMT(getPendingForPeriod(selectedStateData, selectedPendingMonth))}
-                        </span>
-                    ) : (
-                      <MoMIndicator 
-                        cur={selectedStateData.cur}
-                        prev={selectedStateData.prev}
-                        className="text-base" 
-                      />
-                    )}
+                    <MoMIndicator
+                      cur={selectedStateData.cur}
+                      prev={selectedStateData.prev}
+                      className="text-base"
+                    />
                   </div>
                 </div>
 
                 <div className="p-3 bg-bg-secondary rounded-lg">
                   <div className="text-xs text-text-muted mb-2">
-                    {metricMode === 'PENDING' ? 'Backlog Risk' : 'Impact Level'}
+                    Impact Level
                   </div>
                   <div className="mt-1">
-                    {metricMode === 'PENDING' ? (
-                      (() => {
-                        const pendingQty = getPendingForPeriod(selectedStateData, selectedPendingMonth);
-                        const totalPending = nationalPendingTotal;
-                        const sharePct = getSharePctForPeriod(selectedStateData, selectedPendingMonth, totalPending);
-                        const { severity, impactScore } = getBusinessImpact(pendingQty, 0, sharePct, 'STATE', selectedStateData.state);
-                        return <ImpactBadge tier={severity} score={impactScore} />;
-                      })()
-                    ) : (
-                      <ImpactBadge 
-                        tier={selectedStateData.impactTier}
-                        score={selectedStateData.impactScore}
-                      />
-                    )}
+                    <ImpactBadge
+                      tier={selectedStateData.impactTier}
+                      score={selectedStateData.impactScore}
+                    />
                   </div>
                 </div>
               </div>
@@ -1003,7 +685,7 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
               })()}
 
               <div className="space-y-6">
-                {metricMode === 'DESPATCH' && stateMonthlyTrend.length > 1 && (
+                {stateMonthlyTrend.length > 1 && (
                   <div>
                     <h4 className="text-xs font-bold text-text-muted uppercase mb-3">
                       Monthly Volume Trend
@@ -1016,44 +698,33 @@ export default function StateIntelligence({ pendingAvailableMonths = [] }) {
 
                 <div>
                   <h4 className="text-xs font-bold text-text-muted uppercase mb-3">
-                    {metricMode === 'PENDING' ? 'Pending by Product' : 'Product Mix'}
+                    Product Mix
                   </h4>
-                  <ShareDonutChart 
-                    data={metricMode === 'PENDING' ? stateProductsWithPending : selectedStateData.products} 
-                    dataKey={metricMode === 'PENDING' ? 'pendingQty' : 'cur'}
+                  <ShareDonutChart
+                    data={selectedStateData.products}
+                    dataKey="cur"
                     height={240} 
                   />
                 </div>
                 
                 <div>
                   <h4 className="text-xs font-bold text-text-muted uppercase mb-3">
-                    {metricMode === 'PENDING' ? 'Product Backlog Breakdown' : 'Product vs Last Month'}
+                    Product vs Last Month
                   </h4>
                   <div className="space-y-2">
-                    {(metricMode === 'PENDING'
-                      ? [...stateProductsWithPending].sort((a, b) => (b.pendingQty || 0) - (a.pendingQty || 0))
-                      : [...selectedStateData.products].sort((a, b) => {
+                    {[...selectedStateData.products].sort((a, b) => {
                           const momA = calculateMoM(a.cur, a.prev);
                           const momB = calculateMoM(b.cur, b.prev);
                           return momA - momB;
-                        })
-                    )?.map(p => (
+                        })?.map(p => (
                       <div key={p.product} className="flex justify-between items-center text-sm p-2 bg-bg-secondary rounded">
                         <span className="font-medium">{p.product}</span>
                         <div className="flex gap-4">
                           <span className="text-text-muted w-16 text-right">
-                            {formatMT(metricMode === 'PENDING' ? p.pendingQty : p.cur)}
+                            {formatMT(p.cur)}
                           </span>
                           <span className="w-16 text-right font-semibold">
-                            {metricMode === 'PENDING' ? (
-                              selectedStateData.pendingQty > 0 ? (
-                                `${Math.round((p.pendingQty / selectedStateData.pendingQty) * 100)}% share`
-                              ) : (
-                                '0% share'
-                              )
-                            ) : (
-                              <MoMIndicator cur={p.cur} prev={p.prev} />
-                            )}
+                            <MoMIndicator cur={p.cur} prev={p.prev} />
                           </span>
                         </div>
                       </div>

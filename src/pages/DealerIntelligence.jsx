@@ -11,7 +11,7 @@ import MoMIndicator from '../components/common/MoMIndicator';
 import SeverityBadge from '../components/common/SeverityBadge';
 import SkeletonLoader from '../components/common/SkeletonLoader';
 import { formatMT, formatDays } from '../utils/formatters';
-import { calculateMoM, getSeverityTheme } from '../utils/trendEngine';
+import { calculateMoM } from '../utils/trendEngine';
 import { getPendingForPeriod, getBacklogClearance } from '../utils/pending';
 import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalDealers, dealerIdentity } from '../utils/despatch';
 import { isWestBengalUser } from '../utils/constants';
@@ -19,7 +19,7 @@ import { Store } from 'lucide-react';
 import ExportDropdown from '../components/common/ExportDropdown';
 import { downloadCsv, getExportFilename } from '../utils/csvExport';
 
-export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
+export default function DealerIntelligence() {
   const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
   const { user } = useAuth();
   const showNorthBengal = isWestBengalUser(user, filterOptions);
@@ -33,9 +33,8 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
   // despatch, daily target and product mix all stale together.
   const [selectedDealerRef, setSelectedDealerRef] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
-  const [metricMode, setMetricMode] = useState("DESPATCH");
   const [selectedPendingMonth, setSelectedPendingMonth] = useState(
-    () => (metricMode === 'PENDING' ? 'ALL' : getCurMonthKey(rawData)),
+    () => getCurMonthKey(rawData),
   );
   const lastSyncedParamsRef = useRef(null);
 
@@ -99,58 +98,39 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
 
   const dealers = useMemo(() => data?.dealers || [], [data]);
 
-  const sortedPendingMonths = useMemo(() => {
-    return [...pendingAvailableMonths].sort((a, b) => {
-      if (a.year !== b.year) return b.year - a.year;
-      return b.month - a.month;
-    });
-  }, [pendingAvailableMonths]);
-
   const despatchAvailableMonths = useMemo(() => getDespatchAvailableMonths(rawData), [rawData]);
 
-  // Default pending filter date to "Total Backlog" ('ALL') when switching to
-  // PENDING mode, and back to the current despatch month on the way out.
+  // Reset the month to the current despatch month when the data changes.
   //
   // Applied during the render that carries the change rather than from an
-  // effect: an effect committed one frame of the new mode still holding the old
-  // mode's month, which reads as a wrong figure rather than as a transition.
-  const [monthResetDeps, setMonthResetDeps] = useState({ metricMode, rawData });
-  if (monthResetDeps.metricMode !== metricMode || monthResetDeps.rawData !== rawData) {
-    setMonthResetDeps({ metricMode, rawData });
-    setSelectedPendingMonth(metricMode === 'PENDING' ? 'ALL' : getCurMonthKey(rawData));
+  // effect: an effect would commit one frame still holding the old month,
+  // which reads as a wrong figure rather than as a transition.
+  const [monthResetRawData, setMonthResetRawData] = useState(rawData);
+  if (monthResetRawData !== rawData) {
+    setMonthResetRawData(rawData);
+    setSelectedPendingMonth(getCurMonthKey(rawData));
   }
 
   const filteredDealers = useMemo(() => {
-    if (metricMode === 'PENDING') {
-      return (data?.dealers || [])
-        .map(d => ({
-          ...d,
-          activePendingVal: getPendingForPeriod(d, selectedPendingMonth)
-        }))
-        .filter(d => selectedPendingMonth === 'ALL' || d.activePendingVal > 0)
-        .sort((a, b) => b.activePendingVal - a.activePendingVal);
-    } else {
-      // DESPATCH MODE
-      const curMonthKey = getCurMonthKey(rawData);
-      let rawDealers = data?.dealers || [];
-      if (selectedPendingMonth && selectedPendingMonth !== curMonthKey) {
-        rawDealers = getHistoricalDealers(rawData, filters, selectedPendingMonth);
-      }
-      
-      if (statusFilter === 'ACTIVE') {
-        rawDealers = rawDealers.filter(d => d.cur > 0);
-      } else if (statusFilter === 'INACTIVE') {
-        rawDealers = rawDealers.filter(d => d.cur === 0);
-      }
-
-      const sortParam = searchParams.get('sort');
-      if (sortParam === 'avgPeriod' || sortParam === 'leadTime') {
-        rawDealers = [...rawDealers].sort((a, b) => (Number(b.avgPeriod) || 0) - (Number(a.avgPeriod) || 0));
-      }
-
-      return rawDealers;
+    const curMonthKey = getCurMonthKey(rawData);
+    let rawDealers = data?.dealers || [];
+    if (selectedPendingMonth && selectedPendingMonth !== curMonthKey) {
+      rawDealers = getHistoricalDealers(rawData, filters, selectedPendingMonth);
     }
-  }, [data?.dealers, rawData, statusFilter, metricMode, selectedPendingMonth, filters, searchParams]);
+
+    if (statusFilter === 'ACTIVE') {
+      rawDealers = rawDealers.filter(d => d.cur > 0);
+    } else if (statusFilter === 'INACTIVE') {
+      rawDealers = rawDealers.filter(d => d.cur === 0);
+    }
+
+    const sortParam = searchParams.get('sort');
+    if (sortParam === 'avgPeriod' || sortParam === 'leadTime') {
+      rawDealers = [...rawDealers].sort((a, b) => (Number(b.avgPeriod) || 0) - (Number(a.avgPeriod) || 0));
+    }
+
+    return rawDealers;
+  }, [data?.dealers, rawData, statusFilter, selectedPendingMonth, filters, searchParams]);
 
   /**
    * The row the open profile describes, resolved against the list on screen.
@@ -238,111 +218,6 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
   }
 
   const columns = useMemo(() => {
-    if (metricMode === 'PENDING') {
-      return [
-        {
-          accessorKey: 'client',
-          header: 'Dealer Name',
-          meta: { width: '30%', minWidth: '130px' },
-          cell: info => {
-            const val = String(info.getValue() ?? '');
-            const isPlaceholder = val === '0' || val.toUpperCase() === 'VERBAL';
-            return (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-bold text-sm sm:text-[15px] text-text-primary whitespace-normal break-words leading-tight" title={val}>
-                  {val}
-                </span>
-                {isPlaceholder && (
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25 tracking-wide whitespace-nowrap shrink-0">
-                    {val === '0' ? 'Pending Placeholder' : 'Verbal Order'}
-                  </span>
-                )}
-              </div>
-            );
-          },
-        },
-        {
-          accessorKey: 'district',
-          header: 'Location',
-          meta: { width: '20%', minWidth: '100px' },
-          cell: info => {
-            const dVal = String(info.getValue() ?? '');
-            const isDistPlaceholder = dVal === '0' || dVal.toUpperCase() === 'VERBAL';
-            const displayDist = isDistPlaceholder ? `${dVal} (${dVal === '0' ? 'Unassigned' : 'Verbal'})` : dVal;
-            return (
-              <span className="text-text-muted text-xs sm:text-[13px] font-medium truncate inline-block w-full" title={`${dVal}, ${info.row.original.state}`}>
-                {displayDist}, {info.row.original.state}
-              </span>
-            );
-          },
-        },
-        {
-          id: 'pendingQty',
-          header: 'Pending (MT)',
-          meta: { width: '15%', minWidth: '90px' },
-          cell: info => {
-            const row = info.row.original;
-            const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
-            return <span className="font-medium text-[13px]">{formatMT(pendingQty)}</span>;
-          }
-        },
-        {
-          id: 'backlog',
-          header: 'Backlog Clearance',
-          meta: { width: '20%', minWidth: '140px' },
-          cell: info => {
-            const row = info.row.original;
-            const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
-            let dailyAvg = row.dailyAvgQty || row.currentDailyRate || 0;
-            if (dailyAvg === 0 && pendingQty > 0) {
-              const stateData = data?.states?.find(s => s.state === row.state);
-              dailyAvg = stateData?.dailyAvgQty || 0;
-            }
-            const clearance = getBacklogClearance(pendingQty, dailyAvg);
-            const theme = getSeverityTheme(clearance.status);
-            return (
-              <div className="flex flex-col select-none cursor-pointer">
-                <span className="font-bold text-[13px]" style={{ color: theme.color }}>
-                  {clearance.text}
-                </span>
-                {pendingQty > 0 && dailyAvg > 0 && (
-                  <span className="text-[10px] text-text-muted mt-0.5">
-                    vs avg {formatMT(dailyAvg)}/d
-                  </span>
-                )}
-              </div>
-            );
-          }
-        },
-        {
-          header: 'Status',
-          id: 'severity',
-          meta: { width: '15%', minWidth: '90px' },
-          cell: info => {
-            const row = info.row.original;
-            const pendingQty = getPendingForPeriod(row, selectedPendingMonth);
-            let dailyAvg = row.dailyAvgQty || row.currentDailyRate || 0;
-            if (dailyAvg === 0 && pendingQty > 0) {
-              const stateData = data?.states?.find(s => s.state === row.state);
-              dailyAvg = stateData?.dailyAvgQty || 0;
-            }
-            const clearance = getBacklogClearance(pendingQty, dailyAvg);
-            const theme = getSeverityTheme(clearance.status);
-
-            return (
-              <div 
-                className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[12px] font-bold tracking-wide whitespace-nowrap border shrink-0 select-none" 
-                style={{ backgroundColor: theme.bg, color: theme.color, borderColor: theme.border }}
-              >
-                <span className="w-2 h-2 rounded-full bg-current shrink-0" />
-                <span>{theme.severity}</span>
-              </div>
-            );
-          },
-        }
-      ];
-    }
-
     return [
       {
         accessorKey: 'client',
@@ -526,33 +401,11 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
         },
       },
     ];
-  }, [metricMode, selectedPendingMonth, data, rawData]);
+  }, []);
 
   const handleExportFiltered = () => {
-    const isPending = metricMode === 'PENDING';
     const totalVolume = filteredDealers.reduce((sum, r) => sum + (Number(r.cur) || 0), 0);
-    const cols = isPending ? [
-      { label: 'Dealer Name', key: 'client' },
-      { label: 'State', key: 'state' },
-      { label: 'District', key: 'district' },
-      { label: 'Account Status', getValue: r => r.status || (r.cur > 0 ? 'ACTIVE' : 'INACTIVE') },
-      { label: 'Pending Orders (MT)', getValue: r => (getPendingForPeriod(r, selectedPendingMonth) || 0).toFixed(1) },
-      { label: 'Clearance (Days)', getValue: r => {
-        const p = getPendingForPeriod(r, selectedPendingMonth);
-        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
-        const days = getBacklogClearance(p, d).days;
-        return days != null && !isNaN(days) && isFinite(days) ? Number(days).toFixed(1) : '—';
-      }},
-      { label: 'Clearance Status', getValue: r => {
-        const p = getPendingForPeriod(r, selectedPendingMonth);
-        const d = r.dailyAvgQty ?? r.currentDailyRate ?? 0;
-        return getBacklogClearance(p, d).status || 'NORMAL';
-      }},
-      { label: 'Daily Average Run Rate (MT/d)', getValue: r => (r.dailyAvgQty ?? r.currentDailyRate ?? 0).toFixed(1) },
-      { label: 'Oldest Order Date', getValue: r => r.oldestPendingDate || '—' },
-      { label: 'All-Time Backlog (MT)', getValue: r => (getPendingForPeriod(r, 'ALL') || 0).toFixed(1) },
-      { label: 'Products', getValue: r => (r.products || []).map(p => p.product).join(', ') },
-    ] : [
+    const cols = [
       { label: 'Dealer Name', key: 'client' },
       { label: 'State', key: 'state' },
       { label: 'District', key: 'district' },
@@ -569,7 +422,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
       { label: 'Products', getValue: r => (r.products || []).map(p => p.product).join(', ') },
     ];
 
-    const filename = getExportFilename(`dealers_${metricMode.toLowerCase()}_${selectedPendingMonth || 'current'}`, 'filtered');
+    const filename = getExportFilename(`dealers_despatch_${selectedPendingMonth || 'current'}`, 'filtered');
     downloadCsv(filename, cols, filteredDealers);
   };
 
@@ -615,33 +468,17 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
 
   const selectedDealerProducts = useMemo(() => {
     if (!selectedDealer || !selectedDealer.products) return [];
-    if (metricMode === 'DESPATCH') {
-      const totalVolume = selectedDealer.cur ?? selectedDealer.qty ?? 0;
-      return selectedDealer.products.map(p => {
-        const val = p.cur ?? p.qty ?? p.val ?? 0;
-        return {
-          product: p.product,
-          val,
-          displayVal: formatMT(val),
-          pct: totalVolume > 0 ? (val / totalVolume) * 100 : 0
-        };
-      }).sort((a, b) => b.val - a.val);
-    } else {
-      const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
-      const totalDispatch = (selectedDealer.cur ?? selectedDealer.qty) || selectedDealer.products.reduce((sum, p) => sum + (p.cur ?? p.qty ?? 0), 0);
-      return selectedDealer.products.map(p => {
-        const pVal = p.cur ?? p.qty ?? 0;
-        const share = totalDispatch > 0 ? (pVal / totalDispatch) : (1 / selectedDealer.products.length);
-        const productPending = pendingQty * share;
-        return {
-          product: p.product,
-          val: productPending,
-          displayVal: formatMT(productPending),
-          pct: share * 100
-        };
-      }).sort((a, b) => b.val - a.val);
-    }
-  }, [selectedDealer, metricMode, selectedPendingMonth]);
+    const totalVolume = selectedDealer.cur ?? selectedDealer.qty ?? 0;
+    return selectedDealer.products.map(p => {
+      const val = p.cur ?? p.qty ?? p.val ?? 0;
+      return {
+        product: p.product,
+        val,
+        displayVal: formatMT(val),
+        pct: totalVolume > 0 ? (val / totalVolume) * 100 : 0
+      };
+    }).sort((a, b) => b.val - a.val);
+  }, [selectedDealer]);
 
   if (loading) return (
     <div className="space-y-6">
@@ -655,15 +492,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
 
   // Compute accent color from frontend engine for selected dealer
   const selectedAccentColor = selectedDealer 
-    ? (metricMode === 'PENDING'
-      ? (() => {
-          const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
-          const stateData = data?.states?.find(s => s.state === selectedDealer.state);
-          let dailyAvg = selectedDealer.dailyAvgQty || selectedDealer.currentDailyRate || stateData?.dailyAvgQty || 0;
-          const clearance = getBacklogClearance(pendingQty, dailyAvg);
-          return getSeverityTheme(clearance.status).color;
-        })()
-      : (selectedDealer.healthColor || '#6b7280'))
+    ? (selectedDealer.healthColor || '#6b7280')
     : '#6b7280';
  
   return (
@@ -777,32 +606,6 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                 </button>
               )}
 
-              <div className="hidden sm:block w-px h-5 bg-border/40 mx-0.5 shrink-0" />
-
-              {/* Despatch/Pending Toggle */}
-              <div className="flex items-center gap-1 p-1 rounded-full bg-transparent border border-border/40 shrink-0 metric-toggle-container">
-                {[
-                  { value: "DESPATCH", label: "Dispatch" },
-                  { value: "PENDING", label: "Pending" }
-                ].map(opt => {
-                  const active = metricMode === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setMetricMode(opt.value)}
-                      className={`px-3.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer border ${
-                        active 
-                          ? 'toggle-pill-active' 
-                          : 'toggle-pill-inactive'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-
               {/* Month Select */}
               <select
                 value={selectedPendingMonth}
@@ -810,30 +613,15 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                 className="filter-select text-xs py-1.5 px-3 w-[110px] sm:w-[125px] shrink-0"
               >
                 <option value="" disabled className="bg-bg-input text-text-muted">Select month</option>
-                {metricMode === 'PENDING' ? (
-                  <>
-                    <option value="ALL" className="bg-bg-input text-text-primary">Total Backlog</option>
-                    {sortedPendingMonths.map(opt => (
-                      <option 
-                        key={opt.key || opt.periodKey} 
-                        value={opt.key || opt.periodKey}
-                        className="bg-bg-input text-text-primary"
-                      >
-                        {opt.label}
-                      </option>
-                    ))}
-                  </>
-                ) : (
-                  despatchAvailableMonths.map(opt => (
-                    <option 
-                      key={opt.key || opt.periodKey} 
-                      value={opt.key || opt.periodKey}
-                      className="bg-bg-input text-text-primary"
-                    >
-                      {opt.label}
-                    </option>
-                  ))
-                )}
+                {despatchAvailableMonths.map(opt => (
+                  <option 
+                    key={opt.key || opt.periodKey} 
+                    value={opt.key || opt.periodKey}
+                    className="bg-bg-input text-text-primary"
+                  >
+                    {opt.label}
+                  </option>
+                ))}
               </select>
 
               {/* Dealer Search Input directly inline */}
@@ -852,13 +640,13 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
             </div>
 
             <DataTable 
-              key={metricMode + '-' + selectedPendingMonth + '-' + statusFilter + '-' + (searchParams.get('sort') || '')}
+              key={selectedPendingMonth + '-' + statusFilter + '-' + (searchParams.get('sort') || '')}
               data={filteredDealers} 
               columns={columns} 
               defaultSort={
                 searchParams.get('sort') === 'avgPeriod' || searchParams.get('sort') === 'leadTime'
                   ? [{ id: 'avgPeriod', desc: true }]
-                  : [{ id: metricMode === 'PENDING' ? 'pendingQty' : 'cur', desc: true }]
+                  : [{ id: 'cur', desc: true }]
               }
               onRowClick={selectDealer}
             />
@@ -887,47 +675,6 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               </div>
 
               <div className="grid grid-cols-2 gap-4 mb-6">
-                {metricMode === 'PENDING' ? (
-                  (() => {
-                    const pendingQty = getPendingForPeriod(selectedDealer, selectedPendingMonth);
-                    const stateData = data?.states?.find(s => s.state === selectedDealer.state);
-                    let dailyAvg = selectedDealer.dailyAvgQty || selectedDealer.currentDailyRate || stateData?.dailyAvgQty || 0;
-                    const clearance = getBacklogClearance(pendingQty, dailyAvg);
-                    const theme = getSeverityTheme(clearance.status);
-
-                    return (
-                      <>
-                        <div className="p-3 bg-bg-secondary rounded-lg">
-                          <div className="text-xs text-text-muted mb-1">
-                            Pending (MT)
-                          </div>
-                          <div className="text-base font-bold text-text-primary">
-                            {formatMT(pendingQty)}
-                          </div>
-                        </div>
-
-                        <div className="p-3 bg-bg-secondary rounded-lg">
-                          <div className="text-xs text-text-muted mb-2">
-                            Est. Clearance
-                          </div>
-                          <div className="mt-1">
-                            <ImpactBadge tier={clearance.status} />
-                          </div>
-                        </div>
-
-                        <div className="p-3 bg-bg-secondary rounded-lg col-span-2 flex justify-between items-center">
-                          <div className="text-xs text-text-muted">
-                            Days to Clear
-                          </div>
-                          <span className="font-bold text-sm" style={{ color: theme.color }}>
-                            {clearance.text}
-                          </span>
-                        </div>
-                      </>
-                    );
-                  })()
-                ) : (
-                  <>
                     <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[80px]">
                       <div className="text-xs text-text-muted mb-1">
                         Dispatched (MT)
@@ -980,8 +727,6 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
                         />
                       </div>
                     </div>
-                  </>
-                )}
               </div>
 
               {/* Daily Pace Benchmark vs Current Daily Rate */}
@@ -1090,7 +835,7 @@ export default function DealerIntelligence({ pendingAvailableMonths = [] }) {
               {selectedDealerProducts.length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold text-text-muted uppercase mb-3">
-                    {metricMode === 'PENDING' ? 'Product Backlog Share' : 'Product Mix'}
+                    Product Mix
                   </h4>
                   <div className="space-y-2">
                     {selectedDealerProducts.map(p => (
