@@ -26,6 +26,7 @@ import { backdropVariants } from '../utils/motionVariants';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import AnimatedPage from '../components/common/AnimatedPage';
 import AssistantLauncher from '../assistant/AssistantLauncher';
+import { fetchDataFreshness } from '../services/freshnessService';
 
 const NAV_ICON_MAP = {
   LayoutDashboard,
@@ -113,6 +114,24 @@ export default function DashboardLayout() {
     if (mom === null || mom === undefined || isNaN(mom)) return null;
     return mom;
   }, [rawData]);
+
+  // Latest day in the field-visit data. Visits load on their own schedule, so
+  // the header names their date separately from the despatch window above.
+  const [visitsUpTo, setVisitsUpTo] = useState(null);
+  useEffect(() => {
+    if (!user) return undefined;
+    let live = true;
+    fetchDataFreshness()
+      .then(f => { if (live) setVisitsUpTo(f?.field_visits?.latest || null); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [user]);
+  const visitsUpToText = useMemo(() => {
+    if (!visitsUpTo) return '';
+    const [y, m, d] = visitsUpTo.split('-').map(Number);
+    const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1];
+    return `${d} ${mon} ${y}`;
+  }, [visitsUpTo]);
 
   // Dynamically resolve active tab title matching current route
   const currentTabTitle = useMemo(() => {
@@ -287,21 +306,22 @@ export default function DashboardLayout() {
                 <h1 className="text-lg sm:text-xl font-bold text-sidebar-text tracking-tight leading-tight m-0 truncate">
                   {currentTabTitle}
                 </h1>
-                <div className="flex items-center gap-2 text-[11px] sm:text-xs text-sidebar-text-muted flex-wrap leading-relaxed">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-sidebar-text-muted flex-wrap leading-relaxed">
                   {headerDateRange && (
-                    <span className="font-medium whitespace-nowrap">{headerDateRange}</span>
+                    <span className="font-semibold text-sidebar-text whitespace-nowrap">{headerDateRange}</span>
                   )}
-                  {headerDateRange && (
-                    <span className="text-white/30">·</span>
-                  )}
-                  <span className="font-medium whitespace-nowrap">This month so far</span>
-                  {dispatchGrowth !== null && (
+                  {visitsUpToText && (
                     <>
                       <span className="text-white/30">·</span>
-                      <span className={`font-bold whitespace-nowrap ${dispatchGrowth >= 0 ? 'text-severity-none' : 'text-severity-critical'}`}>
-                        {dispatchGrowth >= 0 ? '↑' : '↓'} {Math.abs(dispatchGrowth).toFixed(1)}% vs last period
+                      <span className="font-medium whitespace-nowrap">
+                        Field visits up to <span className="font-semibold text-sidebar-text">{visitsUpToText}</span>
                       </span>
                     </>
+                  )}
+                  {dispatchGrowth !== null && (
+                    <span className={`font-bold whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] sm:text-xs border ${dispatchGrowth >= 0 ? 'text-severity-none bg-severity-none/15 border-severity-none/30' : 'text-severity-critical bg-severity-critical/15 border-severity-critical/30'}`}>
+                      {dispatchGrowth >= 0 ? '↑' : '↓'} {Math.abs(dispatchGrowth).toFixed(1)}% MoM
+                    </span>
                   )}
                 </div>
               </div>
