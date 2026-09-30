@@ -310,18 +310,18 @@ export default function DashboardLayout() {
                   {headerDateRange && (
                     <span className="font-semibold text-sidebar-text whitespace-nowrap">{headerDateRange}</span>
                   )}
-                  {visitsUpToText && (
-                    <>
-                      <span className="text-white/30">·</span>
-                      <span className="font-medium whitespace-nowrap">
-                        Field visits up to <span className="font-semibold text-sidebar-text">{visitsUpToText}</span>
-                      </span>
-                    </>
-                  )}
                   {dispatchGrowth !== null && (
                     <span className={`font-bold whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] sm:text-xs border ${dispatchGrowth >= 0 ? 'text-severity-none bg-severity-none/15 border-severity-none/30' : 'text-severity-critical bg-severity-critical/15 border-severity-critical/30'}`}>
                       {dispatchGrowth >= 0 ? '↑' : '↓'} {Math.abs(dispatchGrowth).toFixed(1)}% MoM
                     </span>
+                  )}
+                  {visitsUpToText && (
+                    <>
+                      <span className="text-white/30">|</span>
+                      <span className="font-medium whitespace-nowrap">
+                        Field visits up to <span className="font-semibold text-sidebar-text">{visitsUpToText}</span>
+                      </span>
+                    </>
                   )}
                 </div>
               </div>
