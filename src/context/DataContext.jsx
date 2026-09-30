@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useState, useMemo, useCallback } from 'react';
 import { dataService } from '../services/dataService';
+import { getBusinessPlanDataset } from '../services/businessPlanService';
 import { calculateMoM, formatTrend, getTrendColor, getBusinessImpact } from '../utils/trendEngine';
 import { isRealState, NORTH_BENGAL_DISTRICTS, getExpandedStatesSet, normalizeStateName } from '../utils/constants';
 import { useAuth } from './AuthContext';
@@ -226,10 +227,8 @@ function processData(rawData, filters, user) {
     dynamicTotalMoM = calculateMoM(dynamicTotalCur, dynamicTotalPrev);
 
     dynamicProducts = Object.values(productMap).map(p => {
-      const base = rawData.products?.find(rp => rp.product === p.product) || {};
-      const pQty = p.pendingQty > 0
-        ? Math.round(p.pendingQty * 100) / 100
-        : (base.pendingQty || base.pending_qty || 0);
+      // Scoped sum only; 0 pending in scope stays 0, never the national figure.
+      const pQty = Math.round(p.pendingQty * 100) / 100;
       return {
         ...p,
         cur: p.cur_mt,
@@ -565,6 +564,10 @@ export function DataProvider({ children }) {
       })
       .catch(err => { if (mounted) { clearTimeout(timeout); setError(err.message); } })
       .finally(() => { if (mounted) setLoading(false); });
+
+    // Pre-warm business plan dataset in background so Executive Overview & Business Plan tab are instant
+    getBusinessPlanDataset().catch(() => {});
+
     return () => { mounted = false; clearTimeout(timeout); };
   }, [authed]);
 
