@@ -13,10 +13,11 @@ import { createClient } from '@supabase/supabase-js';
  * browser bundles; every table it can reach is read-only for that role.
  */
 const SUPABASE_URL =
-  import.meta.env.VITE_SUPABASE_URL || 'https://jhsttedcvzfkszbzczak.supabase.co';
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) ||
+  'https://jhsttedcvzfkszbzczak.supabase.co';
 
 const SUPABASE_ANON_KEY =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) ||
   'sb_publishable_oBTnHtE66ud3WBb1qRBuFQ_m64VuohI';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

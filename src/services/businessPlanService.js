@@ -338,9 +338,10 @@ export async function queryBusinessPlan({
     // 4. Dimensional Tables (state, district, customer, kro, krm)
     if (dimensions.length === 1) {
       const dim = dimensions[0];
-      const dimKey = dim === 'customer' ? 'dealer' : dim;
-      if (!hasFilters && dataset.dimensions?.[dimKey]) {
-        return sortRows(dataset.dimensions[dimKey], sort).slice(0, limit);
+      const dimKey = dim === 'dealer' ? 'customer' : dim;
+      const basePlanRows = dataset.planDimensions?.[dimKey] || dataset.dimensions?.[dimKey];
+      if (!hasFilters && basePlanRows) {
+        return sortRows(basePlanRows, sort).slice(0, limit);
       }
       const recs = filterDatasetRecords(dataset.records, {
         state,
@@ -352,7 +353,7 @@ export async function queryBusinessPlan({
         planStatus,
         krmStatus,
       });
-      const grpField = dim === 'customer' ? 'customer_name' : dim;
+      const grpField = (dim === 'customer' || dim === 'dealer') ? 'customer_name' : dim;
       const grpMap = new Map();
       recs.forEach((r) => {
         const k = r[grpField] || 'UNASSIGNED';
@@ -450,19 +451,47 @@ export async function queryBusinessPlanVsActual({
   if (dataset && (!targetMonth || targetMonth === toPlanMonth(dataset.meta.latestMonth))) {
     const dim = dimensions[0] || 'state';
     const dimKey = dim === 'customer' ? 'dealer' : dim;
-    const baseRows = dataset.dimensions?.[dimKey];
-    if (baseRows && Array.isArray(baseRows)) {
-      let filtered = baseRows;
-      if (state) {
-        filtered = filtered.filter((r) => matchesText(r.grp?.state, state));
-      }
-      if (district) {
-        filtered = filtered.filter((r) => matchesText(r.grp?.district, district));
-      }
-      if (dealer) {
-        filtered = filtered.filter((r) => matchesText(r.grp?.dealer, dealer));
-      }
-      return sortRows(filtered, sort).slice(0, limit);
+    const baseRows = dataset.actualDimensions?.[dimKey] || dataset.dimensions?.[dimKey];
+    const hasFilter = Boolean(state || district || dealer);
+    if (!hasFilter && baseRows && Array.isArray(baseRows)) {
+      return sortRows(baseRows, sort).slice(0, limit);
+    }
+    if (dataset.records && Array.isArray(dataset.records)) {
+      const recs = filterDatasetRecords(dataset.records, { state, district, customer: dealer });
+      const grpField = dimKey === 'dealer' ? 'customer_name' : dimKey;
+      const grpMap = new Map();
+      recs.forEach((r) => {
+        const k = r[grpField] || 'UNASSIGNED';
+        let acc = grpMap.get(k);
+        if (!acc) {
+          acc = {
+            grp: { [dimKey]: k },
+            bp_sp_target: 0,
+            bp_potential: 0,
+            actual_despatch: 0,
+            bp_dealers: 0,
+            active_dealers: 0,
+          };
+          grpMap.set(k, acc);
+        }
+        acc.bp_sp_target += r.total_sp_target || 0;
+        acc.bp_potential += r.total_potential || 0;
+        acc.actual_despatch += r.despatch || 0;
+        acc.bp_dealers += 1;
+        if ((r.despatch || 0) > 0) acc.active_dealers += 1;
+      });
+      const rows = Array.from(grpMap.values()).map((acc) => {
+        acc.bp_sp_target = Math.round(acc.bp_sp_target * 10) / 10;
+        acc.bp_potential = Math.round(acc.bp_potential * 10) / 10;
+        acc.actual_despatch = Math.round(acc.actual_despatch * 10) / 10;
+        acc.variance = Math.round((acc.actual_despatch - acc.bp_sp_target) * 10) / 10;
+        acc.achievement_pct =
+          acc.bp_sp_target > 0 ? Math.round((acc.actual_despatch / acc.bp_sp_target) * 1000) / 10 : null;
+        acc.coverage_pct =
+          acc.bp_dealers > 0 ? Math.round((acc.active_dealers / acc.bp_dealers) * 1000) / 10 : null;
+        return acc;
+      });
+      return sortRows(rows, sort).slice(0, limit);
     }
   }
 
