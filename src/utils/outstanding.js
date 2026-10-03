@@ -116,6 +116,7 @@ const MATCH_SOURCES = {
   VOUCHER_DIA: { label: 'DIA despatch', title: 'Bill number found in the DIA-wise despatch register' },
   PARTY_INFERRED: { label: 'Party\'s other bills', title: 'Dealer taken from this party\'s other matched bills' },
   CUSTOMER_CODE: { label: 'Customer code', title: 'Party code matched to a customer code' },
+  PRIOR_LEDGER: { label: 'Earlier ledger match', title: 'Dealer kept from the previous ledger upload for this party code' },
   CANONICAL_MAP: { label: 'Dealer name list', title: 'Ledger name matched through the dealer alias list' },
   PARTY_NAME: { label: 'ERP party name', title: 'Dealer taken from the ERP ledger name' },
 };

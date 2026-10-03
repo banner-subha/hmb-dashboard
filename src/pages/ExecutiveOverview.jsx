@@ -10,9 +10,11 @@ import SeverityBadge from '../components/common/SeverityBadge';
 import PriorityBadge from '../components/common/PriorityBadge';
 import MoMIndicator from '../components/common/MoMIndicator';
 import { formatMT } from '../utils/formatters';
-import { achievementTone, coverageTone, formatMT1, formatMT1Bare, formatPct1, formatCount, formatMonthLabel } from '../utils/businessPlan';
+import { achievementTone, formatMT1, formatMT1Bare, formatPct1, formatMonthLabel } from '../utils/businessPlan';
+import { formatINR } from '../utils/outstanding';
 import { formatPct } from '../utils/formatters';
 import { useVisitData } from '../hooks/useVisitData';
+import { useOutstandingData } from '../hooks/useOutstandingData';
 import { calculateMoM, formatTrend, getTrendColor } from '../utils/trendEngine';
 import { useNavigate } from 'react-router-dom';
 import SkeletonLoader from '../components/common/SkeletonLoader';
@@ -31,6 +33,7 @@ import BacklogRegionCard from '../components/common/BacklogRegionCard';
 import TargetVsActualCard from '../components/common/TargetVsActualCard';
 import PlanCoverageCard from '../components/common/PlanCoverageCard';
 import FieldCoverageCard from '../components/common/FieldCoverageCard';
+import OutstandingSnapshotCard from '../components/common/OutstandingSnapshotCard';
 
 /**
  * A KPI tile's share of the single row: the width of its figure in ems (same
@@ -59,7 +62,6 @@ export default function ExecutiveOverview() {
   // failure mode, so an unavailable plan never disturbs the despatch figures.
   const plan = useExecutivePlanSnapshot();
   const planTone = achievementTone(plan.totals?.achievementPct ?? null);
-  const planCoverageTone = coverageTone(plan.totals?.coveragePct ?? null);
 
   // Field visit payload, derived once here and handed to the card below, so
   // the KPI tile and the card can never report different figures.
@@ -68,6 +70,10 @@ export default function ExecutiveOverview() {
     visits.summary?.prevTotalVisits != null
       ? calculateMoM(visits.summary.curTotalVisits, visits.summary.prevTotalVisits)
       : null;
+
+  // Outstanding ledger, loaded once and shared by the KPI tile and the card
+  // under Dealer Alerts, so both report the same figures.
+  const outstanding = useOutstandingData();
 
   // Root cause findings derived from backend intelligence + product insights
   const rootCauses = useMemo(() => {
@@ -186,6 +192,8 @@ export default function ExecutiveOverview() {
       planDealerCoveragePct: plan.totals?.coveragePct != null
         ? Math.round(plan.totals.coveragePct * 10) / 10
         : null,
+      outstandingNet: outstanding.loading || outstanding.error ? null : formatINR(outstanding.summary.total),
+      outstandingOverdue: outstanding.loading || outstanding.error ? null : formatINR(outstanding.summary.overdue),
       fieldVisitsTotal: visits.summary?.curTotalVisits ?? null,
       fieldDealerCoveragePct: visits.summary?.dealerCoveragePct ?? null,
       activeStatesCount: states?.length || 0,
@@ -295,7 +303,9 @@ export default function ExecutiveOverview() {
         // reads as measured; the dash says the number is not in hand.
         : '—',
     dealers: data.dealers?.filter(d => d.cur > 0).length || 0,
-    coverage: plan.totals?.coveragePct != null ? formatPct1(plan.totals.coveragePct) : '—',
+    // No rupee sign in the figure: KPICard only splits and fits a figure that
+    // starts with a digit (same as the Outstanding tab's KPI row).
+    outstanding: outstanding.loading || outstanding.error ? 'n/a' : formatINR(outstanding.summary.total, false),
     visits: visits.summary ? (visits.summary.curTotalVisits ?? 0).toLocaleString('en-IN') : '—',
   };
 
@@ -323,6 +333,7 @@ export default function ExecutiveOverview() {
         <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.dispatched }}>
           <KPICard
             fitValue
+            size="lg"
             label="Dispatched MTD"
             value={kpiValues.dispatched}
             momDisplay={totalTrendDisplay}
@@ -336,6 +347,7 @@ export default function ExecutiveOverview() {
         <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.pending }}>
           <KPICard
             fitValue
+            size="lg"
             label="Pending Orders"
             value={kpiValues.pending}
             subtitle={data.pendingTotal > 0 ? "Awaiting dispatch" : "No active backlog"}
@@ -347,6 +359,7 @@ export default function ExecutiveOverview() {
         <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.achievement }}>
           <KPICard
             fitValue
+            size="lg"
             label="Plan Achieved"
             value={kpiValues.achievement}
             loading={plan.loading}
@@ -365,6 +378,7 @@ export default function ExecutiveOverview() {
         <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.delivery }}>
           <KPICard
             fitValue
+            size="lg"
             label="Avg Delivery"
             value={kpiValues.delivery}
             subtitle="Order to dispatch"
@@ -376,6 +390,7 @@ export default function ExecutiveOverview() {
         <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.dealers }}>
           <KPICard
             fitValue
+            size="lg"
             label="Active Dealers"
             value={kpiValues.dealers}
             subtitle={
@@ -387,26 +402,22 @@ export default function ExecutiveOverview() {
           />
         </m.div>
 
-        {/*
-          6. Plan Dealer Coverage — the breadth half of the plan. Plan
-          Achievement above reports tonnage, which a few large accounts can
-          carry on their own; this reports how much of the planned dealer base
-          actually billed, so a narrow month cannot hide behind a good total.
-        */}
-        <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.coverage }}>
+        {/* 6. Outstanding — net balance owed by dealers, from the ERP ledger */}
+        <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.outstanding }}>
           <KPICard
             fitValue
-            label="Plan Coverage"
-            value={kpiValues.coverage}
-            loading={plan.loading}
+            size="lg"
+            label="Outstanding (₹)"
+            value={kpiValues.outstanding}
+            loading={outstanding.loading}
             subtitle={
-              plan.loading
-                ? 'Loading business plan'
-                : plan.totals?.bpDealers
-                ? `${formatCount(plan.totals.activeDealers)} of ${formatCount(plan.totals.bpDealers)} dealers billed`
-                : 'No dealer targets for this month'
+              outstanding.loading
+                ? 'Loading ledger'
+                : outstanding.error
+                ? 'Ledger unavailable'
+                : `${formatINR(outstanding.summary.overdue)} past due date`
             }
-            accentColor={planCoverageTone.color}
+            accentColor="#ef4444"
           />
         </m.div>
 
@@ -414,6 +425,7 @@ export default function ExecutiveOverview() {
         <m.div variants={kpiCard} className={KPI_ITEM} style={{ '--kpi-w': kpiWeights.visits }}>
           <KPICard
             fitValue
+            size="lg"
             label="Field Visits"
             value={kpiValues.visits}
             loading={visits.loading}
@@ -587,8 +599,10 @@ export default function ExecutiveOverview() {
           {/* Dynamic 2-Column Responsive Masonry Flow */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-4.5 items-start">
 
-            {/* Sub-Column 1: Daily Pace -> Root Cause & Insights -> Top Growth Leaders */}
-            <div className="space-y-4 sm:space-y-4.5 flex flex-col">
+            {/* Sub-Column 1: Daily Pace -> Root Cause & Insights -> Top Growth Leaders.
+                Stretched to the row (md up) so the Outstanding card at its foot
+                fills whatever height Sub-Column 2 leaves, with no gap below. */}
+            <div className="space-y-4 sm:space-y-4.5 flex flex-col md:self-stretch">
               <PaceTrackerCard data={data} rawData={rawData} />
               <RootCauseAndInsightsCard
                 rootCauses={rootCauses}
@@ -635,6 +649,16 @@ export default function ExecutiveOverview() {
                   ))}
                 </div>
               </CollapsibleCard>
+              {/* Absolute from md: the card adds no height of its own, it takes what is left */}
+              <div className="md:relative md:flex-1 md:min-h-[18rem]">
+                <OutstandingSnapshotCard
+                  className="md:absolute md:inset-0"
+                  book={outstanding.book}
+                  summary={outstanding.summary}
+                  loading={outstanding.loading}
+                  error={outstanding.error}
+                />
+              </div>
             </div>
 
             {/* Sub-Column 2: Order Backlog -> Recommended Actions -> Order Velocity */}

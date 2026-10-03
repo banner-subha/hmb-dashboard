@@ -10,8 +10,11 @@ function KPICard({
   lightAccentColor,
   loading = false,
   fitValue = false,
+  // 'lg' (Executive Overview only): bigger label, figure and sub-line.
+  size = 'md',
   className = ''
 }) {
+  const lg = size === 'lg';
   const isLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
   const effectiveAccent = isLight && lightAccentColor ? lightAccentColor : accentColor;
   const displayColor = momColor || '#94a3b8';
@@ -34,8 +37,14 @@ function KPICard({
       // --kpi-fit instead: a row that splits its width by weight sets it to
       // the weight, so every figure in that row lands at the same size.
       const fitEm = (num.length * 0.62 + (unit ? unit.length * 0.4 + 0.3 : 0)).toFixed(2);
+      // lg fills more of the tile: the em estimate above runs about 20% wide
+      // (commas and points are narrower than digits), so 1.12 still leaves room.
       const fitStyle = fitValue
-        ? { fontSize: `clamp(1.5rem, calc(100cqi / var(--kpi-fit, ${fitEm})), 3.05rem)` }
+        ? {
+            fontSize: lg
+              ? `clamp(1.75rem, calc(100cqi * 1.12 / var(--kpi-fit, ${fitEm})), 3.5rem)`
+              : `clamp(1.5rem, calc(100cqi / var(--kpi-fit, ${fitEm})), 3.05rem)`,
+          }
         : undefined;
 
       return (
@@ -47,7 +56,7 @@ function KPICard({
             {num}
           </span>
           {unit && (
-            <span className="text-xs sm:text-sm lg:text-base font-bold text-text-secondary tracking-normal ml-0.5">
+            <span className={`${lg ? 'text-sm sm:text-base lg:text-lg' : 'text-xs sm:text-sm lg:text-base'} font-bold text-text-secondary tracking-normal ml-0.5`}>
               {unit}
             </span>
           )}
@@ -64,7 +73,7 @@ function KPICard({
 
   return (
     <div
-      className={`glass-card-hover kpi-tile relative ${fitValue ? 'p-4' : 'p-4 sm:p-5'} flex flex-col overflow-hidden h-full ${className}`}
+      className={`glass-card-hover kpi-tile relative ${fitValue ? 'p-4' : 'p-4 sm:p-5'} ${lg ? '[container-type:inline-size]' : ''} flex flex-col overflow-hidden h-full ${className}`}
       style={{
         borderLeftWidth: '0',
       }}
@@ -78,7 +87,10 @@ function KPICard({
       {/* A fitted row keeps each label to one line, so every figure in the row
           sits on the same baseline; the full label stays in the tooltip. */}
       <div
-        className={`stat-label text-text-muted uppercase leading-snug ${fitValue ? 'mb-1.5 text-[12px] font-bold tracking-wide truncate' : 'mb-2 text-xs sm:text-[13px] font-bold tracking-wide'}`}
+        className={`stat-label text-text-muted uppercase leading-snug ${fitValue ? `mb-1.5 ${lg ? '' : 'text-[12px]'} font-bold tracking-wide truncate` : 'mb-2 text-xs sm:text-[13px] font-bold tracking-wide'}`}
+        // lg: 14px where the tile has room, down to 12px on the narrow tiles of
+        // a one-row 2xl layout, so "OUTSTANDING (₹)" is never cut.
+        style={lg ? { fontSize: 'clamp(12px, 9.9cqi, 14px)' } : undefined}
         title={fitValue ? label : undefined}
       >
         {label}
@@ -92,13 +104,13 @@ function KPICard({
       */}
       <div className={fitValue ? 'mb-1 [container-type:inline-size]' : 'mb-1.5'}>
         {loading
-          ? <div className="skeleton h-9 sm:h-10 lg:h-11 w-3/5" aria-hidden="true" />
+          ? <div className={`skeleton ${lg ? 'h-10 sm:h-11 lg:h-12' : 'h-9 sm:h-10 lg:h-11'} w-3/5`} aria-hidden="true" />
           : renderFormattedValue()}
       </div>
 
-      <div className="text-xs sm:text-[13px] text-text-secondary mt-auto pt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-snug">
+      <div className={`${lg ? 'text-[13px] sm:text-[15px]' : 'text-xs sm:text-[13px]'} text-text-secondary mt-auto pt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 leading-snug`}>
         {momDisplay && (
-          <span style={{ color: displayColor }} className="text-sm sm:text-[13.5px] font-black tracking-wide whitespace-nowrap">
+          <span style={{ color: displayColor }} className={`${lg ? 'text-sm sm:text-[15px]' : 'text-sm sm:text-[13.5px]'} font-black tracking-wide whitespace-nowrap`}>
             {momDisplay}
           </span>
         )}

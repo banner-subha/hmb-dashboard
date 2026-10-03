@@ -50,9 +50,9 @@ function CollapsibleCard({
             initial={false}
             animate="open"
             exit="closed"
-            className={`overflow-hidden ${fullHeight ? 'flex-1 flex flex-col' : ''}`}
+            className={`overflow-hidden ${fullHeight ? 'flex-1 min-h-0 flex flex-col' : ''}`}
           >
-            <div className={`p-3.5 sm:p-4.5 ${fullHeight ? 'flex-1 flex flex-col justify-between' : ''}`}>
+            <div className={`p-3.5 sm:p-4.5 ${fullHeight ? 'flex-1 min-h-0 flex flex-col justify-between' : ''}`}>
               {children}
             </div>
           </m.div>

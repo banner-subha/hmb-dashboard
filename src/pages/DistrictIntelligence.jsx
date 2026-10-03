@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useRef } from 'react';
+import { useMemo, useEffect, useState, useRef, useCallback } from 'react';
 import { useData } from '../context/DataContext';
 import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +20,10 @@ import { getPendingForPeriod, getBacklogClearance } from '../utils/pending';
 import { getCurMonthKey, getDespatchAvailableMonths, getHistoricalDistricts } from '../utils/despatch';
 import ExportDropdown from '../components/common/ExportDropdown';
 import { downloadCsv, getExportFilename } from '../utils/csvExport';
+import { useAccount360 } from '../hooks/useAccount360';
+import { AttentionCell, AttentionSelect, AttentionSummary } from '../components/common/SignalBadge';
+import Account360Drawer from '../components/common/Account360Drawer';
+import { districtKey, rollupSignal, signalRank } from '../utils/account360';
 
 export default function DistrictIntelligence() {
   const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
@@ -27,6 +31,10 @@ export default function DistrictIntelligence() {
   const showNorthBengal = isWestBengalUser(user, filterOptions);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [signalFilter, setSignalFilter] = useState('ALL');
+  const [drawerKey, setDrawerKey] = useState(null);
+  const closeDrawer = useCallback(() => setDrawerKey(null), []);
+  const { model: account360, status: account360Status, ready: account360Ready } = useAccount360();
 
   const [selectedPendingMonth, setSelectedPendingMonth] = useState(
     () => getCurMonthKey(rawData),
@@ -46,7 +54,7 @@ export default function DistrictIntelligence() {
     setSelectedPendingMonth(getCurMonthKey(rawData));
   }
 
-  const filteredDistricts = useMemo(() => {
+  const monthDistricts = useMemo(() => {
     if (!data) return [];
     let list;
     const curMonthKey = getCurMonthKey(rawData);
@@ -81,6 +89,28 @@ export default function DistrictIntelligence() {
 
     return list;
   }, [data, rawData, selectedPendingMonth, filters, searchParams]);
+
+  // Signals are always the running cycle's, whatever month the table shows.
+  const recordOf = useCallback(
+    row => account360?.districts.get(districtKey(row.state, row.district)) || null,
+    [account360],
+  );
+  const signalCounts = useMemo(() => {
+    const counts = {};
+    monthDistricts.forEach(d => {
+      Object.keys(recordOf(d)?.signalCounts || {}).forEach(k => { counts[k] = (counts[k] || 0) + 1; });
+    });
+    return counts;
+  }, [monthDistricts, recordOf]);
+  const filteredDistricts = useMemo(
+    () => (signalFilter === 'ALL' ? monthDistricts : monthDistricts.filter(d => recordOf(d)?.signalCounts?.[signalFilter] > 0)),
+    [monthDistricts, signalFilter, recordOf],
+  );
+  const selectedDistrictRecord = useMemo(() => {
+    if (!filters.selectedDistrict) return null;
+    const row = (data?.districts || []).find(d => d.district === filters.selectedDistrict);
+    return row ? recordOf(row) : null;
+  }, [data?.districts, filters.selectedDistrict, recordOf]);
 
   useDashboardTelemetry({
     tabName: 'District Intelligence',
@@ -273,9 +303,22 @@ export default function DistrictIntelligence() {
             </div>
           );
         }
-      }
+      },
+      {
+        id: 'signal',
+        header: 'Attention',
+        accessorFn: row => signalRank(rollupSignal(recordOf(row), signalFilter)),
+        meta: { width: '170px', minWidth: '160px' },
+        cell: info => (
+          <AttentionCell
+            signal={rollupSignal(recordOf(info.row.original), signalFilter)}
+            loading={!account360Ready}
+            onOpen={() => setDrawerKey(districtKey(info.row.original.state, info.row.original.district))}
+          />
+        ),
+      },
     ];
-  }, []);
+  }, [recordOf, signalFilter, account360Ready]);
 
   const handleExportFiltered = () => {
     const totalVolume = filteredDistricts.reduce((sum, r) => sum + (Number(r.cur) || 0), 0);
@@ -469,6 +512,14 @@ export default function DistrictIntelligence() {
                 </button>
               )}
 
+              <AttentionSelect
+                value={signalFilter}
+                onChange={setSignalFilter}
+                counts={signalCounts}
+                disabled={!account360Ready}
+                className="text-xs py-1.5 px-3 w-[150px] sm:w-[170px] shrink-0"
+              />
+
               <select
                 value={selectedPendingMonth}
                 onChange={(e) => setSelectedPendingMonth(e.target.value)}
@@ -501,8 +552,9 @@ export default function DistrictIntelligence() {
               />
             </div>
 
+            {/* Rows are memoised on their data, so the key repaints the Attention column once the linked sources arrive. */}
             <DataTable 
-              key={selectedPendingMonth}
+              key={selectedPendingMonth + '-' + signalFilter + '-' + account360Ready}
               data={filteredDistricts} 
               columns={columns} 
               pageSize={15}
@@ -580,7 +632,17 @@ export default function DistrictIntelligence() {
         </div>
 
         {/* Right Col: Scatter Plot & Insights */}
-        <div className="lg:col-span-4 space-y-6">
+        {/* Pinned while the page scrolls, so a side column longer than the table never leaves a gap beneath it. */}
+        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-9rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+          {selectedDistrictRecord && (
+            <AttentionSummary
+              className="glass-card"
+              signal={selectedDistrictRecord.signal}
+              loading={!account360Ready}
+              onOpen={() => setDrawerKey(districtKey(selectedDistrictRecord.state, selectedDistrictRecord.district))}
+            />
+          )}
+
           <CollapsibleCard title="District Impact Map" accentColor="#eab308">
             <div className="text-xs text-text-muted mb-4">
               Visualizing volume vs impact score. High volume, critical impact districts (top right) require immediate intervention.
@@ -684,6 +746,13 @@ export default function DistrictIntelligence() {
           </AnimatePresence>
         </div>
       </div>
+
+      <Account360Drawer
+        record={drawerKey ? account360?.districts.get(drawerKey) : null}
+        meta={account360?.meta}
+        status={account360Status}
+        onClose={closeDrawer}
+      />
     </div>
   );
 }

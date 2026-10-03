@@ -7,7 +7,7 @@
  *
  * Usage:
  *   node eval/run_eval.js                  # Run full eval suite
- *   node eval/run_eval.js --suite=aging    # Run specific suite (aging|outstanding|geo|trends|formatters|weeks)
+ *   node eval/run_eval.js --suite=aging    # Run specific suite (aging|outstanding|geo|trends|formatters|weeks|signals)
  *   node eval/run_eval.js --verbose        # Show detailed assertion-by-assertion logs
  */
 
@@ -22,6 +22,7 @@ import * as geoUtil from '../src/utils/districtNormalizer.js';
 import * as trendUtil from '../src/utils/trendEngine.js';
 import * as formatUtil from '../src/utils/formatters.js';
 import * as weekUtil from '../src/utils/visitWeeks.js';
+import * as account360Util from '../src/utils/account360.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,7 +51,7 @@ Usage:
   node eval/run_eval.js [options]
 
 Options:
-  --suite=<name>    Run specific suite: aging | outstanding | geo | trends | formatters | weeks
+  --suite=<name>    Run specific suite: aging | outstanding | geo | trends | formatters | weeks | signals
   --verbose, -v     Print all passed assertions
   --help, -h        Show this help message
 `);
@@ -248,6 +249,18 @@ function runWeeksSuite() {
 }
 
 // ============================================================================
+// SUITE 7: ACCOUNT 360 SIGNALS
+// ============================================================================
+function runSignalsSuite() {
+  console.log(`
+${colors.cyan}${colors.bold}▶ Suite: Account 360 Signals${colors.reset}`);
+  for (const tc of fixtures.account360_signals) {
+    const got = account360Util.computeSignal(tc.record)?.key ?? null;
+    assert(got === tc.expected, `computeSignal: ${tc.name} → ${tc.expected}`, got, tc.expected, 'Signals');
+  }
+}
+
+// ============================================================================
 // MAIN EXECUTION
 // ============================================================================
 const startTime = performance.now();
@@ -263,6 +276,7 @@ const suites = [
   { id: 'trends', fn: runTrendSuite },
   { id: 'formatters', fn: runFormattersSuite },
   { id: 'weeks', fn: runWeeksSuite },
+  { id: 'signals', fn: runSignalsSuite },
 ];
 
 for (const suite of suites) {

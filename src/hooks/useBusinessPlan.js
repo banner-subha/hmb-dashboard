@@ -120,10 +120,12 @@ function useLatest(producer, depKey, { initial = null, enabled = true } = {}) {
  * joins a second table. Deriving any of them from another in JavaScript would
  * produce numbers the database never agreed to.
  */
-export function useBusinessPlan() {
+export function useBusinessPlan(initialFilters = null) {
   const [monthChoice, setMonthChoice] = useState(null);
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [debouncedCustomer, setDebouncedCustomer] = useState('');
+  // initialFilters comes from a deep link (?state=&district=&customer=) and is
+  // read once; after that the filter bar owns the state.
+  const [filters, setFilters] = useState(() => ({ ...EMPTY_FILTERS, ...(initialFilters || {}) }));
+  const [debouncedCustomer, setDebouncedCustomer] = useState(() => (initialFilters?.customer || '').trim());
   const [dimension, setDimension] = useState(BP_DIMENSIONS[0].key);
   const [dimensionSort, setDimensionSort] = useState('sp_target_desc');
 
@@ -436,7 +438,10 @@ export function useBusinessPlan() {
 
   // Auto-prune any active selection that is no longer valid within the updated cascading options list
   useEffect(() => {
-    if (optionsLoading) return;
+    // An empty list means the options have not loaded yet (the query waits for
+    // the month), not that nothing is valid; pruning then would drop a
+    // deep-linked district before the list arrives.
+    if (optionsLoading || !(comboQuery.data || []).length) return;
     const { districts, kros, krms } = options;
     setFilters((prev) => {
       let changed = false;
@@ -455,7 +460,7 @@ export function useBusinessPlan() {
       }
       return changed ? next : prev;
     });
-  }, [options, optionsLoading]);
+  }, [options, optionsLoading, comboQuery.data]);
 
   const reloadLatestMonth = latestMonthQuery.reload;
   const reloadMonths = monthsQuery.reload;

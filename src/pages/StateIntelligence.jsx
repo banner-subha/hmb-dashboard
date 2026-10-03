@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState, useRef } from 'react';
+import { useMemo, useEffect, useState, useRef, useCallback } from 'react';
 import { useData } from '../context/DataContext';
 import { useDashboardTelemetry } from '../context/DashboardTelemetryContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -17,11 +17,19 @@ import { Map } from 'lucide-react';
 import MoMAreaTrendChart from '../components/charts/MoMAreaTrendChart';
 import ExportDropdown from '../components/common/ExportDropdown';
 import { downloadCsv, getExportFilename } from '../utils/csvExport';
+import { useAccount360 } from '../hooks/useAccount360';
+import { AttentionCell, AttentionSelect, AttentionSummary } from '../components/common/SignalBadge';
+import Account360Drawer from '../components/common/Account360Drawer';
+import { stateKey, rollupSignal, signalRank } from '../utils/account360';
 
 export default function StateIntelligence() {
   const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [signalFilter, setSignalFilter] = useState('ALL');
+  const [drawerKey, setDrawerKey] = useState(null);
+  const closeDrawer = useCallback(() => setDrawerKey(null), []);
+  const { model: account360, status: account360Status, ready: account360Ready } = useAccount360();
 
   const [selectedPendingMonth, setSelectedPendingMonth] = useState(
     () => getCurMonthKey(rawData),
@@ -150,6 +158,24 @@ export default function StateIntelligence() {
     },
   });
 
+  // Signals are always the running cycle's, whatever month the table shows.
+  const recordOf = useCallback(
+    row => account360?.states.get(stateKey(row.state)) || null,
+    [account360],
+  );
+  const signalCounts = useMemo(() => {
+    const counts = {};
+    states.forEach(st => {
+      Object.keys(recordOf(st)?.signalCounts || {}).forEach(k => { counts[k] = (counts[k] || 0) + 1; });
+    });
+    return counts;
+  }, [states, recordOf]);
+  // Only the table narrows; the open state's panel stays put.
+  const tableStates = useMemo(
+    () => (signalFilter === 'ALL' ? states : states.filter(st => recordOf(st)?.signalCounts?.[signalFilter] > 0)),
+    [states, signalFilter, recordOf],
+  );
+
   const columns = useMemo(() => {
     const totalCur = states.reduce((s, row) => s + (row.cur || 0), 0);
 
@@ -255,9 +281,22 @@ export default function StateIntelligence() {
           
           return <span style={{ color: 'var(--color-text-muted)' }}>—</span>;
         }
-      }
+      },
+      {
+        id: 'signal',
+        header: 'Attention',
+        accessorFn: row => signalRank(rollupSignal(recordOf(row), signalFilter)),
+        meta: { width: '170px', minWidth: '160px' },
+        cell: info => (
+          <AttentionCell
+            signal={rollupSignal(recordOf(info.row.original), signalFilter)}
+            loading={!account360Ready}
+            onOpen={() => setDrawerKey(stateKey(info.row.original.state))}
+          />
+        ),
+      },
     ];
-  }, [states]);
+  }, [states, recordOf, signalFilter, account360Ready]);
 
   const handleExportFiltered = () => {
     const totalVolume = states.reduce((sum, r) => sum + (Number(r.cur) || 0), 0);
@@ -275,7 +314,7 @@ export default function StateIntelligence() {
     ];
 
     const filename = getExportFilename(`states_despatch_${selectedPendingMonth || 'current'}`, 'filtered');
-    downloadCsv(filename, cols, states);
+    downloadCsv(filename, cols, tableStates);
   };
 
   const handleExportRaw = () => {
@@ -492,6 +531,14 @@ export default function StateIntelligence() {
                 </button>
               )}
 
+              <AttentionSelect
+                value={signalFilter}
+                onChange={setSignalFilter}
+                counts={signalCounts}
+                disabled={!account360Ready}
+                className="w-full sm:w-[170px]"
+              />
+
               <select
                 value={selectedPendingMonth}
                 onChange={(e) => setSelectedPendingMonth(e.target.value)}
@@ -512,16 +559,17 @@ export default function StateIntelligence() {
               <ExportDropdown
                 label="Export CSV"
                 entityName="States"
-                filteredCount={states.length}
+                filteredCount={tableStates.length}
                 rawCount={(rawData?.states || []).filter(s => s && isRealState(s.state)).length}
                 onExportFiltered={handleExportFiltered}
                 onExportRaw={handleExportRaw}
               />
             </div>
 
+            {/* Rows are memoised on their data, so the key repaints the Attention column once the linked sources arrive. */}
             <DataTable 
-              key={selectedPendingMonth}
-              data={states} 
+              key={selectedPendingMonth + '-' + signalFilter + '-' + account360Ready}
+              data={tableStates} 
               columns={columns} 
               defaultSort={[{ id: 'share', desc: true }]}
               onRowClick={(row) => dispatch({ type: 'SET_STATE', payload: row.state })}
@@ -592,7 +640,8 @@ export default function StateIntelligence() {
 
         {/* Right Col: Detail Panel (only shows if state selected) */}
         {selectedStateData && (
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100dvh-9rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+            {/* Pinned while the page scrolls, so a side column longer than the table never leaves a gap beneath it. */}
             <CollapsibleCard 
               title={`${selectedStateData.state} Dispatch`}
               accentColor={selectedAccentColor}
@@ -601,6 +650,13 @@ export default function StateIntelligence() {
                 className="text-xs text-text-muted hover:text-text-primary underline cursor-pointer"
               >Clear</button>}
             >
+              <AttentionSummary
+                className="mb-4"
+                signal={recordOf(selectedStateData)?.signal}
+                loading={!account360Ready}
+                onOpen={() => setDrawerKey(stateKey(selectedStateData.state))}
+              />
+
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-center">
                   <div className="text-xs text-text-muted">
@@ -736,6 +792,13 @@ export default function StateIntelligence() {
           </div>
         )}
       </div>
+
+      <Account360Drawer
+        record={drawerKey ? account360?.states.get(drawerKey) : null}
+        meta={account360?.meta}
+        status={account360Status}
+        onClose={closeDrawer}
+      />
     </div>
   );
 }

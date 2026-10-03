@@ -18,6 +18,10 @@ import { isWestBengalUser } from '../utils/constants';
 import { Store } from 'lucide-react';
 import ExportDropdown from '../components/common/ExportDropdown';
 import { downloadCsv, getExportFilename } from '../utils/csvExport';
+import { useAccount360 } from '../hooks/useAccount360';
+import { AttentionCell, AttentionSelect, AttentionSummary } from '../components/common/SignalBadge';
+import Account360Drawer from '../components/common/Account360Drawer';
+import { dealerRowKey, signalRank } from '../utils/account360';
 
 export default function DealerIntelligence() {
   const { rawData, data, loading, error, filters, dispatch, filterOptions } = useData();
@@ -33,6 +37,10 @@ export default function DealerIntelligence() {
   // despatch, daily target and product mix all stale together.
   const [selectedDealerRef, setSelectedDealerRef] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'INACTIVE'
+  const [signalFilter, setSignalFilter] = useState('ALL');
+  const [drawerKey, setDrawerKey] = useState(null);
+  const closeDrawer = useCallback(() => setDrawerKey(null), []);
+  const { model: account360, status: account360Status, ready: account360Ready } = useAccount360();
   const [selectedPendingMonth, setSelectedPendingMonth] = useState(
     () => getCurMonthKey(rawData),
   );
@@ -111,7 +119,7 @@ export default function DealerIntelligence() {
     setSelectedPendingMonth(getCurMonthKey(rawData));
   }
 
-  const filteredDealers = useMemo(() => {
+  const monthDealers = useMemo(() => {
     const curMonthKey = getCurMonthKey(rawData);
     let rawDealers = data?.dealers || [];
     if (selectedPendingMonth && selectedPendingMonth !== curMonthKey) {
@@ -132,6 +140,24 @@ export default function DealerIntelligence() {
     return rawDealers;
   }, [data?.dealers, rawData, statusFilter, selectedPendingMonth, filters, searchParams]);
 
+  // Signals are always the running cycle's, whatever month the table shows.
+  const signalOf = useCallback(
+    row => account360?.dealers.get(dealerRowKey(row))?.signal || null,
+    [account360],
+  );
+  const signalCounts = useMemo(() => {
+    const counts = {};
+    monthDealers.forEach(d => {
+      const k = signalOf(d)?.key;
+      if (k) counts[k] = (counts[k] || 0) + 1;
+    });
+    return counts;
+  }, [monthDealers, signalOf]);
+  const filteredDealers = useMemo(
+    () => (signalFilter === 'ALL' ? monthDealers : monthDealers.filter(d => signalOf(d)?.key === signalFilter)),
+    [monthDealers, signalFilter, signalOf],
+  );
+
   /**
    * The row the open profile describes, resolved against the list on screen.
    *
@@ -151,7 +177,7 @@ export default function DealerIntelligence() {
     // the casing of the name — Murshidabad has both a "KALIMATA HARDWARE"
     // (active) and a "Kalimata Hardware" (inactive) — and the case-insensitive
     // key cannot tell them apart, so on its own it can open the wrong one.
-    const exact = filteredDealers.find(
+    const exact = monthDealers.find(
       d => d.client === client && d.state === state && d.district === district,
     );
     if (exact) return exact;
@@ -166,12 +192,12 @@ export default function DealerIntelligence() {
     const ambiguous =
       (data?.dealers || []).filter(d => dealerIdentity(d) === key).length > 1;
     if (!ambiguous) {
-      const loose = filteredDealers.filter(d => dealerIdentity(d) === key);
+      const loose = monthDealers.filter(d => dealerIdentity(d) === key);
       if (loose.length === 1) return loose[0];
     }
 
     return { client, state, district, cur: 0, prev: 0, products: [], isInactive: true };
-  }, [filteredDealers, selectedDealerRef, data?.dealers]);
+  }, [monthDealers, selectedDealerRef, data?.dealers]);
 
   const selectDealer = useCallback((dealer) => {
     setSelectedDealerRef(
@@ -400,8 +426,21 @@ export default function DealerIntelligence() {
           );
         },
       },
+      {
+        id: 'signal',
+        header: 'Attention',
+        accessorFn: row => signalRank(signalOf(row)),
+        meta: { width: '170px', minWidth: '160px' },
+        cell: info => (
+          <AttentionCell
+            signal={signalOf(info.row.original)}
+            loading={!account360Ready}
+            onOpen={() => setDrawerKey(dealerRowKey(info.row.original))}
+          />
+        ),
+      },
     ];
-  }, []);
+  }, [signalOf, account360Ready]);
 
   const handleExportFiltered = () => {
     const totalVolume = filteredDealers.reduce((sum, r) => sum + (Number(r.cur) || 0), 0);
@@ -606,6 +645,14 @@ export default function DealerIntelligence() {
                 </button>
               )}
 
+              <AttentionSelect
+                value={signalFilter}
+                onChange={setSignalFilter}
+                counts={signalCounts}
+                disabled={!account360Ready}
+                className="text-xs py-1.5 px-3 w-[150px] sm:w-[170px] shrink-0"
+              />
+
               {/* Month Select */}
               <select
                 value={selectedPendingMonth}
@@ -639,8 +686,9 @@ export default function DealerIntelligence() {
               />
             </div>
 
+            {/* Rows are memoised on their data, so the key repaints the Attention column once the linked sources arrive. */}
             <DataTable 
-              key={selectedPendingMonth + '-' + statusFilter + '-' + (searchParams.get('sort') || '')}
+              key={selectedPendingMonth + '-' + statusFilter + '-' + signalFilter + '-' + account360Ready + '-' + (searchParams.get('sort') || '')}
               data={filteredDealers} 
               columns={columns} 
               defaultSort={
@@ -655,7 +703,8 @@ export default function DealerIntelligence() {
 
         {/* Right Col: Dealer Intelligence Panel */}
         {selectedDealer && (
-          <div className="space-y-6 min-w-0">
+          <div className="space-y-6 min-w-0 xl:sticky xl:top-4 xl:self-start xl:max-h-[calc(100dvh-9rem)] xl:overflow-y-auto xl:overscroll-contain xl:pr-1">
+            {/* Pinned while the page scrolls, so a side column longer than the table never leaves a gap beneath it. */}
             <CollapsibleCard 
               title="Dealer Profile" 
               accentColor={selectedAccentColor}
@@ -673,6 +722,13 @@ export default function DealerIntelligence() {
                   </div>
                 )}
               </div>
+
+              <AttentionSummary
+                className="mb-6"
+                signal={signalOf(selectedDealer)}
+                loading={!account360Ready}
+                onOpen={() => setDrawerKey(dealerRowKey(selectedDealer))}
+              />
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="p-3 bg-bg-secondary rounded-lg flex flex-col justify-between min-h-[80px]">
@@ -860,6 +916,13 @@ export default function DealerIntelligence() {
           </div>
         )}
       </div>
+
+      <Account360Drawer
+        record={drawerKey ? account360?.dealers.get(drawerKey) : null}
+        meta={account360?.meta}
+        status={account360Status}
+        onClose={closeDrawer}
+      />
     </div>
   );
 }

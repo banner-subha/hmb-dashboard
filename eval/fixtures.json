@@ -147,5 +147,25 @@
       { "date": "2026-09-08", "expectedIdx": 2 },
       { "date": "2026-08-31", "expectedIdx": 5 }
     ]
-  }
+  },
+  "account360_signals": [
+    { "name": "late bills with orders waiting", "expected": "COLLECT_FIRST",
+      "record": { "despatch": { "cur": 5 }, "pending": { "qty": 12, "over30": 0 }, "outstanding": { "overdue": 250000, "maxOverdueDays": 75 }, "plan": null, "visits": null, "pace": null } },
+    { "name": "61 days late is past the limit, 60 is not", "expected": null,
+      "record": { "despatch": { "cur": 5 }, "pending": { "qty": 12, "over30": 0 }, "outstanding": { "overdue": 250000, "maxOverdueDays": 60 }, "plan": null, "visits": null, "pace": null } },
+    { "name": "30% of pending over 30 days", "expected": "ORDERS_STUCK",
+      "record": { "despatch": { "cur": 5 }, "pending": { "qty": 10, "over30": 3 }, "outstanding": { "overdue": 0, "maxOverdueDays": 0 }, "plan": null, "visits": null, "pace": null } },
+    { "name": "behind plan and under-visited", "expected": "VISIT_GAP",
+      "record": { "despatch": { "cur": 5 }, "pending": { "qty": 0, "over30": 0 }, "outstanding": null, "plan": { "target": 50, "potential": 60 }, "visits": { "cur": 1, "usual": 4 }, "pace": 0.69 } },
+    { "name": "visited as usual, under half of plan", "expected": "NOT_CONVERTING",
+      "record": { "despatch": { "cur": 5 }, "pending": { "qty": 0, "over30": 0 }, "outstanding": null, "plan": { "target": 50, "potential": 60 }, "visits": { "cur": 4, "usual": 4 }, "pace": 0.49 } },
+    { "name": "visited, no plan, nothing despatched", "expected": "NOT_CONVERTING",
+      "record": { "despatch": { "cur": 0 }, "pending": { "qty": 0, "over30": 0 }, "outstanding": null, "plan": null, "visits": { "cur": 3, "usual": 2 }, "pace": null } },
+    { "name": "potential three times the target", "expected": "UNTAPPED",
+      "record": { "despatch": { "cur": 30 }, "pending": { "qty": 0, "over30": 0 }, "outstanding": null, "plan": { "target": 20, "potential": 60 }, "visits": null, "pace": 1.5 } },
+    { "name": "at 90% of plan", "expected": "ON_TRACK",
+      "record": { "despatch": { "cur": 30 }, "pending": { "qty": 0, "over30": 0 }, "outstanding": null, "plan": { "target": 20, "potential": 30 }, "visits": null, "pace": 0.9 } },
+    { "name": "despatch only", "expected": null,
+      "record": { "despatch": { "cur": 30 }, "pending": { "qty": 5, "over30": 5 }, "outstanding": null, "plan": null, "visits": null, "pace": null } }
+  ]
 }

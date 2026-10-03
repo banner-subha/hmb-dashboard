@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Receipt } from 'lucide-react';
 
 import ErrorBoundary from '../components/common/ErrorBoundary';
@@ -30,6 +31,37 @@ export default function OutstandingIntelligence() {
   const ob = useOutstandingData();
   const [selected, setSelected] = useState(null);
   const closeDrawer = useCallback(() => setSelected(null), []);
+
+  // ?dealer=<account key> (from the Executive Overview card): narrow the table
+  // to that dealer and open its bills, then drop the param so a refresh or
+  // closing the drawer does not reopen it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedKey = searchParams.get('dealer');
+  const [handledKey, setHandledKey] = useState(null);
+  if (linkedKey && !ob.loading && handledKey !== linkedKey) {
+    setHandledKey(linkedKey);
+    const row = ob.book.find(r => r.key === linkedKey);
+    if (row) {
+      ob.setFilter('search', row.dealer_name);
+      setSelected(row);
+    }
+  }
+  // ?state=&district= (from the State and District tabs): narrow the table to
+  // that place, the same way.
+  const placeState = searchParams.get('state');
+  const placeDistrict = searchParams.get('district');
+  const placeLink = placeState ? `${placeState}|${placeDistrict || ''}` : null;
+  const [handledPlace, setHandledPlace] = useState(null);
+  if (placeLink && !ob.loading && handledPlace !== placeLink) {
+    setHandledPlace(placeLink);
+    ob.setFilter('state', placeState);
+    if (placeDistrict) ob.setFilter('district', placeDistrict);
+  }
+  useEffect(() => {
+    if ((linkedKey && handledKey === linkedKey) || (placeLink && handledPlace === placeLink)) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [linkedKey, handledKey, placeLink, handledPlace, setSearchParams]);
 
   useDashboardTelemetry({
     tabName: 'Outstanding',

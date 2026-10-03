@@ -208,7 +208,13 @@ function VoucherDrilldownModal({ account, onClose }) {
                         <span className="block font-semibold text-text-primary break-all">{v.voucher_no}</span>
                         <span className="block text-[12px] text-text-muted mt-0.5">{amt < 0 ? 'Credit' : 'Bill'}, {formatDate(v.voucher_date) || 'no date'}</span>
                       </td>
-                      <td className="px-3 py-2.5 table-cell-separator text-text-secondary hidden sm:table-cell break-all">{v.order_no || <span className="text-text-muted">None</span>}</td>
+                      <td className="px-3 py-2.5 table-cell-separator text-text-secondary hidden sm:table-cell break-all">{v.order_no || (Number(v.outstanding_amount) <= 0
+                        ? <span className="text-text-muted">Not a bill</span>
+                        : (
+                          <span className="text-text-muted" title="The ledger has no order number; it comes from the despatch register, which has no entry for this bill.">
+                            Not in despatch
+                          </span>
+                        ))}</td>
                       <td className="px-3 py-2.5 table-cell-separator text-text-secondary whitespace-nowrap">{formatDate(v.due_date) || 'n/a'}</td>
                       <td className="px-3 py-2.5 table-cell-separator text-right whitespace-nowrap"><DaysCell v={v} /></td>
                       <td className={`px-3 sm:px-4 py-2.5 table-cell-separator text-right font-bold tabular-nums whitespace-nowrap ${amt < 0 ? 'text-text-secondary' : 'text-text-primary'}`} title={formatINRFull(amt)}>

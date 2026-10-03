@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ClipboardList } from 'lucide-react';
 
 import ErrorBoundary from '../components/common/ErrorBoundary';
@@ -25,7 +27,14 @@ import { formatMonthLabel } from '../utils/businessPlan';
  * plan-vs-actual header strip, which adds up that RPC's own state rows.
  */
 export default function BusinessPlan() {
-  const bp = useBusinessPlan();
+  // Deep links from the State, District and Dealer tabs.
+  const [searchParams] = useSearchParams();
+  const [linked] = useState(() => {
+    const f = {};
+    ['state', 'district', 'customer'].forEach(k => { if (searchParams.get(k)) f[k] = searchParams.get(k); });
+    return Object.keys(f).length ? f : null;
+  });
+  const bp = useBusinessPlan(linked);
 
   useDashboardTelemetry({
     tabName: 'Business Plan',

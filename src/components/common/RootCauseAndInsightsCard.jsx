@@ -249,7 +249,7 @@ function RootCauseAndInsightsCard({
             <div className="p-3.5 bg-bg-secondary/50 rounded-xl border border-border/40 flex items-start gap-2.5 text-xs text-text-secondary leading-relaxed">
               <Truck className="w-4 h-4 text-accent-blue shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-text-primary">Supply Note:</span> Structurals & Sections (SS) and Heavy Galvanised Iron (HGI) corridors are flagged for raw material allocation reviews with primary mills to mitigate regional volume shortfalls.
+                <span className="font-bold text-text-primary">Supply Note:</span> Structurals &amp; Sections (SS) and Heavy Galvanised Iron (HGI) corridors are flagged for raw material allocation reviews with primary mills to mitigate regional volume shortfalls.
               </div>
             </div>
           </div>
