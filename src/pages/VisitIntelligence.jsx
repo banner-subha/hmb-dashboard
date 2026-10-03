@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Briefcase, AlertTriangle, RotateCcw } from 'lucide-react';
 
 import SearchInput from '../components/common/SearchInput';
@@ -73,10 +74,12 @@ const RANGE_BLURBS = {
 export default function VisitIntelligence() {
   const { user } = useAuth();
   const [section, setSection] = useState('dealers');
-  const [state, setState] = useState('ALL');
-  const [district, setDistrict] = useState('ALL');
+  // Deep links from the State, District and Dealer tabs, read once.
+  const [searchParams] = useSearchParams();
+  const [state, setState] = useState(() => searchParams.get('state') || 'ALL');
+  const [district, setDistrict] = useState(() => searchParams.get('district') || 'ALL');
   const [quadrant, setQuadrant] = useState('ALL');
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(() => searchParams.get('q') || '');
   const [selectedDealer, setSelectedDealer] = useState(null);
   const [selectedDistrict, setSelectedDistrict] = useState(null);
   const closeDistrict = useCallback(() => setSelectedDistrict(null), []);

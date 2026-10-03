@@ -41,9 +41,21 @@ export function useVisitRange({ range, state = 'ALL', district = 'ALL', query = 
     const allowedStatesSet = getExpandedStatesSet(rawUserStates);
     const assignedSet = getNormalizedDistrictSet(user.districts || []);
 
+    const statesWithDistrictLocks = new Set();
+    if (assignedSet.size > 0) {
+      merged.forEach(d => {
+        if (d.state && d.district && matchesAssignedDistrict(d.district, assignedSet)) {
+          statesWithDistrictLocks.add((d.state || '').replace(/\s+/g, '').toUpperCase());
+        }
+      });
+    }
+
     return merged.filter(d => {
-      if (allowedStatesSet.size > 0 && !allowedStatesSet.has((d.state || '').replace(/\s+/g, '').toUpperCase())) return false;
-      if (assignedSet.size > 0 && !matchesAssignedDistrict(d.district, assignedSet)) return false;
+      const normState = (d.state || '').replace(/\s+/g, '').toUpperCase();
+      if (allowedStatesSet.size > 0 && !allowedStatesSet.has(normState)) return false;
+      if (statesWithDistrictLocks.has(normState)) {
+        return matchesAssignedDistrict(d.district, assignedSet);
+      }
       return true;
     });
   }, [res, data, user]);

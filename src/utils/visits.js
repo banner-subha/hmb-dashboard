@@ -361,7 +361,7 @@ export function districtSignal(row) {
  * cycle so far. That is the figure the AHEAD / BEHIND flag is judged on, so the
  * number shown and the colour beside it come from one source.
  */
-const salesKey = (state, district) => {
+export const salesKey = (state, district) => {
   const st = normalizeStateName(state || '').toUpperCase().replace(/\s+/g, '');
   const dt = normalizeDistrict(district || '', state || '').toUpperCase().replace(/\s+/g, '');
   return st && dt ? `${st}||${dt}` : null;
@@ -917,9 +917,24 @@ export function scopeVisitDataForUser(data, user) {
     return allowedStatesSet.has(normState);
   };
 
+  const statesWithDistrictLocks = new Set();
+  if (assignedSet.size > 0) {
+    (data.dealers || []).forEach(d => {
+      if (d.state && d.district && matchesAssignedDistrict(d.district, assignedSet)) {
+        statesWithDistrictLocks.add((d.state || '').replace(/\s+/g, '').toUpperCase());
+      }
+    });
+    (data.districts || []).forEach(d => {
+      if (d.state && d.district && matchesAssignedDistrict(d.district, assignedSet)) {
+        statesWithDistrictLocks.add((d.state || '').replace(/\s+/g, '').toUpperCase());
+      }
+    });
+  }
+
   const isEntityAllowed = (stName, distName) => {
     if (!isStateAllowed(stName)) return false;
-    if (assignedSet.size > 0) {
+    const normState = (stName || '').replace(/\s+/g, '').toUpperCase();
+    if (statesWithDistrictLocks.has(normState)) {
       return distName ? matchesAssignedDistrict(distName, assignedSet) : false;
     }
     return true;
@@ -952,9 +967,15 @@ export function scopeVisitDataForUser(data, user) {
   const counts = Object.fromEntries(QUADRANT_ORDER.map(k => [k, 0]));
   scopedDealers.forEach(d => { if (counts[d.quadrant] !== undefined) counts[d.quadrant] += 1; });
 
+  // Same days of last month, over the same dealers and districts, so the MoM
+  // compares territory with territory rather than with the whole country.
+  const prevVisits = scopedDealers.reduce((s, d) => s + (d.prevVisitsMtd || 0), 0)
+    + scopedDistricts.reduce((s, d) => s + (d.prevFabricatorVisitsMtd || 0), 0);
+
   const scopedSummary = {
     ...data.summary,
     curTotalVisits: dealerVisits + fabVisits,
+    prevTotalVisits: prevVisits > 0 ? prevVisits : null,
     curDealerVisits: dealerVisits,
     curFabricatorVisits: fabVisits,
     activeDealersVisited: visited,
