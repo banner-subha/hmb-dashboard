@@ -7,6 +7,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   globalIgnores([
     'dist',
+    'android/**',
     'scratch/**',
     // Root-level scratch/verification scripts (n8n node snapshots, one-off checks)
     'compute_mom_monthly.js',

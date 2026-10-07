@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <script>
+      // In the Android app, drop viewport-fit=cover so Android itself lays the
+      // page out between the status bar and the gesture bar on every phone.
+      // With cover, each fixed panel has to pad for the status bar by hand,
+      // and any that forgot slid under it. The website keeps cover.
+      (function () {
+        var cap = window.Capacitor;
+        if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return;
+        var meta = document.querySelector('meta[name=viewport]');
+        meta.content = meta.content.replace(/,\s*viewport-fit=cover/, '');
+      })();
+    </script>
     <!-- Warm the two origins the app cannot start without, while the sign-in
          form is still being typed into. Measured against the agent: connect +
          TLS is 150-220ms of a ~800ms sign-in, and this removes it from the

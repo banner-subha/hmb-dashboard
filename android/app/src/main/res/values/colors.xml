@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fills the strips behind the status bar and the gesture bar, which the
+         WebView no longer draws under. Matches the app's dark background. -->
+    <color name="app_chrome">#0B0F17</color>
+</resources>

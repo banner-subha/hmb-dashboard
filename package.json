@@ -8,10 +8,13 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "android:build": "vite build && cap sync android",
     "eval": "node eval/run_eval.js",
     "test": "npm run eval"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@supabase/supabase-js": "^2.116.0",
     "@tailwindcss/vite": "^4.2.4",
     "@tanstack/react-table": "^8.21.3",
@@ -31,6 +34,7 @@
     "topojson-client": "^3.1.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

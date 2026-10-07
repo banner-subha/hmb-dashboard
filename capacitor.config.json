@@ -1,0 +1,10 @@
+{
+  "appId": "com.hmbindustries.dashboard",
+  "appName": "HMB Insights",
+  "webDir": "dist",
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK"
+    }
+  }
+}
