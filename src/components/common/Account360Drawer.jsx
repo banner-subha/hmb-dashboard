@@ -38,10 +38,8 @@ const AGE_BANDS = [
 
 // ── Pieces ──────────────────────────────────────────────────────────────────
 
-function Swatch({ fill, dashed }) {
-  return dashed
-    ? <span className="w-3 h-0 border-t-2 border-dashed border-text-secondary shrink-0" aria-hidden="true" />
-    : <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: fill }} aria-hidden="true" />;
+function Swatch({ fill }) {
+  return <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: fill }} aria-hidden="true" />;
 }
 
 function Legend({ items }) {
@@ -49,7 +47,7 @@ function Legend({ items }) {
     <ul className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-[11.5px] text-text-muted">
       {items.filter(Boolean).map(it => (
         <li key={it.label} className="inline-flex items-center gap-1.5">
-          <Swatch fill={it.fill} dashed={it.dashed} />
+          <Swatch fill={it.fill} />
           {it.label}
           {it.value != null && <span className="font-semibold text-text-primary tabular-nums">{it.value}</span>}
         </li>
@@ -71,23 +69,53 @@ function StackBar({ parts, label }) {
   );
 }
 
+/** Small caret that names a point on a bar; also used as its legend key. */
+function Caret({ className = '', style }) {
+  return <span className={`w-0 h-0 border-x-4 border-x-transparent border-t-[5px] border-t-text-secondary ${className}`} style={style} aria-hidden="true" />;
+}
+
 /**
- * Potential as the pale band, despatch as the bar inside it, the plan target as
- * a solid tick and the share of it due by today as a dashed one.
+ * A reference point on a bar: a caret above it and a notch cut through the
+ * track in the card colour, so nothing is drawn on top of the fill.
  */
-function BulletChart({ potential, target, due, actual, pace }) {
-  const max = Math.max(potential || 0, target || 0, actual || 0) * 1.04 || 1;
-  const at = v => `${Math.min(100, (v / max) * 100)}%`;
+function Mark({ at }) {
+  // Kept off the rounded ends, where a notch would vanish and the caret overhang.
+  const left = `clamp(6px, ${at}, calc(100% - 6px))`;
   return (
-    <div
-      className="relative h-7 rounded-md bg-bg-secondary"
-      role="img"
-      aria-label={`Despatched ${mt(actual)} against a target of ${mt(target)} and potential of ${mt(potential)}`}
-    >
-      {potential > 0 && <span className="absolute inset-y-0 left-0 rounded-md" style={{ width: at(potential), backgroundColor: 'rgba(78,143,247,0.18)' }} />}
-      <span className="absolute left-0 top-2 bottom-2 rounded-sm" style={{ width: at(actual), backgroundColor: pace != null ? paceFill(pace) : FILL.blue }} />
-      {target > 0 && <span className="absolute -top-1 -bottom-1 w-0.5 bg-text-primary" style={{ left: at(target) }} />}
-      {due > 0 && due < target && <span className="absolute -top-1 -bottom-1 border-l-2 border-dashed border-text-secondary" style={{ left: at(due) }} />}
+    <>
+      <Caret className="absolute top-0 -translate-x-1/2" style={{ left }} />
+      <span className="absolute bottom-0 h-3 w-[3px] -translate-x-1/2 bg-bg-card" style={{ left }} aria-hidden="true" />
+    </>
+  );
+}
+
+/**
+ * Despatch as progress toward the plan target. The track ends at the target
+ * (or at despatch once it passes), and the share due by today is marked.
+ */
+function TargetBar({ target, due, actual, pace }) {
+  const max = Math.max(target, actual || 0);
+  const at = v => `${Math.min(100, (v / max) * 100)}%`;
+  const showDue = due > 0 && due < target;
+  return (
+    <div>
+      <div
+        className="relative pt-2"
+        role="img"
+        aria-label={`Despatched ${mt(actual)} of a ${mt(target)} target${showDue ? `, ${mt(due)} due by today` : ''}`}
+      >
+        <div className="h-3 rounded-full bg-border overflow-hidden">
+          <span className="block h-full rounded-full" style={{ width: at(actual), backgroundColor: pace != null ? paceFill(pace) : FILL.blue }} />
+        </div>
+        {showDue && <Mark at={at(due)} />}
+        {actual > target && <Mark at={at(target)} />}
+      </div>
+      <div className="flex items-center justify-between gap-3 mt-2 text-[11.5px] text-text-muted tabular-nums">
+        <span className="inline-flex items-center gap-1.5">
+          {showDue && <><Caret />Due by today <span className="font-semibold text-text-primary">{mt(due)}</span></>}
+        </span>
+        <span>Target <span className="font-semibold text-text-primary">{mt(target)}</span></span>
+      </div>
     </div>
   );
 }
@@ -106,9 +134,11 @@ function CompareBars({ rows }) {
               <span className="font-normal text-text-muted">vs usual {r.usual.toLocaleString('en-IN', { maximumFractionDigits: 1 })}</span>
             </span>
           </div>
-          <div className="relative h-2.5 rounded-full bg-bg-secondary">
-            <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(r.cur / max) * 100}%`, backgroundColor: r.cur >= r.usual ? FILL.green : FILL.amber }} />
-            <span className="absolute -top-1 -bottom-1 w-0.5 bg-text-primary" style={{ left: `${(r.usual / max) * 100}%` }} aria-hidden="true" />
+          <div className="relative pt-2">
+            <div className="h-3 rounded-full bg-border overflow-hidden">
+              <span className="block h-full rounded-full" style={{ width: `${(r.cur / max) * 100}%`, backgroundColor: r.cur >= r.usual ? FILL.green : FILL.amber }} />
+            </div>
+            {r.usual > 0 && <Mark at={`${(r.usual / max) * 100}%`} />}
           </div>
         </div>
       ))}
@@ -245,7 +275,8 @@ export default function Account360Drawer({ record, meta, status, onClose }) {
   const where = isDealer ? `${record.district}, ${record.state}` : level === 'district' ? record.state : null;
   const flagged = SIGNALS.map(s => ({ ...s, n: record.signalCounts?.[s.key] || 0 })).filter(s => s.n > 0);
   const unflagged = Math.max(0, (record.dealerCount || 0) - flagged.reduce((a, s) => a + s.n, 0));
-  const due = plan?.target > 0 ? plan.target * (meta.elapsedFraction || 0) : 0;
+  const planCurrent = meta.planCurrent !== false;
+  const due = record.planDue || 0;
   const rates = meta.matchRate || {};
 
   return createPortal(
@@ -319,24 +350,23 @@ export default function Account360Drawer({ record, meta, status, onClose }) {
             <Block title="Plan and despatch" period={despatchMonth} link={plan ? { label: 'View in Business Plan', onClick: openPlan } : null}>
               <Lead
                 value={mt(despatch.cur)}
-                sub={plan?.target > 0
-                  ? `despatched against a ${planMonth} target of ${mt(plan.target)}`
+                sub={planCurrent && plan?.target > 0
+                  ? `despatched against the ${planMonth} target of ${mt(plan.target)}`
                   : `despatched, against ${mt(despatch.prev)} last month`}
               />
-              {plan ? (
+              {plan && !planCurrent ? (
+                <p className="mt-auto pt-3 border-t border-border text-[12px] text-text-muted leading-relaxed">
+                  No plan filed for {despatchMonth} yet. The latest is {planMonth}, so there is no target to measure against.
+                </p>
+              ) : plan ? (
                 <>
-                  <BulletChart potential={plan.potential} target={plan.target} due={due} actual={despatch.cur} pace={pace} />
-                  <Legend items={[
-                    { label: 'Despatched', fill: pace != null ? paceFill(pace) : FILL.blue },
-                    plan.target > 0 && { label: 'Target', fill: 'var(--color-text-primary)' },
-                    due > 0 && due < plan.target && { label: 'Due by today', dashed: true },
-                    plan.potential > 0 && { label: 'Potential', value: mt(plan.potential), fill: 'rgba(78,143,247,0.35)' },
-                  ]} />
-                  <dl className="mt-auto pt-3 grid grid-cols-2 gap-3 text-[12px]">
+                  {plan.target > 0 && <TargetBar target={plan.target} due={due} actual={despatch.cur} pace={pace} />}
+                  <dl className={`mt-auto pt-4 grid gap-3 text-[12px] ${plan.potential > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                     <div>
                       <dt className="text-text-muted">Against target so far</dt>
                       <dd className="font-bold text-text-primary tabular-nums">{gapText(despatch.cur, record.planDue)}</dd>
                     </div>
+                    {plan.potential > 0 && <div><dt className="text-text-muted">Potential</dt><dd className="font-bold text-text-primary tabular-nums">{mt(plan.potential)}</dd></div>}
                     {isDealer
                       ? <div><dt className="text-text-muted">Last month</dt><dd className="font-bold text-text-primary tabular-nums">{mt(despatch.prev)}</dd></div>
                       : <div><dt className="text-text-muted">Plans filed</dt><dd className="font-bold text-text-primary tabular-nums">{plan.filed} of {plan.accounts}</dd></div>}
@@ -430,7 +460,7 @@ export default function Account360Drawer({ record, meta, status, onClose }) {
                       <th scope="col" className="px-3 py-2 font-semibold">Attention</th>
                       <th scope="col" className="px-3 py-2 font-semibold text-right">Pending orders</th>
                       <th scope="col" className="px-3 py-2 font-semibold text-right">Overdue</th>
-                      <th scope="col" className="px-4 py-2 font-semibold text-right">Despatched / target</th>
+                      <th scope="col" className="px-4 py-2 font-semibold text-right">{planCurrent ? 'Despatched / target' : 'Despatched'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -450,7 +480,7 @@ export default function Account360Drawer({ record, meta, status, onClose }) {
                         <td className="px-3 py-2.5 text-right tabular-nums text-text-primary whitespace-nowrap">{d.pending.qty > 0 ? mt(d.pending.qty) : 'None'}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-text-primary whitespace-nowrap">{d.outstanding?.overdue > 0 ? formatINR(d.outstanding.overdue) : 'None'}</td>
                         <td className="px-4 py-2.5 text-right tabular-nums text-text-primary whitespace-nowrap">
-                          {d.plan?.target > 0
+                          {!planCurrent ? mt(d.despatch.cur) : d.plan?.target > 0
                             ? <>{mt(d.despatch.cur)} <span className="text-text-muted">/ {mt(d.plan.target)}</span></>
                             : <>{mt(d.despatch.cur)} <span className="text-text-muted">/ no target</span></>}
                         </td>

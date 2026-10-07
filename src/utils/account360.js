@@ -73,8 +73,10 @@ const mt = n => formatMT(n, 1);
  * too little linked data to judge (despatch alone says nothing new).
  */
 export function computeSignal(rec, limits = SIGNAL_LIMITS) {
-  const { despatch, pending, outstanding: out, plan, visits, pace } = rec;
+  const { despatch, pending, outstanding: out, plan, visits, pace, planCurrent = true } = rec;
   if (![out, plan, visits].some(Boolean)) return null;
+  // A plan from an older month says nothing about this month's target.
+  const target = planCurrent ? plan?.target || 0 : 0;
 
   const hit = (key, reason) => ({ ...signalByKey(key), reason });
   const lateBills = Boolean(out && out.overdue > 0 && (out.maxOverdueDays ?? 0) > limits.overdueDays);
@@ -93,12 +95,12 @@ export function computeSignal(rec, limits = SIGNAL_LIMITS) {
   if (pace != null && pace < limits.behindPace && visits && !visitedAsUsual) {
     return hit('VISIT_GAP', `${paceText}, ${visits.cur} visits against a usual ${visits.usual.toFixed(1)}`);
   }
-  if (visitedAsUsual && (pace != null ? pace < limits.convertPace : !(despatch.cur > 0) && !(plan?.target > 0))) {
+  if (visitedAsUsual && (pace != null ? pace < limits.convertPace : !(despatch.cur > 0) && !(target > 0))) {
     return hit('NOT_CONVERTING', pace != null
       ? `${visits.cur} visits, ${paceText}`
       : `${visits.cur} visits this month, nothing despatched`);
   }
-  if (plan && plan.potential > 0 && (pace == null || pace >= limits.onTrackPace) &&
+  if (planCurrent && plan && plan.potential > 0 && (pace == null || pace >= limits.onTrackPace) &&
       (plan.target > 0 ? plan.potential >= limits.untappedRatio * plan.target : true)) {
     return hit('UNTAPPED', plan.target > 0
       ? `Potential ${mt(plan.potential)} against a target of ${mt(plan.target)}`
@@ -241,6 +243,7 @@ function despatchAndPending(row, asOf) {
 
 const paceOf = (cur, plan, elapsedFraction) =>
   plan && plan.target > 0 && elapsedFraction > 0 ? cur / (plan.target * elapsedFraction) : null;
+const dueOf = (plan, elapsedFraction) => (plan?.target > 0 ? plan.target * elapsedFraction : null);
 
 // ── Dealer matching ──────────────────────────────────────────────────────────
 
@@ -286,6 +289,9 @@ export function buildAccount360({ latest, ledger, plan, visits, despatchMonth = 
     : (ledger || []).filter(r => keep(r.stateLabel, r.districtLabel));
   const planRows = plan === undefined ? undefined
     : (plan?.records || []).filter(r => keep(r.state, r.district));
+  // Pace is only judged against a plan for the running despatch month.
+  const planMonth = plan?.meta?.latestMonth || null;
+  const planCurrent = !planMonth || !despatchMonth || String(planMonth).slice(0, 7) === String(despatchMonth).slice(0, 7);
   const visitDealers = visits === undefined ? undefined : (visits?.dealers || []);
   const visitDistricts = visits === undefined ? undefined : (visits?.districts || []);
   const visitsMonth = String(visits?.meta?.curPeriod || '').match(/\d{4}-\d{2}/)?.[0] || null;
@@ -325,8 +331,9 @@ export function buildAccount360({ latest, ledger, plan, visits, despatchMonth = 
       outstanding: settle(ledgerFor(d), sumOutstanding),
       plan: planSum,
       visits: settle(visitsFor(d), rows => sumVisits(rows, [], visitMode)),
-      pace: paceOf(base.despatch.cur, planSum, elapsedFraction),
-      planDue: planSum?.target > 0 ? planSum.target * elapsedFraction : null,
+      pace: planCurrent ? paceOf(base.despatch.cur, planSum, elapsedFraction) : null,
+      planDue: planCurrent ? dueOf(planSum, elapsedFraction) : null,
+      planCurrent,
     };
     rec.signal = computeSignal(rec);
     dealerMap.set(dealerRowKey(d), rec);
@@ -360,8 +367,8 @@ export function buildAccount360({ latest, ledger, plan, visits, despatchMonth = 
         outstanding: ledgerBy ? sumOutstanding(ledgerBy.get(k), true) : undefined,
         plan: planSum,
         visits: visitBy ? sumVisits(visitBy.get(k) || [], fabBy?.get(k) || [], visitMode) : undefined,
-        pace: paceOf(base.despatch.cur, planSum, elapsedFraction),
-        planDue: planSum?.target > 0 ? planSum.target * elapsedFraction : null,
+        pace: planCurrent ? paceOf(base.despatch.cur, planSum, elapsedFraction) : null,
+        planDue: planCurrent ? dueOf(planSum, elapsedFraction) : null,
         signal: topKey ? { ...signalByKey(topKey), count: counts[topKey] } : null,
         signalCounts: counts,
         dealerCount: members.length,
@@ -394,7 +401,8 @@ export function buildAccount360({ latest, ledger, plan, visits, despatchMonth = 
       despatchPeriod: meta.curPeriod || null,
       asOf,
       elapsedFraction,
-      planMonth: plan?.meta?.latestMonth || null,
+      planMonth,
+      planCurrent,
       visitsPeriod,
       visitsFullMonth: visitMode === 'prevMonth',
       ledgerAsOn: (ledgerRows || []).reduce((m, r) => (r.as_on_date && r.as_on_date > m ? r.as_on_date : m), '') || null,

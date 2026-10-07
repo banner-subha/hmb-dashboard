@@ -38,6 +38,31 @@ export function getPrevPeriodKey(pKey) {
 }
 
 /**
+ * Pace for a closed month. monthlyHistory carries no pace fields, so the rate
+ * is that month's despatch over its days, set against the entity's historical
+ * daily average (the same average the live month is judged on). Same formula
+ * as the live derivation in dataService.
+ */
+function historicalPace(monthQty, dailyAvgQty, periodKey) {
+  const [year, month] = periodKey.split('-').map(Number);
+  const days = new Date(year, month, 0).getDate();
+  const currentDailyRate = Math.round((monthQty / days) * 100) / 100;
+  const expectedMtd = Math.round(dailyAvgQty * days * 100) / 100;
+  if (!(dailyAvgQty > 0)) {
+    return { dailyAvgQty, currentDailyRate, expectedMtd, lossDelta: 0, lossFlag: 'NO_DATA', lossDeltaPct: 0 };
+  }
+  const diff = currentDailyRate - dailyAvgQty;
+  return {
+    dailyAvgQty,
+    currentDailyRate,
+    expectedMtd,
+    lossDelta: Math.round(diff * 100) / 100,
+    lossFlag: diff >= 0 ? 'AHEAD' : 'BEHIND',
+    lossDeltaPct: currentDailyRate === 0 ? -100 : Math.round((diff / dailyAvgQty) * 1000) / 10,
+  };
+}
+
+/**
  * Loads and filters states for a given historical month.
  */
 export function getHistoricalStates(rawData, filters, periodKey) {
@@ -83,11 +108,8 @@ export function getHistoricalStates(rawData, filters, periodKey) {
       prev,
       mom,
       drop,
-      expectedMtd: mainState?.expectedMtd ?? 0,
-      dailyAvgQty: mainState?.dailyAvgQty ?? 0,
-      currentDailyRate: mainState?.currentDailyRate ?? 0,
-      lossFlag: mainState?.lossFlag ?? 'NO_DATA',
-      lossDeltaPct: mainState?.lossDeltaPct ?? 0,
+      // Whole-entity volume, not the product slice: the average is whole-entity too.
+      ...historicalPace(hs.cur ?? hs.qty ?? 0, mainState?.dailyAvgQty ?? 0, periodKey),
     };
   });
   
@@ -166,11 +188,8 @@ export function getHistoricalDistricts(rawData, filters, periodKey) {
       prev,
       mom,
       drop,
-      expectedMtd: mainDist?.expectedMtd ?? 0,
-      dailyAvgQty: mainDist?.dailyAvgQty ?? 0,
-      currentDailyRate: mainDist?.currentDailyRate ?? 0,
-      lossFlag: mainDist?.lossFlag ?? 'NO_DATA',
-      lossDeltaPct: mainDist?.lossDeltaPct ?? 0,
+      // Whole-entity volume, not the product slice: the average is whole-entity too.
+      ...historicalPace(hd.cur ?? hd.qty ?? 0, mainDist?.dailyAvgQty ?? 0, periodKey),
     };
   });
   
@@ -267,7 +286,7 @@ export function getHistoricalDealers(rawData, filters, periodKey) {
       prev: prevDl?.products?.find(pr => pr.product === p.product)?.cur ?? prevDl?.products?.find(pr => pr.product === p.product)?.qty ?? 0
     }));
 
-    // Carry over pendingQty and pace fields from main data (these don't exist in monthlyHistory)
+    // Carry over pendingQty from main data (it doesn't exist in monthlyHistory)
     const pendingQty = mainDl?.pendingQty ?? 0;
     const pendingHistory = mainDl?.pendingHistory ?? {};
 
@@ -281,16 +300,8 @@ export function getHistoricalDealers(rawData, filters, periodKey) {
       drop,
       pendingQty,
       pendingHistory,
-      dailyAvgQty: mainDl?.dailyAvgQty ?? 0,
-      currentDailyRate: mainDl?.currentDailyRate ?? 0,
-      expectedMtd: mainDl?.expectedMtd ?? 0,
-      // The pace fields above all describe the live cycle, so the actual they
-      // are judged against has to come from the same cycle. `cur` on this row
-      // is the historical month's despatch, and pairing it with a live target
-      // would compare two different windows.
-      currentCycleCur: mainDl?.cur ?? 0,
-      lossFlag: mainDl?.lossFlag ?? 'NO_DATA',
-      lossDeltaPct: mainDl?.lossDeltaPct ?? 0,
+      // Whole-entity volume, not the product slice: the average is whole-entity too.
+      ...historicalPace(hd.cur ?? hd.qty ?? 0, mainDl?.dailyAvgQty ?? 0, periodKey),
     };
   });
   

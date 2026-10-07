@@ -455,7 +455,7 @@ export default function DealerIntelligence() {
       { label: 'Volume Share %', getValue: r => (totalVolume > 0 && r.cur > 0 ? ((r.cur / totalVolume) * 100).toFixed(1) + '%' : (r.share != null ? Number(r.share).toFixed(1) + '%' : '0.0%')) },
       { label: 'Avg Period (Days)', getValue: r => (r.avgPeriod != null ? Number(r.avgPeriod).toFixed(1) : '—') },
       { label: 'Pace Status', getValue: r => r.lossFlag || '—' },
-      { label: 'Pace vs Avg %', getValue: r => (r.lossDeltaPct != null ? (r.lossFlag === 'BEHIND' ? '-' : '+') + Number(r.lossDeltaPct).toFixed(1) + '%' : '—') },
+      { label: 'Pace vs Avg %', getValue: r => (r.lossDeltaPct != null ? (r.lossFlag === 'BEHIND' ? '-' : '+') + Math.abs(Number(r.lossDeltaPct)).toFixed(1) + '%' : '—') },
       { label: 'Current Daily Rate (MT/d)', getValue: r => (r.currentDailyRate != null ? Number(r.currentDailyRate).toFixed(1) : '—') },
       { label: 'Historical Daily Avg (MT/d)', getValue: r => (r.dailyAvgQty != null ? Number(r.dailyAvgQty).toFixed(1) : '—') },
       { label: 'Products', getValue: r => (r.products || []).map(p => p.product).join(', ') },
@@ -789,13 +789,9 @@ export default function DealerIntelligence() {
               {(selectedDealer.dailyAvgQty !== undefined || selectedDealer.currentDailyRate !== undefined) && (() => {
                 const dailyAvg = Number(selectedDealer.dailyAvgQty || 0);
                 const curRate = Number(selectedDealer.currentDailyRate || 0);
-                // Every figure in this card is live-cycle pace, which the
-                // monthlyHistory slices do not carry. On a historical month the
-                // actual therefore comes from the live row too, and the heading
-                // says so — rather than setting June's despatch against
-                // September's target and calling the dealer behind.
-                const actualMtd =
-                  selectedDealer.actualMtd ?? selectedDealer.currentCycleCur ?? selectedDealer.cur ?? 0;
+                // On a historical month every figure here is that month's pace
+                // (getHistoricalDealers), so the actual is that month's despatch.
+                const actualMtd = selectedDealer.actualMtd ?? selectedDealer.cur ?? 0;
                 const expectedMtd = selectedDealer.expectedMtd || (dailyAvg > 0 ? dailyAvg * 10 : 0);
                 const delta = (selectedDealer.lossDelta !== undefined && selectedDealer.lossDelta !== 0)
                   ? Number(selectedDealer.lossDelta)
@@ -809,7 +805,7 @@ export default function DealerIntelligence() {
                         Daily Dispatch Target
                         {selectedPendingMonth && selectedPendingMonth !== getCurMonthKey(rawData) && (
                           <span className="ml-1.5 normal-case font-normal text-text-muted/70">
-                            (Current Cycle)
+                            ({despatchAvailableMonths.find(m => m.key === selectedPendingMonth)?.label || selectedPendingMonth})
                           </span>
                         )}
                       </h4>

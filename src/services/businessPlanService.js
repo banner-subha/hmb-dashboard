@@ -36,8 +36,8 @@ export async function getBusinessPlanDataset() {
   _bpFetchPromise = (async () => {
     try {
       const [remoteRes, localRes] = await Promise.allSettled([
-        fetch(CDN_URL).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-        fetch(LOCAL_URL).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(`${CDN_URL}?t=${Date.now()}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(`${LOCAL_URL}?t=${Date.now()}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
 
       const remoteJson = remoteRes.status === 'fulfilled' ? remoteRes.value : null;
