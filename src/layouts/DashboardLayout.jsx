@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRawData } from '../context/DataContext';
@@ -51,6 +51,13 @@ export default function DashboardLayout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [syncAgoText, setSyncAgoText] = useState('just now');
+  const contentRef = useRef(null);
+
+  // Pages scroll inside the content pane, not the window, so the router never
+  // resets it. Without this a new page opens at the old page's scroll depth.
+  useEffect(() => {
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }, [location.pathname]);
 
   const navItemsToRender = useMemo(() => {
     if (user?.role === 'client') return CLIENT_NAV_ITEMS;
@@ -144,6 +151,13 @@ export default function DashboardLayout() {
     return currentNav ? currentNav.label : 'Executive Overview';
   }, [location.pathname, navItemsToRender]);
 
+  const liveDot = (
+    <span className="relative flex w-2 h-2 shrink-0">
+      <span className="absolute inline-flex w-full h-full rounded-full bg-severity-none opacity-40 animate-pulse-subtle" />
+      <span className="relative inline-flex w-2 h-2 rounded-full bg-severity-none" />
+    </span>
+  );
+
   return (
     <LazyMotion features={domAnimation}>
       <div className="flex h-dvh overflow-hidden bg-bg-primary text-text-primary">
@@ -161,9 +175,10 @@ export default function DashboardLayout() {
           )}
         </AnimatePresence>
 
-        {/* Sidebar */}
+        {/* Sidebar. Fixed below lg, so the body's safe-area padding doesn't
+            reach it; its own top padding keeps the brand row off the status bar. */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col h-dvh border-r border-[var(--color-sidebar-border)] transition-transform duration-300 lg:static lg:h-full lg:translate-x-0 flex-shrink-0 ${
+          className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col h-dvh border-r border-[var(--color-sidebar-border)] transition-transform duration-300 lg:static lg:h-full lg:translate-x-0 flex-shrink-0 pt-[env(safe-area-inset-top)] lg:pt-0 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
           style={{ background: 'var(--gradient-sidebar)' }}
@@ -290,18 +305,24 @@ export default function DashboardLayout() {
                 </div>
               </div>
 
-              {/* Assistant trigger and live sync chip — right on mobile, end
-                  of row on desktop */}
-              <div className="order-2 sm:order-3 ml-auto sm:ml-0 shrink-0 flex items-center gap-2">
+              {/* Assistant trigger and live sync chip — end of row from sm.
+                  Below sm the assistant is the floating button and a compact
+                  chip sits at the top right, level with the brand. */}
+              <div className="order-3 hidden sm:flex shrink-0 items-center gap-2">
                 <AssistantLauncher />
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.07] text-xs text-white/75 whitespace-nowrap">
-                  <span className="relative flex w-2 h-2 shrink-0">
-                    <span className="absolute inline-flex w-full h-full rounded-full bg-severity-none opacity-40 animate-pulse-subtle" />
-                    <span className="relative inline-flex w-2 h-2 rounded-full bg-severity-none" />
-                  </span>
+                  {liveDot}
                   Live · Updated {syncAgoText}
                 </div>
               </div>
+
+              <span
+                className="order-2 sm:hidden ml-auto shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.07] text-[11px] font-medium text-white/75 whitespace-nowrap"
+                title={`Live · Updated ${syncAgoText}`}
+              >
+                {liveDot}
+                {syncAgoText}
+              </span>
 
               {/* Page context — hairline-separated on desktop, own row on mobile */}
               <div className="order-3 sm:order-2 basis-full sm:basis-auto sm:pl-5 sm:border-l sm:border-white/10 sm:mr-auto min-w-0 flex flex-col gap-0.5">
@@ -332,7 +353,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto p-4 sm:p-5 pb-28 sm:pb-12" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)' }}>
+        <div ref={contentRef} className="flex-1 overflow-auto p-4 sm:p-5 pb-28 sm:pb-12" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', transform: 'translateZ(0)' }}>
           <div className="max-w-[1680px] mx-auto space-y-6 min-h-full relative">
             {/*
               Suspense sits ABOVE the animated wrapper, and there is no

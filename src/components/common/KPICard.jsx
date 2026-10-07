@@ -42,7 +42,7 @@ function KPICard({
       const fitStyle = fitValue
         ? {
             fontSize: lg
-              ? `clamp(1.75rem, calc(100cqi * 1.12 / var(--kpi-fit, ${fitEm})), 3.5rem)`
+              ? `clamp(1.25rem, calc(100cqi * 1.12 / var(--kpi-fit, ${fitEm})), var(--kpi-max, 3.5rem))`
               : `clamp(1.5rem, calc(100cqi / var(--kpi-fit, ${fitEm})), 3.05rem)`,
           }
         : undefined;

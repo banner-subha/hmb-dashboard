@@ -48,8 +48,10 @@ function kpiWeight(value) {
 
 // Wraps at a 13.75rem basis below 2xl; from 2xl the basis drops to zero so the
 // row splits purely by weight, and --kpi-fit hands KPICard that same weight so
-// the figures share one size.
-const KPI_ITEM = 'min-w-0 flex-[var(--kpi-w)_1_13.75rem] 2xl:flex-[var(--kpi-w)_1_0%] 2xl:[--kpi-fit:var(--kpi-w)]';
+// the figures share one size. On phones (below sm) the tiles go two to a row
+// with equal widths, and --kpi-max caps the figure so a lone last tile does
+// not blow up to the desktop size.
+const KPI_ITEM = 'min-w-0 flex-[var(--kpi-w)_1_13.75rem] max-sm:flex-[1_1_calc(50%-0.5rem)] max-sm:[--kpi-max:1.75rem] 2xl:flex-[var(--kpi-w)_1_0%] 2xl:[--kpi-fit:var(--kpi-w)]';
 
 export default function ExecutiveOverview() {
   const { data: filteredData, overallData, rawData, loading, error } = useData();
@@ -261,7 +263,7 @@ export default function ExecutiveOverview() {
 
   if (loading) return (
     <div className="space-y-6">
-      <div className="flex flex-wrap 2xl:flex-nowrap gap-4">
+      <div className="flex flex-wrap 2xl:flex-nowrap gap-3 sm:gap-4">
         {[...Array(7)].map((_, i) => (
           <div key={i} className="glass-card p-6 h-32 min-w-0 flex-[1_1_13.75rem] 2xl:flex-[1_1_0%]">
             <SkeletonLoader variant="stat-card" />
